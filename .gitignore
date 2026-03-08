@@ -1,0 +1,12 @@
+# Test artifacts
+test-logs-*/
+test-results-*.txt
+
+# Auto-generated scene detection metadata
+*.scenes.json
+
+# User-specific LLM credentials (example templates are tracked)
+my-llm-credentials.yaml
+
+# OS files
+.DS_Store
