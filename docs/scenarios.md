@@ -2,7 +2,7 @@
 
 # Scenario Catalog
 
-24 scenarios are available, organized by category. Each scenario deploys into its own namespace and can be run independently.
+23 scenarios are available, organized by category. Each scenario deploys into its own namespace and can be run independently.
 
 For the formal specification of scenario structure, deliverables, and authoring guidelines, see [BR-PLATFORM-002: Demo Scenario Specification](https://github.com/jordigilh/kubernaut/blob/main/docs/requirements/BR-PLATFORM-002-demo-scenario-specification.md).
 
@@ -40,7 +40,7 @@ Each scenario's `README.md` lists its specific prerequisites.
 | [**stuck-rollout**](../scenarios/stuck-rollout/) | `KubeDeploymentRolloutStuck` | Non-existent image tag | `kubectl rollout undo` |
 | [**slo-burn**](../scenarios/slo-burn/) | `ErrorBudgetBurn` | Blackbox probe error rate >1.44% | Proactive rollback |
 | [**memory-escalation**](../scenarios/memory-escalation/) | `ContainerMemoryHigh` | Memory usage exceeds threshold | Increase memory limits |
-| **memory-limits-gitops-ansible** | `OOMKilled` | OOMKill on GitOps-managed deployment | Ansible/AWX updates limits in Git, ArgoCD syncs *(not yet available)* |
+| [**memory-limits-gitops-ansible**](../scenarios/memory-limits-gitops-ansible/) | `OOMKilled` | OOMKill on GitOps-managed deployment | Ansible/AWX updates limits in Git, ArgoCD syncs |
 
 ## Autoscaling and Resources
 

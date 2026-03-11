@@ -84,11 +84,12 @@ kubectl get remediationrequests -n kubernaut-system -w
 A successful run progresses through these phases:
 
 ```
-NAME                    PHASE                STATUS
-crashloop-rr-abc123     SignalProcessing     InProgress
-crashloop-rr-abc123     AIAnalysis           InProgress
-crashloop-rr-abc123     WorkflowExecution    InProgress
-crashloop-rr-abc123     Completed            Remediated
+NAME                          PHASE        OUTCOME      AGE
+rr-b157a3a9e42f-1c2b5576     Processing                10s
+rr-b157a3a9e42f-1c2b5576     Analyzing                 15s
+rr-b157a3a9e42f-1c2b5576     Executing                 75s
+rr-b157a3a9e42f-1c2b5576     Verifying                 85s
+rr-b157a3a9e42f-1c2b5576     Completed    Remediated   6m
 ```
 
 The RemediationRequest is the parent CRD that drives the entire pipeline. To inspect individual stages, see [Verification and Cleanup](docs/verification.md).
@@ -108,14 +109,14 @@ Prometheus alert fires (KubePodCrashLooping)
   -> Notification delivers the final result including effectiveness assessment
 ```
 
-Each of the 24 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
+Each of the 23 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
 
 ## Documentation
 
 | Guide | Description |
 |-------|-------------|
 | **[Setup Guide](docs/setup.md)** | Prerequisites, LLM providers (Vertex AI, Anthropic, OpenAI, local), bootstrap flags, Slack notifications |
-| **[Scenario Catalog](docs/scenarios.md)** | All 24 scenarios with alerts, fault injection, and remediation details |
+| **[Scenario Catalog](docs/scenarios.md)** | All 23 scenarios with alerts, fault injection, and remediation details |
 | **[Verification and Cleanup](docs/verification.md)** | Inspect pipeline status, monitoring, per-scenario cleanup, teardown |
 | **[Troubleshooting](docs/troubleshooting.md)** | Common issues and fixes |
 | **[Building Workflow Images](docs/building.md)** | For contributors rebuilding scenario OCI images |

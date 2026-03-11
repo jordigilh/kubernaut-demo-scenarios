@@ -27,6 +27,16 @@ kubectl get aianalyses -A -o wide
 kubectl get workflowexecutions -A -o wide
 ```
 
+### Check EffectivenessAssessments
+```bash
+kubectl get effectivenessassessments -A -o wide
+```
+
+### Check NotificationRequests
+```bash
+kubectl get notificationrequests -A -o wide
+```
+
 ### Check workflow catalog
 ```bash
 curl -s http://localhost:30081/api/v1/workflows | jq '.'

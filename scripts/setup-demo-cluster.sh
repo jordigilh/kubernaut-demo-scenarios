@@ -48,7 +48,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --create-cluster   Force-recreate the Kind cluster (deletes existing)"
             echo "  --skip-infra       Skip optional infrastructure (cert-manager, Gitea, etc.)"
             echo "  --with-awx         Install AWX Operator for Ansible engine demos (#312)"
-            echo "  --kind-config PATH Override Kind cluster config (default: singlenode)"
+            echo "  --kind-config PATH Override Kind cluster config (default: multinode)"
             exit 0
             ;;
         *)
