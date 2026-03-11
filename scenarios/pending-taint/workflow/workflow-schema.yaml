@@ -5,14 +5,12 @@ metadata:
 spec:
   # Remove Taint Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #122 -- Pods pending due to node taint -> remove taint
-  metadata:
-    workflowName: remove-taint-v1
-    version: "1.0.0"
-    description:
-      what: "Removes a specific taint from a Kubernetes node to unblock pod scheduling"
-      whenToUse: "When pods are stuck in Pending state because a node has a taint that blocks scheduling, and the taint is no longer needed (e.g., maintenance window ended)"
-      whenNotToUse: "When the taint is intentional (e.g., node is genuinely under maintenance or has a hardware issue)"
-      preconditions: "The node is otherwise healthy and the taint is the sole reason pods are unschedulable"
+  version: "1.0.0"
+  description:
+    what: "Removes a specific taint from a Kubernetes node to unblock pod scheduling"
+    whenToUse: "When pods are stuck in Pending state because a node has a taint that blocks scheduling, and the taint is no longer needed (e.g., maintenance window ended)"
+    whenNotToUse: "When the taint is intentional (e.g., node is genuinely under maintenance or has a hardware issue)"
+    preconditions: "The node is otherwise healthy and the taint is the sole reason pods are unschedulable"
   
   actionType: RemoveTaint
   

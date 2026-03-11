@@ -5,14 +5,12 @@ metadata:
 spec:
   # Fix AuthorizationPolicy Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #136 -- Linkerd AuthorizationPolicy blocks traffic -> remove/fix policy
-  metadata:
-    workflowName: fix-authz-policy-v1
-    version: "1.0.0"
-    description:
-      what: "Removes or fixes a Linkerd AuthorizationPolicy that is blocking legitimate traffic"
-      whenToUse: "When a Linkerd-meshed workload has high error rates (403s) due to a restrictive AuthorizationPolicy"
-      whenNotToUse: "When the 403 errors are intentional (security policy) or caused by something other than an AuthorizationPolicy"
-      preconditions: "Linkerd is installed, the workload is meshed, and an AuthorizationPolicy is identified as the traffic blocker"
+  version: "1.0.0"
+  description:
+    what: "Removes or fixes a Linkerd AuthorizationPolicy that is blocking legitimate traffic"
+    whenToUse: "When a Linkerd-meshed workload has high error rates (403s) due to a restrictive AuthorizationPolicy"
+    whenNotToUse: "When the 403 errors are intentional (security policy) or caused by something other than an AuthorizationPolicy"
+    preconditions: "Linkerd is installed, the workload is meshed, and an AuthorizationPolicy is identified as the traffic blocker"
   
   actionType: FixAuthorizationPolicy
   

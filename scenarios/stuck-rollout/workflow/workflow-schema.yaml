@@ -5,14 +5,12 @@ metadata:
 spec:
   # Rollback Deployment Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #130 -- Stuck rollout -> rollback to previous revision
-  metadata:
-    workflowName: rollback-deployment-v1
-    version: "1.0.0"
-    description:
-      what: "Rolls back a deployment to its previous working revision when the current rollout is stuck"
-      whenToUse: "When a deployment rollout has exceeded its progressDeadlineSeconds and new pods cannot start (ImagePullBackOff, CrashLoopBackOff, resource issues)"
-      whenNotToUse: "When the rollout is still within its deadline and may succeed with more time, or when the issue affects all revisions (cluster-wide problem)"
-      preconditions: "The deployment has at least one previous successful revision in its history"
+  version: "1.0.0"
+  description:
+    what: "Rolls back a deployment to its previous working revision when the current rollout is stuck"
+    whenToUse: "When a deployment rollout has exceeded its progressDeadlineSeconds and new pods cannot start (ImagePullBackOff, CrashLoopBackOff, resource issues)"
+    whenNotToUse: "When the rollout is still within its deadline and may succeed with more time, or when the issue affects all revisions (cluster-wide problem)"
+    preconditions: "The deployment has at least one previous successful revision in its history"
   
   actionType: RollbackDeployment
   

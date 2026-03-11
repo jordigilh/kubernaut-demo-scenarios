@@ -5,14 +5,12 @@ metadata:
 spec:
   # Fix NetworkPolicy Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #138 -- Deny-all NetworkPolicy blocks traffic -> remove offending policy
-  metadata:
-    workflowName: fix-network-policy-v1
-    version: "1.0.0"
-    description:
-      what: "Removes a deny-all NetworkPolicy that is blocking legitimate ingress traffic and causing health check failures"
-      whenToUse: "When a NetworkPolicy is blocking all ingress traffic to a workload, causing liveness/readiness probe failures"
-      whenNotToUse: "When the NetworkPolicy is intentionally restrictive for security purposes and the outage has a different root cause"
-      preconditions: "A deny-all NetworkPolicy exists in the namespace, and the workload's health checks are failing due to blocked traffic"
+  version: "1.0.0"
+  description:
+    what: "Removes a deny-all NetworkPolicy that is blocking legitimate ingress traffic and causing health check failures"
+    whenToUse: "When a NetworkPolicy is blocking all ingress traffic to a workload, causing liveness/readiness probe failures"
+    whenNotToUse: "When the NetworkPolicy is intentionally restrictive for security purposes and the outage has a different root cause"
+    preconditions: "A deny-all NetworkPolicy exists in the namespace, and the workload's health checks are failing due to blocked traffic"
   
   actionType: FixNetworkPolicy
   
