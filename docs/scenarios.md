@@ -6,20 +6,27 @@
 
 For the formal specification of scenario structure, deliverables, and authoring guidelines, see [BR-PLATFORM-002: Demo Scenario Specification](https://github.com/jordigilh/kubernaut/blob/main/docs/requirements/BR-PLATFORM-002-demo-scenario-specification.md).
 
+### Analysis Deep Dives
+
+Two scenarios have detailed write-ups capturing real LLM decision-making observed during live cluster validation:
+
+- [Multiple Remediation Paths](https://jordigilh.github.io/kubernaut-docs/use-cases/multi-path-remediation/) -- How the LLM chose an alternative fix for a GitOps-managed Certificate failure (`cert-failure-gitops`), and why both approaches are valid
+- [Remediation History Feedback](https://jordigilh.github.io/kubernaut-docs/use-cases/remediation-history-feedback/) -- How the LLM refused to repeat a failed workflow for `resource-quota-exhaustion` after history revealed the prior attempt's failure, escalating to human review instead
+
 ## Dependencies
 
 Some scenarios require additional components beyond the base platform. All dependencies are installed by [`setup-demo-cluster.sh`](setup.md#create-the-cluster) (use `--skip-infra` to skip optional ones, `--with-awx` for AWX). If a scenario's `run.sh` detects a missing dependency, it exits with a clear error message.
 
 | Dependency | Scenarios | Notes |
 |------------|-----------|-------|
-| **kube-prometheus-stack** | All scenarios | Installed by `setup-demo-cluster.sh` |
-| **metrics-server** | hpa-maxed, autoscale | Required for HPA CPU metrics |
-| **cert-manager** | cert-failure, cert-failure-gitops | Certificate lifecycle management |
-| **Linkerd** | mesh-routing-failure | Service mesh control plane |
-| **blackbox-exporter** | slo-burn | HTTP probe metrics (probe_success) |
-| **Helm CLI** | crashloop-helm | Helm-managed release rollback |
-| **ArgoCD** | gitops-drift, cert-failure-gitops, memory-limits-gitops-ansible | GitOps delivery |
-| **AWX** | memory-limits-gitops-ansible | Ansible automation platform |
+| [**kube-prometheus-stack**](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) | All scenarios | Installed by `setup-demo-cluster.sh` |
+| [**metrics-server**](https://github.com/kubernetes-sigs/metrics-server) | hpa-maxed, autoscale | Required for HPA CPU metrics |
+| [**cert-manager**](https://cert-manager.io/docs/installation/) | cert-failure, cert-failure-gitops | Certificate lifecycle management |
+| [**Linkerd**](https://linkerd.io/2/getting-started/) | mesh-routing-failure | Service mesh control plane |
+| [**blackbox-exporter**](https://github.com/prometheus/blackbox_exporter) | slo-burn | HTTP probe metrics (probe_success) |
+| [**Helm CLI**](https://helm.sh/docs/intro/install/) | crashloop-helm | Helm-managed release rollback |
+| [**ArgoCD**](https://argo-cd.readthedocs.io/en/stable/getting_started/) | gitops-drift, cert-failure-gitops | GitOps delivery |
+| [**AWX**](https://ansible.readthedocs.io/projects/awx-operator/en/latest/) + [**ArgoCD**](https://argo-cd.readthedocs.io/en/stable/getting_started/) | memory-limits-gitops-ansible | Ansible automation platform + GitOps delivery |
 
 Each scenario's `README.md` lists its specific prerequisites.
 
@@ -33,7 +40,7 @@ Each scenario's `README.md` lists its specific prerequisites.
 | [**stuck-rollout**](../scenarios/stuck-rollout/) | `KubeDeploymentRolloutStuck` | Non-existent image tag | `kubectl rollout undo` |
 | [**slo-burn**](../scenarios/slo-burn/) | `ErrorBudgetBurn` | Blackbox probe error rate >1.44% | Proactive rollback |
 | [**memory-escalation**](../scenarios/memory-escalation/) | `ContainerMemoryHigh` | Memory usage exceeds threshold | Increase memory limits |
-| [**memory-limits-gitops-ansible**](../scenarios/memory-limits-gitops-ansible/) | `OOMKilled` | OOMKill on GitOps-managed deployment | Ansible/AWX updates limits in Git, ArgoCD syncs |
+| **memory-limits-gitops-ansible** | `OOMKilled` | OOMKill on GitOps-managed deployment | Ansible/AWX updates limits in Git, ArgoCD syncs *(not yet available)* |
 
 ## Autoscaling and Resources
 
@@ -70,13 +77,13 @@ Each scenario's `README.md` lists its specific prerequisites.
 | Scenario | Signal / Alert | Fault Injection | Remediation |
 |----------|---------------|-----------------|-------------|
 | [**cert-failure**](../scenarios/cert-failure/) | `CertManagerCertNotReady` | cert-manager Certificate NotReady | Fix Certificate resource |
-| [**cert-failure-gitops**](../scenarios/cert-failure-gitops/) | `CertManagerCertNotReady` | Certificate NotReady (GitOps) | `git revert` cert config |
+| [**cert-failure-gitops**](../scenarios/cert-failure-gitops/) | `CertManagerCertNotReady` | Certificate NotReady (GitOps) | `git revert` cert config ([analysis](https://jordigilh.github.io/kubernaut-docs/use-cases/multi-path-remediation/)) |
 
 ## Platform Behavior
 
 | Scenario | Signal / Alert | Fault Injection | Behavior Tested |
 |----------|---------------|-----------------|-----------------|
 | [**duplicate-alert-suppression**](../scenarios/duplicate-alert-suppression/) | `KubePodCrashLooping` | Bad config (same as crashloop) | Deduplication suppresses duplicate RRs |
-| [**resource-quota-exhaustion**](../scenarios/resource-quota-exhaustion/) | `KubeResourceQuotaExhausted` | Exhaust namespace ResourceQuota | Pipeline handles quota-blocked scenarios |
+| [**resource-quota-exhaustion**](../scenarios/resource-quota-exhaustion/) | `KubeResourceQuotaExhausted` | Exhaust namespace ResourceQuota | Pipeline handles quota-blocked scenarios ([analysis](https://jordigilh.github.io/kubernaut-docs/use-cases/remediation-history-feedback/)) |
 | [**concurrent-cross-namespace**](../scenarios/concurrent-cross-namespace/) | `KubePodCrashLooping` (x2) | Bad config in two namespaces | Concurrent pipelines with cross-namespace rego policy |
 | [**resource-contention**](../scenarios/resource-contention/) | `OOMKilled` | External actor reverts remediation | Detects ineffective chain via spec drift, escalates to human review |
