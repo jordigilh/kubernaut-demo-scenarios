@@ -73,26 +73,25 @@ kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
 ./scenarios/crashloop/run.sh
 ```
 
-This deploys a misconfigured application that starts crash-looping. Within a few minutes, Kubernaut detects the issue, analyzes it, and rolls back to the last working version. Watch the pipeline progress:
+This deploys a misconfigured application that starts crash-looping. Within a few minutes, Kubernaut detects the issue, analyzes it, and rolls back to the last working version.
+
+Watch the RemediationRequest progress through the pipeline:
 
 ```bash
-kubectl get remediationrequests -A -w    # Signal detected
-kubectl get aianalyses -A -w             # LLM analyzing
-kubectl get workflowexecutions -A -w     # Fix applied
+kubectl get remediationrequests -n kubernaut-system -w
 ```
 
-A successful run looks like:
+A successful run progresses through these phases:
 
 ```
-NAMESPACE          NAME                    STATUS
-kubernaut-system   crashloop-rr-abc123     Completed
-
-NAMESPACE          NAME                    SELECTED-WORKFLOW          STATUS
-kubernaut-system   crashloop-aa-abc123     rollback-deployment        Completed
-
-NAMESPACE          NAME                    STATUS
-kubernaut-system   crashloop-wfe-abc123    Succeeded
+NAME                    PHASE                STATUS
+crashloop-rr-abc123     SignalProcessing     InProgress
+crashloop-rr-abc123     AIAnalysis           InProgress
+crashloop-rr-abc123     WorkflowExecution    InProgress
+crashloop-rr-abc123     Completed            Remediated
 ```
+
+The RemediationRequest is the parent CRD that drives the entire pipeline. To inspect individual stages, see [Verification and Cleanup](docs/verification.md).
 
 ## What Just Happened?
 
@@ -105,8 +104,8 @@ Prometheus alert fires (KubePodCrashLooping)
   -> AI Analysis investigates the root cause via LLM
   -> LLM selects the best remediation workflow from the catalog
   -> WorkflowExecution runs the fix (rollback, patch, restart, etc.)
-  -> Notification delivers status updates
-  -> EffectivenessMonitor verifies the fix actually worked
+  -> EffectivenessMonitor verifies the fix worked (or didn't)
+  -> Notification delivers the final result including effectiveness assessment
 ```
 
 Each of the 24 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
