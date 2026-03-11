@@ -84,14 +84,14 @@ kubectl get workflowexecutions -A -w     # Fix applied
 A successful run looks like:
 
 ```
-NAMESPACE        NAME                    STATUS
-demo-crashloop   crashloop-rr-abc123     Completed
+NAMESPACE          NAME                    STATUS
+kubernaut-system   crashloop-rr-abc123     Completed
 
-NAMESPACE        NAME                    SELECTED-WORKFLOW          STATUS
-demo-crashloop   crashloop-aa-abc123     rollback-deployment        Completed
+NAMESPACE          NAME                    SELECTED-WORKFLOW          STATUS
+kubernaut-system   crashloop-aa-abc123     rollback-deployment        Completed
 
-NAMESPACE        NAME                    STATUS
-demo-crashloop   crashloop-wfe-abc123    Succeeded
+NAMESPACE          NAME                    STATUS
+kubernaut-system   crashloop-wfe-abc123    Succeeded
 ```
 
 ## What Just Happened?
