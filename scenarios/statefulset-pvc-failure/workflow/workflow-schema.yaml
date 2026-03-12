@@ -25,8 +25,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-statefulset-pvc-job@sha256:d5b0c73ab0fb4093e1e291974013660dd2e5d8e0b2016eaf94d78cf9759be500
-  
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-statefulset-pvc-job@sha256:de4b61d346602cd83d8ecd5a1c518b58fdc53fe49cb258a71469e3c6c91f8ce3
   parameters:
     - name: TARGET_NAMESPACE
       type: string
