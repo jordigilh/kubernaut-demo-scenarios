@@ -94,18 +94,26 @@ source "${SCRIPT_DIR}/workflow-mappings.sh"
 # build_and_push builds images for each architecture in ARCHITECTURES, creates a
 # manifest list, pushes it, and prints the manifest list digest to stdout.
 # All podman build/push output goes to stderr so only the digest reaches stdout.
+#
+# Per-arch images are pushed individually first so that `podman manifest add`
+# can resolve them from the registry. This avoids "manifest unknown" errors
+# with rootless podman on CI runners where local-storage lookups for
+# registry-prefixed tags fail silently.
+#
 # Args: $1=full_ref $2=dockerfile $3=context_dir
 build_and_push() {
     local ref="$1" dockerfile="$2" context="$3"
 
-    podman manifest rm "${ref}" &>/dev/null || true
-    podman manifest create "${ref}" >/dev/null
-
     for arch in "${ARCHITECTURES[@]}"; do
         podman build --platform "linux/${arch}" -t "${ref}-${arch}" -f "${dockerfile}" "${context}" >&2
-        podman manifest add "${ref}" "${ref}-${arch}" >/dev/null
+        podman push "${ref}-${arch}" "docker://${ref}-${arch}" >&2
     done
 
+    podman manifest rm "${ref}" &>/dev/null || true
+    podman manifest create "${ref}" >/dev/null
+    for arch in "${ARCHITECTURES[@]}"; do
+        podman manifest add "${ref}" "docker://${ref}-${arch}" >/dev/null
+    done
     podman manifest push "${ref}" "docker://${ref}" >&2
 
     # Compute manifest list digest from the registry (skopeo returns raw bytes, hash them)
