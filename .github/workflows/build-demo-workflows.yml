@@ -1,0 +1,92 @@
+name: Build Demo Workflow Images
+
+# Builds multi-arch (amd64 + arm64) exec and schema images for all demo
+# scenarios and pushes them to quay.io/kubernaut-cicd/test-workflows.
+#
+# After pushing, any workflow-schema.yaml files with updated bundle digests
+# are auto-committed back to the branch to keep the repo in sync.
+#
+# Authority: kubernaut#350 (Multi-arch builds for demo workflow job images)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/*/workflow/**'
+      - 'scripts/build-demo-workflows.sh'
+      - 'scripts/workflow-mappings.sh'
+      - '.github/workflows/build-demo-workflows.yml'
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Single scenario to build (empty = all)'
+        required: false
+        type: string
+      arch:
+        description: 'Architectures (comma-separated, default: amd64,arm64)'
+        required: false
+        default: 'amd64,arm64'
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-push:
+    name: Build & Push Workflow Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    # Skip runs triggered by the auto-commit from a previous run
+    if: github.actor != 'github-actions[bot]'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install QEMU for multi-arch builds
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
+          if [ -f /proc/sys/fs/binfmt_misc/qemu-aarch64 ]; then
+            echo "QEMU aarch64 registered"
+          else
+            echo "::warning::QEMU aarch64 not registered in binfmt_misc"
+          fi
+
+      - name: Install skopeo
+        run: |
+          sudo apt-get install -y skopeo
+          skopeo --version
+
+      - name: Login to Quay.io
+        run: |
+          podman login -u "${{ secrets.QUAY_ROBOT_USERNAME }}" \
+                       -p "${{ secrets.QUAY_ROBOT_TOKEN }}" \
+                       quay.io
+
+      - name: Build and push workflow images
+        run: |
+          ARGS=()
+          if [ -n "${{ inputs.scenario }}" ]; then
+            ARGS+=(--scenario "${{ inputs.scenario }}")
+          fi
+          if [ -n "${{ inputs.arch }}" ]; then
+            ARGS+=(--arch "${{ inputs.arch }}")
+          fi
+          bash scripts/build-demo-workflows.sh "${ARGS[@]}"
+
+      - name: Auto-commit updated bundle digests
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- 'scenarios/*/workflow/workflow-schema.yaml'; then
+            echo "No digest changes to commit."
+          else
+            CHANGED=$(git diff --name-only -- 'scenarios/*/workflow/workflow-schema.yaml' | wc -l)
+            git add scenarios/*/workflow/workflow-schema.yaml
+            git commit -m "ci: update bundle digests for ${CHANGED} workflow(s) [skip ci]"
+            git push
+            echo "Committed and pushed digest updates for ${CHANGED} workflow(s)."
+          fi
