@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# Build and push demo scenario workflow images to quay.io/kubernaut-cicd/test-workflows
+# Build and push demo scenario execution images to quay.io/kubernaut-cicd/test-workflows
 #
-# Two-image split per scenario (eliminates circular digest dependency):
-#   1. Execution image (<name>:v1.0.0)        -- remediate.sh + tools, run by WE as K8s Job
-#   2. Schema image    (<name>-schema:v1.0.0)  -- workflow-schema.yaml only, pulled by DataStorage
+# Each scenario produces one execution image (<name>:v1.0.0) containing
+# remediate.sh + tools, run by WorkflowExecution as a K8s Job.
 #
-# The exec image is built first, pushed, and its manifest list digest is embedded
-# into workflow-schema.yaml before building the schema image.
+# After pushing, the manifest list digest is written back into
+# workflow-schema.yaml so the bundle reference stays in sync.
 #
 # Authority: BR-WE-014 (Kubernetes Job Execution Backend)
-# ADR-043: OCI images include /workflow-schema.yaml for catalog registration
 #
 # Usage:
 #   ./build-demo-workflows.sh                    # Build and push multi-arch (amd64 + arm64)
@@ -28,7 +26,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIOS_DIR="${SCRIPT_DIR}/../scenarios"
-SCHEMA_DOCKERFILE="${SCENARIOS_DIR}/Dockerfile.schema"
 REGISTRY="quay.io/kubernaut-cicd/test-workflows"
 VERSION="v1.0.0"
 LOCAL_ONLY=false
@@ -166,7 +163,6 @@ for entry in "${WORKFLOWS[@]}"; do
     IMAGE_NAME="${entry#*:}"
     BUILD_DIR="${SCENARIOS_DIR}/${SCENARIO}/workflow"
     EXEC_REF="${REGISTRY}/${IMAGE_NAME}:${VERSION}"
-    SCHEMA_REF="${REGISTRY}/${IMAGE_NAME}-schema:${VERSION}"
     SCHEMA_FILE="${BUILD_DIR}/workflow-schema.yaml"
 
     if [ -n "$SINGLE_SCENARIO" ] && [ "$SCENARIO" != "$SINGLE_SCENARIO" ]; then
@@ -200,19 +196,9 @@ for entry in "${WORKFLOWS[@]}"; do
     # Step 2: Update workflow-schema.yaml with exec image digest
     if [ -n "${EXEC_DIGEST}" ]; then
         update_bundle_digest "${SCHEMA_FILE}" "${REGISTRY}/${IMAGE_NAME}" "${EXEC_DIGEST}"
-        echo "  [schema] Updated execution.bundle digest in workflow-schema.yaml"
+        echo "  [digest] Updated execution.bundle in workflow-schema.yaml"
     else
-        echo "  [schema] WARNING: Could not extract digest, schema not updated"
-    fi
-
-    # Step 3: Build and push schema image
-    echo "  [schema] Building ${SCHEMA_REF}..."
-    if $LOCAL_ONLY; then
-        build_local "${SCHEMA_REF}" "${SCHEMA_DOCKERFILE}" "${BUILD_DIR}" > /dev/null
-        echo "  [schema] Built (local arch only)"
-    else
-        build_and_push "${SCHEMA_REF}" "${SCHEMA_DOCKERFILE}" "${BUILD_DIR}" > /dev/null
-        echo "  [schema] Pushed."
+        echo "  [digest] WARNING: Could not extract digest, schema not updated"
     fi
 
     build_count=$((build_count + 1))
@@ -220,7 +206,7 @@ for entry in "${WORKFLOWS[@]}"; do
 done
 
 echo "============================================"
-echo "Built: ${build_count} scenario(s) (exec + schema images each)"
+echo "Built: ${build_count} scenario(s)"
 if [ "$skip_count" -gt 0 ]; then
     echo "Skipped: ${skip_count}"
 fi
