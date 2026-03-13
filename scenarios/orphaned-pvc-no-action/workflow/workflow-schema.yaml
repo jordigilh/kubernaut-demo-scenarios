@@ -22,7 +22,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/cleanup-pvc-job@sha256:b45e7e715cbfc9fcba2a367db95472b426365092e3671b792f630f7184c5a696
+    bundle: quay.io/kubernaut-cicd/test-workflows/cleanup-pvc-job@sha256:2cc87db8eab040d448a0bd49df50ca7789d51db33425a09652a1b3d150607485
   parameters:
     - name: TARGET_NAMESPACE
       type: string

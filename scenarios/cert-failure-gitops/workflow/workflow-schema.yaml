@@ -25,7 +25,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-gitops-job@sha256:04758e0d5f2d03e695ed2e49f71971c85597458968bac2be4f78e3ba365be994
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-gitops-job@sha256:08b7b5c5e0b67116437b9851e7eb5df8d2bad7f5234baf2b3469e076c0b6d744
   parameters:
     - name: TARGET_NAMESPACE
       type: string

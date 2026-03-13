@@ -27,7 +27,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:6e89af9acc07dca1db2dd276a88631be4f3e1e512da02ec6de1b208af6af0887
+    bundle: quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:502b67d20dab6ce5f59faed489b42a2cb68c18acbe6eb2e8eaadbc1f8f208288
   parameters:
     - name: TARGET_NAMESPACE
       type: string
