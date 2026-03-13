@@ -277,7 +277,7 @@ scripts/
   platform-helper.sh               # Helm chart deployment helpers
   monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
   kind-helper.sh                   # Kind cluster lifecycle
-  seed-workflows.sh                # Register workflows in DataStorage
+  seed-workflows.sh                # Apply RemediationWorkflow CRDs (kubectl apply)
   seed-action-types.sh             # Apply ActionType CRDs
 scenarios/
   <name>/

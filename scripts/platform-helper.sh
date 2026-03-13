@@ -203,38 +203,21 @@ ensure_platform() {
     _check_llm_credentials
 }
 
-# Seed the workflow for a specific scenario into DataStorage.
-# Call after ensure_platform. Fails fast if seeding returns an unexpected HTTP code.
+# Seed the RemediationWorkflow CRD for a specific scenario.
+# The DataStorage controller reconciles it into the workflow catalog.
 # Args: $1=scenario directory name (e.g., "crashloop")
 seed_scenario_workflow() {
     local scenario="$1"
-    local seed_script="${REPO_ROOT}/scripts/seed-workflows.sh"
+    local schema_file="${REPO_ROOT}/scenarios/${scenario}/workflow/workflow-schema.yaml"
 
-    if [ ! -f "$seed_script" ]; then
-        echo "ERROR: seed-workflows.sh not found at ${seed_script}"
-        return 1
+    if [ ! -f "$schema_file" ]; then
+        echo "WARNING: No workflow-schema.yaml for scenario '${scenario}', skipping."
+        return 0
     fi
 
-    echo "==> Seeding workflow for scenario: ${scenario}"
-
-    local output
-    output=$("$seed_script" --scenario "$scenario" 2>&1)
-    local exit_code=$?
-
-    echo "$output" | sed 's/^/    /'
-
-    if [ $exit_code -ne 0 ]; then
-        echo "ERROR: Workflow seeding failed for scenario '${scenario}'"
-        return 1
-    fi
-
-    if echo "$output" | grep -q "HTTP 502\|HTTP 500\|HTTP 503\|HTTP 504"; then
-        echo "ERROR: DataStorage returned a server error while seeding '${scenario}'."
-        echo "  The schema image may not be accessible (private repo or not yet pushed)."
-        return 1
-    fi
-
-    echo "  Workflow seeded for ${scenario}."
+    echo "==> Applying RemediationWorkflow CRD for scenario: ${scenario}"
+    kubectl apply -f "$schema_file" -n "${PLATFORM_NS}" 2>&1 | sed 's/^/    /'
+    echo "  Workflow applied for ${scenario}."
 }
 
 # Create secrets that must exist before Helm install:
