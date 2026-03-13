@@ -10,9 +10,64 @@ CHART_DIR="${KUBERNAUT_REPO}/charts/kubernaut"
 KIND_VALUES="${REPO_ROOT}/helm/kubernaut-kind-values.yaml"
 LLM_VALUES="${HOME}/.kubernaut/helm/llm-values.yaml"
 
-# Use dedicated kubeconfig to avoid overwriting ~/.kube/config
-DEMO_KUBECONFIG="${DEMO_KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
-export KUBECONFIG="${DEMO_KUBECONFIG}"
+# Respect user-provided KUBECONFIG; fall back to the demo-specific file
+# created by kind-helper.sh so Kind users get isolation from ~/.kube/config.
+export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
+
+# ── Platform detection ───────────────────────────────────────────────────────
+# Detects whether the target cluster is OpenShift (ocp) or vanilla Kubernetes (kind).
+# Override with PLATFORM=ocp or PLATFORM=kind before sourcing this file.
+detect_platform() {
+    local api_output
+    api_output=$(kubectl api-resources --api-group=config.openshift.io 2>/dev/null) || true
+    if echo "$api_output" | grep -q ClusterVersion; then
+        echo "ocp"
+    else
+        echo "kind"
+    fi
+}
+
+PLATFORM="${PLATFORM:-$(detect_platform)}"
+export PLATFORM
+
+# Returns the kustomize directory to use for kubectl apply -k.
+# Uses the OCP overlay when available and PLATFORM=ocp, otherwise the base manifests.
+get_manifest_dir() {
+    local scenario_dir="$1"
+    if [ "$PLATFORM" = "ocp" ] && [ -d "${scenario_dir}/overlays/ocp" ]; then
+        echo "${scenario_dir}/overlays/ocp"
+    else
+        echo "${scenario_dir}/manifests"
+    fi
+}
+
+# Restart AlertManager to clear stale notification state after cleanup.
+# On OCP the AlertManager is managed by the cluster monitoring operator;
+# restarting it is unnecessary (alerts auto-resolve) and may be disruptive.
+restart_alertmanager() {
+    if [ "$PLATFORM" = "ocp" ]; then
+        echo "  (OCP: skipping AlertManager restart -- alerts auto-resolve)"
+        return 0
+    fi
+    echo "==> Restarting AlertManager to clear stale notification state..."
+    kubectl rollout restart statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring
+    kubectl rollout status statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring --timeout=60s
+}
+
+# Silence a specific alert in AlertManager (platform-aware).
+silence_alert() {
+    local alert_name="$1"
+    local namespace="$2"
+    local duration="${3:-2m}"
+    if [ "$PLATFORM" = "ocp" ]; then
+        echo "  (OCP: skipping alert silence -- alerts auto-resolve)"
+        return 0
+    fi
+    kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+      amtool silence add "alertname=${alert_name}" "namespace=${namespace}" \
+      --alertmanager.url=http://localhost:9093 "--duration=${duration}" \
+      --comment="Cleanup silence" 2>/dev/null || true
+}
 
 # Validate that the demo environment is ready (no installs).
 # Checks: kubeconfig, Kubernaut Helm release, all deployments ready, monitoring stack.
@@ -22,8 +77,12 @@ require_demo_ready() {
 
     if ! kubectl cluster-info &>/dev/null; then
         echo "ERROR: Cannot connect to Kubernetes cluster."
-        echo "  Is the Kind cluster running? Check: kind get clusters"
         echo "  Kubeconfig: ${KUBECONFIG}"
+        if [ "$PLATFORM" = "ocp" ]; then
+            echo "  Check: oc whoami --show-server"
+        else
+            echo "  Is the Kind cluster running? Check: kind get clusters"
+        fi
         fail=true
     fi
 
@@ -42,14 +101,27 @@ require_demo_ready() {
         fi
     fi
 
-    if [ "$fail" = false ] && ! helm status kube-prometheus-stack -n monitoring &>/dev/null; then
-        echo "ERROR: Monitoring stack is not installed."
-        fail=true
+    if [ "$fail" = false ]; then
+        if [ "$PLATFORM" = "ocp" ]; then
+            if ! kubectl get namespace openshift-monitoring &>/dev/null; then
+                echo "ERROR: openshift-monitoring namespace not found."
+                fail=true
+            fi
+        else
+            if ! helm status kube-prometheus-stack -n monitoring &>/dev/null; then
+                echo "ERROR: Monitoring stack is not installed."
+                fail=true
+            fi
+        fi
     fi
 
     if [ "$fail" = true ]; then
         echo ""
-        echo "Run setup first:  bash scripts/setup-demo-cluster.sh"
+        if [ "$PLATFORM" = "ocp" ]; then
+            echo "Ensure the OCP cluster is configured with user-workload monitoring enabled."
+        else
+            echo "Run setup first:  bash scripts/setup-demo-cluster.sh"
+        fi
         exit 1
     fi
 }

@@ -32,8 +32,24 @@ require_infra() {
             echo "ERROR: Gitea is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
         argocd)
-            kubectl get namespace argocd &>/dev/null && return 0
-            echo "ERROR: ArgoCD is not installed. Run: bash scripts/setup-demo-cluster.sh"
+            if [ "${PLATFORM:-}" = "ocp" ]; then
+                kubectl get namespace openshift-gitops &>/dev/null && return 0
+                echo "ERROR: OpenShift GitOps is not installed."
+                echo "  Install via: oc apply -f operators/openshift-gitops-subscription.yaml"
+            else
+                kubectl get namespace argocd &>/dev/null && return 0
+                echo "ERROR: ArgoCD is not installed. Run: bash scripts/setup-demo-cluster.sh"
+            fi
+            exit 1 ;;
+        istio)
+            if [ "${PLATFORM:-}" = "ocp" ]; then
+                kubectl get namespace istio-system &>/dev/null && return 0
+                echo "ERROR: OpenShift Service Mesh is not installed."
+                echo "  Install via the OSSM operator in OperatorHub."
+            else
+                kubectl get namespace istio-system &>/dev/null && return 0
+                echo "ERROR: Istio is not installed. Run: istioctl install --set profile=demo"
+            fi
             exit 1 ;;
         awx)
             kubectl get deployment -n kubernaut-system -l app.kubernetes.io/managed-by=awx-operator --no-headers 2>/dev/null | grep -q . && return 0

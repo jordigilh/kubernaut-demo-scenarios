@@ -4,10 +4,12 @@
 
 CLUSTER_NAME="${CLUSTER_NAME:-kubernaut-demo}"
 
-# Dedicated kubeconfig to avoid overwriting the default ~/.kube/config.
-# Other teams share this host, so we isolate demo credentials here.
+# Kind cluster credentials are written to DEMO_KUBECONFIG to avoid
+# overwriting the default ~/.kube/config on shared hosts.
+# KUBECONFIG is only set here if unset, so users who bring their own
+# kubeconfig (e.g., OCP) are not affected.
 DEMO_KUBECONFIG="${DEMO_KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
-export KUBECONFIG="${DEMO_KUBECONFIG}"
+export KUBECONFIG="${KUBECONFIG:-${DEMO_KUBECONFIG}}"
 
 # Ensure the Kind cluster exists with the required topology.
 # Usage: ensure_kind_cluster <kind-config-path> [--create-cluster]

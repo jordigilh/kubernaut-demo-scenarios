@@ -25,8 +25,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SCENARIOS_DIR="${REPO_ROOT}/scenarios"
 
-# Use dedicated kubeconfig to avoid overwriting ~/.kube/config
-export KUBECONFIG="${DEMO_KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
+# Respect user-provided KUBECONFIG; fall back to the demo kubeconfig.
+export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
 
 # Defaults
 SCENARIO_LIST=""
