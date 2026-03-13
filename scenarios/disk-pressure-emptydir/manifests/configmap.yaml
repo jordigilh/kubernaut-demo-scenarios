@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-sql
+  namespace: demo-diskpressure
+data:
+  init.sql: |
+    -- Kubernaut DiskPressure Demo (#324) - PostgreSQL init script
+    -- Creates a table and a stored procedure that rapidly fills disk via emptyDir.
+
+    CREATE TABLE IF NOT EXISTS events (
+        id         SERIAL PRIMARY KEY,
+        timestamp  TIMESTAMPTZ NOT NULL DEFAULT now(),
+        source     TEXT NOT NULL DEFAULT 'sensor',
+        payload    TEXT NOT NULL
+    );
+
+    -- Generates ~1 KB per row (random payload).
+    -- batch_size rows per iteration, num_iterations iterations, sleep_ms pause between.
+    CREATE OR REPLACE PROCEDURE simulate_data_growth(
+        batch_size  INT DEFAULT 500,
+        num_iters   INT DEFAULT 200,
+        sleep_ms    INT DEFAULT 100
+    )
+    LANGUAGE plpgsql AS $$
+    DECLARE
+        i INT;
+    BEGIN
+        FOR i IN 1..num_iters LOOP
+            INSERT INTO events (source, payload)
+            SELECT
+                'sensor-' || (random()*100)::int,
+                repeat(md5(random()::text), 32)   -- ~1 KB per row
+            FROM generate_series(1, batch_size);
+            COMMIT;
+            PERFORM pg_sleep(sleep_ms / 1000.0);
+        END LOOP;
+    END;
+    $$;

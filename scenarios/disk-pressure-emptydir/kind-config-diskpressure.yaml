@@ -1,0 +1,52 @@
+# Kind Cluster Configuration for DiskPressure emptyDir Demo (#324)
+#
+# This variant of the Kind cluster config adds a worker node with a
+# lowered kubelet eviction threshold so that emptyDir growth triggers
+# real KubeNodeDiskPressure without needing to fill 85% of the host disk.
+#
+# Usage:
+#   kind create cluster --name kubernaut-demo \
+#     --config scenarios/disk-pressure-emptydir/kind-config-diskpressure.yaml
+#
+# The standard demo cluster config can be combined with this by copying
+# the control-plane extraPortMappings and kubeadmConfigPatches sections.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  extraPortMappings:
+  - containerPort: 30080
+    hostPort: 30080
+    protocol: TCP
+  - containerPort: 30081
+    hostPort: 30081
+    protocol: TCP
+  - containerPort: 30088
+    hostPort: 8088
+    protocol: TCP
+  - containerPort: 30300
+    hostPort: 3000
+    protocol: TCP
+  kubeadmConfigPatches:
+  - |
+    kind: ClusterConfiguration
+    apiServer:
+      extraArgs:
+        max-requests-inflight: "800"
+        max-mutating-requests-inflight: "400"
+    controllerManager:
+      extraArgs:
+        kube-api-qps: "100"
+        kube-api-burst: "200"
+- role: worker
+  labels:
+    kubernaut.ai/managed: "true"
+  kubeadmConfigPatches:
+  - |
+    kind: KubeletConfiguration
+    evictionHard:
+      nodefs.available: "95%"
+      imagefs.available: "95%"
+    evictionMinimumReclaim:
+      nodefs.available: "500Mi"
+      imagefs.available: "500Mi"

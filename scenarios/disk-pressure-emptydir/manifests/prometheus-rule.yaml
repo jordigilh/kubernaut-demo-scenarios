@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-diskpressure-rules
+  namespace: demo-diskpressure
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: demo-diskpressure
+      rules:
+        - alert: KubeNodeDiskPressure
+          expr: |
+            kube_node_status_condition{condition="DiskPressure", status="true"} == 1
+          for: 1m
+          labels:
+            severity: critical
+            namespace: demo-diskpressure
+          annotations:
+            summary: "Node {{ $labels.node }} has DiskPressure condition"
+            description: >-
+              Node {{ $labels.node }} is reporting DiskPressure.
+              This is likely caused by emptyDir growth from the
+              postgres-emptydir deployment in demo-diskpressure namespace.
+              The database is running on ephemeral storage and needs to be
+              migrated to a persistent volume.
