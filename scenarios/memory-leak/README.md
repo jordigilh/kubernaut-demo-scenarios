@@ -50,7 +50,7 @@ kubectl wait --for=condition=Available deployment/leaky-app -n demo-memory-leak 
 ### 2. Observe memory growth
 
 ```bash
-# Watch memory climb (~4MB/min in the leaker container)
+# Watch memory climb (~12MB/min in the leaker container)
 watch kubectl top pods -n demo-memory-leak --containers
 ```
 
@@ -58,7 +58,7 @@ watch kubectl top pods -n demo-memory-leak --containers
 
 The `ContainerMemoryExhaustionPredicted` alert fires once `predict_linear()` projects the
 leaker container will exceed its 192Mi limit within 30 minutes. This typically takes
-10-15 minutes of trend data.
+5-7 minutes of trend data.
 
 Check: `kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090` then open `http://localhost:9090/alerts`
 
@@ -88,7 +88,7 @@ kubectl rollout history deployment/leaky-app -n demo-memory-leak
 ## Cleanup
 
 ```bash
-kubectl delete namespace demo-memory-leak
+./scenarios/memory-leak/cleanup.sh
 ```
 
 ## BDD Specification
@@ -100,7 +100,7 @@ Given a Kind cluster with Kubernaut services and a real LLM backend
   And the "leaky-app" deployment is running in namespace "demo-memory-leak"
   And the "leaker" sidecar container has a memory limit of 192Mi
 
-When the "leaker" container's memory usage grows linearly at ~4MB/min
+When the "leaker" container's memory usage grows linearly at ~12MB/min
   And Prometheus predict_linear() projects OOM within 30 minutes
   And the ContainerMemoryExhaustionPredicted alert fires
 

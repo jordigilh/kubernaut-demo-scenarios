@@ -51,9 +51,21 @@ ESCALATION_TIMEOUT=900
 ESCALATION_ELAPSED=0
 
 while [ "$ESCALATION_ELAPSED" -lt "$ESCALATION_TIMEOUT" ]; do
+    # Check for Blocked phase OR Failed phase with ManualReviewRequired outcome
     blocked_rr=$(kubectl get rr -n "${PLATFORM_NS}" \
-      -o jsonpath='{range .items[*]}{.metadata.name}={.status.overallPhase}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
-      | grep "=Blocked=${NAMESPACE}" | head -1 | cut -d= -f1 || true)
+      -o jsonpath='{range .items[*]}{.metadata.name}={.status.overallPhase}={.status.outcome}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
+      | grep -E "=(Blocked|Failed)=(ManualReviewRequired)?=${NAMESPACE}" | head -1 | cut -d= -f1 || true)
+
+    escalated_rr=$(kubectl get rr -n "${PLATFORM_NS}" \
+      -o jsonpath='{range .items[*]}{.metadata.name}={.status.outcome}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
+      | grep "=ManualReviewRequired=${NAMESPACE}" | head -1 | cut -d= -f1 || true)
+
+    if [ -n "$escalated_rr" ]; then
+        esc_reason=$(kubectl get rr "$escalated_rr" -n "${PLATFORM_NS}" \
+          -o jsonpath='{.status.blockReason}' 2>/dev/null || echo "escalation")
+        log_success "Escalation detected: RR ${escalated_rr} escalated to ManualReviewRequired (reason: ${esc_reason})"
+        break
+    fi
 
     if [ -n "$blocked_rr" ]; then
         block_reason=$(kubectl get rr "$blocked_rr" -n "${PLATFORM_NS}" \
@@ -73,10 +85,14 @@ done
 
 log_phase "Running escalation assertions..."
 
+escalated_count=$(kubectl get rr -n "${PLATFORM_NS}" \
+  -o jsonpath='{range .items[*]}{.status.outcome}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
+  | grep "^ManualReviewRequired=" | grep "=${NAMESPACE}$" | wc -l | tr -d ' ')
 blocked_count=$(kubectl get rr -n "${PLATFORM_NS}" \
   -o jsonpath='{range .items[*]}{.status.overallPhase}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
   | grep "^Blocked=" | grep "=${NAMESPACE}$" | wc -l | tr -d ' ')
-assert_gt "${blocked_count:-0}" "0" "At least 1 Blocked RR (escalation)"
+total_escalated=$(( ${escalated_count:-0} + ${blocked_count:-0} ))
+assert_gt "${total_escalated}" "0" "At least 1 escalated RR (Blocked or ManualReviewRequired)"
 
 total_rr=$(kubectl get rr -n "${PLATFORM_NS}" \
   -o jsonpath='{range .items[*]}{.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \

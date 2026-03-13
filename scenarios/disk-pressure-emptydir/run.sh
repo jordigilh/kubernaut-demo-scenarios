@@ -75,7 +75,24 @@ git config user.name "Kubernaut Setup"
 
 mkdir -p disk-pressure-emptydir
 
-cat > disk-pressure-emptydir/deployment.yaml <<'MANIFEST'
+# Platform-specific PostgreSQL settings
+if [ "$PLATFORM" = "ocp" ]; then
+    PG_IMAGE="registry.redhat.io/rhel9/postgresql-16"
+    PG_ENV_USER="POSTGRESQL_USER"
+    PG_ENV_DB="POSTGRESQL_DATABASE"
+    PG_ENV_PASS="POSTGRESQL_PASSWORD"
+    PG_DATA_MOUNT="/var/lib/pgsql/data"
+    PG_DATA_VALUE="/var/lib/pgsql/data/userdata"
+else
+    PG_IMAGE="postgres:16-alpine"
+    PG_ENV_USER="POSTGRES_USER"
+    PG_ENV_DB="POSTGRES_DB"
+    PG_ENV_PASS="POSTGRES_PASSWORD"
+    PG_DATA_MOUNT="/var/lib/postgresql/data"
+    PG_DATA_VALUE="/var/lib/postgresql/data/pgdata"
+fi
+
+cat > disk-pressure-emptydir/deployment.yaml <<MANIFEST
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -96,21 +113,21 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: postgres:16-alpine
+        image: ${PG_IMAGE}
         ports:
         - containerPort: 5432
         env:
-        - name: POSTGRES_USER
+        - name: ${PG_ENV_USER}
           value: "postgres"
-        - name: POSTGRES_DB
+        - name: ${PG_ENV_DB}
           value: "postgres"
-        - name: POSTGRES_PASSWORD
+        - name: ${PG_ENV_PASS}
           valueFrom:
             secretKeyRef:
               name: postgres-credentials
               key: password
         - name: PGDATA
-          value: "/var/lib/postgresql/data/pgdata"
+          value: "${PG_DATA_VALUE}"
         resources:
           requests:
             memory: "256Mi"
@@ -120,7 +137,9 @@ spec:
             cpu: "500m"
         volumeMounts:
         - name: data
-          mountPath: /var/lib/postgresql/data
+          mountPath: ${PG_DATA_MOUNT}
+        - name: init-sql
+          mountPath: /docker-entrypoint-initdb.d
         readinessProbe:
           exec:
             command: ["pg_isready", "-U", "postgres"]
@@ -129,6 +148,9 @@ spec:
       volumes:
       - name: data
         emptyDir: {}
+      - name: init-sql
+        configMap:
+          name: postgres-init-sql
 MANIFEST
 
 cat > disk-pressure-emptydir/secret.yaml <<'MANIFEST'
@@ -221,7 +243,8 @@ MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
 # Speed up ArgoCD polling for demo
-kubectl patch configmap argocd-cm -n argocd --type merge \
+ARGOCD_NS=$(get_argocd_namespace)
+kubectl patch configmap argocd-cm -n "${ARGOCD_NS}" --type merge \
   -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
 
 # Step 3: Wait for ArgoCD sync and PostgreSQL readiness
@@ -248,7 +271,43 @@ echo "  simulate_data_growth() procedure is available."
 echo ""
 }
 
+_label_target_node() {
+    local pod node
+    pod=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir \
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    node=$(kubectl get pod "$pod" -n "${NAMESPACE}" \
+      -o jsonpath='{.spec.nodeName}' 2>/dev/null)
+    if [ -z "$node" ]; then
+        echo "WARNING: could not determine target node for DiskPressure signal"
+        return 0
+    fi
+    echo "==> Labeling node ${node} for Kubernaut signal acceptance..."
+    kubectl label node "$node" \
+        kubernaut.ai/environment=production \
+        kubernaut.ai/business-unit=infrastructure \
+        kubernaut.ai/service-owner=platform-team \
+        kubernaut.ai/criticality=high \
+        kubernaut.ai/sla-tier=tier-1 \
+        --overwrite
+}
+
+_unlabel_target_node() {
+    local node
+    for node in $(kubectl get nodes -l kubernaut.ai/environment=production,kubernaut.ai/business-unit=infrastructure \
+      -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+        kubectl label node "$node" \
+            kubernaut.ai/environment- \
+            kubernaut.ai/business-unit- \
+            kubernaut.ai/service-owner- \
+            kubernaut.ai/criticality- \
+            kubernaut.ai/sla-tier- 2>/dev/null || true
+    done
+}
+
 run_inject() {
+# Label the node running the postgres pod so the Gateway accepts the DiskPressure signal
+_label_target_node
+
 echo "==> Injecting fault: calling simulate_data_growth() to fill emptyDir..."
 echo "  This generates ~100 MB of data per call (500 rows x 200 iterations x ~1KB/row)."
 echo "  On a node with tight disk thresholds, DiskPressure will trigger."

@@ -11,7 +11,7 @@ patches:
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
         value: "true"
-  # Category B: PostgreSQL image swap to Red Hat catalog
+  # Category B: PostgreSQL -- Red Hat image, env vars, and data paths
   - target:
       kind: Deployment
       name: postgres-emptydir
@@ -19,6 +19,21 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/image
         value: registry.redhat.io/rhel9/postgresql-16
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/name
+        value: POSTGRESQL_USER
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/name
+        value: POSTGRESQL_DATABASE
+      - op: replace
+        path: /spec/template/spec/containers/0/env/2/name
+        value: POSTGRESQL_PASSWORD
+      - op: replace
+        path: /spec/template/spec/containers/0/env/3/value
+        value: "/var/lib/pgsql/data/userdata"
+      - op: replace
+        path: /spec/template/spec/containers/0/volumeMounts/0/mountPath
+        value: /var/lib/pgsql/data
   # Category C: PrometheusRule - remove release label for OCP
   - target:
       kind: PrometheusRule

@@ -10,8 +10,10 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up DiskPressure emptyDir demo..."
 
-# Delete ArgoCD Application first (stops sync loop)
-kubectl delete -f "${SCRIPT_DIR}/manifests/argocd-application.yaml" --ignore-not-found 2>/dev/null || true
+# Delete ArgoCD Application first (stops sync loop).
+# The app lives in openshift-gitops on OCP, argocd on Kind.
+ARGOCD_NS=$(get_argocd_namespace)
+kubectl delete application demo-diskpressure -n "${ARGOCD_NS}" --ignore-not-found 2>/dev/null || true
 
 # Delete PrometheusRule
 kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found 2>/dev/null || true
@@ -43,6 +45,18 @@ kubectl delete workflowexecutions --all -n "$PLATFORM_NS" --ignore-not-found 2>/
 echo "==> Waiting for namespace deletion to complete..."
 while kubectl get ns "${NAMESPACE}" &>/dev/null; do
   sleep 2
+done
+
+# Remove Kubernaut labels from the node that was labeled for this scenario
+for node in $(kubectl get nodes -l kubernaut.ai/environment=production,kubernaut.ai/business-unit=infrastructure \
+  -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+    echo "  Removing Kubernaut labels from node: ${node}"
+    kubectl label node "$node" \
+        kubernaut.ai/environment- \
+        kubernaut.ai/business-unit- \
+        kubernaut.ai/service-owner- \
+        kubernaut.ai/criticality- \
+        kubernaut.ai/sla-tier- 2>/dev/null || true
 done
 
 restart_alertmanager

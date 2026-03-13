@@ -41,6 +41,17 @@ get_manifest_dir() {
     fi
 }
 
+# Returns the namespace where ArgoCD is installed.
+# OCP uses the OpenShift GitOps operator (openshift-gitops);
+# Kind uses the community ArgoCD install in the "argocd" namespace.
+get_argocd_namespace() {
+    if [ "$PLATFORM" = "ocp" ]; then
+        echo "openshift-gitops"
+    else
+        echo "argocd"
+    fi
+}
+
 # Restart AlertManager to clear stale notification state after cleanup.
 # On OCP the AlertManager is managed by the cluster monitoring operator;
 # restarting it is unnecessary (alerts auto-resolve) and may be disruptive.

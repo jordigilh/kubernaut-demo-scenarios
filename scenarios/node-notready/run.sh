@@ -45,6 +45,19 @@ echo "  web-service is running (3 replicas)."
 kubectl get pods -n "${NAMESPACE}" -o wide
 echo ""
 
+# Step 3: Label the target node so the Gateway accepts NodeNotReady signals
+WORKER_NODE=$(kubectl get nodes -l kubernaut.ai/managed=true -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+if [ -n "$WORKER_NODE" ]; then
+    echo "==> Step 3: Labeling target node ${WORKER_NODE} for signal acceptance..."
+    kubectl label node "$WORKER_NODE" \
+        kubernaut.ai/environment=production \
+        kubernaut.ai/business-unit=infrastructure \
+        kubernaut.ai/service-owner=infra-team \
+        kubernaut.ai/criticality=critical \
+        kubernaut.ai/sla-tier=tier-1 \
+        --overwrite
+fi
+
 # Step 4: Simulate node failure
 echo "==> Step 4: Simulating node failure via podman pause..."
 bash "${SCRIPT_DIR}/inject-node-failure.sh"

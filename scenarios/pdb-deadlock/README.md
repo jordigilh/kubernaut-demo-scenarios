@@ -66,9 +66,7 @@ single-node validation as a future expansion.
 ### 1. Deploy the workload with restrictive PDB
 
 ```bash
-kubectl apply -f scenarios/pdb-deadlock/manifests/namespace.yaml
-kubectl apply -f scenarios/pdb-deadlock/manifests/deployment.yaml
-kubectl apply -f scenarios/pdb-deadlock/manifests/prometheus-rule.yaml
+kubectl apply -k scenarios/pdb-deadlock/manifests/
 kubectl wait --for=condition=Available deployment/payment-service -n demo-pdb --timeout=120s
 ```
 

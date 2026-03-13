@@ -91,7 +91,7 @@ kubectl rollout history deployment/worker -n demo-crashloop
 ## Cleanup
 
 ```bash
-kubectl delete namespace demo-crashloop
+./scenarios/crashloop/cleanup.sh
 ```
 
 ## BDD Specification

@@ -16,7 +16,7 @@ spec:
     severity: [critical, high]
     environment: ["*"]
     component: "*"
-    priority: ["*"]
+    priority: "*"
 
   detectedLabels:
     gitOpsTool: "*"

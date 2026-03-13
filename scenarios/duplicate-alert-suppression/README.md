@@ -26,6 +26,12 @@ Gateway-level deduplication via OwnerResolver fingerprinting. When 5 pods from t
 
 - **BR-DEDUP-001**: Gateway deduplication via OwnerResolver fingerprinting
 
+## Cleanup
+
+```bash
+./scenarios/duplicate-alert-suppression/cleanup.sh
+```
+
 ## Issue
 
 - #170

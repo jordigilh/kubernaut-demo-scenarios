@@ -27,7 +27,7 @@ Feature: GitOps drift remediation via git revert
 
   Scenario: Broken ConfigMap causes CrashLoopBackOff in GitOps environment
     Given ArgoCD manages nginx Deployment "web-frontend" in namespace "demo-gitops"
-      And the Deployment references ConfigMap "nginx-config" via envFrom
+      And the Deployment mounts ConfigMap "nginx-config" as /etc/nginx/nginx.conf via volumeMounts
       And the Gitea repository contains healthy manifests synced by ArgoCD
       And all pods are Running and Ready
 
@@ -111,8 +111,8 @@ kubectl port-forward -n gitea svc/gitea-http 3000:3000 &
 git clone http://kubernaut:kubernaut123@localhost:3000/kubernaut/demo-gitops-repo.git /tmp/gitops-break
 cd /tmp/gitops-break
 
-# Edit manifests/configmap.yaml -- set NGINX_PORT to "INVALID_PORT_CAUSES_CRASH"
-# This causes nginx to fail to start, entering CrashLoopBackOff
+# Edit manifests/configmap.yaml -- add "invalid_directive_that_breaks_nginx on;" to the http block
+# This causes nginx to fail config validation on startup, entering CrashLoopBackOff
 
 git add . && git commit -m "chore: update nginx config (broken value)" && git push
 

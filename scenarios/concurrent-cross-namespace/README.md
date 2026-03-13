@@ -34,6 +34,12 @@ Same incident (CrashLoopBackOff), different risk tolerances → different workfl
 
 - **#172**: Concurrent cross-namespace scenario
 
+## Cleanup
+
+```bash
+./scenarios/concurrent-cross-namespace/cleanup.sh
+```
+
 ## Note
 
 Custom labels Rego policies use `package signalprocessing.customlabels` with a `labels` rule. The engine queries `data.signalprocessing.customlabels.labels`, keeping custom labels in a dedicated package separate from the 5 mandatory label classifiers.

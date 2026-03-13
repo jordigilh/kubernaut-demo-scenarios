@@ -26,10 +26,52 @@ detects this and rolls back to the previous working revision.
 ./scenarios/stuck-rollout/run.sh
 ```
 
+## Manual Step-by-Step
+
+### 1. Deploy scenario resources
+
+```bash
+kubectl apply -k scenarios/stuck-rollout/manifests/
+kubectl wait --for=condition=Available deployment/checkout-api \
+  -n demo-rollout --timeout=120s
+```
+
+### 2. Establish baseline
+
+```bash
+kubectl get pods -n demo-rollout
+# All 3 replicas should be Running with nginx:1.27-alpine
+sleep 15
+```
+
+### 3. Inject bad image
+
+```bash
+bash scenarios/stuck-rollout/inject-bad-image.sh
+```
+
+The script sets the deployment image to a non-existent tag. New pods will enter
+ImagePullBackOff and the rollout will exceed `progressDeadlineSeconds` (~2 min).
+
+### 4. Wait for alert and pipeline
+
+```bash
+# Alert fires ~3 min after injection (2 min progressDeadline + 1 min for duration)
+kubectl get rr,sp,aa,we,ea -n kubernaut-system -w
+```
+
+### 5. Verify remediation
+
+```bash
+kubectl get pods -n demo-rollout
+# All 3 replicas should be Running with the original nginx:1.27-alpine image
+kubectl rollout history deployment/checkout-api -n demo-rollout
+```
+
 ## Cleanup
 
 ```bash
-kubectl delete namespace demo-rollout
+./scenarios/stuck-rollout/cleanup.sh
 ```
 
 ## BDD Specification

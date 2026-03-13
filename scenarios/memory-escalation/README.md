@@ -20,6 +20,12 @@
 
 BR-WORKFLOW-004
 
+## Cleanup
+
+```bash
+./scenarios/memory-escalation/cleanup.sh
+```
+
 ## Issue
 
 #168
