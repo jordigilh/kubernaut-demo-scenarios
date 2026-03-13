@@ -76,13 +76,9 @@ echo ""
 
 # Step 1: Deploy both namespaces and workloads
 echo "==> Step 1: Deploying team-alpha and team-beta workloads..."
-for team in team-alpha team-beta; do
-  echo "  Deploying ${team}..."
-  kubectl apply -f "${SCRIPT_DIR}/manifests/${team}/namespace.yaml"
-  kubectl apply -f "${SCRIPT_DIR}/manifests/${team}/configmap.yaml"
-  kubectl apply -f "${SCRIPT_DIR}/manifests/${team}/deployment.yaml"
-  kubectl apply -f "${SCRIPT_DIR}/manifests/${team}/prometheus-rule.yaml"
-done
+echo "  Deploying both teams..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 echo ""
 
 # Step 2: Wait for healthy deployments

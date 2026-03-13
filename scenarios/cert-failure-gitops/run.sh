@@ -82,7 +82,7 @@ git config user.name "Kubernaut Setup"
 
 mkdir -p manifests
 
-cat > manifests/namespace.yaml <<'MANIFEST'
+cat > manifests/namespace.yaml <<MANIFEST
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -93,6 +93,7 @@ metadata:
     kubernaut.ai/service-owner: platform-team
     kubernaut.ai/criticality: high
     kubernaut.ai/sla-tier: tier-1
+$([ "$PLATFORM" = "ocp" ] && echo '    openshift.io/cluster-monitoring: "true"')
 MANIFEST
 
 cat > manifests/clusterissuer.yaml <<'MANIFEST'
@@ -123,7 +124,15 @@ spec:
   renewBefore: 360h
 MANIFEST
 
-cat > manifests/deployment.yaml <<'MANIFEST'
+if [ "$PLATFORM" = "ocp" ]; then
+    NGINX_IMAGE="nginxinc/nginx-unprivileged:1.27-alpine"
+    NGINX_PORT=8443
+else
+    NGINX_IMAGE="nginx:1.27-alpine"
+    NGINX_PORT=443
+fi
+
+cat > manifests/deployment.yaml <<MANIFEST
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -144,9 +153,9 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:1.27-alpine
+        image: ${NGINX_IMAGE}
         ports:
-        - containerPort: 443
+        - containerPort: ${NGINX_PORT}
         volumeMounts:
         - name: tls
           mountPath: /etc/nginx/ssl
@@ -176,8 +185,8 @@ spec:
   selector:
     app: demo-app
   ports:
-  - port: 443
-    targetPort: 443
+  - port: ${NGINX_PORT}
+    targetPort: ${NGINX_PORT}
   type: ClusterIP
 MANIFEST
 
@@ -189,12 +198,14 @@ kill "${PF_PID}" 2>/dev/null || true
 cd /
 rm -rf "${WORK_DIR}"
 
-# Step 5: Deploy ArgoCD Application
-echo "==> Step 5: Creating ArgoCD Application..."
+# Step 5: Deploy ServiceMonitor, PrometheusRule, and ArgoCD Application
+echo "==> Step 5: Applying manifests (ServiceMonitor, PrometheusRule, ArgoCD Application)..."
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f "${SCRIPT_DIR}/manifests/servicemonitor.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/argocd-application.yaml"
+if [ "$PLATFORM" = "ocp" ]; then
+    kubectl label namespace "${NAMESPACE}" openshift.io/cluster-monitoring=true --overwrite
+fi
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
 echo "  Waiting for ArgoCD sync..."
 sleep 15

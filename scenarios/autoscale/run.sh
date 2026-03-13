@@ -43,49 +43,45 @@ echo " Cluster Autoscaling Demo (#126)"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy namespace and workload manifests
-echo "==> Step 1: Deploying namespace and workload..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
+# Step 1: Deploy scenario resources
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 2: Deploy Prometheus alerting rules
-echo "==> Step 2: Deploying Prometheus alerting rules..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 3: Wait for initial deployment to be ready (2 replicas)
-echo "==> Step 3: Waiting for initial deployment (2 replicas)..."
+# Step 2: Wait for initial deployment to be ready (2 replicas)
+echo "==> Step 2: Waiting for initial deployment (2 replicas)..."
 kubectl wait --for=condition=Available deployment/web-cluster \
   -n "${NAMESPACE}" --timeout=120s
 echo "  web-cluster is healthy with 2 replicas."
 kubectl get pods -n "${NAMESPACE}" -o wide
 echo ""
 
-# Step 4: Register workflow in DataStorage (placeholder)
-echo "==> Step 4: Workflow registration..."
+# Step 3: Register workflow in DataStorage (placeholder)
+echo "==> Step 3: Workflow registration..."
 echo "  TODO: Build and push provision-node-v1 OCI bundle, register via DataStorage API."
 echo "  For now, ensure the workflow is pre-seeded in the catalog."
 echo ""
 
-# Step 5: Start the host-side provisioner agent in background
-echo "==> Step 5: Starting provisioner agent..."
+# Step 4: Start the host-side provisioner agent in background
+echo "==> Step 4: Starting provisioner agent..."
 bash "${SCRIPT_DIR}/provisioner.sh" &
 PROVISIONER_PID=$!
 echo "  Provisioner running (PID: $PROVISIONER_PID)"
 echo ""
 
-# Step 6: Inject failure -- scale beyond node capacity
-echo "==> Step 6: Injecting failure (scaling to 8 replicas)..."
+# Step 5: Inject failure -- scale beyond node capacity
+echo "==> Step 5: Injecting failure (scaling to 8 replicas)..."
 kubectl scale deployment/web-cluster --replicas=8 -n "${NAMESPACE}"
 echo "  Scaled to 8 replicas. With 8x512Mi = 4GB requested, worker node cannot fit all."
 echo ""
 
-# Step 7: Show pending pods
-echo "==> Step 7: Waiting 15s for pods to enter Pending state..."
+# Step 6: Show pending pods
+echo "==> Step 6: Waiting 15s for pods to enter Pending state..."
 sleep 15
 kubectl get pods -n "${NAMESPACE}" -o wide
 echo ""
 
-# Step 8: Validate pipeline
+# Step 7: Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."

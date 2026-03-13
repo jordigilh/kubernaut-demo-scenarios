@@ -36,28 +36,24 @@ echo "==> Step 1: Tainting worker node with NoSchedule..."
 bash "${SCRIPT_DIR}/inject-taint.sh"
 echo ""
 
-# Step 2: Deploy namespace and workload (pods will be Pending)
-echo "==> Step 2: Deploying namespace and batch-processor..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
+# Step 2: Deploy scenario resources (pods will be Pending)
+echo "==> Step 2: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 3: Deploy Prometheus alerting rules
-echo "==> Step 3: Deploying pending pods alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 4: Verify pods are Pending
-echo "==> Step 4: Verifying pods are stuck in Pending..."
+# Step 3: Verify pods are Pending
+echo "==> Step 3: Verifying pods are stuck in Pending..."
 sleep 5
 kubectl get pods -n "${NAMESPACE}"
 echo "  Pods should show Pending (taint blocks scheduling on worker node)."
 echo ""
 
-# Step 5: Wait for alert
-echo "==> Step 5: Waiting for Pending alert to fire (~3 min)..."
+# Step 4: Wait for alert
+echo "==> Step 4: Waiting for Pending alert to fire (~3 min)..."
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 
-# Step 6: Validate pipeline
+# Step 5: Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."

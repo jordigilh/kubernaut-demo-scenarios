@@ -32,17 +32,13 @@ echo " Node NotReady Demo (#127)"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy namespace and workload
-echo "==> Step 1: Deploying namespace and web-service (3 replicas)..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
+# Step 1: Deploy scenario resources
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 2: Deploy Prometheus alerting rules
-echo "==> Step 2: Deploying NodeNotReady alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 3: Wait for healthy deployment
-echo "==> Step 3: Waiting for web-service to be ready..."
+# Step 2: Wait for healthy deployment
+echo "==> Step 2: Waiting for web-service to be ready..."
 kubectl wait --for=condition=Available deployment/web-service \
   -n "${NAMESPACE}" --timeout=120s
 echo "  web-service is running (3 replicas)."
@@ -60,7 +56,7 @@ echo "  Check: kubectl get nodes -w"
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 
-# Step 6: Validate pipeline
+# Step 5: Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."

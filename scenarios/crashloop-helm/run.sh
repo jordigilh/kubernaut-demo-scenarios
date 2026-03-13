@@ -34,15 +34,20 @@ echo ""
 
 # Step 1: Install via Helm
 echo "==> Step 1: Installing workload via Helm chart..."
+HELM_VALUES_ARGS=""
+if [ "$PLATFORM" = "ocp" ]; then
+    HELM_VALUES_ARGS="-f ${SCRIPT_DIR}/chart/values-ocp.yaml"
+fi
 helm upgrade --install demo-crashloop-helm "${SCRIPT_DIR}/chart" \
-  -n "${NAMESPACE}" --create-namespace --wait --timeout 120s
+  -n "${NAMESPACE}" --create-namespace --wait --timeout 120s ${HELM_VALUES_ARGS}
 echo "  Helm release installed. Deployment has app.kubernetes.io/managed-by: Helm label."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
 # Step 2: Deploy Prometheus alerting rules (outside Helm to keep it simple)
 echo "==> Step 2: Deploying CrashLoop detection alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
 # Step 3: Baseline
 echo "==> Step 3: Establishing healthy baseline (20s)..."

@@ -25,10 +25,9 @@ echo " StatefulSet PVC Failure Demo (#137)"
 echo "============================================="
 echo ""
 
-echo "==> Step 1: Deploying namespace and StatefulSet..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/statefulset.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
 echo "==> Step 2: Waiting for all StatefulSet pods to be ready..."
 kubectl rollout status statefulset/kv-store -n "${NAMESPACE}" --timeout=180s

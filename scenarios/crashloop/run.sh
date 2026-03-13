@@ -31,43 +31,38 @@ echo " CrashLoopBackOff Remediation Demo (#120)"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy namespace and workload with healthy config
-echo "==> Step 1: Deploying namespace, healthy worker, and service..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/configmap.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
+# Step 1: Deploy scenario resources
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 2: Deploy Prometheus alerting rules
-echo "==> Step 2: Deploying CrashLoop detection alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 3: Wait for healthy deployment
-echo "==> Step 3: Waiting for worker to be healthy..."
+# Step 2: Wait for healthy deployment
+echo "==> Step 2: Waiting for worker to be healthy..."
 kubectl wait --for=condition=Available deployment/worker \
   -n "${NAMESPACE}" --timeout=120s
 echo "  Worker is running with valid configuration."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
-# Step 4: Establish baseline (let Prometheus scrape healthy state)
-echo "==> Step 4: Establishing healthy baseline (20s)..."
+# Step 3: Establish baseline (let Prometheus scrape healthy state)
+echo "==> Step 3: Establishing healthy baseline (20s)..."
 sleep 20
 echo "  Baseline established. Restart count is 0."
 echo ""
 
-# Step 5: Inject bad configuration
-echo "==> Step 5: Injecting invalid nginx config (triggers CrashLoopBackOff)..."
+# Step 4: Inject bad configuration
+echo "==> Step 4: Injecting invalid nginx config (triggers CrashLoopBackOff)..."
 bash "${SCRIPT_DIR}/inject-bad-config.sh"
 echo ""
 
-# Step 6: Wait for alert
-echo "==> Step 6: Waiting for CrashLoop alert to fire (~2-3 min)..."
+# Step 5: Wait for alert
+echo "==> Step 5: Waiting for CrashLoop alert to fire (~2-3 min)..."
 echo "  Pods will fail to start with 'unknown directive' error."
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo "  The KubePodCrashLooping alert fires after >3 restarts in 10 min."
 echo ""
 
-# Step 7: Validate pipeline
+# Step 6: Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
