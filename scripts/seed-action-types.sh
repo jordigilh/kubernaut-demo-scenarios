@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Seed ActionType CRDs in the cluster.
-# Applies all ActionType YAML files from the kubernaut repo's deploy/action-types/ and waits
+# Applies all ActionType YAML files from deploy/action-types/ and waits
 # for the admission webhook to register them in Data Storage.
 #
 # Usage:
@@ -47,9 +47,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-KUBERNAUT_REPO="${KUBERNAUT_REPO:-$(cd "${REPO_ROOT}/../kubernaut" 2>/dev/null && pwd)}"
-ACTION_TYPES_DIR="${KUBERNAUT_REPO}/deploy/action-types"
+ACTION_TYPES_DIR="${SCRIPT_DIR}/../deploy/action-types"
 
 if [ ! -d "$ACTION_TYPES_DIR" ]; then
     echo "ERROR: ActionType CRD directory not found: ${ACTION_TYPES_DIR}"
