@@ -10,10 +10,6 @@ CHART_DIR="${KUBERNAUT_REPO}/charts/kubernaut"
 KIND_VALUES="${REPO_ROOT}/helm/kubernaut-kind-values.yaml"
 LLM_VALUES="${HOME}/.kubernaut/helm/llm-values.yaml"
 
-# Respect user-provided KUBECONFIG; fall back to the demo-specific file
-# created by kind-helper.sh so Kind users get isolation from ~/.kube/config.
-export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
-
 # ── Platform detection ───────────────────────────────────────────────────────
 # Detects whether the target cluster is OpenShift (ocp) or vanilla Kubernetes (kind).
 # Override with PLATFORM=ocp or PLATFORM=kind before sourcing this file.
@@ -29,6 +25,13 @@ detect_platform() {
 
 PLATFORM="${PLATFORM:-$(detect_platform)}"
 export PLATFORM
+
+# For Kind clusters, use the demo-specific kubeconfig created by kind-helper.sh
+# so Kind users get isolation from ~/.kube/config. OCP users keep their
+# default kubeconfig (~/.kube/config) or any user-provided KUBECONFIG.
+if [ -z "${KUBECONFIG:-}" ] && [ "$PLATFORM" = "kind" ]; then
+    export KUBECONFIG="${HOME}/.kube/kubernaut-demo-config"
+fi
 
 # Returns the kustomize directory to use for kubectl apply -k.
 # Uses the OCP overlay when available and PLATFORM=ocp, otherwise the base manifests.
