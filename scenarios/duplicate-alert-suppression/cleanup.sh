@@ -3,6 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/platform-helper.sh
+source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up Duplicate Alert Suppression demo..."
 
@@ -14,8 +16,6 @@ while kubectl get ns demo-alert-storm &>/dev/null; do
   sleep 2
 done
 
-echo "==> Restarting AlertManager to clear stale notification state..."
-kubectl rollout restart statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring
-kubectl rollout status statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring --timeout=60s
+restart_alertmanager
 
 echo "==> Cleanup complete."
