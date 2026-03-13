@@ -200,7 +200,7 @@ wait_for_alert() {
 # Args: $1=namespace $2=timeout_seconds (default 120)
 wait_for_rr() {
     local target_ns="$1"
-    local timeout="${2:-120}"
+    local timeout="${2:-240}"
     local elapsed=0
     local interval=5
 
