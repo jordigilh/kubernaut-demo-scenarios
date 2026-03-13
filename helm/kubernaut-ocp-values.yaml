@@ -1,0 +1,41 @@
+# OCP-specific value overrides for the Kubernaut Helm chart.
+# No NodePort, no nodeSelector (OCP schedules to worker nodes).
+# cert-manager TLS mode (OCP has cert-manager installed).
+global:
+  image:
+    tag: 1.0.1-rc1-amd64
+
+tls:
+  mode: cert-manager
+  certManager:
+    issuerRef:
+      name: selfsigned-issuer
+      kind: ClusterIssuer
+      group: cert-manager.io
+
+gateway:
+  auth:
+    signalSources:
+      - name: alertmanager
+        serviceAccount: alertmanager-main
+        namespace: openshift-monitoring
+
+datastorage:
+  dbExistingSecret: kubernaut-ds-db-credentials
+
+postgresql:
+  auth:
+    existingSecret: kubernaut-pg-credentials
+
+redis:
+  existingSecret: kubernaut-redis-credentials
+
+notification:
+  slack:
+    enabled: true
+    channel: "#kubernaut-alerts"
+
+effectivenessmonitor:
+  external:
+    prometheusEnabled: false
+    alertManagerEnabled: false

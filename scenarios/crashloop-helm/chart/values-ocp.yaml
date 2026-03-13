@@ -1,0 +1,4 @@
+# OCP-specific values override
+image:
+  repository: nginxinc/nginx-unprivileged
+  tag: "1.27-alpine"
