@@ -87,10 +87,10 @@ if [ "${GROUP_FILTER}" = "ALL" ] || [ "${GROUP_FILTER}" = "D" ]; then
   record_scenario cert-failure
 fi
 
-# ── Group E: Linkerd ─────────────────────────────────────
+# ── Group E: Istio ───────────────────────────────────────
 if [ "${GROUP_FILTER}" = "ALL" ] || [ "${GROUP_FILTER}" = "E" ]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  GROUP E — Linkerd (1 scenario)"
+  echo "  GROUP E — Istio (1 scenario)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   record_scenario mesh-routing-failure
 fi

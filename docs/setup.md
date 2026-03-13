@@ -210,7 +210,7 @@ This takes ~10 minutes on first run and performs the following steps:
 
 1. **Kind cluster** -- Creates a multi-node Kind cluster (`kubernaut-demo`) with port mappings for Gateway, DataStorage, and monitoring
 2. **Monitoring stack** -- Installs kube-prometheus-stack (Prometheus, AlertManager, Grafana, kube-state-metrics) and the Kubernaut Grafana dashboard
-3. **Infrastructure dependencies** -- cert-manager, metrics-server, Linkerd, blackbox-exporter, Gitea, ArgoCD
+3. **Infrastructure dependencies** -- cert-manager, metrics-server, Istio, blackbox-exporter, Gitea, ArgoCD
 4. **Kubernaut platform** -- Installs the Helm chart from the sibling `kubernaut/charts/kubernaut/` directory, including CRDs, pre-install Secrets, and all 10 platform services
 5. **Workflow catalog** -- Seeds ActionType CRDs and registers all scenario workflows in DataStorage
 
@@ -221,7 +221,7 @@ Every step is idempotent -- you can safely re-run the script if it fails partway
 | Flag | Purpose |
 |------|---------|
 | `--create-cluster` | Delete and recreate the Kind cluster from scratch |
-| `--skip-infra` | Skip optional infrastructure (cert-manager, Linkerd, Gitea, ArgoCD) |
+| `--skip-infra` | Skip optional infrastructure (cert-manager, Istio, Gitea, ArgoCD) |
 | `--with-awx` | Install AWX (required for the `memory-limits-gitops-ansible` scenario) |
 | `--kind-config PATH` | Custom Kind cluster config (default: `scenarios/kind-config-multinode.yaml`) |
 
@@ -252,7 +252,7 @@ Each scenario's `run.sh` does three things:
 
 Browse all 23 available scenarios in the [Scenario Catalog](scenarios.md).
 
-> **Infrastructure dependencies:** Some scenarios require components like cert-manager, Linkerd, or AWX that are only installed when `setup-demo-cluster.sh` runs without `--skip-infra`. If a required component is missing, `run.sh` will exit with a clear error message. See the [dependency table](scenarios.md#dependencies) for details.
+> **Infrastructure dependencies:** Some scenarios require components like cert-manager, Istio, or AWX that are only installed when `setup-demo-cluster.sh` runs without `--skip-infra`. If a required component is missing, `run.sh` will exit with a clear error message. See the [dependency table](scenarios.md#dependencies) for details.
 
 ## Optional: Slack Notifications
 
@@ -275,7 +275,7 @@ kubectl rollout restart deployment/notification-controller -n kubernaut-system
 scripts/
   setup-demo-cluster.sh            # Bootstrap orchestrator (Kind + monitoring + platform + catalog)
   platform-helper.sh               # Helm chart deployment helpers
-  monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Linkerd, etc.
+  monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
   kind-helper.sh                   # Kind cluster lifecycle
   seed-workflows.sh                # Register workflows in DataStorage
   seed-action-types.sh             # Apply ActionType CRDs
