@@ -48,10 +48,11 @@ while kubectl get ns "${NAMESPACE}" &>/dev/null; do
 done
 
 # Remove Kubernaut labels from the node that was labeled for this scenario
-for node in $(kubectl get nodes -l kubernaut.ai/environment=production,kubernaut.ai/business-unit=infrastructure \
-  -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+for node in $(kubectl get nodes -l kubernaut.ai/managed=true \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
     echo "  Removing Kubernaut labels from node: ${node}"
     kubectl label node "$node" \
+        kubernaut.ai/managed- \
         kubernaut.ai/environment- \
         kubernaut.ai/business-unit- \
         kubernaut.ai/service-owner- \

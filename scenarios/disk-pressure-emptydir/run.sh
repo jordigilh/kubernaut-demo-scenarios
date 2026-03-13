@@ -264,9 +264,15 @@ echo "  PostgreSQL is running with emptyDir storage."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
-# Step 5: Let init SQL run
-echo "==> Step 5: Waiting for init SQL to complete (15s)..."
-sleep 15
+# Step 5: Run init SQL explicitly.
+# The standard Docker image auto-runs /docker-entrypoint-initdb.d/*.sql, but the
+# Red Hat sclorg image does not. Run it via psql for both platforms.
+echo "==> Step 5: Running init SQL..."
+local init_pod
+init_pod=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir \
+  -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n "${NAMESPACE}" "${init_pod}" -- \
+  psql -U postgres -d postgres -f /docker-entrypoint-initdb.d/init.sql 2>&1 | sed 's/^/    /'
 echo "  simulate_data_growth() procedure is available."
 echo ""
 }
@@ -283,6 +289,7 @@ _label_target_node() {
     fi
     echo "==> Labeling node ${node} for Kubernaut signal acceptance..."
     kubectl label node "$node" \
+        kubernaut.ai/managed=true \
         kubernaut.ai/environment=production \
         kubernaut.ai/business-unit=infrastructure \
         kubernaut.ai/service-owner=platform-team \
@@ -293,9 +300,10 @@ _label_target_node() {
 
 _unlabel_target_node() {
     local node
-    for node in $(kubectl get nodes -l kubernaut.ai/environment=production,kubernaut.ai/business-unit=infrastructure \
-      -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+    for node in $(kubectl get nodes -l kubernaut.ai/managed=true \
+      -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
         kubectl label node "$node" \
+            kubernaut.ai/managed- \
             kubernaut.ai/environment- \
             kubernaut.ai/business-unit- \
             kubernaut.ai/service-owner- \
