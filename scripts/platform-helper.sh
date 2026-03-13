@@ -283,11 +283,11 @@ _ensure_pre_install_secrets() {
 password: ${pg_password}" \
         --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
 
-    local redis_password="${KUBERNAUT_REDIS_PASSWORD:-}"
-    echo "  Creating Redis credential Secret..."
-    kubectl create secret generic kubernaut-redis-credentials \
+    local valkey_password="${KUBERNAUT_VALKEY_PASSWORD:-}"
+    echo "  Creating Valkey credential Secret..."
+    kubectl create secret generic kubernaut-valkey-credentials \
         -n "${PLATFORM_NS}" \
-        --from-literal="redis-secrets.yaml=password: \"${redis_password}\"" \
+        --from-literal="valkey-secrets.yaml=password: \"${valkey_password}\"" \
         --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
 }
 
