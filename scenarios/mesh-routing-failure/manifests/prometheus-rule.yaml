@@ -9,32 +9,32 @@ spec:
   groups:
   - name: kubernaut-mesh-failure
     rules:
-    - alert: LinkerdHighErrorRate
+    - alert: IstioHighDenyRate
       expr: |
-        sum by (namespace)(rate(inbound_http_authz_deny_total{namespace="demo-mesh-failure"}[5m])) > 0
+        sum by (namespace)(rate(istio_requests_total{namespace="demo-mesh-failure", response_code="403"}[5m])) > 0
       for: 3m
       labels:
         severity: critical
       annotations:
         summary: >
-          Linkerd AuthorizationPolicy is denying inbound HTTP requests
+          Istio AuthorizationPolicy is denying inbound HTTP requests
           in namespace demo-mesh-failure.
         description: >
-          The inbound_http_authz_deny_total metric is rising, indicating
-          a Linkerd AuthorizationPolicy is blocking legitimate traffic.
-          This is typically caused by a restrictive policy requiring an
-          identity that no client possesses.
-    - alert: LinkerdRequestsUnauthorized
+          The istio_requests_total metric with response_code=403 is rising,
+          indicating an Istio AuthorizationPolicy is blocking legitimate
+          traffic. This is typically caused by a DENY policy matching all
+          requests.
+    - alert: IstioRequestsUnauthorized
       expr: |
-        sum by (namespace)(rate(inbound_http_authz_deny_total{namespace="demo-mesh-failure"}[2m])) > 0.1
+        sum by (namespace)(rate(istio_requests_total{namespace="demo-mesh-failure", response_code="403"}[2m])) > 0.1
       for: 3m
       labels:
         severity: critical
       annotations:
         summary: >
-          Sustained Linkerd authorization denials detected in
+          Sustained Istio authorization denials detected in
           namespace demo-mesh-failure.
         description: >
-          A Linkerd AuthorizationPolicy is actively denying inbound traffic
+          An Istio AuthorizationPolicy is actively denying inbound traffic
           to workloads in namespace demo-mesh-failure, causing service
           unavailability for meshed clients.

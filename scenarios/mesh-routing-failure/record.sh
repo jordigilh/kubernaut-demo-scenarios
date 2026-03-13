@@ -2,7 +2,7 @@
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO_NAME="mesh-routing-failure"
 DEMO_NS="demo-mesh-failure"
-ALERT_NAME="LinkerdHighErrorRate"
+ALERT_NAME="IstioHighDenyRate"
 RESOURCE_TAPE="mesh-routing-failure-pods.tape"
 SCREENS_TAPE="mesh-routing-failure-screens.tape"
 APPROVAL_REQUIRED="false"

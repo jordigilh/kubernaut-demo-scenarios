@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Linkerd Mesh Routing Failure Demo -- Automated Runner
+# Istio Mesh Routing Failure Demo -- Automated Runner
 # Scenario #136: AuthorizationPolicy blocks traffic -> fix policy
 #
 # Prerequisites:
-#   - Kind cluster with Kubernaut services
-#   - Prometheus scraping Linkerd metrics
+#   - Cluster with Kubernaut services
+#   - Istio installed (Kind: upstream Istio / OCP: OpenShift Service Mesh)
+#   - Prometheus scraping Istio sidecar metrics
 #
 # Usage: ./scenarios/mesh-routing-failure/run.sh
 set -euo pipefail
@@ -27,26 +28,24 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
 # shellcheck source=../../scripts/monitoring-helper.sh
 source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
-require_infra linkerd
+require_infra istio
 
 echo "============================================="
-echo " Linkerd Mesh Routing Failure Demo (#136)"
+echo " Istio Mesh Routing Failure Demo (#136)"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy workload
+# Step 1: Deploy scenario resources (namespace with istio-injection, workload, monitoring)
 echo "==> Step 1: Deploying namespace and meshed workload..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/linkerd-podmonitor.yaml"
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
 echo "  Waiting for deployments to be ready..."
 kubectl wait --for=condition=Available deployment/api-server \
   -n "${NAMESPACE}" --timeout=120s
 kubectl wait --for=condition=Available deployment/traffic-gen \
   -n "${NAMESPACE}" --timeout=120s
-echo "  Workload and traffic generator deployed with Linkerd sidecars."
+echo "  Workload and traffic generator deployed with Istio sidecars."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
@@ -64,7 +63,7 @@ echo ""
 
 # Step 4: Monitor
 echo "==> Step 4: Waiting for high error rate alert (~2-3 min)..."
-echo "  Linkerd proxy will deny all inbound traffic (403 Forbidden)."
+echo "  Istio sidecar will deny all inbound traffic (HTTP 403 Forbidden)."
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 # Validate pipeline

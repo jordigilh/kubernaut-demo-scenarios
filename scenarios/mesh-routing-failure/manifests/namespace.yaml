@@ -9,5 +9,4 @@ metadata:
     kubernaut.ai/criticality: high
     kubernaut.ai/managed: "true"
     kubernaut.ai/sla-tier: tier-1
-  annotations:
-    linkerd.io/inject: enabled
+    istio-injection: enabled
