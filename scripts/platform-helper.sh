@@ -83,8 +83,30 @@ silence_alert() {
       --comment="Cleanup silence" 2>/dev/null || true
 }
 
+# Ensure all ActionType and RemediationWorkflow CRDs are applied.
+# Idempotent: kubectl apply is a no-op when resources are unchanged.
+seed_action_types_and_workflows() {
+    local at_dir="${REPO_ROOT}/deploy/action-types"
+    local scenarios_dir="${REPO_ROOT}/scenarios"
+
+    if [ -d "$at_dir" ] && ls "$at_dir"/*.yaml &>/dev/null; then
+        echo "==> Seeding ActionType CRDs..."
+        kubectl apply -f "$at_dir/" 2>&1 | grep -v unchanged | sed 's/^/    /' || true
+    fi
+
+    local workflow_dirs
+    workflow_dirs=$(find "$scenarios_dir" -type d -name workflow 2>/dev/null)
+    if [ -n "$workflow_dirs" ]; then
+        echo "==> Seeding RemediationWorkflow CRDs..."
+        echo "$workflow_dirs" | while read -r dir; do
+            kubectl apply -f "$dir/" 2>&1 | grep -v unchanged | sed 's/^/    /' || true
+        done
+    fi
+}
+
 # Validate that the demo environment is ready (no installs).
 # Checks: kubeconfig, Kubernaut Helm release, all deployments ready, monitoring stack.
+# After validation, seeds all ActionType and RemediationWorkflow CRDs.
 # Exits with a clear error if anything is missing.
 require_demo_ready() {
     local fail=false
@@ -138,6 +160,8 @@ require_demo_ready() {
         fi
         exit 1
     fi
+
+    seed_action_types_and_workflows
 }
 
 wait_platform_ready() {
