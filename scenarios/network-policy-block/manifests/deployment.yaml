@@ -128,12 +128,6 @@ spec:
           limits:
             memory: "32Mi"
             cpu: "20m"
-        livenessProbe:
-          exec:
-            command: ["curl", "-sf", "-o", "/dev/null", "-m", "3", "http://web-frontend.demo-netpol:8080/healthz"]
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          failureThreshold: 3
         readinessProbe:
           exec:
             command: ["curl", "-sf", "-o", "/dev/null", "-m", "3", "http://web-frontend.demo-netpol:8080/healthz"]

@@ -45,7 +45,7 @@ bash "${SCRIPT_DIR}/inject-deny-all-netpol.sh"
 echo ""
 
 echo "==> Step 5: Waiting for KubeDeploymentReplicasMismatch alert (~3-4 min)..."
-echo "  Health checks will fail -> pods become NotReady -> restarts begin."
+echo "  Readiness probes will fail -> traffic-gen becomes NotReady."
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 # Validate pipeline
