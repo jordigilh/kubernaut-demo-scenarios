@@ -2,7 +2,7 @@
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO_NAME="network-policy-block"
 DEMO_NS="demo-netpol"
-ALERT_NAME="KubePodCrashLooping"
+ALERT_NAME="KubeDeploymentReplicasMismatch"
 ALERT_QUERY_NS="demo-netpol"
 RESOURCE_TAPE="network-policy-block-pods.tape"
 SCREENS_TAPE="network-policy-block-screens.tape"

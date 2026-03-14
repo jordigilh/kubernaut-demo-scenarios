@@ -113,7 +113,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-alert.sh KubePodCrashLooping"
+Type "bash scripts/show-alert.sh KubeDeploymentReplicasMismatch"
 Enter
 Sleep 10s
 
@@ -254,7 +254,7 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type `printf '\e[H\e[J\n\e[1;33m━━ Summary ━━\e[0m\n\n\e[38;5;245m  • Kubernaut detected KubePodCrashLooping alert (namespace-filtered) from Prometheus\n  • AI analysis identified: deny-all NetworkPolicy blocking traffic\n  • Selected workflow: RemoveNetworkPolicy (auto-approved)\n  • Workflow removed deny policy\n  • Users notified via Slack and console\n  • EffectivenessAssessment confirmed: remediation successful\e[0m\n'`
+Type `printf '\e[H\e[J\n\e[1;33m━━ Summary ━━\e[0m\n\n\e[38;5;245m  • Kubernaut detected KubeDeploymentReplicasMismatch alert (namespace-filtered) from Prometheus\n  • AI analysis identified: deny-all NetworkPolicy blocking traffic\n  • Selected workflow: RemoveNetworkPolicy (auto-approved)\n  • Workflow removed deny policy\n  • Users notified via Slack and console\n  • EffectivenessAssessment confirmed: remediation successful\e[0m\n'`
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
