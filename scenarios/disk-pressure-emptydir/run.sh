@@ -528,9 +528,8 @@ NODE=$(kubectl get pod "$POD" -n "${NAMESPACE}" -o jsonpath='{.spec.nodeName}')
 echo "==> Target node: ${NODE}"
 
 # ── Dynamic rate calculation based on node filesystem capacity ──────────
-# Query Prometheus for the node's available and total disk space.
-# Compute the stored procedure params so predict_linear() fires with ~3 min
-# margin before kubelet eviction, regardless of node size.
+# Get disk stats directly from the postgres pod (which runs on the target
+# node).  No Prometheus dependency -- just `df`.
 #
 # PrometheusRule: predict_linear(v[5m], 600) < 0 for 1m
 #   W=300s (window), H=600s (horizon), F=60s (for clause)
@@ -541,28 +540,18 @@ echo "==> Target node: ${NODE}"
 #   eviction when:    current < threshold  →  time = (avail - threshold) / R
 #   margin = H - F - threshold/R  →  R = threshold / (H - F - margin)
 
-MONITORING_NS="${MONITORING_NS:-openshift-monitoring}"
-PROM_POD=$(kubectl get pods -n "${MONITORING_NS}" -l app.kubernetes.io/name=prometheus \
-  --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+DF_LINE=$(kubectl exec -n "${NAMESPACE}" "${POD}" -- df -B1 / 2>/dev/null | tail -1)
+TOTAL_BYTES=$(echo "$DF_LINE" | awk '{print $2}')
+AVAIL_BYTES=$(echo "$DF_LINE" | awk '{print $4}')
 
-_prom_query() {
-    kubectl exec -n "${MONITORING_NS}" "${PROM_POD}" -c prometheus -- \
-      wget -qO- "http://localhost:9090/api/v1/query?query=$1" 2>/dev/null | \
-      python3 -c "import sys,json; print(json.loads(sys.stdin.read())['data']['result'][0]['value'][1])" 2>/dev/null
-}
-
-AVAIL_BYTES=$(_prom_query "node_filesystem_avail_bytes%7Bmountpoint%3D%22%2F%22%2Cinstance%3D~%22${NODE}.*%22%7D")
-TOTAL_BYTES=$(_prom_query "node_filesystem_size_bytes%7Bmountpoint%3D%22%2F%22%2Cinstance%3D~%22${NODE}.*%22%7D")
-
-if [ -z "$AVAIL_BYTES" ] || [ -z "$TOTAL_BYTES" ]; then
-    echo "ERROR: Could not query Prometheus for node filesystem metrics"
+if [ -z "$TOTAL_BYTES" ] || [ -z "$AVAIL_BYTES" ]; then
+    echo "ERROR: Could not read filesystem stats from pod ${POD}"
     exit 1
 fi
 
-# Calculate in MB for readability
-AVAIL_MB=$(python3 -c "print(int(${AVAIL_BYTES} / (1024*1024)))")
-TOTAL_MB=$(python3 -c "print(int(${TOTAL_BYTES} / (1024*1024)))")
-THRESHOLD_MB=$(python3 -c "print(int(${TOTAL_MB} * 0.15))")  # kubelet default: 15%
+AVAIL_MB=$(( AVAIL_BYTES / 1048576 ))
+TOTAL_MB=$(( TOTAL_BYTES / 1048576 ))
+THRESHOLD_MB=$(( TOTAL_MB * 15 / 100 ))  # kubelet default: 15%
 USABLE_MB=$(( AVAIL_MB - THRESHOLD_MB ))
 
 if [ "$USABLE_MB" -lt 1024 ]; then
@@ -572,28 +561,16 @@ fi
 
 # predict_linear params: W=300, H=600, F=60, desired_margin=180
 # R_MB_s = THRESHOLD_MB / (600 - 60 - 180) = THRESHOLD_MB / 360
-RATE_MB_S=$(python3 -c "
-threshold_mb = ${THRESHOLD_MB}
-rate = threshold_mb / 360.0
-rate = max(rate, 5.0)       # floor: 5 MB/s minimum for meaningful slope
-rate = min(rate, 100.0)     # cap: 100 MB/s to avoid overwhelming I/O
-print(f'{rate:.1f}')
-")
+# Using awk for floating-point math (no python3 dependency).
+RATE_MB_S=$(awk "BEGIN { r=${THRESHOLD_MB}/360; if(r<5)r=5; if(r>100)r=100; printf \"%.1f\",r }")
 
 SLEEP_MS=50
-BATCH_SIZE=$(python3 -c "print(max(100, int(${RATE_MB_S} * ${SLEEP_MS} / 1000.0 * 1024)))")
-ITERATIONS=$(python3 -c "print(int(${USABLE_MB} * 1024.0 / ${BATCH_SIZE}) + 1000)")
+BATCH_SIZE=$(awk "BEGIN { v=int(${RATE_MB_S}*${SLEEP_MS}/1000*1024); if(v<100)v=100; print v }")
+ITERATIONS=$(awk "BEGIN { print int(${USABLE_MB}*1024/${BATCH_SIZE})+1000 }")
 
-# Estimate timing
-EST_ALERT_MIN=$(python3 -c "
-avail = ${AVAIL_MB}; rate = ${RATE_MB_S} * 60; H = 10; F = 1; W = 5
-t_alert = max(W, avail / rate - H) + F
-print(f'{t_alert:.0f}')
-")
-EST_EVICT_MIN=$(python3 -c "
-usable = ${USABLE_MB}; rate = ${RATE_MB_S} * 60
-print(f'{usable / rate:.0f}')
-")
+# Estimate timing (minutes)
+EST_ALERT_MIN=$(awk "BEGIN { r=${RATE_MB_S}*60; t=${AVAIL_MB}/r-10+1; if(t<6)t=6; printf \"%.0f\",t }")
+EST_EVICT_MIN=$(awk "BEGIN { printf \"%.0f\",${USABLE_MB}/(${RATE_MB_S}*60) }")
 
 echo "==> Injecting fault: dynamic postgres data growth to fill emptyDir..."
 echo "  Node:       ${NODE}"
