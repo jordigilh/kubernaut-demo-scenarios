@@ -111,6 +111,12 @@ spec:
       labels:
         app: postgres-emptydir
     spec:
+      nodeSelector:
+        scenario: disk-pressure
+      tolerations:
+      - key: scenario
+        value: disk-pressure
+        effect: NoSchedule
       containers:
       - name: postgres
         image: ${PG_IMAGE}
@@ -214,11 +220,151 @@ data:
     $$;
 MANIFEST
 
+cat > disk-pressure-emptydir/noise-deployments.yaml <<'MANIFEST'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-cache
+  namespace: demo-diskpressure
+  labels:
+    app: nginx-cache
+    role: noise
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-cache
+  template:
+    metadata:
+      labels:
+        app: nginx-cache
+        role: noise
+    spec:
+      nodeSelector:
+        scenario: disk-pressure
+      tolerations:
+      - key: scenario
+        value: disk-pressure
+        effect: NoSchedule
+      containers:
+      - name: nginx
+        image: nginxinc/nginx-unprivileged:1.27-alpine
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: cache
+          mountPath: /tmp/nginx-cache
+      volumes:
+      - name: cache
+        emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-collector
+  namespace: demo-diskpressure
+  labels:
+    app: log-collector
+    role: noise
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-collector
+  template:
+    metadata:
+      labels:
+        app: log-collector
+        role: noise
+    spec:
+      nodeSelector:
+        scenario: disk-pressure
+      tolerations:
+      - key: scenario
+        value: disk-pressure
+        effect: NoSchedule
+      containers:
+      - name: logger
+        image: busybox:1.36
+        command:
+        - /bin/sh
+        - -c
+        - |
+          i=0
+          while true; do
+            dd if=/dev/urandom bs=1M count=1 of=/var/log/app/logfile-$((i % 50)).log 2>/dev/null
+            i=$((i + 1))
+            sleep 2
+          done
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "25m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+        volumeMounts:
+        - name: logs
+          mountPath: /var/log/app
+      volumes:
+      - name: logs
+        emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-scratch
+  namespace: demo-diskpressure
+  labels:
+    app: redis-scratch
+    role: noise
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-scratch
+  template:
+    metadata:
+      labels:
+        app: redis-scratch
+        role: noise
+    spec:
+      nodeSelector:
+        scenario: disk-pressure
+      tolerations:
+      - key: scenario
+        value: disk-pressure
+        effect: NoSchedule
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        args: ["--appendonly", "yes", "--dir", "/data"]
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        emptyDir: {}
+MANIFEST
+
 cat > disk-pressure-emptydir/kustomization.yaml <<'MANIFEST'
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - deployment.yaml
+  - noise-deployments.yaml
   - secret.yaml
   - service.yaml
   - configmap.yaml
@@ -257,10 +403,16 @@ for i in $(seq 1 60); do
     sleep 5
 done
 
-echo "==> Step 4: Waiting for PostgreSQL readiness..."
+echo "==> Step 4: Waiting for PostgreSQL and noise pods readiness..."
 kubectl wait --for=condition=Available deployment/postgres-emptydir \
   -n "${NAMESPACE}" --timeout=180s
 echo "  PostgreSQL is running with emptyDir storage."
+for noise_dep in nginx-cache log-collector redis-scratch; do
+    kubectl wait --for=condition=Available "deployment/${noise_dep}" \
+      -n "${NAMESPACE}" --timeout=120s 2>/dev/null && \
+      echo "  ${noise_dep} is running." || \
+      echo "  WARNING: ${noise_dep} not ready (non-fatal)."
+done
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
@@ -318,7 +470,7 @@ _label_target_node
 
 echo "==> Injecting fault: calling simulate_data_growth() to fill emptyDir..."
 echo "  This generates ~100 MB of data per call (500 rows x 200 iterations x ~1KB/row)."
-echo "  On a node with tight disk thresholds, DiskPressure will trigger."
+echo "  On the 20GB scenario node, DiskPressure triggers after ~8-10 GB growth."
 echo ""
 
 POD=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir \
@@ -329,10 +481,12 @@ if [ -z "$POD" ]; then
     exit 1
 fi
 
-# Run data growth in a loop -- each call adds ~100 MB.
-# Adjust iterations based on available node disk.
-for round in 1 2 3 4 5; do
-    echo "  Round ${round}/5: inserting batch..."
+# Run data growth in parallel batches -- each call adds ~100 MB.
+# With OS (~5GB) + container images (~3GB) + noise pods (~0.5GB), only ~10GB
+# of emptyDir growth needed on a 20GB disk to trigger DiskPressure.
+GROWTH_ROUNDS=${GROWTH_ROUNDS:-10}
+for round in $(seq 1 "$GROWTH_ROUNDS"); do
+    echo "  Round ${round}/${GROWTH_ROUNDS}: inserting batch..."
     kubectl exec -n "${NAMESPACE}" "${POD}" -- \
       psql -U postgres -d postgres -c "CALL simulate_data_growth(500, 200, 50);" &
 done

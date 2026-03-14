@@ -4,5 +4,6 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - deployment.yaml
+  - noise-deployments.yaml
   - argocd-application.yaml
   - prometheus-rule.yaml

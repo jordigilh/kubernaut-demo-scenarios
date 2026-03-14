@@ -16,6 +16,12 @@ spec:
       labels:
         app: postgres-emptydir
     spec:
+      nodeSelector:
+        scenario: disk-pressure
+      tolerations:
+      - key: scenario
+        value: disk-pressure
+        effect: NoSchedule
       containers:
       - name: postgres
         image: postgres:16-alpine
