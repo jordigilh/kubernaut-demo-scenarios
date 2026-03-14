@@ -15,7 +15,7 @@ spec:
   actionType: CleanupPVC
   
   labels:
-    severity: [low, critical]
+    severity: [low, warning, critical]
     environment: [production, staging]
     component: "*"
     priority: "*"
