@@ -23,5 +23,9 @@ patches:
       - op: add
         path: /spec/template/spec/containers/0/securityContext
         value:
+          allowPrivilegeEscalation: false
           runAsNonRoot: true
-          runAsUser: 1000
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop: ["ALL"]
