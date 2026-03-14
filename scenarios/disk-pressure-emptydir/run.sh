@@ -561,11 +561,16 @@ fi
 
 # predict_linear params: W=300, H=600, F=60, desired_margin=180
 # R_MB_s = THRESHOLD_MB / (600 - 60 - 180) = THRESHOLD_MB / 360
+#
+# PostgreSQL disk amplification: each 1 KB payload row consumes ~2 KB on
+# disk (tuple headers, alignment, WAL, TOAST).  Multiply batch_size by
+# PG_AMP to compensate so the effective disk rate matches the target.
 # Using awk for floating-point math (no python3 dependency).
+PG_AMP=2
 RATE_MB_S=$(awk "BEGIN { r=${THRESHOLD_MB}/360; if(r<5)r=5; if(r>100)r=100; printf \"%.1f\",r }")
 
 SLEEP_MS=50
-BATCH_SIZE=$(awk "BEGIN { v=int(${RATE_MB_S}*${SLEEP_MS}/1000*1024); if(v<100)v=100; print v }")
+BATCH_SIZE=$(awk "BEGIN { v=int(${RATE_MB_S}*${SLEEP_MS}/1000*1024*${PG_AMP}); if(v<100)v=100; print v }")
 ITERATIONS=$(awk "BEGIN { print int(${USABLE_MB}*1024/${BATCH_SIZE})+1000 }")
 
 # Estimate timing (minutes)

@@ -1,4 +1,1 @@
-PASS duplicate-alert-suppression (478s)
-PASS resource-quota-exhaustion (331s)
-FAIL (exit 1) orphaned-pvc-no-action (345s)
-PASS statefulset-pvc-failure (444s)
+PASS cert-failure (422s)
