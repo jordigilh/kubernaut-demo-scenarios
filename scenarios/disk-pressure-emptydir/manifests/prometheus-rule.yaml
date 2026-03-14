@@ -23,6 +23,7 @@ spec:
           labels:
             severity: warning
             namespace: demo-diskpressure
+            node: '{{ $labels.instance }}'
           annotations:
             summary: "Node {{ $labels.instance }} predicted to exhaust disk within 10 minutes"
             description: >-
