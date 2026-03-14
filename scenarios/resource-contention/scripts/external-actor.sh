@@ -6,8 +6,11 @@
 # another controller, or a human operator that conflicts with Kubernaut's
 # remediation actions.
 #
-# The script polls every 10 seconds. When it detects that memory limits have
+# The script polls every 90 seconds. When it detects that memory limits have
 # changed from the original 64Mi, it patches them back, simulating contention.
+# The interval must be long enough for the WFE job to complete its rollout
+# (~30-60s) before the external actor reverts, so each remediation cycle
+# reaches Completed/Remediated before the next OOMKill recurs.
 set -euo pipefail
 
 NAMESPACE="demo-resource-contention"
@@ -29,5 +32,5 @@ while true; do
     echo "[external-actor] Reverted. Kubernaut's remediation is now ineffective."
   fi
 
-  sleep 10
+  sleep 90
 done
