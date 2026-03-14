@@ -528,17 +528,23 @@ NODE=$(kubectl get pod "$POD" -n "${NAMESPACE}" -o jsonpath='{.spec.nodeName}')
 echo "==> Target node: ${NODE}"
 
 # ── Dynamic rate calculation based on node filesystem capacity ──────────
-# Get disk stats directly from the postgres pod (which runs on the target
-# node).  No Prometheus dependency -- just `df`.
+# Get disk stats directly from the postgres pod (on the target node).
 #
-# PrometheusRule: predict_linear(v[5m], 600) < 0 for 1m
-#   W=300s (window), H=600s (horizon), F=60s (for clause)
+# PrometheusRule: predict_linear(v[3m], 600) < 0 for 1m
+#   W=180s (window), H=600s (horizon), F=60s (for clause)
 #   Desired margin = 180s (3 min pipeline runway)
 #
-# At constant rate R:
-#   alert fires when: current < R * H  →  time = avail/R - H + F
-#   eviction when:    current < threshold  →  time = (avail - threshold) / R
-#   margin = H - F - threshold/R  →  R = threshold / (H - F - margin)
+# Two rate strategies:
+#   Case A (window-limited): write fast so the [3m] window is the
+#     bottleneck.  Alert fires at W+F=4 min regardless of disk size.
+#     R = usable / (W + F + margin)
+#     Feasible when R > avail / (W + H)
+#
+#   Case B (slope-limited): write at the minimum rate that yields the
+#     desired margin.  Slower but always feasible.
+#     R = threshold / (H - F - margin) = threshold / 360
+#
+# We prefer Case A (faster) and fall back to Case B.
 
 DF_LINE=$(kubectl exec -n "${NAMESPACE}" "${POD}" -- df -B1 / 2>/dev/null | tail -1)
 TOTAL_BYTES=$(echo "$DF_LINE" | awk '{print $2}')
@@ -554,28 +560,46 @@ TOTAL_MB=$(( TOTAL_BYTES / 1048576 ))
 THRESHOLD_MB=$(( TOTAL_MB * 15 / 100 ))  # kubelet default: 15%
 USABLE_MB=$(( AVAIL_MB - THRESHOLD_MB ))
 
-if [ "$USABLE_MB" -lt 1024 ]; then
-    echo "ERROR: Only ${USABLE_MB} MB usable on ${NODE} (need >= 1024 MB). Free disk first."
+if [ "$USABLE_MB" -lt 2048 ]; then
+    echo "ERROR: Only ${USABLE_MB} MB usable on ${NODE} (need >= 2048 MB). Free disk first."
     exit 1
 fi
 
-# predict_linear params: W=300, H=600, F=60, desired_margin=180
-# R_MB_s = THRESHOLD_MB / (600 - 60 - 180) = THRESHOLD_MB / 360
-#
-# PostgreSQL disk amplification: each 1 KB payload row consumes ~2 KB on
-# disk (tuple headers, alignment, WAL, TOAST).  Multiply batch_size by
-# PG_AMP to compensate so the effective disk rate matches the target.
-# Using awk for floating-point math (no python3 dependency).
+# W=180, H=600, F=60, margin=180  (all in seconds)
+# PostgreSQL disk amplification: ~2x (tuple headers, WAL, TOAST)
 PG_AMP=2
-RATE_MB_S=$(awk "BEGIN { r=${THRESHOLD_MB}/360; if(r<5)r=5; if(r>100)r=100; printf \"%.1f\",r }")
+
+RATE_MB_S=$(awk "BEGIN {
+    avail=${AVAIL_MB}; usable=${USABLE_MB}; threshold=${THRESHOLD_MB}
+    W=180; H=600; F=60; margin=180
+
+    r_fast = usable / (W + F + margin)   # Case A
+    r_min  = avail / (W + H)             # min for prediction < 0 during window
+    r_slow = threshold / (H - F - margin) # Case B
+
+    if (r_fast > r_min) {
+        r = r_fast  # Case A: alert at W+F = 4 min
+    } else {
+        r = r_slow  # Case B: slower but safe
+    }
+    if (r < 5) r = 5
+    if (r > 60) r = 60   # cap to avoid overwhelming PG I/O
+    printf \"%.1f\", r
+}")
 
 SLEEP_MS=50
 BATCH_SIZE=$(awk "BEGIN { v=int(${RATE_MB_S}*${SLEEP_MS}/1000*1024*${PG_AMP}); if(v<100)v=100; print v }")
 ITERATIONS=$(awk "BEGIN { print int(${USABLE_MB}*1024/${BATCH_SIZE})+1000 }")
 
 # Estimate timing (minutes)
-EST_ALERT_MIN=$(awk "BEGIN { r=${RATE_MB_S}*60; t=${AVAIL_MB}/r-10+1; if(t<6)t=6; printf \"%.0f\",t }")
-EST_EVICT_MIN=$(awk "BEGIN { printf \"%.0f\",${USABLE_MB}/(${RATE_MB_S}*60) }")
+EST_ALERT_MIN=$(awk "BEGIN {
+    r=${RATE_MB_S}*60; W=3; H=10; F=1
+    t_slope = ${AVAIL_MB}/r - H + F
+    t_window = W + F
+    t = (t_slope > t_window) ? t_slope : t_window
+    printf \"%.0f\", t
+}")
+EST_EVICT_MIN=$(awk "BEGIN { printf \"%.0f\", ${USABLE_MB}/(${RATE_MB_S}*60) }")
 
 echo "==> Injecting fault: dynamic postgres data growth to fill emptyDir..."
 echo "  Node:       ${NODE}"

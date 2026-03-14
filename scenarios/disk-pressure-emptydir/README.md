@@ -22,7 +22,7 @@ Upon approval, an Ansible/AWX playbook:
 ## Signal Flow
 
 ```
-predict_linear(node_filesystem_avail_bytes[5m], 600) < 0  for 1m
+predict_linear(node_filesystem_avail_bytes[3m], 600) < 0  for 1m
   -> PredictedDiskPressure alert (proactive)
   -> Gateway -> SP (normalizes to DiskPressure, signalMode=proactive)
   -> AA (HAPI + LLM, proactive prompt: "predict & prevent")

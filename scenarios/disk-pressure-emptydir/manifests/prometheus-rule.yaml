@@ -12,11 +12,11 @@ spec:
         # Proactive alert: fires BEFORE DiskPressure occurs (BR-SP-106 / ADR-054).
         # SP normalizes PredictedDiskPressure -> DiskPressure (signalMode=proactive).
         # predict_linear() projects disk exhaustion based on recent growth trend.
-        # Window [5m] fills quickly; 600s horizon projects 10 min ahead; for: 1m sustain.
+        # Window [3m] balances slope accuracy vs. speed; 600s horizon; for: 1m sustain.
         - alert: PredictedDiskPressure
           expr: |
             predict_linear(
-              node_filesystem_avail_bytes{mountpoint="/", instance=~"stress-worker.*"}[5m],
+              node_filesystem_avail_bytes{mountpoint="/", instance=~"stress-worker.*"}[3m],
               600
             ) < 0
           for: 1m
@@ -27,7 +27,7 @@ spec:
             summary: "Node {{ $labels.instance }} predicted to exhaust disk within 10 minutes"
             description: >-
               Linear regression on node {{ $labels.instance }} filesystem usage
-              over the last 5 minutes predicts available space will reach
+              over the last 3 minutes predicts available space will reach
               zero within 10 minutes. This is likely caused by emptyDir growth
               from the postgres-emptydir deployment in demo-diskpressure
               namespace. Proactive remediation can migrate the database to
