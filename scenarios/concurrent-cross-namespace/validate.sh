@@ -19,14 +19,33 @@ source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 wait_for_alert "KubePodCrashLooping" "${NS_ALPHA}" 480
 show_alert "KubePodCrashLooping" "${NS_ALPHA}"
 
-# ── Wait for both pipelines ──────────────────────────────────────────────────
+# ── Wait for both RRs and approve Beta early so pipelines run in parallel ────
 
-log_phase "Waiting for Team Alpha pipeline..."
+log_phase "Waiting for both RemediationRequests..."
 wait_for_rr "${NS_ALPHA}" 120
+wait_for_rr "${NS_BETA}" 120
+
+# Alpha (staging) is auto-approved by Rego policy — no action needed.
+# Beta (production) requires manual approval — approve now so it doesn't
+# block behind Alpha's EM verification window.
+if [ "${APPROVE_MODE}" = "--auto-approve" ]; then
+    log_phase "Pre-approving Team Beta RAR (production requires manual approval)..."
+    _beta_rr=$(get_rr_name "${NS_BETA}")
+    # Wait for the RAR to appear (RO creates it after AI Analysis)
+    for _i in $(seq 1 60); do
+        beta_phase=$(get_rr_phase "${NS_BETA}")
+        if [ "$beta_phase" = "AwaitingApproval" ]; then
+            auto_approve_rar "${_beta_rr}"
+            break
+        fi
+        sleep 5
+    done
+fi
+
+log_phase "Polling Team Alpha pipeline..."
 poll_pipeline "${NS_ALPHA}" 600 "${APPROVE_MODE}"
 
-log_phase "Waiting for Team Beta pipeline..."
-wait_for_rr "${NS_BETA}" 120
+log_phase "Polling Team Beta pipeline..."
 poll_pipeline "${NS_BETA}" 600 "${APPROVE_MODE}"
 
 # ── Assertions ──────────────────────────────────────────────────────────────

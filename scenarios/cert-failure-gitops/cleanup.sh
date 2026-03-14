@@ -11,6 +11,8 @@ kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-fo
 kubectl delete namespace demo-cert-gitops --ignore-not-found
 kubectl delete clusterissuer demo-selfsigned-ca-gitops --ignore-not-found
 kubectl delete secret demo-ca-key-pair -n cert-manager --ignore-not-found
+# FixCertificate workflow may recreate the broken CA secret as its remediation
+kubectl delete secret nonexistent-ca-secret -n cert-manager --ignore-not-found
 
 echo "==> Cleanup complete."
 echo "    NOTE: Gitea, ArgoCD, and cert-manager are left running for reuse."

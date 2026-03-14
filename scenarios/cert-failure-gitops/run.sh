@@ -264,14 +264,43 @@ cd /
 rm -rf "${WORK_DIR}"
 echo "  Bad commit pushed. ArgoCD will sync broken ClusterIssuer."
 
-# Wait for ArgoCD to sync the broken commit before deleting the TLS secret.
-# ArgoCD polls every ~3 min; wait until the ClusterIssuer references the broken secret.
+# Force ArgoCD to refresh immediately instead of waiting for the next poll cycle.
+kubectl annotate application demo-cert-gitops -n argocd \
+  argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
+
+# Wait for ArgoCD to sync the broken commit.
 echo "  Waiting for ArgoCD to sync broken ClusterIssuer..."
-for i in $(seq 1 60); do
+for i in $(seq 1 90); do
   SECRET_REF=$(kubectl get clusterissuer demo-selfsigned-ca-gitops \
     -o jsonpath='{.spec.ca.secretName}' 2>/dev/null || echo "")
   if [ "$SECRET_REF" = "nonexistent-ca-secret" ]; then
     echo "  ArgoCD synced broken ClusterIssuer (attempt $i)."
+    break
+  fi
+  if [ $((i % 12)) -eq 0 ]; then
+    echo "  Still waiting... (attempt $i, re-triggering refresh)"
+    kubectl annotate application demo-cert-gitops -n argocd \
+      argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
+  fi
+  sleep 5
+done
+
+# Delete the original CA secret so cert-manager cannot re-issue even with a
+# cached signing key (race between issuer reconciler and certificate issuer).
+echo "  Deleting original CA secret to prevent re-issuance..."
+kubectl delete secret demo-ca-key-pair -n cert-manager --ignore-not-found
+
+# Restart cert-manager to flush the in-memory CA signing key cache.
+echo "  Restarting cert-manager to clear cached signing key..."
+kubectl rollout restart deployment cert-manager -n cert-manager
+kubectl rollout status deployment cert-manager -n cert-manager --timeout=60s
+
+echo "  Waiting for ClusterIssuer to report Ready=False..."
+for i in $(seq 1 30); do
+  READY=$(kubectl get clusterissuer demo-selfsigned-ca-gitops \
+    -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+  if [ "$READY" = "False" ]; then
+    echo "  ClusterIssuer is now Ready=False (attempt $i)."
     break
   fi
   sleep 5

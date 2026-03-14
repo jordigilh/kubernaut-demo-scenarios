@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# DiskPressure emptyDir Migration Demo -- Automated Runner
-# Scenario #324: PostgreSQL on emptyDir fills disk -> DiskPressure ->
-# LLM detects antipattern -> RAR -> Ansible backs up DB, commits PVC migration
-# to Git -> ArgoCD syncs -> restore -> EA verifies
+# DiskPressure emptyDir Migration Demo -- Automated Runner (Proactive)
+# Scenario #324: PostgreSQL on emptyDir fills disk -> PredictedDiskPressure (proactive) ->
+# SP normalizes to DiskPressure -> LLM detects antipattern -> RAR ->
+# Ansible backs up DB (live pg_dump), commits PVC migration to Git ->
+# ArgoCD syncs -> restore -> EA verifies
 #
-# Flagship enterprise demo: LLM + RAR + Ansible/AAP + GitOps + audit trail
+# Flagship enterprise demo: proactive signal (BR-SP-106) + LLM + RAR + Ansible/AAP + GitOps + audit trail
 #
 # Prerequisites:
 #   - Kind cluster with custom kubelet eviction threshold OR OCP with kcli worker
@@ -50,8 +51,11 @@ require_infra argocd
 run_setup() {
 echo "============================================="
 echo " DiskPressure emptyDir Migration Demo (#324)"
-echo " emptyDir growth -> DiskPressure -> Ansible/AWX"
+echo " emptyDir growth -> PredictedDiskPressure"
+echo " (proactive, BR-SP-106) -> Ansible/AWX"
 echo " -> GitOps PVC migration -> DB restore"
+echo ""
+echo " Rate auto-tuned to node filesystem capacity"
 echo "============================================="
 echo ""
 
@@ -246,6 +250,22 @@ spec:
       - key: scenario
         value: disk-pressure
         effect: NoSchedule
+      initContainers:
+      - name: cache-warmup
+        image: busybox:1.36
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Warming up nginx cache (~200MB)..."
+          for i in $(seq 1 200); do
+            dd if=/dev/urandom bs=1M count=1 of=/tmp/nginx-cache/cached-page-${i}.dat 2>/dev/null
+            sleep 1
+          done
+          echo "Cache warm-up complete."
+        volumeMounts:
+        - name: cache
+          mountPath: /tmp/nginx-cache
       containers:
       - name: nginx
         image: nginxinc/nginx-unprivileged:1.27-alpine
@@ -297,9 +317,9 @@ spec:
         - |
           i=0
           while true; do
-            dd if=/dev/urandom bs=1M count=1 of=/var/log/app/logfile-$((i % 50)).log 2>/dev/null
+            dd if=/dev/urandom bs=256K count=1 of=/var/log/app/logfile-${i}.log 2>/dev/null
             i=$((i + 1))
-            sleep 2
+            sleep 5
           done
         resources:
           requests:
@@ -354,6 +374,30 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /data
+      - name: session-loader
+        image: busybox:1.36
+        command:
+        - /bin/sh
+        - -c
+        - |
+          i=0
+          while [ $i -lt 200 ]; do
+            dd if=/dev/urandom bs=512K count=1 of=/data/aof-segment-${i}.dat 2>/dev/null
+            i=$((i + 1))
+            sleep 2
+          done
+          echo "Session data stable at ~100MB."
+          while true; do sleep 3600; done
+        resources:
+          requests:
+            memory: "16Mi"
+            cpu: "10m"
+          limits:
+            memory: "32Mi"
+            cpu: "50m"
+        volumeMounts:
+        - name: data
+          mountPath: /data
       volumes:
       - name: data
         emptyDir: {}
@@ -404,15 +448,20 @@ for i in $(seq 1 60); do
 done
 
 echo "==> Step 4: Waiting for PostgreSQL and noise pods readiness..."
+echo "  (nginx-cache has a ~3 min init container for cache warm-up)"
 kubectl wait --for=condition=Available deployment/postgres-emptydir \
   -n "${NAMESPACE}" --timeout=180s
 echo "  PostgreSQL is running with emptyDir storage."
-for noise_dep in nginx-cache log-collector redis-scratch; do
+for noise_dep in log-collector redis-scratch; do
     kubectl wait --for=condition=Available "deployment/${noise_dep}" \
       -n "${NAMESPACE}" --timeout=120s 2>/dev/null && \
       echo "  ${noise_dep} is running." || \
       echo "  WARNING: ${noise_dep} not ready (non-fatal)."
 done
+kubectl wait --for=condition=Available deployment/nginx-cache \
+  -n "${NAMESPACE}" --timeout=300s 2>/dev/null && \
+  echo "  nginx-cache is running (cache warm-up complete)." || \
+  echo "  WARNING: nginx-cache not ready (non-fatal)."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
@@ -436,7 +485,7 @@ _label_target_node() {
     node=$(kubectl get pod "$pod" -n "${NAMESPACE}" \
       -o jsonpath='{.spec.nodeName}' 2>/dev/null)
     if [ -z "$node" ]; then
-        echo "WARNING: could not determine target node for DiskPressure signal"
+        echo "WARNING: could not determine target node for PredictedDiskPressure signal"
         return 0
     fi
     echo "==> Labeling node ${node} for Kubernaut signal acceptance..."
@@ -465,34 +514,107 @@ _unlabel_target_node() {
 }
 
 run_inject() {
-# Label the node running the postgres pod so the Gateway accepts the DiskPressure signal
+# Label the node running the postgres pod so the Gateway accepts the proactive signal
 _label_target_node
-
-echo "==> Injecting fault: calling simulate_data_growth() to fill emptyDir..."
-echo "  This generates ~100 MB of data per call (500 rows x 200 iterations x ~1KB/row)."
-echo "  On the 20GB scenario node, DiskPressure triggers after ~8-10 GB growth."
-echo ""
 
 POD=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir \
   -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-
 if [ -z "$POD" ]; then
     echo "ERROR: No postgres-emptydir pod found in ${NAMESPACE}"
     exit 1
 fi
 
-# Run data growth in parallel batches -- each call adds ~100 MB.
-# With OS (~5GB) + container images (~3GB) + noise pods (~0.5GB), only ~10GB
-# of emptyDir growth needed on a 20GB disk to trigger DiskPressure.
-GROWTH_ROUNDS=${GROWTH_ROUNDS:-10}
-for round in $(seq 1 "$GROWTH_ROUNDS"); do
-    echo "  Round ${round}/${GROWTH_ROUNDS}: inserting batch..."
-    kubectl exec -n "${NAMESPACE}" "${POD}" -- \
-      psql -U postgres -d postgres -c "CALL simulate_data_growth(500, 200, 50);" &
-done
+NODE=$(kubectl get pod "$POD" -n "${NAMESPACE}" -o jsonpath='{.spec.nodeName}')
+echo "==> Target node: ${NODE}"
+
+# ── Dynamic rate calculation based on node filesystem capacity ──────────
+# Query Prometheus for the node's available and total disk space.
+# Compute the stored procedure params so predict_linear() fires with ~3 min
+# margin before kubelet eviction, regardless of node size.
+#
+# PrometheusRule: predict_linear(v[5m], 600) < 0 for 1m
+#   W=300s (window), H=600s (horizon), F=60s (for clause)
+#   Desired margin = 180s (3 min pipeline runway)
+#
+# At constant rate R:
+#   alert fires when: current < R * H  →  time = avail/R - H + F
+#   eviction when:    current < threshold  →  time = (avail - threshold) / R
+#   margin = H - F - threshold/R  →  R = threshold / (H - F - margin)
+
+MONITORING_NS="${MONITORING_NS:-openshift-monitoring}"
+PROM_POD=$(kubectl get pods -n "${MONITORING_NS}" -l app.kubernetes.io/name=prometheus \
+  --no-headers 2>/dev/null | head -1 | awk '{print $1}')
+
+_prom_query() {
+    kubectl exec -n "${MONITORING_NS}" "${PROM_POD}" -c prometheus -- \
+      wget -qO- "http://localhost:9090/api/v1/query?query=$1" 2>/dev/null | \
+      python3 -c "import sys,json; print(json.loads(sys.stdin.read())['data']['result'][0]['value'][1])" 2>/dev/null
+}
+
+AVAIL_BYTES=$(_prom_query "node_filesystem_avail_bytes%7Bmountpoint%3D%22%2F%22%2Cinstance%3D~%22${NODE}.*%22%7D")
+TOTAL_BYTES=$(_prom_query "node_filesystem_size_bytes%7Bmountpoint%3D%22%2F%22%2Cinstance%3D~%22${NODE}.*%22%7D")
+
+if [ -z "$AVAIL_BYTES" ] || [ -z "$TOTAL_BYTES" ]; then
+    echo "ERROR: Could not query Prometheus for node filesystem metrics"
+    exit 1
+fi
+
+# Calculate in MB for readability
+AVAIL_MB=$(python3 -c "print(int(${AVAIL_BYTES} / (1024*1024)))")
+TOTAL_MB=$(python3 -c "print(int(${TOTAL_BYTES} / (1024*1024)))")
+THRESHOLD_MB=$(python3 -c "print(int(${TOTAL_MB} * 0.15))")  # kubelet default: 15%
+USABLE_MB=$(( AVAIL_MB - THRESHOLD_MB ))
+
+if [ "$USABLE_MB" -lt 1024 ]; then
+    echo "ERROR: Only ${USABLE_MB} MB usable on ${NODE} (need >= 1024 MB). Free disk first."
+    exit 1
+fi
+
+# predict_linear params: W=300, H=600, F=60, desired_margin=180
+# R_MB_s = THRESHOLD_MB / (600 - 60 - 180) = THRESHOLD_MB / 360
+RATE_MB_S=$(python3 -c "
+threshold_mb = ${THRESHOLD_MB}
+rate = threshold_mb / 360.0
+rate = max(rate, 5.0)       # floor: 5 MB/s minimum for meaningful slope
+rate = min(rate, 100.0)     # cap: 100 MB/s to avoid overwhelming I/O
+print(f'{rate:.1f}')
+")
+
+SLEEP_MS=50
+BATCH_SIZE=$(python3 -c "print(max(100, int(${RATE_MB_S} * ${SLEEP_MS} / 1000.0 * 1024)))")
+ITERATIONS=$(python3 -c "print(int(${USABLE_MB} * 1024.0 / ${BATCH_SIZE}) + 1000)")
+
+# Estimate timing
+EST_ALERT_MIN=$(python3 -c "
+avail = ${AVAIL_MB}; rate = ${RATE_MB_S} * 60; H = 10; F = 1; W = 5
+t_alert = max(W, avail / rate - H) + F
+print(f'{t_alert:.0f}')
+")
+EST_EVICT_MIN=$(python3 -c "
+usable = ${USABLE_MB}; rate = ${RATE_MB_S} * 60
+print(f'{usable / rate:.0f}')
+")
+
+echo "==> Injecting fault: dynamic postgres data growth to fill emptyDir..."
+echo "  Node:       ${NODE}"
+echo "  Disk:       ${TOTAL_MB} MB total, ${AVAIL_MB} MB available"
+echo "  Threshold:  ${THRESHOLD_MB} MB (15%), usable: ${USABLE_MB} MB"
+echo "  Rate:       ${RATE_MB_S} MB/s (batch=${BATCH_SIZE} rows, sleep=${SLEEP_MS}ms)"
+echo "  Iterations: ${ITERATIONS}"
+echo "  Estimate:   PredictedDiskPressure at ~${EST_ALERT_MIN} min, eviction at ~${EST_EVICT_MIN} min"
+echo ""
+echo "  Noise writers:"
+echo "    Log-collector: ~3 MB/min unbounded"
+echo "    Nginx cache:   ~200 MB burst then stable"
+echo "    Redis scratch:  ~100 MB gradual then stable"
+echo ""
+
+echo "  Starting postgres continuous data growth..."
+kubectl exec -n "${NAMESPACE}" "${POD}" -- \
+  psql -U postgres -d postgres -c "CALL simulate_data_growth(${BATCH_SIZE}, ${ITERATIONS}, ${SLEEP_MS});" &
 
 echo ""
-echo "  Data growth running in background. Waiting for DiskPressure..."
+echo "  Data growth running in background. Waiting for PredictedDiskPressure..."
 echo "  Monitor: kubectl get nodes -o custom-columns='NAME:.metadata.name,DISK_PRESSURE:.status.conditions[?(@.type==\"DiskPressure\")].status'"
 echo ""
 }
@@ -500,14 +622,16 @@ echo ""
 run_monitor() {
 echo "==> Pipeline in progress..."
 echo ""
-echo "  Expected flow:"
-echo "    1. KubeNodeDiskPressure alert fires"
-echo "    2. AI Analysis detects emptyDir antipattern + ArgoCD management"
-echo "    3. AI selects MigrateEmptyDirToPVC (not DeletePod/RestartPod)"
-echo "    4. RAR created -- human approval required"
-echo "    5. AWX dispatches Ansible playbook (engine=ansible)"
-echo "    6. Playbook: cordon -> pg_dump -> git commit PVC -> ArgoCD sync -> pg_restore -> uncordon"
-echo "    7. EA verifies DiskPressure resolved + DB accessible"
+echo "  Expected flow (proactive, BR-SP-106):"
+echo "    1. PredictedDiskPressure alert fires (predict_linear, before kubelet eviction)"
+echo "    2. SP classifies as proactive, normalizes signal to DiskPressure"
+echo "    3. HAPI uses proactive prompt (predict & prevent, not RCA)"
+echo "    4. AI detects emptyDir antipattern + ArgoCD management"
+echo "    5. AI selects MigrateEmptyDirToPVC workflow"
+echo "    6. RAR created -- human approval required"
+echo "    7. AWX dispatches Ansible playbook (engine=ansible)"
+echo "    8. Playbook: cordon -> pg_dump (live!) -> git commit PVC -> ArgoCD sync -> pg_restore -> uncordon"
+echo "    9. EA verifies DiskPressure never materialized + DB accessible"
 echo ""
 
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then

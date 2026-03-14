@@ -69,9 +69,17 @@ echo "  Check: kubectl get nodes -w"
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 
-# Step 5: Validate pipeline
+# Step 6: Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
     bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
 fi
+
+# Step 7: Silence alert to prevent new RRs while the node remains NotReady.
+# The cordon+drain remediation doesn't restore the node (that's cleanup's job),
+# so the KubeNodeNotReady alert stays active and the Gateway will keep creating
+# legitimate RRs until the node is unpaused.
+echo ""
+echo "==> Step 7: Silencing KubeNodeNotReady alert (10m) to prevent post-remediation RRs..."
+silence_alert "KubeNodeNotReady" "${NAMESPACE}" "10m"

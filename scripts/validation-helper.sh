@@ -175,10 +175,15 @@ wait_for_alert() {
 
     log_phase "Waiting for ${_c_cyan}${alert_name}${_c_reset} alert (timeout: ${timeout}s)..."
 
+    local ns_filter=()
+    if [ -n "$namespace" ]; then
+        ns_filter=("namespace=${namespace}")
+    fi
+
     while [ "$elapsed" -lt "$timeout" ]; do
         local count
         count=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
-            amtool alert query "alertname=${alert_name}" "namespace=${namespace}" \
+            amtool alert query "alertname=${alert_name}" "${ns_filter[@]}" \
             --alertmanager.url=http://localhost:9093 \
             --output=json 2>/dev/null \
             | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")

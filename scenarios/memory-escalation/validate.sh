@@ -87,16 +87,16 @@ log_phase "Running escalation assertions..."
 
 escalated_count=$(kubectl get rr -n "${PLATFORM_NS}" \
   -o jsonpath='{range .items[*]}{.status.outcome}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
-  | grep "^ManualReviewRequired=" | grep "=${NAMESPACE}$" | wc -l | tr -d ' ')
+  | { grep "^ManualReviewRequired=" || true; } | { grep "=${NAMESPACE}$" || true; } | wc -l | tr -d ' ')
 blocked_count=$(kubectl get rr -n "${PLATFORM_NS}" \
   -o jsonpath='{range .items[*]}{.status.overallPhase}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
-  | grep "^Blocked=" | grep "=${NAMESPACE}$" | wc -l | tr -d ' ')
+  | { grep "^Blocked=" || true; } | { grep "=${NAMESPACE}$" || true; } | wc -l | tr -d ' ')
 total_escalated=$(( ${escalated_count:-0} + ${blocked_count:-0} ))
 assert_gt "${total_escalated}" "0" "At least 1 escalated RR (Blocked or ManualReviewRequired)"
 
 total_rr=$(kubectl get rr -n "${PLATFORM_NS}" \
   -o jsonpath='{range .items[*]}{.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
-  | grep "^${NAMESPACE}$" | wc -l | tr -d ' ')
+  | { grep "^${NAMESPACE}$" || true; } | wc -l | tr -d ' ')
 assert_gt "${total_rr:-0}" "1" "Multiple RRs created (multi-cycle)"
 
 # ── Post-escalation root cause fix ──────────────────────────────────────────

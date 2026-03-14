@@ -88,6 +88,7 @@ silence_alert() {
 seed_action_types_and_workflows() {
     local at_dir="${REPO_ROOT}/deploy/action-types"
     local scenarios_dir="${REPO_ROOT}/scenarios"
+    local ns="${PLATFORM_NS:-kubernaut-system}"
 
     if [ -d "$at_dir" ] && ls "$at_dir"/*.yaml &>/dev/null; then
         echo "==> Seeding ActionType CRDs..."
@@ -97,9 +98,9 @@ seed_action_types_and_workflows() {
     local workflow_dirs
     workflow_dirs=$(find "$scenarios_dir" -type d -name workflow 2>/dev/null)
     if [ -n "$workflow_dirs" ]; then
-        echo "==> Seeding RemediationWorkflow CRDs..."
+        echo "==> Seeding RemediationWorkflow CRDs (namespace: ${ns})..."
         echo "$workflow_dirs" | while read -r dir; do
-            kubectl apply -f "$dir/" 2>&1 | grep -v unchanged | sed 's/^/    /' || true
+            kubectl apply -n "$ns" -f "$dir/" 2>&1 | grep -v unchanged | sed 's/^/    /' || true
         done
     fi
 }

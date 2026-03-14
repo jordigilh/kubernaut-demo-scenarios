@@ -80,3 +80,11 @@ if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo "==> Running validation pipeline..."
     bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
 fi
+
+# Step 8: Silence alert to prevent new RRs while SLO burn-rate windows decay.
+# After remediation the error rate drops to 0%, but the multi-window burn-rate
+# calculation can take 5-30 min to clear. Without a silence the Gateway will
+# legitimately create new RRs for the still-firing alert.
+echo ""
+echo "==> Step 8: Silencing ErrorBudgetBurn alert (10m) to prevent post-remediation RRs..."
+silence_alert "ErrorBudgetBurn" "${NAMESPACE}" "10m"

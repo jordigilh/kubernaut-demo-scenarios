@@ -9,18 +9,26 @@ spec:
   groups:
     - name: demo-diskpressure
       rules:
-        - alert: KubeNodeDiskPressure
+        # Proactive alert: fires BEFORE DiskPressure occurs (BR-SP-106 / ADR-054).
+        # SP normalizes PredictedDiskPressure -> DiskPressure (signalMode=proactive).
+        # predict_linear() projects disk exhaustion based on recent growth trend.
+        # Window [5m] fills quickly; 600s horizon projects 10 min ahead; for: 1m sustain.
+        - alert: PredictedDiskPressure
           expr: |
-            kube_node_status_condition{condition="DiskPressure", status="true"} == 1
+            predict_linear(
+              node_filesystem_avail_bytes{mountpoint="/", instance=~"stress-worker.*"}[5m],
+              600
+            ) < 0
           for: 1m
           labels:
-            severity: critical
+            severity: warning
             namespace: demo-diskpressure
           annotations:
-            summary: "Node {{ $labels.node }} has DiskPressure condition"
+            summary: "Node {{ $labels.instance }} predicted to exhaust disk within 10 minutes"
             description: >-
-              Node {{ $labels.node }} is reporting DiskPressure.
-              This is likely caused by emptyDir growth from the
-              postgres-emptydir deployment in demo-diskpressure namespace.
-              The database is running on ephemeral storage and needs to be
-              migrated to a persistent volume.
+              Linear regression on node {{ $labels.instance }} filesystem usage
+              over the last 5 minutes predicts available space will reach
+              zero within 10 minutes. This is likely caused by emptyDir growth
+              from the postgres-emptydir deployment in demo-diskpressure
+              namespace. Proactive remediation can migrate the database to
+              persistent storage before data loss occurs.

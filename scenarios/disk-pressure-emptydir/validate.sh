@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Validate disk-pressure-emptydir scenario (#324) pipeline outcome.
-# DiskPressure -> AI Analysis selects MigrateEmptyDirToPVC -> RAR ->
+# PredictedDiskPressure (proactive, BR-SP-106) -> SP normalizes to DiskPressure ->
+# AI Analysis selects MigrateEmptyDirToPVC -> RAR ->
 # AWX playbook migrates emptyDir to PVC via GitOps -> EA verifies.
 #
 # Called by run-scenario.sh or standalone:
@@ -17,8 +18,8 @@ source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 # ── Wait for alert ──────────────────────────────────────────────────────────
 
-wait_for_alert "KubeNodeDiskPressure" "" 600
-show_alert "KubeNodeDiskPressure" ""
+wait_for_alert "PredictedDiskPressure" "" 600
+show_alert "PredictedDiskPressure" ""
 
 # ── Wait for RR and poll pipeline ───────────────────────────────────────────
 
@@ -51,7 +52,7 @@ if [ -n "$wfe_name" ]; then
     assert_eq "$wfe_engine" "ansible" "WFE engine"
 fi
 
-# Verify DiskPressure resolved
+# Verify DiskPressure never materialized (proactive) or resolved (fallback reactive)
 node_pressure=$(kubectl get nodes -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="DiskPressure")].status}{"\n"}{end}' 2>/dev/null \
   | grep -c "True" || true)
 assert_eq "${node_pressure}" "0" "No nodes with DiskPressure"

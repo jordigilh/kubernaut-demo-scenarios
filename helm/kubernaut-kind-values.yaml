@@ -10,7 +10,7 @@
 # The chart images use named users, so we override here with UID 65534 (nobody).
 global:
   image:
-    tag: "1.0.0"
+    tag: "v1.1.0-pre1"
   nodeSelector:
     node-role.kubernetes.io/control-plane: ""
   tolerations:
