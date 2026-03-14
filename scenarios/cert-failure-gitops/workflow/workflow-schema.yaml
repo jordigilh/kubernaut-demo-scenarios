@@ -26,6 +26,11 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-gitops-job@sha256:08b7b5c5e0b67116437b9851e7eb5df8d2bad7f5234baf2b3469e076c0b6d744
+
+  dependencies:
+    secrets:
+      - name: gitea-repo-creds
+
   parameters:
     - name: TARGET_NAMESPACE
       type: string

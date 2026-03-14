@@ -1,11 +1,11 @@
 apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
-  name: git-revert-v1
+  name: git-revert-v2
 spec:
   # GitOps Revert Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #125 -- GitOps drift remediation (ArgoCD + Gitea)
-  version: "1.0.0"
+  version: "2.0.0"
   description:
     what: "Reverts the most recent commit in a GitOps-managed repository to undo a bad change"
     whenToUse: "When a GitOps-managed workload is crashing due to a bad commit (ConfigMap, Deployment spec, etc.) and ArgoCD/Flux will reconcile the reverted state"
@@ -28,6 +28,11 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:502b67d20dab6ce5f59faed489b42a2cb68c18acbe6eb2e8eaadbc1f8f208288
+
+  dependencies:
+    secrets:
+      - name: gitea-repo-creds
+
   parameters:
     - name: TARGET_NAMESPACE
       type: string
