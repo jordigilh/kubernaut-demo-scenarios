@@ -41,8 +41,9 @@ Feature: Cluster Autoscaling via Node Provisioning
       And the "provision-node-v1" workflow is registered in the catalog
       And the host-side provisioner agent is running
 
-    When the Deployment is scaled to 8 replicas
-      And the worker node cannot satisfy 8 x 2Gi = 16GB memory requests
+    When run.sh queries total allocatable memory across managed worker nodes
+      And computes a replica count that exceeds total capacity (max_pods + 2)
+      And scales the Deployment to that replica count
       And new pods enter Pending state with "Insufficient memory" events
 
     Then Prometheus fires KubePodSchedulingFailed alert after 2 minutes
@@ -68,8 +69,8 @@ Feature: Cluster Autoscaling via Node Provisioning
 This script:
 1. Deploys the namespace, workload, and Prometheus rules
 2. Starts the provisioner agent in the background
-3. Injects the failure (scales to 8 replicas)
-4. Prints monitoring instructions
+3. Queries allocatable memory and computes a replica count that exceeds node capacity
+4. Scales the deployment to trigger Pending pods
 
 ## Manual Step-by-Step
 
@@ -92,11 +93,11 @@ PROVISIONER_PID=$!
 # 5. Verify initial state (2 Running pods)
 kubectl get pods -n demo-autoscale -o wide
 
-# 6. Inject: scale beyond node capacity
-kubectl scale deployment/web-cluster --replicas=8 -n demo-autoscale
+# 6. Inject: scale beyond node capacity (compute dynamically or use a high count)
+kubectl scale deployment/web-cluster --replicas=14 -n demo-autoscale
 
 # 7. Verify some pods are Pending
-kubectl get pods -n demo-autoscale   # 2-3 Running, 5-6 Pending
+kubectl get pods -n demo-autoscale   # some Running, rest Pending
 
 # 8. Watch Kubernaut pipeline
 kubectl get rr,sp,aa,we,ea -n demo-autoscale -w
@@ -125,14 +126,15 @@ kill $PROVISIONER_PID
 - [ ] README documents both automated and manual step-by-step execution
 - [ ] Cleanup instructions for removing the extra node and provisioner
 
-## Memory Budget
+## Dynamic Scaling
 
-| Component | Estimate |
-|---|---|
-| New Kind worker node | ~500MB |
-| **Additional overhead** | **~500MB** |
-| **Total cluster after scaling** | **~5.5-6.5GB** |
-| **Headroom on 12GB** | **~5.5-6.5GB** |
+`run.sh` computes the replica count at runtime:
+
+1. Queries `allocatable.memory` from all nodes with `kubernaut.ai/managed=true`
+2. Divides total allocatable by the per-pod request (2Gi) to get `max_pods`
+3. Scales to `max_pods + 2` (minimum 8) to guarantee at least 2 pods stay Pending
+
+This works regardless of host memory -- whether it's a Linux host exposing all RAM or a macOS Podman VM with a capped allocation.
 
 ## Cleanup
 
