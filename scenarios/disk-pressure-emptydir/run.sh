@@ -173,6 +173,28 @@ echo " Rate auto-tuned to node filesystem capacity"
 echo "============================================="
 echo ""
 
+# Step 0: Ensure a worker node has the scenario label and taint.
+# On Kind, kind-config-diskpressure.yaml bakes the label at cluster creation.
+# On OCP, we pick the first schedulable worker and label it.
+_ensure_scenario_node() {
+    if kubectl get nodes -l scenario=disk-pressure -o name 2>/dev/null | grep -q .; then
+        echo "  Node with scenario=disk-pressure already exists."
+        return 0
+    fi
+    local target
+    target=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' \
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [ -z "$target" ]; then
+        echo "  WARNING: no schedulable worker node found; pods may stay Pending."
+        return 0
+    fi
+    echo "  Labeling and tainting node ${target} for disk-pressure scenario..."
+    kubectl label node "$target" scenario=disk-pressure --overwrite
+    kubectl taint node "$target" scenario=disk-pressure:NoSchedule --overwrite 2>/dev/null || true
+}
+echo "==> Step 0: Ensuring a worker node is labeled for this scenario..."
+_ensure_scenario_node
+
 # Step 1: Push deployment YAML to Gitea repo
 echo "==> Step 1: Pushing deployment manifests to Gitea..."
 WORK_DIR=$(mktemp -d)

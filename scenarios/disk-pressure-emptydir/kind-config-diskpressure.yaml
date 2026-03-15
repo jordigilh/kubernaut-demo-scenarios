@@ -41,6 +41,7 @@ nodes:
 - role: worker
   labels:
     kubernaut.ai/managed: "true"
+    scenario: disk-pressure
   kubeadmConfigPatches:
   - |
     kind: KubeletConfiguration
