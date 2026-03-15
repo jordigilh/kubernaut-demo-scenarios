@@ -47,7 +47,13 @@ while kubectl get ns "${NAMESPACE}" &>/dev/null; do
   sleep 2
 done
 
-# Remove Kubernaut labels from the node that was labeled for this scenario
+# Remove scenario label/taint and Kubernaut labels from tagged nodes
+for node in $(kubectl get nodes -l scenario=disk-pressure \
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
+    echo "  Removing scenario label/taint from node: ${node}"
+    kubectl label node "$node" scenario- 2>/dev/null || true
+    kubectl taint node "$node" scenario=disk-pressure:NoSchedule- 2>/dev/null || true
+done
 for node in $(kubectl get nodes -l kubernaut.ai/managed=true \
   -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
     echo "  Removing Kubernaut labels from node: ${node}"
