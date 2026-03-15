@@ -3,7 +3,7 @@ kind: RemediationWorkflow
 metadata:
   name: migrate-emptydir-to-pvc-gitops-v1
 spec:
-  version: "1.7.0"
+  version: "1.8.0"
   description:
     what: "Migrates a database from ephemeral emptyDir storage to a persistent volume claim via GitOps. Backs up the database via live pg_dump, commits the emptyDir-to-PVC migration to the source Git repository, waits for ArgoCD to sync the change, and restores the database to the new PVC-backed instance."
     whenToUse: "When PredictedDiskPressure or DiskPressure is caused by emptyDir growth from a stateful workload (database) running on ephemeral storage, and the namespace is managed by a GitOps tool (ArgoCD). Best used with proactive signals (BR-SP-106) where the pod is still running and backup is feasible."
