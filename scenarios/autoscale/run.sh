@@ -69,10 +69,22 @@ PROVISIONER_PID=$!
 echo "  Provisioner running (PID: $PROVISIONER_PID)"
 echo ""
 
-# Step 5: Inject failure -- scale beyond node capacity
-echo "==> Step 5: Injecting failure (scaling to 8 replicas)..."
-kubectl scale deployment/web-cluster --replicas=8 -n "${NAMESPACE}"
-echo "  Scaled to 8 replicas. With 8x512Mi = 4GB requested, worker node cannot fit all."
+# Step 5: Inject failure -- scale beyond node capacity.
+# Compute replicas dynamically: query allocatable memory across managed nodes,
+# then pick a count that guarantees some pods stay Pending.
+POD_REQUEST_MI=2048  # must match deployment manifest (2Gi)
+TOTAL_ALLOC_KI=$(kubectl get nodes -l kubernaut.ai/managed=true \
+  -o jsonpath='{range .items[*]}{.status.allocatable.memory}{"\n"}{end}' \
+  | sed 's/Ki$//' | awk '{s+=$1} END {printf "%.0f", s}')
+TOTAL_ALLOC_MI=$((TOTAL_ALLOC_KI / 1024))
+MAX_PODS=$((TOTAL_ALLOC_MI / POD_REQUEST_MI))
+REPLICAS=$((MAX_PODS + 2))
+[ "$REPLICAS" -lt 8 ] && REPLICAS=8
+
+echo "==> Step 5: Injecting failure (scaling to ${REPLICAS} replicas)..."
+echo "  Managed-node allocatable: ${TOTAL_ALLOC_MI}Mi total, pod request: $((POD_REQUEST_MI))Mi each"
+echo "  Max pods that fit: ~${MAX_PODS}, scaling to ${REPLICAS} to guarantee Pending pods."
+kubectl scale deployment/web-cluster --replicas="${REPLICAS}" -n "${NAMESPACE}"
 echo ""
 
 # Step 6: Show pending pods
