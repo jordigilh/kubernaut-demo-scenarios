@@ -10,20 +10,116 @@ CHART_DIR="${KUBERNAUT_REPO}/charts/kubernaut"
 KIND_VALUES="${REPO_ROOT}/helm/kubernaut-kind-values.yaml"
 LLM_VALUES="${HOME}/.kubernaut/helm/llm-values.yaml"
 
-# Use dedicated kubeconfig to avoid overwriting ~/.kube/config
-DEMO_KUBECONFIG="${DEMO_KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
-export KUBECONFIG="${DEMO_KUBECONFIG}"
+# ── Platform detection ───────────────────────────────────────────────────────
+# Detects whether the target cluster is OpenShift (ocp) or vanilla Kubernetes (kind).
+# Override with PLATFORM=ocp or PLATFORM=kind before sourcing this file.
+detect_platform() {
+    local api_output
+    api_output=$(kubectl api-resources --api-group=config.openshift.io 2>/dev/null) || true
+    if echo "$api_output" | grep -q ClusterVersion; then
+        echo "ocp"
+    else
+        echo "kind"
+    fi
+}
+
+PLATFORM="${PLATFORM:-$(detect_platform)}"
+export PLATFORM
+
+# For Kind clusters, use the demo-specific kubeconfig created by kind-helper.sh
+# so Kind users get isolation from ~/.kube/config. OCP users keep their
+# default kubeconfig (~/.kube/config) or any user-provided KUBECONFIG.
+if [ -z "${KUBECONFIG:-}" ] && [ "$PLATFORM" = "kind" ]; then
+    export KUBECONFIG="${HOME}/.kube/kubernaut-demo-config"
+fi
+
+# Returns the kustomize directory to use for kubectl apply -k.
+# Uses the OCP overlay when available and PLATFORM=ocp, otherwise the base manifests.
+get_manifest_dir() {
+    local scenario_dir="$1"
+    if [ "$PLATFORM" = "ocp" ] && [ -d "${scenario_dir}/overlays/ocp" ]; then
+        echo "${scenario_dir}/overlays/ocp"
+    else
+        echo "${scenario_dir}/manifests"
+    fi
+}
+
+# Returns the namespace where ArgoCD is installed.
+# OCP uses the OpenShift GitOps operator (openshift-gitops);
+# Kind uses the community ArgoCD install in the "argocd" namespace.
+get_argocd_namespace() {
+    if [ "$PLATFORM" = "ocp" ]; then
+        echo "openshift-gitops"
+    else
+        echo "argocd"
+    fi
+}
+
+# Restart AlertManager to clear stale notification state after cleanup.
+# On OCP the AlertManager is managed by the cluster monitoring operator;
+# restarting it is unnecessary (alerts auto-resolve) and may be disruptive.
+restart_alertmanager() {
+    if [ "$PLATFORM" = "ocp" ]; then
+        echo "  (OCP: skipping AlertManager restart -- alerts auto-resolve)"
+        return 0
+    fi
+    echo "==> Restarting AlertManager to clear stale notification state..."
+    kubectl rollout restart statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring
+    kubectl rollout status statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring --timeout=60s
+}
+
+# Silence a specific alert in AlertManager (platform-aware).
+silence_alert() {
+    local alert_name="$1"
+    local namespace="$2"
+    local duration="${3:-2m}"
+    if [ "$PLATFORM" = "ocp" ]; then
+        echo "  (OCP: skipping alert silence -- alerts auto-resolve)"
+        return 0
+    fi
+    kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+      amtool silence add "alertname=${alert_name}" "namespace=${namespace}" \
+      --alertmanager.url=http://localhost:9093 "--duration=${duration}" \
+      --comment="Cleanup silence" 2>/dev/null || true
+}
+
+# Ensure all ActionType and RemediationWorkflow CRDs are applied.
+# Idempotent: kubectl apply is a no-op when resources are unchanged.
+seed_action_types_and_workflows() {
+    local at_dir="${REPO_ROOT}/deploy/action-types"
+    local scenarios_dir="${REPO_ROOT}/scenarios"
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+
+    if [ -d "$at_dir" ] && ls "$at_dir"/*.yaml &>/dev/null; then
+        echo "==> Seeding ActionType CRDs..."
+        kubectl apply -f "$at_dir/" 2>&1 | grep -v unchanged | sed 's/^/    /' || true
+    fi
+
+    local workflow_dirs
+    workflow_dirs=$(find "$scenarios_dir" -type d -name workflow 2>/dev/null)
+    if [ -n "$workflow_dirs" ]; then
+        echo "==> Seeding RemediationWorkflow CRDs (namespace: ${ns})..."
+        echo "$workflow_dirs" | while read -r dir; do
+            kubectl apply -n "$ns" -f "$dir/" 2>&1 | grep -v unchanged | sed 's/^/    /' || true
+        done
+    fi
+}
 
 # Validate that the demo environment is ready (no installs).
 # Checks: kubeconfig, Kubernaut Helm release, all deployments ready, monitoring stack.
+# After validation, seeds all ActionType and RemediationWorkflow CRDs.
 # Exits with a clear error if anything is missing.
 require_demo_ready() {
     local fail=false
 
     if ! kubectl cluster-info &>/dev/null; then
         echo "ERROR: Cannot connect to Kubernetes cluster."
-        echo "  Is the Kind cluster running? Check: kind get clusters"
         echo "  Kubeconfig: ${KUBECONFIG}"
+        if [ "$PLATFORM" = "ocp" ]; then
+            echo "  Check: oc whoami --show-server"
+        else
+            echo "  Is the Kind cluster running? Check: kind get clusters"
+        fi
         fail=true
     fi
 
@@ -42,16 +138,31 @@ require_demo_ready() {
         fi
     fi
 
-    if [ "$fail" = false ] && ! helm status kube-prometheus-stack -n monitoring &>/dev/null; then
-        echo "ERROR: Monitoring stack is not installed."
-        fail=true
+    if [ "$fail" = false ]; then
+        if [ "$PLATFORM" = "ocp" ]; then
+            if ! kubectl get namespace openshift-monitoring &>/dev/null; then
+                echo "ERROR: openshift-monitoring namespace not found."
+                fail=true
+            fi
+        else
+            if ! helm status kube-prometheus-stack -n monitoring &>/dev/null; then
+                echo "ERROR: Monitoring stack is not installed."
+                fail=true
+            fi
+        fi
     fi
 
     if [ "$fail" = true ]; then
         echo ""
-        echo "Run setup first:  bash scripts/setup-demo-cluster.sh"
+        if [ "$PLATFORM" = "ocp" ]; then
+            echo "Ensure the OCP cluster is configured with user-workload monitoring enabled."
+        else
+            echo "Run setup first:  bash scripts/setup-demo-cluster.sh"
+        fi
         exit 1
     fi
+
+    seed_action_types_and_workflows
 }
 
 wait_platform_ready() {
@@ -117,38 +228,21 @@ ensure_platform() {
     _check_llm_credentials
 }
 
-# Seed the workflow for a specific scenario into DataStorage.
-# Call after ensure_platform. Fails fast if seeding returns an unexpected HTTP code.
+# Seed the RemediationWorkflow CRD for a specific scenario.
+# The DataStorage controller reconciles it into the workflow catalog.
 # Args: $1=scenario directory name (e.g., "crashloop")
 seed_scenario_workflow() {
     local scenario="$1"
-    local seed_script="${REPO_ROOT}/scripts/seed-workflows.sh"
+    local schema_file="${REPO_ROOT}/scenarios/${scenario}/workflow/workflow-schema.yaml"
 
-    if [ ! -f "$seed_script" ]; then
-        echo "ERROR: seed-workflows.sh not found at ${seed_script}"
-        return 1
+    if [ ! -f "$schema_file" ]; then
+        echo "WARNING: No workflow-schema.yaml for scenario '${scenario}', skipping."
+        return 0
     fi
 
-    echo "==> Seeding workflow for scenario: ${scenario}"
-
-    local output
-    output=$("$seed_script" --scenario "$scenario" 2>&1)
-    local exit_code=$?
-
-    echo "$output" | sed 's/^/    /'
-
-    if [ $exit_code -ne 0 ]; then
-        echo "ERROR: Workflow seeding failed for scenario '${scenario}'"
-        return 1
-    fi
-
-    if echo "$output" | grep -q "HTTP 502\|HTTP 500\|HTTP 503\|HTTP 504"; then
-        echo "ERROR: DataStorage returned a server error while seeding '${scenario}'."
-        echo "  The schema image may not be accessible (private repo or not yet pushed)."
-        return 1
-    fi
-
-    echo "  Workflow seeded for ${scenario}."
+    echo "==> Applying RemediationWorkflow CRD for scenario: ${scenario}"
+    kubectl apply -f "$schema_file" -n "${PLATFORM_NS}" 2>&1 | sed 's/^/    /'
+    echo "  Workflow applied for ${scenario}."
 }
 
 # Create secrets that must exist before Helm install:
@@ -211,11 +305,11 @@ _ensure_pre_install_secrets() {
 password: ${pg_password}" \
         --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
 
-    local redis_password="${KUBERNAUT_REDIS_PASSWORD:-}"
-    echo "  Creating Redis credential Secret..."
-    kubectl create secret generic kubernaut-redis-credentials \
+    local valkey_password="${KUBERNAUT_VALKEY_PASSWORD:-}"
+    echo "  Creating Valkey credential Secret..."
+    kubectl create secret generic kubernaut-valkey-credentials \
         -n "${PLATFORM_NS}" \
-        --from-literal="redis-secrets.yaml=password: \"${redis_password}\"" \
+        --from-literal="valkey-secrets.yaml=password: \"${valkey_password}\"" \
         --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
 }
 

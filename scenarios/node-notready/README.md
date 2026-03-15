@@ -30,10 +30,7 @@ existing workloads to healthy nodes.
 ## Cleanup
 
 ```bash
-WORKER=$(kubectl get nodes -l kubernaut.ai/managed=true -o name | head -1 | sed 's|node/||')
-podman unpause $WORKER
-kubectl uncordon $WORKER
-kubectl delete namespace demo-node
+./scenarios/node-notready/cleanup.sh
 ```
 
 ## Acceptance Criteria

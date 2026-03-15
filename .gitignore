@@ -8,9 +8,6 @@ test-results-*.txt
 # Raw/intermediate video files from recording
 *-raw.mp4
 *-original.mp4
-*-lite.gif
-!scenarios/crashloop/crashloop-lite.gif
-
 # Build artifacts
 .goose-bin/
 

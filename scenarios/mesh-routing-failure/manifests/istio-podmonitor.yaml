@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: istio-proxy
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - demo-mesh-failure
+  selector:
+    matchExpressions:
+      - key: security.istio.io/tlsMode
+        operator: Exists
+  podMetricsEndpoints:
+    - port: http-envoy-prom
+      path: /stats/prometheus
+      interval: 15s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_container_name]
+          regex: istio-proxy
+          action: keep

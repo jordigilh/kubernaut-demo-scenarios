@@ -22,7 +22,7 @@ Some scenarios require additional components beyond the base platform. All depen
 | [**kube-prometheus-stack**](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) | All scenarios | Installed by `setup-demo-cluster.sh` |
 | [**metrics-server**](https://github.com/kubernetes-sigs/metrics-server) | hpa-maxed, autoscale | Required for HPA CPU metrics |
 | [**cert-manager**](https://cert-manager.io/docs/installation/) | cert-failure, cert-failure-gitops | Certificate lifecycle management |
-| [**Linkerd**](https://linkerd.io/2/getting-started/) | mesh-routing-failure | Service mesh control plane |
+| [**Istio**](https://istio.io/latest/docs/setup/getting-started/) | mesh-routing-failure | Service mesh control plane |
 | [**blackbox-exporter**](https://github.com/prometheus/blackbox_exporter) | slo-burn | HTTP probe metrics (probe_success) |
 | [**Helm CLI**](https://helm.sh/docs/intro/install/) | crashloop-helm | Helm-managed release rollback |
 | [**ArgoCD**](https://argo-cd.readthedocs.io/en/stable/getting_started/) | gitops-drift, cert-failure-gitops | GitOps delivery |
@@ -64,7 +64,7 @@ Each scenario's `README.md` lists its specific prerequisites.
 | Scenario | Signal / Alert | Fault Injection | Remediation |
 |----------|---------------|-----------------|-------------|
 | [**network-policy-block**](../scenarios/network-policy-block/) | `KubePodCrashLooping` / `KubeDeploymentReplicasMismatch` | Deny-all NetworkPolicy | Fix NetworkPolicy rules |
-| [**mesh-routing-failure**](../scenarios/mesh-routing-failure/) | `LinkerdHighErrorRate` / `LinkerdRequestsUnauthorized` | Restrictive AuthorizationPolicy | Fix AuthorizationPolicy |
+| [**mesh-routing-failure**](../scenarios/mesh-routing-failure/) | `IstioHighDenyRate` / `IstioRequestsUnauthorized` | Restrictive Istio AuthorizationPolicy | Fix AuthorizationPolicy |
 
 ## GitOps
 

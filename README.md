@@ -75,6 +75,8 @@ kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
 
 This deploys a misconfigured application that starts crash-looping. Within a few minutes, Kubernaut detects the issue, analyzes it, and rolls back to the last working version.
 
+![Kubernaut detecting and remediating a CrashLoopBackOff](scenarios/crashloop/crashloop-lite.gif)
+
 Watch the RemediationRequest progress through the pipeline:
 
 ```bash

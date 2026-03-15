@@ -1,5 +1,5 @@
 # Fix AuthorizationPolicy - Runnable Job Container (BR-WE-014)
-# Scenario: #136 -- Linkerd AuthorizationPolicy blocks traffic -> remove/fix policy
+# Scenario: #136 -- Istio AuthorizationPolicy blocks traffic -> remove/fix policy
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 ARG TARGETARCH

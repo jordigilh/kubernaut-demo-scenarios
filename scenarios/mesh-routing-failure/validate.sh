@@ -18,10 +18,10 @@ for rr in $(kubectl get rr -n "${PLATFORM_NS}" -o jsonpath='{range .items[*]}{.m
 done
 
 # ── Wait for alert ──────────────────────────────────────────────────────────
-# mesh-routing-failure has two alerts; LinkerdHighErrorRate fires first
+# mesh-routing-failure has two alerts; IstioHighDenyRate fires first
 
-wait_for_alert "LinkerdHighErrorRate" "${NAMESPACE}" 480
-show_alert "LinkerdHighErrorRate" "${NAMESPACE}"
+wait_for_alert "IstioHighDenyRate" "${NAMESPACE}" 480
+show_alert "IstioHighDenyRate" "${NAMESPACE}"
 
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ wfe_phase=$(get_wfe_phase "${NAMESPACE}")
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
 # Verify deny AuthorizationPolicy was removed
-deny_policies=$(kubectl get authorizationpolicies -n "${NAMESPACE}" --no-headers 2>/dev/null \
+deny_policies=$(kubectl get authorizationpolicies.security.istio.io -n "${NAMESPACE}" --no-headers 2>/dev/null \
   | grep -ci "deny" || true)
 assert_eq "${deny_policies:-0}" "0" "No deny AuthorizationPolicies remain"
 

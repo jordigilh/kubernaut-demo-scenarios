@@ -3,6 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/platform-helper.sh
+source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up Memory Leak demo..."
 
@@ -15,10 +17,7 @@ while kubectl get ns demo-memory-leak &>/dev/null; do
 done
 
 echo "==> Silencing stale alerts in AlertManager..."
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
-  amtool silence add alertname=ContainerMemoryExhaustionPredicted namespace=demo-memory-leak \
-  --alertmanager.url=http://localhost:9093 --duration=2m \
-  --comment="Demo cleanup: silence stale alerts after namespace deletion" 2>/dev/null || true
+silence_alert "ContainerMemoryExhaustionPredicted" "demo-memory-leak" "2m"
 
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 echo "==> Cleaning up stale platform resources..."

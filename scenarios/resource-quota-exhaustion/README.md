@@ -4,14 +4,14 @@
 
 Demonstrates Kubernaut distinguishing policy constraints (ResourceQuota exhaustion) from infrastructure failures. When pods are stuck in Pending due to quota limits, the LLM escalates to human review rather than attempting automated remediation.
 
-**Signal**: `KubePodPendingQuotaExhausted` -- pods Pending in namespace with ResourceQuota
+**Signal**: `KubeResourceQuotaExhausted` -- pods Pending in namespace with ResourceQuota
 **Root cause**: ResourceQuota limits exceeded (768Mi requested > 512Mi quota)
 **Expected behavior**: LLM recognizes policy constraint → `needs_human_review: true` → ManualReviewNotification
 
 ## Pipeline Path
 
 ```
-Alert (KubePodPendingQuotaExhausted) -> SP -> RR -> AA (NeedsHumanReview) -> ManualReviewNotification
+Alert (KubeResourceQuotaExhausted) -> SP -> RR -> AA (NeedsHumanReview) -> ManualReviewNotification
 ```
 
 ## Quick Start
@@ -29,6 +29,12 @@ Alert (KubePodPendingQuotaExhausted) -> SP -> RR -> AA (NeedsHumanReview) -> Man
 ## Business Requirement
 
 - **BR-SEVERITY-001**: Severity classification and escalation policies
+
+## Cleanup
+
+```bash
+./scenarios/resource-quota-exhaustion/cleanup.sh
+```
 
 ## Issue
 

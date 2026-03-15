@@ -39,23 +39,19 @@ echo " OOMKill -> Increase Limits -> Repeat -> Escalate"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy namespace and workload
-echo "==> Step 1: Deploying namespace and ml-worker..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
+# Step 1: Deploy scenario resources
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 2: Deploy Prometheus alerting rules
-echo "==> Step 2: Deploying OOMKill detection alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 3: Let the container run and get OOMKilled
-echo "==> Step 3: Waiting for initial OOMKill (~1-2 min)..."
+# Step 2: Let the container run and get OOMKilled
+echo "==> Step 2: Waiting for initial OOMKill (~1-2 min)..."
 echo "  The ml-worker allocates 8Mi every 2s. With 64Mi limit, OOMKill in ~16s."
 echo "  After OOMKill, Prometheus detects ContainerOOMKilling alert."
 echo ""
 
-# Step 4: Expected behavior
-echo "==> Step 4: Pipeline in progress..."
+# Step 3: Expected behavior
+echo "==> Step 3: Pipeline in progress..."
 echo ""
 echo "  Expected multi-cycle flow:"
 echo "    Cycle 1: OOMKill -> increase limits (64Mi -> 128Mi) -> OOMKill recurs"

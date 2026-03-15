@@ -127,20 +127,17 @@ kill "${PF_PID}" 2>/dev/null || true
 cd /
 rm -rf "${WORK_DIR}"
 
-# Step 2: Deploy namespace and Prometheus rule
-echo "==> Step 2: Deploying namespace and alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
+# Step 2: Apply all manifests (namespace, Prometheus rule, ArgoCD Application)
+echo "==> Step 2: Applying manifests (namespace, Prometheus rule, ArgoCD Application)..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
 # Speed up ArgoCD polling for demo
 kubectl patch configmap argocd-cm -n argocd --type merge \
   -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
 
-# Step 3: Deploy ArgoCD Application
-echo "==> Step 3: Creating ArgoCD Application..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/argocd-application.yaml"
-
-echo "  Waiting for ArgoCD sync..."
+# Step 3: Wait for ArgoCD sync
+echo "==> Step 3: Waiting for ArgoCD sync..."
 for i in $(seq 1 30); do
     if kubectl get deployment memory-consumer -n "${NAMESPACE}" &>/dev/null; then
         echo "  ArgoCD synced deployment (attempt ${i})."

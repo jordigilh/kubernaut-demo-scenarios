@@ -8,7 +8,7 @@
 #
 # Pre-requisites:
 #   - Kind cluster with Kubernaut platform deployed
-#   - Linkerd service mesh installed
+#   - Istio service mesh installed
 #   - mesh-routing-failure workflow seeded in DataStorage
 #   - VHS installed (brew install charmbracelet/tap/vhs)
 #
@@ -129,7 +129,7 @@ Sleep 300ms
 Type "narrate 'A deny AuthorizationPolicy blocks service mesh traffic in staging.'"
 Enter
 Sleep 300ms
-Type "narrate 'Linkerd denies inbound traffic, health checks fail, and the alert fires.'"
+Type "narrate 'Istio denies inbound traffic, returning 403 Forbidden, and the alert fires.'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
@@ -138,7 +138,7 @@ Sleep 4s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Healthy workload with Linkerd mesh in namespace demo-mesh-failure'"
+Type "narrate 'Healthy workload with Istio mesh in namespace demo-mesh-failure'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
@@ -191,7 +191,7 @@ Sleep 2s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Waiting for the LinkerdHighErrorRate alert to fire...'"
+Type "narrate 'Waiting for the IstioHighDenyRate alert to fire...'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
@@ -201,7 +201,7 @@ Sleep 5s
 # Hidden wait: poll until alert appears in AlertManager
 Hide
 Set TypingSpeed 1ms
-Type `while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- amtool alert query alertname=LinkerdHighErrorRate --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null)" = "0" ]; do sleep 10; done && clear && echo ALERT"_"FIRED`
+Type `while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- amtool alert query alertname=IstioHighDenyRate --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null)" = "0" ]; do sleep 10; done && clear && echo ALERT"_"FIRED`
 Enter
 Wait+Screen@600s /ALERT_FIRED/
 Type "act_clear"
@@ -212,14 +212,14 @@ Show
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Alert is now firing — high error rate on mesh'"
+Type "narrate 'Alert is now firing — high deny rate on Istio mesh'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-alert.sh LinkerdHighErrorRate"
+Type "bash scripts/show-alert.sh IstioHighDenyRate"
 Enter
 Sleep 8s
 

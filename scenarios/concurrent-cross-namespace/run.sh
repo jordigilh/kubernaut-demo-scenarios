@@ -48,41 +48,16 @@ kubectl rollout restart deployment/signalprocessing-controller -n kubernaut-syst
 kubectl rollout status deployment/signalprocessing-controller -n kubernaut-system --timeout=60s
 echo ""
 
-# Step 0b: Register risk-tolerance-aware workflows in DataStorage
-echo "==> Step 0b: Registering risk-tolerance workflows in DataStorage..."
-# shellcheck source=../../scripts/seed-workflows.sh
-DATASTORAGE_URL="${DATASTORAGE_URL:-http://localhost:30081}"
-SA_TOKEN=$(kubectl create token holmesgpt-api-sa -n kubernaut-system --duration=10m 2>/dev/null || echo "")
-for schema in "${SCRIPT_DIR}/workflow/"*.yaml; do
-  wf_name=$(basename "$schema" .yaml)
-  echo -n "  ${wf_name}: "
-  yaml_content=$(cat "$schema")
-  payload=$(jq -n --arg content "$yaml_content" --arg source "api" --arg registeredBy "concurrent-scenario" \
-    '{ content: $content, source: $source, registeredBy: $registeredBy }')
-
-  curl_args=(-s -w "\n%{http_code}" -X POST "${DATASTORAGE_URL}/api/v1/workflows"
-    -H "Content-Type: application/json" -d "$payload")
-  [ -n "$SA_TOKEN" ] && curl_args+=(-H "Authorization: Bearer ${SA_TOKEN}")
-
-  response=$(curl "${curl_args[@]}" 2>&1) || true
-  http_code=$(echo "$response" | tail -1)
-  case "$http_code" in
-    2[0-9][0-9]) echo "OK (HTTP ${http_code})" ;;
-    409) echo "ALREADY EXISTS" ;;
-    *) echo "FAILED (HTTP ${http_code})" ;;
-  esac
-done
+# Step 0b: Register risk-tolerance-aware workflows as RemediationWorkflow CRDs
+echo "==> Step 0b: Applying RemediationWorkflow CRDs..."
+kubectl apply -f "${SCRIPT_DIR}/workflow/" -n kubernaut-system
 echo ""
 
 # Step 1: Deploy both namespaces and workloads
 echo "==> Step 1: Deploying team-alpha and team-beta workloads..."
-for team in team-alpha team-beta; do
-  echo "  Deploying ${team}..."
-  kubectl apply -f "${SCRIPT_DIR}/manifests/${team}/namespace.yaml"
-  kubectl apply -f "${SCRIPT_DIR}/manifests/${team}/configmap.yaml"
-  kubectl apply -f "${SCRIPT_DIR}/manifests/${team}/deployment.yaml"
-  kubectl apply -f "${SCRIPT_DIR}/manifests/${team}/prometheus-rule.yaml"
-done
+echo "  Deploying both teams..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 echo ""
 
 # Step 2: Wait for healthy deployments
@@ -106,12 +81,14 @@ echo ""
 echo "==> Step 5: Both pipelines running in parallel."
 echo ""
 echo "  Expected:"
-echo "    Team Alpha (high risk tolerance):"
+echo "    Team Alpha (staging, high risk tolerance):"
+echo "      -> Auto-approved (environment=staging)"
 echo "      -> SP enriches with customLabels: {risk_tolerance: [high]}"
 echo "      -> DataStorage boosts restart-pods-v1 (customLabels match)"
 echo "      -> LLM selects restart-pods-v1 (simpler, aligns with risk tolerance)"
 echo ""
-echo "    Team Beta (low risk tolerance):"
+echo "    Team Beta (production, low risk tolerance):"
+echo "      -> Requires manual approval (environment=production)"
 echo "      -> SP enriches with customLabels: {risk_tolerance: [low]}"
 echo "      -> DataStorage boosts crashloop-rollback-v1 (customLabels match)"
 echo "      -> LLM selects crashloop-rollback-v1 (safer, more thorough)"

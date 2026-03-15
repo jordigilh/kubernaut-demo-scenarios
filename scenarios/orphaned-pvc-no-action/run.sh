@@ -35,6 +35,16 @@ require_demo_ready
 # NOTE: We intentionally do NOT seed a workflow for this scenario.
 # Orphaned PVCs are housekeeping, not a critical issue. The LLM should
 # correctly identify this as benign and conclude no action is needed.
+#
+# B15: On shared clusters (OCP), the cleanup-pvc-v1 workflow may have been
+# seeded globally by another scenario. Its presence causes the LLM to see
+# CleanupPVC as an available action type, creating an ambiguous state that
+# prevents the "not actionable" conclusion. We temporarily remove it.
+if kubectl get remediationworkflow cleanup-pvc-v1 -n "${PLATFORM_NS}" &>/dev/null; then
+    echo "==> B15: Removing cleanup-pvc-v1 workflow (will restore in cleanup.sh)..."
+    kubectl delete remediationworkflow cleanup-pvc-v1 -n "${PLATFORM_NS}"
+    sleep 5
+fi
 
 echo "============================================="
 echo " Orphaned PVC Demo (#122)"
@@ -42,17 +52,13 @@ echo " Dangling Resources -> NoActionRequired"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy namespace and workload
-echo "==> Step 1: Deploying namespace and data-processor..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
+# Step 1: Deploy scenario resources
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 2: Deploy Prometheus alerting rules
-echo "==> Step 2: Deploying orphaned PVC alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 3: Wait for healthy deployment
-echo "==> Step 3: Waiting for data-processor to be ready..."
+# Step 2: Wait for healthy deployment
+echo "==> Step 2: Waiting for data-processor to be ready..."
 kubectl wait --for=condition=Available deployment/data-processor \
   -n "${NAMESPACE}" --timeout=120s
 echo "  data-processor is running."
@@ -64,7 +70,7 @@ echo "==> Step 4: Creating orphaned PVCs from simulated batch jobs..."
 bash "${SCRIPT_DIR}/inject-orphan-pvcs.sh"
 echo ""
 
-echo "==> Step 5: Fault injected. Waiting for KubePersistentVolumeClaimOrphaned alert (~2 min)."
+echo "==> Step 4: Fault injected. Waiting for KubePersistentVolumeClaimOrphaned alert (~2 min)."
 
 # Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then

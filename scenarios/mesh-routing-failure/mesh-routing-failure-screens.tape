@@ -113,7 +113,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-alert.sh LinkerdHighErrorRate"
+Type "bash scripts/show-alert.sh IstioHighDenyRate"
 Enter
 Sleep 10s
 
@@ -254,7 +254,7 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type `printf '\e[H\e[J\n\e[1;33m━━ Summary ━━\e[0m\n\n\e[38;5;245m  • Kubernaut detected LinkerdHighErrorRate alert from Prometheus\n  • AI analysis identified: deny AuthorizationPolicy blocking mesh traffic\n  • Selected workflow: RemoveAuthPolicy (auto-approved)\n  • Workflow removed the deny policy\n  • Users notified via Slack and console\n  • EffectivenessAssessment confirmed: remediation successful\e[0m\n'`
+Type `printf '\e[H\e[J\n\e[1;33m━━ Summary ━━\e[0m\n\n\e[38;5;245m  • Kubernaut detected IstioHighDenyRate alert from Prometheus\n  • AI analysis identified: deny AuthorizationPolicy blocking mesh traffic\n  • Selected workflow: FixAuthorizationPolicy (auto-approved)\n  • Workflow removed the deny policy\n  • Users notified via Slack and console\n  • EffectivenessAssessment confirmed: remediation successful\e[0m\n'`
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms

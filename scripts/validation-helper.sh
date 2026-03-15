@@ -76,6 +76,16 @@ log_warn() {
 # used for workload assertions (pods, HPA, deployments, etc.).
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 
+# ── Platform-aware monitoring defaults ───────────────────────────────────────
+# PLATFORM is exported by platform-helper.sh (auto-detected or explicit).
+if [ "${PLATFORM:-}" = "ocp" ]; then
+    MONITORING_NS="${MONITORING_NS:-openshift-monitoring}"
+    ALERTMANAGER_POD="${ALERTMANAGER_POD:-alertmanager-main-0}"
+else
+    MONITORING_NS="${MONITORING_NS:-monitoring}"
+    ALERTMANAGER_POD="${ALERTMANAGER_POD:-alertmanager-kube-prometheus-stack-alertmanager-0}"
+fi
+
 # ── CRD field accessors ─────────────────────────────────────────────────────
 # Thin wrappers over kubectl jsonpath. Return empty string on missing fields.
 # $1 = scenario namespace (used to find the RR by target namespace label)
@@ -159,16 +169,21 @@ wait_for_alert() {
     local alert_name="$1"
     local namespace="$2"
     local timeout="${3:-300}"
-    local am_pod="alertmanager-kube-prometheus-stack-alertmanager-0"
+    local am_pod="${ALERTMANAGER_POD}"
     local elapsed=0
     local interval=10
 
     log_phase "Waiting for ${_c_cyan}${alert_name}${_c_reset} alert (timeout: ${timeout}s)..."
 
+    local ns_filter=()
+    if [ -n "$namespace" ]; then
+        ns_filter=("namespace=${namespace}")
+    fi
+
     while [ "$elapsed" -lt "$timeout" ]; do
         local count
-        count=$(kubectl exec -n monitoring "$am_pod" -- \
-            amtool alert query "alertname=${alert_name}" "namespace=${namespace}" \
+        count=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
+            amtool alert query "alertname=${alert_name}" "${ns_filter[@]}" \
             --alertmanager.url=http://localhost:9093 \
             --output=json 2>/dev/null \
             | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
@@ -190,7 +205,7 @@ wait_for_alert() {
 # Args: $1=namespace $2=timeout_seconds (default 120)
 wait_for_rr() {
     local target_ns="$1"
-    local timeout="${2:-120}"
+    local timeout="${2:-240}"
     local elapsed=0
     local interval=5
 
@@ -246,13 +261,13 @@ wait_for_rr_phase() {
 show_alert() {
     local alert_name="$1"
     local namespace="${2:-}"
-    local am_pod="alertmanager-kube-prometheus-stack-alertmanager-0"
+    local am_pod="${ALERTMANAGER_POD}"
 
     local query_args=("alertname=${alert_name}")
     [ -n "$namespace" ] && query_args+=("namespace=${namespace}")
 
     local alerts_json
-    alerts_json=$(kubectl exec -n monitoring "$am_pod" -- \
+    alerts_json=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
         amtool alert query "${query_args[@]}" \
         --alertmanager.url=http://localhost:9093 \
         --output=json 2>/dev/null || echo "[]")

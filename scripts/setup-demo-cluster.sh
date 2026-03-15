@@ -2,7 +2,7 @@
 # Setup the full Kubernaut demo environment in a Kind cluster.
 #
 # Installs: Kind cluster, monitoring stack, Kubernaut platform (Helm),
-# infrastructure dependencies (cert-manager, metrics-server, Linkerd,
+# infrastructure dependencies (cert-manager, metrics-server, Istio,
 # blackbox-exporter, Gitea, ArgoCD), and seeds the workflow catalog.
 #
 # Usage:
@@ -94,8 +94,8 @@ if [ "$SKIP_INFRA" = false ]; then
     ensure_metrics_server
     echo ""
 
-    echo "--- Linkerd ---"
-    ensure_linkerd
+    echo "--- Istio ---"
+    ensure_istio
     echo ""
 
     echo "--- blackbox-exporter ---"
@@ -183,7 +183,7 @@ echo ""
 
 NAMESPACES=("kubernaut-system" "monitoring")
 if [ "$SKIP_INFRA" = false ]; then
-    NAMESPACES+=("cert-manager" "linkerd" "gitea" "argocd")
+    NAMESPACES+=("cert-manager" "istio-system" "gitea" "argocd")
 fi
 
 all_ready=true

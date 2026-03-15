@@ -9,31 +9,28 @@ spec:
   groups:
   - name: kubernaut-netpol
     rules:
-    # Primary signal: traffic-gen pod restarts because its liveness probe
+    # Primary signal: traffic-gen becomes NotReady because its readiness probe
     # (curl to web-frontend) fails when deny-all blocks inter-pod traffic.
-    # This is reliable across all CNI implementations.
-    - alert: KubePodCrashLooping
+    # Self-resolving: clears immediately when the NetworkPolicy is removed.
+    - alert: KubeDeploymentReplicasMismatch
       expr: |
-        increase(
-          kube_pod_container_status_restarts_total{
-            namespace="demo-netpol",
-            container="curl"
-          }[10m]
-        ) > 2
+        kube_deployment_status_replicas_unavailable{
+          namespace="demo-netpol",
+          deployment="traffic-gen"
+        } > 0
       for: 3m
       labels:
         severity: critical
       annotations:
         summary: >
-          Traffic generator in namespace {{ $labels.namespace }} is restarting
-          due to connectivity failure to web-frontend service.
+          Traffic generator in namespace {{ $labels.namespace }} has unavailable
+          replicas due to connectivity failure to web-frontend service.
         description: >
-          The traffic-gen pod cannot reach web-frontend via the cluster network.
-          A NetworkPolicy is likely blocking inter-pod ingress traffic in namespace
-          demo-netpol. The traffic-gen liveness probe (curl to web-frontend:8080)
-          is failing, causing repeated restarts.
-    # Secondary signal: web-frontend replicas unavailable (depends on CNI
-    # enforcing NetworkPolicy on kubelet probes -- works with kindnet in Kind)
+          The traffic-gen pod cannot reach web-frontend via the cluster network
+          (readiness probe failing). A NetworkPolicy is likely blocking inter-pod
+          ingress traffic in namespace demo-netpol.
+    # Secondary signal: web-frontend replicas unavailable. Fires on platforms
+    # where the CNI also blocks kubelet probes (e.g. OCP with OVN-Kubernetes).
     - alert: KubeDeploymentReplicasMismatch
       expr: |
         kube_deployment_status_replicas_unavailable{

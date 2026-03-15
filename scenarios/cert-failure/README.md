@@ -29,7 +29,7 @@ certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady ale
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With cert-manager metrics |
-| cert-manager | Installed (run.sh installs if missing) |
+| cert-manager | Pre-installed (via `setup-demo-cluster.sh` or manually) |
 | Workflow catalog | `fix-certificate-v1` registered in DataStorage |
 
 ## Automated Run
@@ -42,7 +42,8 @@ certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady ale
 
 ### 1. Install cert-manager (if not present)
 
-`run.sh` installs cert-manager automatically via Helm. For manual setup:
+cert-manager must be pre-installed before running this scenario. `setup-demo-cluster.sh`
+handles this automatically. For manual setup:
 
 ```bash
 helm repo add jetstack https://charts.jetstack.io

@@ -46,3 +46,9 @@ Feature: Helm-managed CrashLoopBackOff remediation
 - [ ] HAPI/LLM detects `helmManaged: true` and selects helm-rollback-v1 workflow
 - [ ] helm-rollback-v1 job runs `helm rollback` to previous revision
 - [ ] After rollback, pods are Running and deployment has desired replicas ready
+
+## Cleanup
+
+```bash
+./scenarios/crashloop-helm/cleanup.sh
+```

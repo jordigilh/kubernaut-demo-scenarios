@@ -36,24 +36,20 @@ echo " Proactive Memory Exhaustion Demo (#129)"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy namespace and workload
-echo "==> Step 1: Deploying namespace and leaky-app deployment..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
+# Step 1: Deploy scenario resources
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 2: Deploy Prometheus alerting rules
-echo "==> Step 2: Deploying predict_linear alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 3: Wait for deployment to be healthy
-echo "==> Step 3: Waiting for leaky-app to be ready..."
+# Step 2: Wait for deployment to be healthy
+echo "==> Step 2: Waiting for leaky-app to be ready..."
 kubectl wait --for=condition=Available deployment/leaky-app \
   -n "${NAMESPACE}" --timeout=120s
 echo "  leaky-app is running (2 pods with leaker sidecar)."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
-echo "==> Step 4: Memory leak building (~12MB/min per pod)."
+echo "==> Step 3: Memory leak building (~12MB/min per pod)."
 echo "    predict_linear will fire once it projects OOM within 30 minutes,"
 echo "    typically after 5-7 minutes of trend data."
 

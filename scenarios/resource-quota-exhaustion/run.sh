@@ -42,12 +42,10 @@ echo " Policy Constraint -> ManualReviewRequired"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy namespace, resourcequota, deployment, prometheus-rule
-echo "==> Step 1: Deploying namespace, resourcequota, deployment, and prometheus-rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/resourcequota.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
+# Step 1: Deploy scenario resources
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
 # Step 2: Wait for healthy deployment
 echo "==> Step 2: Waiting for api-server to be healthy..."

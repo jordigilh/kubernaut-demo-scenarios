@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../manifests
+patches:
+  # Category A: Namespace label for OCP cluster monitoring
+  - target:
+      kind: Namespace
+      name: demo-gitops
+    patch: |
+      - op: add
+        path: /metadata/labels/openshift.io~1cluster-monitoring
+        value: "true"
+  # Category B: nginx -> nginx-unprivileged (port 8080 already compatible)
+  - target:
+      kind: Deployment
+      name: web-frontend
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: nginxinc/nginx-unprivileged:1.27-alpine
+  # Category C: PrometheusRule - remove release label for OCP
+  - target:
+      kind: PrometheusRule
+      name: kubernaut-gitops-drift-rules
+    patch: |
+      - op: remove
+        path: /metadata/labels/release
+  # Category D: ArgoCD Application namespace argocd -> openshift-gitops
+  - target:
+      kind: Application
+      name: web-frontend
+    patch: |
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-gitops

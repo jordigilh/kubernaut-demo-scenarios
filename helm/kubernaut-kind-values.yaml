@@ -5,9 +5,12 @@
 # All platform pods are pinned to the control-plane node so that
 # worker nodes remain available for demo fault-injection scenarios
 # (e.g. podman pause) without disrupting the platform.
+#
+# K8s >=1.30 requires numeric runAsUser when runAsNonRoot is set.
+# The chart images use named users, so we override here with UID 65534 (nobody).
 global:
   image:
-    tag: demo-v1.6
+    tag: "v1.1.0-pre1"
   nodeSelector:
     node-role.kubernetes.io/control-plane: ""
   tolerations:
@@ -24,26 +27,53 @@ gateway:
       - name: alertmanager
         serviceAccount: kube-prometheus-stack-alertmanager
         namespace: monitoring
+  containerSecurityContext:
+    runAsUser: 65534
 
 datastorage:
   dbExistingSecret: kubernaut-ds-db-credentials
   service:
     type: NodePort
     nodePort: 30081
+  containerSecurityContext:
+    runAsUser: 65534
 
 postgresql:
   auth:
     existingSecret: kubernaut-pg-credentials
 
-redis:
-  existingSecret: kubernaut-redis-credentials
-
 notification:
   slack:
     enabled: true
     channel: "#kubernaut-alerts"
+  containerSecurityContext:
+    runAsUser: 65534
 
 holmesgptApi:
   service:
     type: NodePort
     nodePort: 30088
+
+authwebhook:
+  containerSecurityContext:
+    runAsUser: 65534
+
+effectivenessmonitor:
+  containerSecurityContext:
+    runAsUser: 65534
+
+remediationorchestrator:
+  containerSecurityContext:
+    runAsUser: 65534
+
+signalprocessing:
+  containerSecurityContext:
+    runAsUser: 65534
+
+workflowexecution:
+  containerSecurityContext:
+    runAsUser: 65534
+
+aianalysis:
+  containerSecurityContext:
+    runAsUser: 65534

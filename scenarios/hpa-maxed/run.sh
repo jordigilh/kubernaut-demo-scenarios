@@ -35,17 +35,13 @@ echo " HPA Maxed Out Demo (#123)"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy namespace, deployment, HPA, and service
-echo "==> Step 1: Deploying namespace, api-frontend, HPA (max=3)..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
+# Step 1: Deploy scenario resources
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 2: Deploy Prometheus alerting rules
-echo "==> Step 2: Deploying HPA maxed alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 3: Wait for healthy deployment
-echo "==> Step 3: Waiting for api-frontend to be ready..."
+# Step 2: Wait for healthy deployment
+echo "==> Step 2: Waiting for api-frontend to be ready..."
 kubectl wait --for=condition=Available deployment/api-frontend \
   -n "${NAMESPACE}" --timeout=120s
 echo "  api-frontend is running."
@@ -53,23 +49,23 @@ kubectl get pods -n "${NAMESPACE}"
 kubectl get hpa -n "${NAMESPACE}"
 echo ""
 
-# Step 4: Establish baseline
-echo "==> Step 4: Establishing baseline (15s)..."
+# Step 3: Establish baseline
+echo "==> Step 3: Establishing baseline (15s)..."
 sleep 15
 echo ""
 
-# Step 5: Inject CPU load
-echo "==> Step 5: Generating CPU load to push HPA to ceiling..."
+# Step 4: Inject CPU load
+echo "==> Step 4: Generating CPU load to push HPA to ceiling..."
 bash "${SCRIPT_DIR}/inject-load.sh"
 echo ""
 
-# Step 6: Wait for alert
-echo "==> Step 6: Waiting for HPA to reach maxReplicas and alert to fire (~3-5 min)..."
+# Step 5: Wait for alert
+echo "==> Step 5: Waiting for HPA to reach maxReplicas and alert to fire (~3-5 min)..."
 echo "  Watch HPA: kubectl get hpa -n ${NAMESPACE} -w"
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 
-# Step 7: Validate pipeline
+# Step 6: Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."

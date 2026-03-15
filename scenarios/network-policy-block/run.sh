@@ -25,11 +25,9 @@ echo " NetworkPolicy Traffic Block Demo (#138)"
 echo "============================================="
 echo ""
 
-echo "==> Step 1: Deploying namespace, workload, and baseline NetworkPolicy..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/networkpolicy-allow.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
 echo "==> Step 2: Waiting for deployment to be healthy..."
 kubectl wait --for=condition=Available deployment/web-frontend \
@@ -47,7 +45,7 @@ bash "${SCRIPT_DIR}/inject-deny-all-netpol.sh"
 echo ""
 
 echo "==> Step 5: Waiting for KubeDeploymentReplicasMismatch alert (~3-4 min)..."
-echo "  Health checks will fail -> pods become NotReady -> restarts begin."
+echo "  Readiness probes will fail -> traffic-gen becomes NotReady."
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 # Validate pipeline

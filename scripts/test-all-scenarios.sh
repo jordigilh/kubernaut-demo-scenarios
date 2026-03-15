@@ -19,7 +19,7 @@ RESULTS_FILE="${SCRIPT_DIR}/../test-results-${TIMESTAMP}.txt"
 LOGS_DIR="${SCRIPT_DIR}/../test-logs-${TIMESTAMP}"
 mkdir -p "${LOGS_DIR}"
 
-export KUBECONFIG="${HOME}/.kube/kubernaut-demo-config"
+export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 
 # Pre-flight: verify demo environment is set up

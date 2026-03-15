@@ -1,22 +1,22 @@
-# Scenario #136: Linkerd Service Mesh Routing Failure
+# Scenario #136: Istio Mesh Routing Failure
 
 ## Overview
 
-Demonstrates Kubernaut detecting a Linkerd-meshed workload with high error rates caused by a restrictive AuthorizationPolicy blocking legitimate traffic. The Linkerd proxy returns 403 Forbidden for inbound requests, causing health check failures and service unavailability. Kubernaut automatically remediates by removing or fixing the blocking policy.
+Demonstrates Kubernaut detecting an Istio-meshed workload with high error rates caused by a restrictive AuthorizationPolicy blocking legitimate traffic. The Istio sidecar returns 403 Forbidden for all inbound requests, causing service unavailability. Kubernaut automatically remediates by removing the blocking policy.
 
-**Signal**: `LinkerdHighErrorRate` / `LinkerdRequestsUnauthorized` -- from Linkerd proxy metrics (`response_total` with `classification="failure"` or `status_code="403"`)
+**Signal**: `IstioHighDenyRate` / `IstioRequestsUnauthorized` -- from Istio sidecar metrics (`istio_requests_total` with `response_code="403"`)
 
-**Root cause**: Restrictive Linkerd AuthorizationPolicy requiring MeshTLSAuthentication with a non-existent identity, denying all inbound traffic
+**Root cause**: Restrictive Istio AuthorizationPolicy with `action: DENY` and a catch-all rule, denying all inbound traffic
 
 **Remediation**: `fix-authz-policy-v1` workflow removes the blocking AuthorizationPolicy and restores traffic flow
 
 ## Signal Flow
 
 ```
-Linkerd proxy metrics: response_total (failure/403) > 50% for 2m
-  → LinkerdHighErrorRate / LinkerdRequestsUnauthorized alert
+Istio sidecar metrics: istio_requests_total (response_code=403) > 0 for 3m
+  → IstioHighDenyRate / IstioRequestsUnauthorized alert
   → Gateway → SP → AA (HAPI + LLM)
-  → LLM detects serviceMesh=linkerd, diagnoses AuthorizationPolicy block
+  → LLM detects serviceMesh label, diagnoses AuthorizationPolicy block
   → Selects FixAuthorizationPolicy workflow (fix-authz-policy-v1)
   → RO → WE (remove deny-all AuthorizationPolicy)
   → EM verifies traffic restored, pods Ready
@@ -26,11 +26,11 @@ Linkerd proxy metrics: response_total (failure/403) > 50% for 2m
 
 | Component | Requirement |
 |-----------|-------------|
-| Kind cluster | `scenarios/kind-config-singlenode.yaml` |
+| Kind cluster | Multi-node (`scenarios/kind-config-multinode.yaml`) |
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
-| Prometheus | Scraping Linkerd proxy metrics |
-| Linkerd | Installed (run.sh installs if missing) |
+| Prometheus | Scraping Istio sidecar metrics via PodMonitor |
+| Istio | Installed (`istioctl install --set profile=demo -y`) |
 | Workflow catalog | `fix-authz-policy-v1` registered in DataStorage |
 
 ## Automated Run
@@ -41,28 +41,29 @@ Linkerd proxy metrics: response_total (failure/403) > 50% for 2m
 
 ## Manual Step-by-Step
 
-### 1. Install Linkerd (if not present)
+### 1. Install Istio (if not present)
 
 ```bash
-linkerd install --crds | kubectl apply -f -
-linkerd install | kubectl apply -f -
-linkerd check --wait 120s
+istioctl install --set profile=demo -y
+kubectl wait --for=condition=Available deployment/istiod -n istio-system --timeout=300s
 ```
 
 ### 2. Deploy workload
 
 ```bash
-kubectl apply -f scenarios/mesh-routing-failure/manifests/namespace.yaml
-kubectl apply -f scenarios/mesh-routing-failure/manifests/deployment.yaml
-kubectl apply -f scenarios/mesh-routing-failure/manifests/prometheus-rule.yaml
+kubectl apply -k scenarios/mesh-routing-failure/manifests/
 kubectl wait --for=condition=Available deployment/api-server -n demo-mesh-failure --timeout=120s
+kubectl wait --for=condition=Available deployment/traffic-gen -n demo-mesh-failure --timeout=120s
 ```
+
+The namespace has `istio-injection: enabled`, so Istio automatically injects sidecars into all pods.
 
 ### 3. Establish baseline
 
 ```bash
-# Wait ~20s for healthy traffic
-linkerd viz stat deploy -n demo-mesh-failure
+# Wait ~30s for healthy traffic between traffic-gen and api-server
+kubectl get pods -n demo-mesh-failure
+# All pods should have 2/2 containers (app + istio-proxy)
 ```
 
 ### 4. Inject failure
@@ -71,33 +72,33 @@ linkerd viz stat deploy -n demo-mesh-failure
 bash scenarios/mesh-routing-failure/inject-deny-policy.sh
 ```
 
-The script applies a restrictive AuthorizationPolicy that requires MeshTLSAuthentication with a non-existent identity, causing the Linkerd proxy to deny all inbound traffic with 403 Forbidden.
+The script applies an Istio `AuthorizationPolicy` with `action: DENY` and a catch-all rule, causing the Istio sidecar to deny all inbound traffic with HTTP 403 Forbidden.
 
 ### 5. Observe high error rate
 
 ```bash
 kubectl get pods -n demo-mesh-failure -w
-# Pods may become NotReady as health checks fail
-linkerd viz stat deploy -n demo-mesh-failure
-# High failure rate visible
+# Verify traffic-gen gets 403 responses:
+kubectl exec -n demo-mesh-failure deploy/traffic-gen -- \
+  curl -s -o /dev/null -w '%{http_code}' http://api-server:8080/
 ```
 
 ### 6. Wait for alert and pipeline
 
 ```bash
-# Alert fires after ~2 min of high error rate
+# Alert fires after ~3 min of sustained 403 responses
 # Check: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
 #        then open http://localhost:9090/alerts
-kubectl get rr,sp,aa,we,ea -n demo-mesh-failure -w
+kubectl get rr,sp,aa,we,ea -n kubernaut-system -w
 ```
 
 ### 7. Verify remediation
 
 ```bash
-kubectl get authorizationpolicies.policy.linkerd.io -n demo-mesh-failure
+kubectl get authorizationpolicies.security.istio.io -n demo-mesh-failure
 # deny-all-traffic should be removed
 kubectl get pods -n demo-mesh-failure
-# All pods should be Running and Ready
+# All pods should be Running and Ready (2/2)
 ```
 
 ## Cleanup
@@ -109,39 +110,37 @@ kubectl get pods -n demo-mesh-failure
 ## BDD Specification
 
 ```gherkin
-Feature: Linkerd Service Mesh Routing Failure remediation
+Feature: Istio Mesh Routing Failure remediation
 
   Given a Kind cluster with Kubernaut services and a real LLM backend
-    And Prometheus is scraping Linkerd proxy metrics
+    And Prometheus is scraping Istio sidecar metrics via PodMonitor
     And the "fix-authz-policy-v1" workflow is registered in the DataStorage catalog
-    And Linkerd is installed with mesh injection enabled
+    And Istio is installed with sidecar injection enabled
     And the "api-server" deployment is meshed in namespace "demo-mesh-failure"
-    And the workload is healthy with traffic flowing through the Linkerd proxy
+    And the workload is healthy with traffic flowing through the Istio sidecar
 
-  When a restrictive AuthorizationPolicy is applied requiring MeshTLSAuthentication
-    And the policy references a non-existent identity
-    And the Linkerd proxy denies all inbound traffic with 403 Forbidden
-    And health checks fail and pods may become NotReady
-    And the LinkerdHighErrorRate or LinkerdRequestsUnauthorized alert fires (2 min)
+  When a restrictive AuthorizationPolicy is applied with action DENY
+    And the policy matches all inbound requests
+    And the Istio sidecar denies all inbound traffic with 403 Forbidden
+    And the IstioHighDenyRate or IstioRequestsUnauthorized alert fires (3 min)
 
   Then Kubernaut Gateway receives the alert via Alertmanager webhook
     And Signal Processing enriches the signal with business labels
-    And AI Analysis (HAPI + LLM) detects serviceMesh=linkerd
-    And the LLM diagnoses AuthorizationPolicy as root cause
+    And AI Analysis (HAPI + LLM) diagnoses AuthorizationPolicy as root cause
     And the LLM selects the "FixAuthorizationPolicy" workflow (fix-authz-policy-v1)
     And Remediation Orchestrator creates a WorkflowExecution
     And Workflow Execution removes the deny-all AuthorizationPolicy
-    And traffic is restored through the Linkerd proxy
+    And traffic is restored through the Istio sidecar
     And Effectiveness Monitor confirms pods are Ready and error rate drops
 ```
 
 ## Acceptance Criteria
 
-- [ ] Namespace has `linkerd.io/inject: enabled` annotation; workload gets Linkerd sidecar
-- [ ] Baseline: traffic flows, pods Ready, no high error rate
-- [ ] deny-all AuthorizationPolicy causes Linkerd proxy to return 403 for inbound traffic
-- [ ] PrometheusRule fires LinkerdHighErrorRate or LinkerdRequestsUnauthorized within 2-3 min
-- [ ] LLM correctly detects serviceMesh=linkerd and diagnoses AuthorizationPolicy block
+- [ ] Namespace has `istio-injection: enabled` label; workload gets Istio sidecar
+- [ ] Baseline: traffic flows, pods Ready (2/2 containers), no high error rate
+- [ ] deny-all AuthorizationPolicy causes Istio sidecar to return 403 for all inbound traffic
+- [ ] PrometheusRule fires IstioHighDenyRate or IstioRequestsUnauthorized within 3 min
+- [ ] LLM correctly diagnoses AuthorizationPolicy block as root cause
 - [ ] fix-authz-policy-v1 workflow removes the blocking AuthorizationPolicy
-- [ ] After remediation, traffic flows and pods are Ready
+- [ ] After remediation, traffic flows and pods are Ready (2/2)
 - [ ] EM confirms successful remediation

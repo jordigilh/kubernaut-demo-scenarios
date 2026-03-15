@@ -5,9 +5,9 @@ set -e
 : "${TARGET_POLICY:?TARGET_POLICY is required}"
 
 echo "=== Phase 1: Validate ==="
-echo "Checking AuthorizationPolicies in namespace ${TARGET_NAMESPACE}..."
+echo "Checking Istio AuthorizationPolicies in namespace ${TARGET_NAMESPACE}..."
 
-POLICIES=$(kubectl get authorizationpolicies.policy.linkerd.io \
+POLICIES=$(kubectl get authorizationpolicies.security.istio.io \
   -n "${TARGET_NAMESPACE}" -o name 2>/dev/null || echo "")
 
 if [ -z "${POLICIES}" ]; then
@@ -22,7 +22,7 @@ echo "${POLICIES}"
 POLICY_NAME="${TARGET_POLICY}"
 if ! echo "${POLICIES}" | grep -q "/${POLICY_NAME}$"; then
   echo "WARNING: TARGET_POLICY '${POLICY_NAME}' not found among existing policies."
-  echo "Falling back to removing all AuthorizationPolicies in the namespace."
+  echo "Falling back to removing all DENY AuthorizationPolicies in the namespace."
   POLICY_NAME=""
 fi
 
@@ -36,33 +36,11 @@ echo "Validated: AuthorizationPolicy '${POLICY_NAME}' found, likely blocking tra
 echo "=== Phase 2: Action ==="
 if [ -n "${POLICY_NAME}" ]; then
   echo "Removing AuthorizationPolicy '${POLICY_NAME}'..."
-  kubectl delete authorizationpolicy.policy.linkerd.io "${POLICY_NAME}" \
+  kubectl delete authorizationpolicy.security.istio.io "${POLICY_NAME}" \
     -n "${TARGET_NAMESPACE}"
 else
   echo "Removing all AuthorizationPolicies in ${TARGET_NAMESPACE}..."
-  kubectl delete authorizationpolicies.policy.linkerd.io --all \
-    -n "${TARGET_NAMESPACE}" --ignore-not-found
-fi
-
-SERVERS=$(kubectl get servers.policy.linkerd.io \
-  -n "${TARGET_NAMESPACE}" -o name 2>/dev/null || echo "")
-if [ -n "${SERVERS}" ]; then
-  if [ -n "${TARGET_SERVER:-}" ]; then
-    echo "Removing Server '${TARGET_SERVER}'..."
-    kubectl delete server.policy.linkerd.io "${TARGET_SERVER}" \
-      -n "${TARGET_NAMESPACE}" --ignore-not-found
-  else
-    echo "Removing all Server resources (a Server without an AuthorizationPolicy still denies unauthenticated traffic)..."
-    kubectl delete servers.policy.linkerd.io --all \
-      -n "${TARGET_NAMESPACE}" --ignore-not-found
-  fi
-fi
-
-MESH_AUTH=$(kubectl get meshtlsauthentications.policy.linkerd.io \
-  -n "${TARGET_NAMESPACE}" -o name 2>/dev/null || echo "")
-if [ -n "${MESH_AUTH}" ]; then
-  echo "Removing associated MeshTLSAuthentication resources..."
-  kubectl delete meshtlsauthentications.policy.linkerd.io --all \
+  kubectl delete authorizationpolicies.security.istio.io --all \
     -n "${TARGET_NAMESPACE}" --ignore-not-found
 fi
 
@@ -70,22 +48,18 @@ echo "Waiting for pods to stabilize (15s)..."
 sleep 15
 
 echo "=== Phase 3: Verify ==="
-REMAINING=$(kubectl get authorizationpolicies.policy.linkerd.io \
+REMAINING=$(kubectl get authorizationpolicies.security.istio.io \
   -n "${TARGET_NAMESPACE}" -o name 2>/dev/null || echo "")
 echo "Remaining AuthorizationPolicies: ${REMAINING:-<none>}"
-
-REMAINING_SERVERS=$(kubectl get servers.policy.linkerd.io \
-  -n "${TARGET_NAMESPACE}" -o name 2>/dev/null || echo "")
-echo "Remaining Servers: ${REMAINING_SERVERS:-<none>}"
 
 READY_PODS=$(kubectl get pods -n "${TARGET_NAMESPACE}" \
   -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' 2>/dev/null | grep -c "True" || echo "0")
 TOTAL_PODS=$(kubectl get pods -n "${TARGET_NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
 echo "Pods ready: ${READY_PODS}/${TOTAL_PODS}"
 
-if [ "${READY_PODS}" -gt 0 ] && [ -z "${REMAINING}" ] && [ -z "${REMAINING_SERVERS}" ]; then
-  echo "=== SUCCESS: Policy resources removed, traffic restored, ${READY_PODS}/${TOTAL_PODS} pods ready ==="
+if [ "${READY_PODS}" -gt 0 ] && [ -z "${REMAINING}" ]; then
+  echo "=== SUCCESS: Policy removed, traffic restored, ${READY_PODS}/${TOTAL_PODS} pods ready ==="
 else
-  echo "WARNING: Remediation may not be fully effective (ready=${READY_PODS}/${TOTAL_PODS}, policies=${REMAINING}, servers=${REMAINING_SERVERS})"
+  echo "WARNING: Remediation may not be fully effective (ready=${READY_PODS}/${TOTAL_PODS}, policies=${REMAINING})"
   exit 1
 fi

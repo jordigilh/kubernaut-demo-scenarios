@@ -5,3 +5,4 @@ metadata:
   labels:
     kubernaut.ai/managed: "true"
     kubernaut.ai/demo: "resource-contention"
+    kubernaut.ai/environment: staging

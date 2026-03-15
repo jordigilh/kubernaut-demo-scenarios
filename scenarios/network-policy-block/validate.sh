@@ -19,9 +19,9 @@ done
 
 # ── Wait for alert ──────────────────────────────────────────────────────────
 
-wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 360
+wait_for_alert "KubeDeploymentReplicasMismatch" "${NAMESPACE}" 360
 
-show_alert "KubePodCrashLooping" "${NAMESPACE}"
+show_alert "KubeDeploymentReplicasMismatch" "${NAMESPACE}"
 
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
@@ -66,9 +66,14 @@ netpol_count=$(kubectl get networkpolicies -n "${NAMESPACE}" \
   -l injected-by=kubernaut-demo --no-headers 2>/dev/null | wc -l | tr -d ' ')
 assert_eq "${netpol_count:-0}" "0" "Deny-all NetworkPolicy removed"
 
-# Verify pods are Running (not CrashLooping indefinitely)
+# Verify web-frontend pods are Running
 ready_pods=$(kubectl get pods -n "${NAMESPACE}" -l app=web-frontend \
   --no-headers 2>/dev/null | grep -c "Running" || true)
 assert_gt "${ready_pods:-0}" "0" "At least 1 web-frontend pod Running"
+
+# Verify traffic-gen is Running and Ready (signal self-resolved)
+tg_ready=$(kubectl get pods -n "${NAMESPACE}" -l app=traffic-gen \
+  -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+assert_eq "${tg_ready}" "True" "traffic-gen pod Ready (signal self-resolved)"
 
 print_result "network-policy-block"

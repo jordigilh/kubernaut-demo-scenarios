@@ -68,13 +68,10 @@ This script:
 ## Manual Step-by-Step
 
 ```bash
-# 1. Deploy namespace, ConfigMap, API gateway, and traffic generator
-kubectl apply -f scenarios/slo-burn/manifests/
+# 1. Deploy namespace, ConfigMap, API gateway, traffic generator, and Prometheus rules
+kubectl apply -k scenarios/slo-burn/manifests/
 kubectl wait --for=condition=Available deployment/api-gateway \
   -n demo-slo --timeout=60s
-
-# 2. Deploy Prometheus SLO alerting rules
-kubectl apply -f scenarios/slo-burn/manifests/prometheus-rule.yaml
 
 # 3. Let healthy traffic run for ~30 seconds (establishes baseline)
 sleep 30

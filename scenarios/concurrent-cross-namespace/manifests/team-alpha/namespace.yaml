@@ -4,7 +4,7 @@ metadata:
   name: demo-team-alpha
   labels:
     kubernaut.ai/managed: "true"
-    kubernaut.ai/environment: production
+    kubernaut.ai/environment: staging
     kubernaut.ai/business-unit: platform-engineering
     kubernaut.ai/service-owner: platform-team
     kubernaut.ai/criticality: medium

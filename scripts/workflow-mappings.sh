@@ -27,4 +27,5 @@ WORKFLOWS=(
     "network-policy-block:fix-network-policy-job"
     "resource-contention:increase-memory-limits-job"
     "memory-limits-gitops-ansible:increase-memory-limits-gitops-ansible"
+    "disk-pressure-emptydir:migrate-emptydir-to-pvc-gitops"
 )

@@ -32,22 +32,31 @@ echo " Node NotReady Demo (#127)"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy namespace and workload
-echo "==> Step 1: Deploying namespace and web-service (3 replicas)..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
+# Step 1: Deploy scenario resources
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 2: Deploy Prometheus alerting rules
-echo "==> Step 2: Deploying NodeNotReady alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 3: Wait for healthy deployment
-echo "==> Step 3: Waiting for web-service to be ready..."
+# Step 2: Wait for healthy deployment
+echo "==> Step 2: Waiting for web-service to be ready..."
 kubectl wait --for=condition=Available deployment/web-service \
   -n "${NAMESPACE}" --timeout=120s
 echo "  web-service is running (3 replicas)."
 kubectl get pods -n "${NAMESPACE}" -o wide
 echo ""
+
+# Step 3: Label the target node so the Gateway accepts NodeNotReady signals
+WORKER_NODE=$(kubectl get nodes -l kubernaut.ai/managed=true -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+if [ -n "$WORKER_NODE" ]; then
+    echo "==> Step 3: Labeling target node ${WORKER_NODE} for signal acceptance..."
+    kubectl label node "$WORKER_NODE" \
+        kubernaut.ai/environment=production \
+        kubernaut.ai/business-unit=infrastructure \
+        kubernaut.ai/service-owner=infra-team \
+        kubernaut.ai/criticality=critical \
+        kubernaut.ai/sla-tier=tier-1 \
+        --overwrite
+fi
 
 # Step 4: Simulate node failure
 echo "==> Step 4: Simulating node failure via podman pause..."
@@ -66,3 +75,11 @@ if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo "==> Running validation pipeline..."
     bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
 fi
+
+# Step 7: Silence alert to prevent new RRs while the node remains NotReady.
+# The cordon+drain remediation doesn't restore the node (that's cleanup's job),
+# so the KubeNodeNotReady alert stays active and the Gateway will keep creating
+# legitimate RRs until the node is unpaused.
+echo ""
+echo "==> Step 7: Silencing KubeNodeNotReady alert (10m) to prevent post-remediation RRs..."
+silence_alert "KubeNodeNotReady" "${NAMESPACE}" "10m"

@@ -45,10 +45,9 @@ echo " OOMKill -> Fix -> External Revert -> Repeat -> Escalate"
 echo "============================================="
 echo ""
 
-echo ">> Step 1: Creating namespace and deploying workload..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
+echo ">> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
 echo ">> Step 2: Starting external actor (runs in background)..."
 bash "${SCRIPT_DIR}/scripts/external-actor.sh" &

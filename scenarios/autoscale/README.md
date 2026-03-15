@@ -36,13 +36,13 @@ Feature: Cluster Autoscaling via Node Provisioning
   Scenario: Pods stuck Pending due to resource exhaustion trigger node provisioning
     Given a Kind cluster with 1 control-plane and 1 worker node
       And an nginx Deployment "web-cluster" with 2 replicas running on the worker node
-      And each replica requests 512Mi memory
+      And each replica requests 2Gi memory
       And the Kubernaut pipeline is active with a real LLM
       And the "provision-node-v1" workflow is registered in the catalog
       And the host-side provisioner agent is running
 
     When the Deployment is scaled to 8 replicas
-      And the worker node cannot satisfy 8 x 512Mi = 4GB memory requests
+      And the worker node cannot satisfy 8 x 2Gi = 16GB memory requests
       And new pods enter Pending state with "Insufficient memory" events
 
     Then Prometheus fires KubePodSchedulingFailed alert after 2 minutes

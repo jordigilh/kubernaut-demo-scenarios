@@ -1,5 +1,9 @@
 # Scenario #120: CrashLoopBackOff Remediation
 
+## Demo
+
+![Kubernaut detecting and remediating a CrashLoopBackOff](crashloop-lite.gif)
+
 ## Overview
 
 Demonstrates Kubernaut detecting a CrashLoopBackOff caused by a bad configuration
@@ -91,7 +95,7 @@ kubectl rollout history deployment/worker -n demo-crashloop
 ## Cleanup
 
 ```bash
-kubectl delete namespace demo-crashloop
+./scenarios/crashloop/cleanup.sh
 ```
 
 ## BDD Specification

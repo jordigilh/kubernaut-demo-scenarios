@@ -36,43 +36,38 @@ echo " 5 Crashing Pods -> 1 RemediationRequest"
 echo "============================================="
 echo ""
 
-# Step 1: Deploy namespace and workload
-echo "==> Step 1: Deploying namespace, healthy config, and api-gateway (5 replicas)..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/configmap.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
+# Step 1: Deploy scenario resources
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 2: Deploy Prometheus alerting rules
-echo "==> Step 2: Deploying CrashLoop detection alerting rule..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 3: Wait for healthy deployment
-echo "==> Step 3: Waiting for all 5 replicas to be healthy..."
+# Step 2: Wait for healthy deployment
+echo "==> Step 2: Waiting for all 5 replicas to be healthy..."
 kubectl wait --for=condition=Available deployment/api-gateway \
   -n "${NAMESPACE}" --timeout=120s
 echo "  All 5 pods are running."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
-# Step 4: Establish baseline
-echo "==> Step 4: Establishing healthy baseline (20s)..."
+# Step 3: Establish baseline
+echo "==> Step 3: Establishing healthy baseline (20s)..."
 sleep 20
 echo ""
 
-# Step 5: Inject bad config (all 5 pods crash)
-echo "==> Step 5: Injecting invalid config (all 5 pods will CrashLoop)..."
+# Step 4: Inject bad config (all 5 pods crash)
+echo "==> Step 4: Injecting invalid config (all 5 pods will CrashLoop)..."
 bash "${SCRIPT_DIR}/inject-bad-config.sh"
 echo ""
 
-# Step 6: Wait for alerts
-echo "==> Step 6: Waiting for CrashLoop alerts to fire (~2-3 min)..."
+# Step 5: Wait for alerts
+echo "==> Step 5: Waiting for CrashLoop alerts to fire (~2-3 min)..."
 echo "  5 pods are crashing, but they all belong to Deployment/api-gateway."
 echo "  The Gateway OwnerResolver maps each pod alert to the Deployment."
 echo "  All 5 alerts share fingerprint: SHA256(demo-alert-storm:deployment:api-gateway)"
 echo ""
 
-# Step 7: Expected deduplication behavior
-echo "==> Step 7: Waiting for deduplication and pipeline..."
+# Step 6: Expected deduplication behavior
+echo "==> Step 6: Waiting for deduplication and pipeline..."
 echo ""
 echo "  Expected:"
 echo "    - 1 RR created (NOT 5)"

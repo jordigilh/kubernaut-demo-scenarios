@@ -194,7 +194,7 @@ Sleep 5s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Waiting for the KubePodCrashLooping alert to fire...'"
+Type "narrate 'Waiting for the KubeDeploymentReplicasMismatch alert to fire...'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
@@ -204,7 +204,7 @@ Sleep 5s
 # Hidden wait: poll until alert appears in AlertManager
 Hide
 Set TypingSpeed 1ms
-Type `while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null | python3 -c 'import sys,json; a=json.load(sys.stdin); print(len([x for x in a if x.get(\"labels\",{}).get(\"namespace\")==\"demo-netpol\"]))' 2>/dev/null)" = "0" ]; do sleep 10; done && clear && echo ALERT"_"FIRED`
+Type `while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- amtool alert query alertname=KubeDeploymentReplicasMismatch --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null | python3 -c 'import sys,json; a=json.load(sys.stdin); print(len([x for x in a if x.get(\"labels\",{}).get(\"namespace\")==\"demo-netpol\"]))' 2>/dev/null)" = "0" ]; do sleep 10; done && clear && echo ALERT"_"FIRED`
 Enter
 Wait+Screen@600s /ALERT_FIRED/
 Type "act_clear"
@@ -222,7 +222,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-alert.sh KubePodCrashLooping"
+Type "bash scripts/show-alert.sh KubeDeploymentReplicasMismatch"
 Enter
 Sleep 8s
 

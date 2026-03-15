@@ -1,17 +1,43 @@
 #!/usr/bin/env bash
 # Create orphaned PVCs that simulate leftover storage from completed batch jobs.
 #
-# StorageClass "standard" (local-path) uses WaitForFirstConsumer, so PVCs stay
-# Pending until a pod mounts them. We create short-lived pods that bind each PVC,
-# then delete the pods — leaving behind Bound PVCs that no running pod uses.
+# On Kind, StorageClass "standard" (local-path) uses WaitForFirstConsumer, so
+# PVCs stay Pending until a pod mounts them. On OCP, we use the cluster default
+# StorageClass. We create short-lived pods that bind each PVC, then delete the
+# pods — leaving behind Bound PVCs that no running pod uses.
 set -euo pipefail
 
 NAMESPACE="demo-orphaned-pvc"
 PVC_COUNT=5
 
+if [ "${PLATFORM:-}" = "ocp" ]; then
+  STORAGE_CLASS=""
+else
+  STORAGE_CLASS="standard"
+fi
+
 echo "==> Creating ${PVC_COUNT} PVCs and temporary binder pods in ${NAMESPACE}..."
 
 for i in $(seq 1 "$PVC_COUNT"); do
+  SC_LINE=""
+  if [ -n "$STORAGE_CLASS" ]; then
+    SC_LINE="  storageClassName: ${STORAGE_CLASS}"
+  fi
+
+  if [ "${PLATFORM:-}" = "ocp" ]; then
+    POD_SEC="  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault"
+    CTR_SEC="    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: [\"ALL\"]"
+  else
+    POD_SEC=""
+    CTR_SEC=""
+  fi
+
   kubectl apply -f - <<YAML
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -26,7 +52,7 @@ spec:
   resources:
     requests:
       storage: 100Mi
-  storageClassName: standard
+${SC_LINE}
 ---
 apiVersion: v1
 kind: Pod
@@ -37,10 +63,12 @@ metadata:
     role: pvc-binder
 spec:
   restartPolicy: Never
+${POD_SEC}
   containers:
   - name: touch
     image: busybox:1.36
     command: ["sh", "-c", "echo bound > /data/marker && sleep 3600"]
+${CTR_SEC}
     volumeMounts:
     - name: vol
       mountPath: /data

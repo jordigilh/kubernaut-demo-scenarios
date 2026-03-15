@@ -31,7 +31,7 @@ GIT_USERNAME=$(cat "${SECRET_DIR}/username")
 GIT_PASSWORD=$(cat "${SECRET_DIR}/password")
 
 echo "=== Phase 0: Discover ArgoCD Application ==="
-ARGO_APP_JSON=$(kubectl get applications.argoproj.io -n argocd -o json)
+ARGO_APP_JSON=$(kubectl get applications.argoproj.io --all-namespaces -o json)
 
 GIT_REPO_URL=$(echo "${ARGO_APP_JSON}" | jq -r \
   --arg ns "${TARGET_NAMESPACE}" \

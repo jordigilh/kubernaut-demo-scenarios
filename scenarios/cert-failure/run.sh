@@ -46,16 +46,13 @@ kubectl create secret tls demo-ca-key-pair \
 rm -rf "${TMPDIR}"
 echo "  CA Secret created in cert-manager namespace."
 
-# Step 3: Deploy scenario resources
-echo "==> Step 3: Deploying namespace, ClusterIssuer, Certificate, and workload..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/clusterissuer.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/certificate.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/deployment.yaml"
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
+# Step 2: Deploy scenario resources
+echo "==> Step 2: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 4: Wait for certificate to be issued
-echo "==> Step 4: Waiting for Certificate to become Ready..."
+# Step 3: Wait for certificate to be issued
+echo "==> Step 3: Waiting for Certificate to become Ready..."
 for i in $(seq 1 30); do
   STATUS=$(kubectl get certificate demo-app-cert -n "${NAMESPACE}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
   if [ "$STATUS" = "True" ]; then
@@ -69,24 +66,24 @@ done
 kubectl get certificate -n "${NAMESPACE}"
 echo ""
 
-# Step 5: Baseline
-echo "==> Step 5: Establishing healthy baseline (20s)..."
+# Step 4: Baseline
+echo "==> Step 4: Establishing healthy baseline (20s)..."
 sleep 20
 echo "  Baseline established. Certificate is Ready, workload is healthy."
 echo ""
 
-# Step 6: Inject failure
-echo "==> Step 6: Injecting failure (deleting CA Secret)..."
+# Step 5: Inject failure
+echo "==> Step 5: Injecting failure (deleting CA Secret)..."
 bash "${SCRIPT_DIR}/inject-broken-issuer.sh"
 echo ""
 
-# Step 7: Wait for alert
-echo "==> Step 7: Waiting for CertManagerCertNotReady alert to fire (~2-3 min)..."
+# Step 6: Wait for alert
+echo "==> Step 6: Waiting for CertManagerCertNotReady alert to fire (~2-3 min)..."
 echo "  cert-manager will fail to re-issue the certificate."
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 
-# Step 8: Validate pipeline
+# Step 7: Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."

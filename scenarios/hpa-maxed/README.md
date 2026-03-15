@@ -32,9 +32,7 @@ knows an HPA exists and patches it to temporarily raise the ceiling.
 ### 1. Deploy the workload with HPA
 
 ```bash
-kubectl apply -f scenarios/hpa-maxed/manifests/namespace.yaml
-kubectl apply -f scenarios/hpa-maxed/manifests/deployment.yaml
-kubectl apply -f scenarios/hpa-maxed/manifests/prometheus-rule.yaml
+kubectl apply -k scenarios/hpa-maxed/manifests/
 kubectl wait --for=condition=Available deployment/api-frontend -n demo-hpa --timeout=120s
 ```
 
@@ -72,7 +70,7 @@ kubectl get hpa -n demo-hpa
 ## Cleanup
 
 ```bash
-kubectl delete namespace demo-hpa
+./scenarios/hpa-maxed/cleanup.sh
 ```
 
 ## BDD Specification

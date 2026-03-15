@@ -46,9 +46,10 @@ echo " GitOps Drift Remediation Demo (#125)"
 echo "============================================="
 echo ""
 
-# Step 1: Create ArgoCD Application (namespace + workload managed by ArgoCD)
-echo "==> Step 2: Creating ArgoCD Application..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/argocd-application.yaml"
+# Step 1: Apply all manifests (namespace, ArgoCD Application, deployment, PrometheusRule)
+echo "==> Step 2: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
 echo "==> Step 3: Waiting for ArgoCD to sync and pods to be ready..."
 echo "  Waiting for namespace to be created by ArgoCD..."
@@ -62,13 +63,9 @@ kubectl wait --for=condition=Available deployment/web-frontend \
   -n "${NAMESPACE}" --timeout=180s
 echo "  web-frontend is healthy."
 
-# Step 4: Deploy Prometheus rules (namespace now exists)
-echo "==> Step 4: Deploying Prometheus alerting rules..."
-kubectl apply -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-
-# Step 5: Establish baseline
+# Step 4: Establish baseline
 echo ""
-echo "==> Step 5: Initial state (healthy):"
+echo "==> Step 4: Initial state (healthy):"
 kubectl get pods -n "${NAMESPACE}" -o wide
 echo ""
 }

@@ -1,0 +1,26 @@
+# OCP overrides for kube-prometheus-stack.
+# Removes Kind-specific nodeSelector/tolerations and NodePort.
+# Apply after the base kube-prometheus-stack-values.yaml.
+alertmanager:
+  alertmanagerSpec:
+    nodeSelector: {}
+    tolerations: []
+
+prometheusOperator:
+  nodeSelector: {}
+  tolerations: []
+
+prometheus:
+  prometheusSpec:
+    nodeSelector: {}
+    tolerations: []
+
+grafana:
+  nodeSelector: {}
+  tolerations: []
+  service:
+    type: ClusterIP
+
+kube-state-metrics:
+  nodeSelector: {}
+  tolerations: []

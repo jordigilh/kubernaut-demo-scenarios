@@ -20,6 +20,12 @@
 
 BR-WORKFLOW-004
 
+## Cleanup
+
+```bash
+./scenarios/resource-contention/cleanup.sh
+```
+
 ## Issue
 
 #231

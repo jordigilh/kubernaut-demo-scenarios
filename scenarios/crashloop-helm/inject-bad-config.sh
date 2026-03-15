@@ -4,6 +4,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/platform-helper.sh
+source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+
 echo "==> Upgrading Helm release with bad nginx config..."
 
 # Create a temporary bad values file
@@ -35,8 +38,13 @@ nginx:
     }
 YAML
 
+HELM_VALUES_ARGS=""
+if [ "$PLATFORM" = "ocp" ]; then
+    HELM_VALUES_ARGS="-f ${SCRIPT_DIR}/chart/values-ocp.yaml"
+fi
+
 helm upgrade demo-crashloop-helm "${SCRIPT_DIR}/chart" \
-  -f "${TMPFILE}" \
+  -f "${TMPFILE}" ${HELM_VALUES_ARGS} \
   -n demo-crashloop-helm
 
 rm -f "${TMPFILE}"

@@ -63,7 +63,10 @@ kubectl get pods -n demo-statefulset
 bash scenarios/statefulset-pvc-failure/inject-pvc-issue.sh
 ```
 
-The script deletes the pod `kv-store-2`, its PVC `data-kv-store-2`, and the backing PV. The pod will be recreated by the StatefulSet controller but will remain Pending because the PVC no longer exists.
+The script scales the StatefulSet to 2 replicas (removing kv-store-2), deletes PVC
+`data-kv-store-2`, creates a replacement PVC with a non-existent StorageClass
+(`broken-storage-class`), then scales back to 3 replicas. The pod kv-store-2 is
+recreated by the StatefulSet controller but remains Pending because the PVC cannot bind.
 
 ### 4. Wait for alert and pipeline
 

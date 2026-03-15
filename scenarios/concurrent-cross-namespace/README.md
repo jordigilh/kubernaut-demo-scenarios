@@ -8,23 +8,24 @@
 
 ## What It Demonstrates
 
-Same incident (CrashLoopBackOff), different risk tolerances → different workflow selection.
+Same incident (CrashLoopBackOff), different risk tolerances and environments → different workflow selection and approval flows.
 
-- **Team Alpha** (high risk tolerance): Gets `restart-pods-v1` — simpler, less disruptive.
-- **Team Beta** (low risk tolerance): Gets `crashloop-rollback-v1` — more thorough, safer.
+- **Team Alpha** (staging, high risk tolerance): Auto-approved, gets `restart-pods-v1` — simpler, less disruptive.
+- **Team Beta** (production, low risk tolerance): Requires manual approval, gets `crashloop-rollback-v1` — more thorough, safer.
 
 ## Key Mechanism
 
 1. **SignalProcessing Rego policy** maps namespace label `kubernaut.ai/risk-tolerance` into customLabels (`risk_tolerance`).
 2. **DataStorage** scores workflows by customLabels match.
 3. **LLM** selects the workflow that aligns with the team's risk tolerance.
+4. **Approval Rego policy** auto-approves staging environments (`kubernaut.ai/environment=staging`) and requires manual approval for production (`kubernaut.ai/environment=production`).
 
 ## Pipeline Path (Parallel)
 
-| Team  | Path                                                                 |
-|-------|----------------------------------------------------------------------|
-| Alpha | Alert → SP (risk_tolerance=high) → AA → restart-pods-v1               |
-| Beta  | Alert → SP (risk_tolerance=low) → AA → crashloop-rollback-v1         |
+| Team  | Environment | Approval | Path |
+|-------|-------------|----------|------|
+| Alpha | staging     | auto     | Alert → SP (risk_tolerance=high) → AA → auto-approve → restart-pods-v1 |
+| Beta  | production  | manual   | Alert → SP (risk_tolerance=low) → AA → manual approve → crashloop-rollback-v1 |
 
 ## Business Requirement
 
@@ -33,6 +34,12 @@ Same incident (CrashLoopBackOff), different risk tolerances → different workfl
 ## Issue
 
 - **#172**: Concurrent cross-namespace scenario
+
+## Cleanup
+
+```bash
+./scenarios/concurrent-cross-namespace/cleanup.sh
+```
 
 ## Note
 

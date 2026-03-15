@@ -41,7 +41,7 @@ automated remediation is not appropriate.
 ```gherkin
 Given a Kind cluster with Kubernaut services and a real LLM backend
   And NO cleanup workflow is registered in DataStorage
-  And the "data-processor" deployment is running in namespace "demo-disk"
+  And the "data-processor" deployment is running in namespace "demo-orphaned-pvc"
 
 When 5 orphaned PVCs (from simulated completed batch jobs) are created
   And the KubePersistentVolumeClaimOrphaned alert fires (>3 bound PVCs for 2 min)

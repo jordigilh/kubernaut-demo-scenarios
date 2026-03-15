@@ -223,8 +223,8 @@ fi
 
 if $SEED_AFTER && ! $LOCAL_ONLY && [ "$build_count" -gt 0 ]; then
     echo ""
-    echo "==> Seeding workflow(s) in DataStorage..."
-    SEED_ARGS=(--version "${VERSION}")
+    echo "==> Applying RemediationWorkflow CRDs..."
+    SEED_ARGS=()
     if [ -n "$SINGLE_SCENARIO" ]; then
         SEED_ARGS+=(--scenario "${SINGLE_SCENARIO}")
     fi
@@ -234,6 +234,6 @@ fi
 if ! $SEED_AFTER; then
     echo ""
     echo "Next steps:"
-    echo "  Seed the workflows in DataStorage:"
+    echo "  Apply RemediationWorkflow CRDs:"
     echo "    ./scripts/seed-workflows.sh"
 fi

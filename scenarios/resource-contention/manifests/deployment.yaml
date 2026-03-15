@@ -20,7 +20,7 @@ spec:
       - name: worker
         image: polinux/stress
         command: ["stress"]
-        args: ["--vm", "1", "--vm-bytes", "128M", "--vm-hang", "0"]
+        args: ["--vm", "1", "--vm-bytes", "64M", "--vm-hang", "0"]
         resources:
           requests:
             memory: "32Mi"

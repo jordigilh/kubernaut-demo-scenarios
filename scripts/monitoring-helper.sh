@@ -19,10 +19,6 @@ require_infra() {
             kubectl get deployment metrics-server -n kube-system &>/dev/null && return 0
             echo "ERROR: metrics-server is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
-        linkerd)
-            kubectl get namespace linkerd &>/dev/null && return 0
-            echo "ERROR: Linkerd is not installed. Run: bash scripts/setup-demo-cluster.sh"
-            exit 1 ;;
         blackbox)
             helm status prometheus-blackbox-exporter -n "${MONITORING_NS}" &>/dev/null && return 0
             echo "ERROR: blackbox-exporter is not installed. Run: bash scripts/setup-demo-cluster.sh"
@@ -32,12 +28,29 @@ require_infra() {
             echo "ERROR: Gitea is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
         argocd)
-            kubectl get namespace argocd &>/dev/null && return 0
-            echo "ERROR: ArgoCD is not installed. Run: bash scripts/setup-demo-cluster.sh"
+            if [ "${PLATFORM:-}" = "ocp" ]; then
+                kubectl get namespace openshift-gitops &>/dev/null && return 0
+                echo "ERROR: OpenShift GitOps is not installed."
+                echo "  Install via: oc apply -f operators/openshift-gitops-subscription.yaml"
+            else
+                kubectl get namespace argocd &>/dev/null && return 0
+                echo "ERROR: ArgoCD is not installed. Run: bash scripts/setup-demo-cluster.sh"
+            fi
+            exit 1 ;;
+        istio)
+            if [ "${PLATFORM:-}" = "ocp" ]; then
+                kubectl get namespace istio-system &>/dev/null && return 0
+                echo "ERROR: OpenShift Service Mesh is not installed."
+                echo "  Install via the OSSM operator in OperatorHub."
+            else
+                kubectl get namespace istio-system &>/dev/null && return 0
+                echo "ERROR: Istio is not installed. Run: istioctl install --set profile=demo"
+            fi
             exit 1 ;;
         awx)
             kubectl get deployment -n kubernaut-system -l app.kubernetes.io/managed-by=awx-operator --no-headers 2>/dev/null | grep -q . && return 0
-            echo "ERROR: AWX is not installed. Run: bash scripts/awx-helper.sh"
+            kubectl get automationcontroller -n "${AAP_NAMESPACE:-aap}" --no-headers 2>/dev/null | grep -q . && return 0
+            echo "ERROR: AWX/AAP is not installed. Run: bash scripts/awx-helper.sh (Kind) or bash scripts/aap-helper.sh (OCP)"
             exit 1 ;;
         *)
             echo "ERROR: Unknown infrastructure component: ${component}"
@@ -127,30 +140,28 @@ ensure_metrics_server() {
     echo "  metrics-server installed."
 }
 
-# ── Linkerd ──────────────────────────────────────────────────────────────────
+# ── Istio ────────────────────────────────────────────────────────────────────
 # Used by: mesh-routing-failure
-ensure_linkerd() {
-    if kubectl get namespace linkerd &>/dev/null; then
-        echo "  Linkerd already installed."
+ensure_istio() {
+    if kubectl get namespace istio-system &>/dev/null; then
+        echo "  Istio already installed."
         return 0
     fi
 
-    echo "==> Installing Linkerd..."
+    echo "==> Installing Istio..."
 
-    if ! command -v linkerd &>/dev/null; then
-        echo "  Installing Linkerd CLI..."
-        curl -fsL https://run.linkerd.io/install-edge | sh
-        export PATH="$HOME/.linkerd2/bin:$PATH"
+    if ! command -v istioctl &>/dev/null; then
+        echo "ERROR: istioctl not found in PATH."
+        echo "  Install: curl -L https://istio.io/downloadIstio | sh -"
+        echo "  Then: export PATH=\$PWD/istio-*/bin:\$PATH"
+        exit 1
     fi
 
-    echo "  Installing Gateway API CRDs (Linkerd prerequisite)..."
-    kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.0/standard-install.yaml
+    istioctl install --set profile=demo -y
+    kubectl wait --for=condition=Available deployment/istiod \
+      -n istio-system --timeout=300s
 
-    linkerd install --crds | kubectl apply -f -
-    linkerd install | kubectl apply -f -
-    linkerd check --wait 5m
-
-    echo "  Linkerd installed."
+    echo "  Istio installed."
 }
 
 # ── Blackbox Exporter ────────────────────────────────────────────────────────

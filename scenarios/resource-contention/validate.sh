@@ -24,7 +24,7 @@ show_alert "ContainerOOMKilling" "${NAMESPACE}"
 
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
-wait_for_rr "${NAMESPACE}" 120
+wait_for_rr "${NAMESPACE}"
 poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"
 
 # ── Assertions ──────────────────────────────────────────────────────────────
