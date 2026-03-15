@@ -133,13 +133,22 @@ function. It is idempotent and safe to run multiple times.
 
 What it does:
 
-1. **ArgoCD secret**: ensures `webhook.gitea.secret` exists in `argocd-secret`
+1. **Gitea ROOT_URL alignment**: sets Gitea's `ROOT_URL` to
+   `http://gitea-http.gitea:3000` (the in-cluster service URL). Gitea embeds
+   `ROOT_URL` in webhook payloads and ArgoCD matches that URL against
+   `Application.spec.source.repoURL`. If these differ (e.g. Gitea defaults to
+   `http://git.example.com`), ArgoCD receives the push event but silently
+   ignores it because it cannot match the repo to any Application.
+2. **TLS skip**: configures `SKIP_TLS_VERIFY=true` and `ALLOWED_HOST_LIST=*`
+   in Gitea's `[webhook]` section so it can reach ArgoCD's in-cluster HTTPS
+   endpoint without certificate errors.
+3. **ArgoCD secret**: ensures `webhook.gitea.secret` exists in `argocd-secret`
    (generates a random hex secret if absent).
-2. **Gitea webhook**: creates a webhook on the `demo-diskpressure-repo` repository
-   that posts push events to the ArgoCD server's in-cluster endpoint
-   (`https://openshift-gitops-server.openshift-gitops.svc/api/webhook` on OCP,
-   or `https://argocd-server.argocd.svc/api/webhook` on Kind).
-3. **Least privilege**: the Gitea API token is short-lived and deleted after setup.
+4. **Gitea webhook**: deletes any stale webhook from prior runs, then creates
+   a fresh one on the `demo-diskpressure-repo` repository with the current
+   secret. The webhook posts push events to the ArgoCD server's in-cluster
+   endpoint (`https://openshift-gitops-server.openshift-gitops.svc/api/webhook`
+   on OCP, or `https://argocd-server.argocd.svc/api/webhook` on Kind).
 
 No extra RBAC is required -- the webhook is an HTTP call from Gitea to ArgoCD,
 not a Kubernetes API operation.
@@ -147,16 +156,26 @@ not a Kubernetes API operation.
 ### Manual verification
 
 ```bash
-# Check the ArgoCD secret has the webhook key
-kubectl get secret argocd-secret -n openshift-gitops \
-  -o jsonpath='{.data.webhook\.gitea\.secret}' | base64 -d && echo
-
-# List webhooks on the repo (from inside the Gitea pod)
+# 1. Verify Gitea ROOT_URL matches ArgoCD's repoURL
 GITEA_POD=$(kubectl get pods -n gitea -l app.kubernetes.io/name=gitea \
   -o jsonpath='{.items[0].metadata.name}')
 kubectl exec -n gitea "$GITEA_POD" -- \
+  grep ROOT_URL /data/gitea/conf/app.ini
+# Expected: ROOT_URL = http://gitea-http.gitea:3000
+
+# 2. Check the ArgoCD secret has the webhook key
+kubectl get secret argocd-secret -n openshift-gitops \
+  -o jsonpath='{.data.webhook\.gitea\.secret}' | base64 -d && echo
+
+# 3. List webhooks on the repo
+kubectl exec -n gitea "$GITEA_POD" -- \
   wget -q -O - "http://localhost:3000/api/v1/repos/kubernaut/demo-diskpressure-repo/hooks" \
   --header="Authorization: token <token>" 2>/dev/null | python3 -m json.tool
+
+# 4. Verify ArgoCD receives push events with the correct URL
+kubectl logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-server \
+  --tail=20 | grep "Received push event"
+# Expected URL: http://gitea-http.gitea:3000/kubernaut/demo-diskpressure-repo
 ```
 
 ## Cleanup

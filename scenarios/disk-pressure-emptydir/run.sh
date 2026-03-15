@@ -51,6 +51,8 @@ require_infra argocd
 setup_gitea_argocd_webhook() {
     local repo_owner="$1" repo_name="$2"
     local argocd_ns gitea_pod argocd_svc_url webhook_secret existing_hooks
+    local gitea_svc_url="http://gitea-http.${GITEA_NAMESPACE}:3000"
+    local needs_restart=false
 
     argocd_ns=$(get_argocd_namespace)
     argocd_svc_url="https://openshift-gitops-server.${argocd_ns}.svc/api/webhook"
@@ -65,6 +67,21 @@ setup_gitea_argocd_webhook() {
         return 0
     fi
 
+    # Gitea embeds ROOT_URL in webhook payloads. ArgoCD matches the URL
+    # against Application.spec.source.repoURL. Both must agree or ArgoCD
+    # silently ignores the push event. Set ROOT_URL to the in-cluster
+    # service URL so the URLs match.
+    local current_server_cfg
+    current_server_cfg=$(kubectl get secret gitea-inline-config -n "${GITEA_NAMESPACE}" \
+      -o jsonpath='{.data.server}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    if ! echo "$current_server_cfg" | grep -q "ROOT_URL=${gitea_svc_url}"; then
+        local gitea_domain="gitea-http.${GITEA_NAMESPACE}"
+        kubectl patch secret gitea-inline-config -n "${GITEA_NAMESPACE}" --type=merge \
+          -p "{\"stringData\":{\"server\":\"APP_DATA_PATH=/data\nDOMAIN=${gitea_domain}\nENABLE_PPROF=false\nHTTP_PORT=3000\nPROTOCOL=http\nROOT_URL=${gitea_svc_url}\nSSH_DOMAIN=${gitea_domain}\nSSH_LISTEN_PORT=2222\nSSH_PORT=22\nSTART_SSH_SERVER=true\"}}" 2>/dev/null
+        echo "  Gitea ROOT_URL set to ${gitea_svc_url}."
+        needs_restart=true
+    fi
+
     # ArgoCD uses TLS internally; Gitea must skip certificate verification.
     local current_wh_cfg
     current_wh_cfg=$(kubectl get secret gitea-inline-config -n "${GITEA_NAMESPACE}" \
@@ -72,12 +89,16 @@ setup_gitea_argocd_webhook() {
     if ! echo "$current_wh_cfg" | grep -q "SKIP_TLS_VERIFY"; then
         kubectl patch secret gitea-inline-config -n "${GITEA_NAMESPACE}" --type=merge \
           -p '{"stringData":{"webhook":"SKIP_TLS_VERIFY=true\nALLOWED_HOST_LIST=*"}}' 2>/dev/null
+        echo "  Gitea SKIP_TLS_VERIFY configured."
+        needs_restart=true
+    fi
+
+    if [ "$needs_restart" = true ]; then
         kubectl rollout restart deployment/gitea -n "${GITEA_NAMESPACE}" 2>/dev/null
         kubectl rollout status deployment/gitea -n "${GITEA_NAMESPACE}" --timeout=120s 2>/dev/null
-        # Re-read pod name after restart
         gitea_pod=$(kubectl get pods -n "${GITEA_NAMESPACE}" -l app.kubernetes.io/name=gitea \
           -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-        echo "  Gitea SKIP_TLS_VERIFY configured (pod restarted)."
+        echo "  Gitea restarted with updated configuration."
     fi
 
     # Ensure ArgoCD has a webhook.gitea.secret; generate one if missing.
@@ -93,7 +114,6 @@ setup_gitea_argocd_webhook() {
     fi
 
     # Create a Gitea API token via the CLI inside the pod.
-    # Use a unique name to avoid conflicts with stale tokens from prior runs.
     local gitea_token token_name
     token_name="kubernaut-wh-$$"
     gitea_token=$(kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
@@ -105,35 +125,41 @@ setup_gitea_argocd_webhook() {
         return 0
     fi
 
-    # Check if a webhook already targets ArgoCD for this repo.
+    # Delete any existing ArgoCD webhook, then recreate with the current
+    # secret. This avoids stale secrets from prior runs causing silent
+    # delivery failures.
     existing_hooks=$(kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
       wget -q -O - \
       --header="Authorization: token ${gitea_token}" \
       "http://localhost:3000/api/v1/repos/${repo_owner}/${repo_name}/hooks" 2>/dev/null || echo "[]")
 
-    local hook_exists
-    hook_exists=$(echo "$existing_hooks" | python3 -c "
+    local old_hook_ids
+    old_hook_ids=$(echo "$existing_hooks" | python3 -c "
 import sys, json
 try:
     hooks = json.load(sys.stdin)
-    print('yes' if any('/api/webhook' in h.get('config',{}).get('url','') for h in hooks) else 'no')
+    for h in hooks:
+        if '/api/webhook' in h.get('config',{}).get('url',''):
+            print(h['id'])
 except:
-    print('no')" 2>/dev/null)
+    pass" 2>/dev/null)
 
-    if [ "$hook_exists" = "yes" ]; then
-        echo "  Gitea webhook for ArgoCD already exists."
-    else
+    for hid in $old_hook_ids; do
         kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
           wget -q -O /dev/null \
           --header="Authorization: token ${gitea_token}" \
-          --header="Content-Type: application/json" \
-          --post-data="{\"type\":\"gitea\",\"config\":{\"url\":\"${argocd_svc_url}\",\"content_type\":\"json\",\"secret\":\"${webhook_secret}\",\"insecure_ssl\":\"1\"},\"events\":[\"push\"],\"active\":true}" \
-          "http://localhost:3000/api/v1/repos/${repo_owner}/${repo_name}/hooks" 2>/dev/null
-        echo "  Gitea webhook created -> ${argocd_svc_url}"
-    fi
+          --post-data="_method=DELETE" \
+          "http://localhost:3000/api/v1/repos/${repo_owner}/${repo_name}/hooks/${hid}" 2>/dev/null || true
+        echo "  Removed stale webhook (id=${hid})."
+    done
 
-    # Note: Gitea 1.25+ has no delete-access-token CLI command.
-    # The token persists but has a unique name per invocation (PID-scoped).
+    kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
+      wget -q -O /dev/null \
+      --header="Authorization: token ${gitea_token}" \
+      --header="Content-Type: application/json" \
+      --post-data="{\"type\":\"gitea\",\"config\":{\"url\":\"${argocd_svc_url}\",\"content_type\":\"json\",\"secret\":\"${webhook_secret}\"},\"events\":[\"push\"],\"active\":true}" \
+      "http://localhost:3000/api/v1/repos/${repo_owner}/${repo_name}/hooks" 2>/dev/null
+    echo "  Gitea webhook created -> ${argocd_svc_url}"
 }
 
 run_setup() {
