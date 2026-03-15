@@ -92,16 +92,14 @@ setup_gitea_argocd_webhook() {
         echo "  ArgoCD webhook.gitea.secret already present."
     fi
 
-    # Create a short-lived Gitea API token via the CLI inside the pod.
-    local gitea_token
-    # Delete stale token from previous runs, then create fresh one.
-    kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
-      gitea admin user delete-access-token --username "${repo_owner}" \
-      --token-name kubernaut-webhook 2>/dev/null || true
+    # Create a Gitea API token via the CLI inside the pod.
+    # Use a unique name to avoid conflicts with stale tokens from prior runs.
+    local gitea_token token_name
+    token_name="kubernaut-wh-$$"
     gitea_token=$(kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
       gitea admin user generate-access-token \
-      --username "${repo_owner}" --token-name kubernaut-webhook \
-      --scopes all --raw 2>/dev/null)
+      -u "${repo_owner}" -t "${token_name}" \
+      --scopes all --raw 2>/dev/null) || true
     if [ -z "$gitea_token" ]; then
         echo "  WARNING: Could not create Gitea token, skipping webhook setup."
         return 0
@@ -134,10 +132,8 @@ except:
         echo "  Gitea webhook created -> ${argocd_svc_url}"
     fi
 
-    # Cleanup token (least-privilege).
-    kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
-      gitea admin user delete-access-token --username "${repo_owner}" \
-      --token-name kubernaut-webhook 2>/dev/null || true
+    # Note: Gitea 1.25+ has no delete-access-token CLI command.
+    # The token persists but has a unique name per invocation (PID-scoped).
 }
 
 run_setup() {
