@@ -48,6 +48,83 @@ require_infra awx
 require_infra gitea
 require_infra argocd
 
+setup_gitea_argocd_webhook() {
+    local repo_owner="$1" repo_name="$2"
+    local argocd_ns gitea_pod argocd_svc_url webhook_secret existing_hooks
+
+    argocd_ns=$(get_argocd_namespace)
+    argocd_svc_url="https://openshift-gitops-server.${argocd_ns}.svc/api/webhook"
+    if [ "$PLATFORM" != "ocp" ]; then
+        argocd_svc_url="https://argocd-server.${argocd_ns}.svc/api/webhook"
+    fi
+
+    gitea_pod=$(kubectl get pods -n "${GITEA_NAMESPACE}" -l app.kubernetes.io/name=gitea \
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [ -z "$gitea_pod" ]; then
+        echo "  WARNING: Gitea pod not found, skipping webhook setup."
+        return 0
+    fi
+
+    # Ensure ArgoCD has a webhook.gitea.secret; generate one if missing.
+    webhook_secret=$(kubectl get secret argocd-secret -n "${argocd_ns}" \
+      -o jsonpath='{.data.webhook\.gitea\.secret}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    if [ -z "$webhook_secret" ]; then
+        webhook_secret=$(openssl rand -hex 20)
+        kubectl patch secret argocd-secret -n "${argocd_ns}" --type=merge \
+          -p "{\"stringData\":{\"webhook.gitea.secret\":\"${webhook_secret}\"}}"
+        echo "  ArgoCD webhook.gitea.secret configured."
+    else
+        echo "  ArgoCD webhook.gitea.secret already present."
+    fi
+
+    # Create a short-lived Gitea API token via the CLI inside the pod.
+    local gitea_token
+    # Delete stale token from previous runs, then create fresh one.
+    kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
+      gitea admin user delete-access-token --username "${repo_owner}" \
+      --token-name kubernaut-webhook 2>/dev/null || true
+    gitea_token=$(kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
+      gitea admin user generate-access-token \
+      --username "${repo_owner}" --token-name kubernaut-webhook \
+      --scopes all --raw 2>/dev/null)
+    if [ -z "$gitea_token" ]; then
+        echo "  WARNING: Could not create Gitea token, skipping webhook setup."
+        return 0
+    fi
+
+    # Check if a webhook already targets ArgoCD for this repo.
+    existing_hooks=$(kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
+      wget -q -O - \
+      --header="Authorization: token ${gitea_token}" \
+      "http://localhost:3000/api/v1/repos/${repo_owner}/${repo_name}/hooks" 2>/dev/null || echo "[]")
+
+    local hook_exists
+    hook_exists=$(echo "$existing_hooks" | python3 -c "
+import sys, json
+try:
+    hooks = json.load(sys.stdin)
+    print('yes' if any('/api/webhook' in h.get('config',{}).get('url','') for h in hooks) else 'no')
+except:
+    print('no')" 2>/dev/null)
+
+    if [ "$hook_exists" = "yes" ]; then
+        echo "  Gitea webhook for ArgoCD already exists."
+    else
+        kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
+          wget -q -O /dev/null \
+          --header="Authorization: token ${gitea_token}" \
+          --header="Content-Type: application/json" \
+          --post-data="{\"type\":\"gitea\",\"config\":{\"url\":\"${argocd_svc_url}\",\"content_type\":\"json\",\"secret\":\"${webhook_secret}\",\"insecure_ssl\":\"1\"},\"events\":[\"push\"],\"active\":true}" \
+          "http://localhost:3000/api/v1/repos/${repo_owner}/${repo_name}/hooks" 2>/dev/null
+        echo "  Gitea webhook created -> ${argocd_svc_url}"
+    fi
+
+    # Cleanup token (least-privilege).
+    kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
+      gitea admin user delete-access-token --username "${repo_owner}" \
+      --token-name kubernaut-webhook 2>/dev/null || true
+}
+
 run_setup() {
 echo "============================================="
 echo " DiskPressure emptyDir Migration Demo (#324)"
@@ -436,6 +513,12 @@ kubectl apply -k "${MANIFEST_DIR}"
 ARGOCD_NS=$(get_argocd_namespace)
 kubectl patch configmap argocd-cm -n "${ARGOCD_NS}" --type merge \
   -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
+
+# Step 2b: Configure Gitea -> ArgoCD webhook for instant sync on push.
+# The remediation playbook pushes a PVC migration commit; without this
+# webhook ArgoCD would poll with up to 3 min delay.
+echo "==> Step 2b: Ensuring Gitea webhook notifies ArgoCD on push..."
+setup_gitea_argocd_webhook "${GITEA_ADMIN_USER}" "${REPO_NAME}"
 
 # Step 3: Wait for ArgoCD sync and PostgreSQL readiness
 echo "==> Step 3: Waiting for ArgoCD sync..."

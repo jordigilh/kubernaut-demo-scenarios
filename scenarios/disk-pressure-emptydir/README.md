@@ -22,7 +22,7 @@ Upon approval, an Ansible/AWX playbook:
 ## Signal Flow
 
 ```
-predict_linear(node_filesystem_avail_bytes[3m], 600) < 0  for 1m
+predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
   -> PredictedDiskPressure alert (proactive)
   -> Gateway -> SP (normalizes to DiskPressure, signalMode=proactive)
   -> AA (HAPI + LLM, proactive prompt: "predict & prevent")
@@ -30,7 +30,7 @@ predict_linear(node_filesystem_avail_bytes[3m], 600) < 0  for 1m
   -> Selects MigrateEmptyDirToPVC workflow
   -> RO creates RAR (human approval gate)
   -> Upon approval: WE (Ansible/AWX) runs playbook
-  -> Backup (live pg_dump) -> Git commit -> ArgoCD sync -> Restore
+  -> Backup (live pg_dump) -> Git commit -> ArgoCD sync (via webhook) -> Restore
   -> EM verifies DiskPressure never materialized + data intact
 ```
 
@@ -38,12 +38,14 @@ predict_linear(node_filesystem_avail_bytes[3m], 600) < 0  for 1m
 
 | Component | Requirement |
 |-----------|-------------|
+| OCP cluster | Dedicated stress-worker node (~25 GB disk, label `scenario=disk-pressure`) |
 | Kind cluster | `kind-config-diskpressure.yaml` (lowered kubelet eviction thresholds) |
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
-| Prometheus | With kube-state-metrics |
+| Prometheus | With kube-state-metrics and `node-exporter` |
 | AWX | Deployed via `scripts/awx-helper.sh` |
 | Gitea + ArgoCD | Deployed via `scripts/setup-gitea.sh` and `scripts/setup-argocd.sh` |
+| Gitea webhook | Automated by `run.sh setup` (see [Gitea-ArgoCD Webhook](#gitea-argocd-webhook)) |
 | Workflow catalog | `migrate-emptydir-to-pvc-gitops-v1` registered in DataStorage |
 
 ## Automated Run
@@ -85,7 +87,9 @@ kubectl exec -n demo-diskpressure "$POD" -- \
 
 The stored procedure parameters (batch_size, iterations, sleep_ms) are computed dynamically
 by `run.sh inject` based on the target node's filesystem capacity (see `run_inject()`).
-The rate is auto-tuned so `predict_linear()` fires with ~3 min margin before kubelet eviction.
+The rate is auto-tuned so `predict_linear()` fires with ~8 min margin before kubelet eviction,
+giving the full pipeline (LLM analysis, RAR approval, AWX dispatch, pg_dump, ArgoCD sync,
+pg_restore) enough time to complete before data loss.
 
 ### 4. Wait for alert and pipeline
 
@@ -116,6 +120,43 @@ kubectl get pvc -n demo-diskpressure
 # Database data should be intact
 kubectl exec -n demo-diskpressure deploy/postgres-emptydir -- \
   psql -U postgres -c "SELECT count(*) FROM events;"
+```
+
+## Gitea-ArgoCD Webhook
+
+The remediation playbook pushes a PVC migration commit to Gitea. For ArgoCD to pick
+up the change immediately (rather than waiting for its polling interval), a **Gitea
+webhook** must notify ArgoCD on every push.
+
+**`run.sh setup` configures this automatically** via the `setup_gitea_argocd_webhook`
+function. It is idempotent and safe to run multiple times.
+
+What it does:
+
+1. **ArgoCD secret**: ensures `webhook.gitea.secret` exists in `argocd-secret`
+   (generates a random hex secret if absent).
+2. **Gitea webhook**: creates a webhook on the `demo-diskpressure-repo` repository
+   that posts push events to the ArgoCD server's in-cluster endpoint
+   (`https://openshift-gitops-server.openshift-gitops.svc/api/webhook` on OCP,
+   or `https://argocd-server.argocd.svc/api/webhook` on Kind).
+3. **Least privilege**: the Gitea API token is short-lived and deleted after setup.
+
+No extra RBAC is required -- the webhook is an HTTP call from Gitea to ArgoCD,
+not a Kubernetes API operation.
+
+### Manual verification
+
+```bash
+# Check the ArgoCD secret has the webhook key
+kubectl get secret argocd-secret -n openshift-gitops \
+  -o jsonpath='{.data.webhook\.gitea\.secret}' | base64 -d && echo
+
+# List webhooks on the repo (from inside the Gitea pod)
+GITEA_POD=$(kubectl get pods -n gitea -l app.kubernetes.io/name=gitea \
+  -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n gitea "$GITEA_POD" -- \
+  wget -q -O - "http://localhost:3000/api/v1/repos/kubernaut/demo-diskpressure-repo/hooks" \
+  --header="Authorization: token <token>" 2>/dev/null | python3 -m json.tool
 ```
 
 ## Cleanup
