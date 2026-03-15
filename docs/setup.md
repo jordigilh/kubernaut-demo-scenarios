@@ -274,9 +274,10 @@ kubectl rollout restart deployment/notification-controller -n kubernaut-system
 ```
 scripts/
   setup-demo-cluster.sh            # Bootstrap orchestrator (Kind + monitoring + platform + catalog)
-  platform-helper.sh               # Helm chart deployment helpers
+  platform-helper.sh               # Platform detection (Kind vs OCP), kustomize overlay selection
   monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
   kind-helper.sh                   # Kind cluster lifecycle
+  aap-helper.sh                   # AWX/AAP deployment and playbook registration
   seed-workflows.sh                # Apply RemediationWorkflow CRDs (kubectl apply)
   seed-action-types.sh             # Apply ActionType CRDs
 scenarios/
@@ -285,8 +286,11 @@ scenarios/
     cleanup.sh                     # Teardown script (if applicable)
     README.md                      # BDD spec, acceptance criteria, manual steps
     manifests/                     # Namespace, Deployment, Service, PrometheusRule
+    overlays/ocp/                  # OCP kustomize overlay (restricted-v2 SCC, namespace overrides)
     workflow/                      # workflow-schema.yaml + Dockerfile for OCI image
-helm/                              # Helm values: kube-prometheus-stack + Kubernaut Kind overrides
+deploy/
+  action-types/                    # ActionType CRD YAMLs (25 types)
+helm/                              # Helm values: kube-prometheus-stack + Kubernaut Kind/OCP overrides
 credentials/                       # LLM credential Secret examples
 overlays/kind/                     # Kind cluster config (port mappings, node topology)
 ```
