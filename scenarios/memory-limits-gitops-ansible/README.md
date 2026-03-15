@@ -1,5 +1,7 @@
 # Scenario #312: Memory Limits GitOps via Ansible/AWX
 
+> **Status: Unvalidated** -- This scenario has scaffolding but has not been tested end-to-end on any platform. See the [Scenario Catalog](../../docs/scenarios.md#unvalidated) for details.
+
 ## Overview
 
 First demo scenario using the **Ansible execution engine** (AWX). A GitOps-managed
