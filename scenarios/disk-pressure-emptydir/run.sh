@@ -530,9 +530,9 @@ echo "==> Target node: ${NODE}"
 # ── Dynamic rate calculation based on node filesystem capacity ──────────
 # Get disk stats directly from the postgres pod (on the target node).
 #
-# PrometheusRule: predict_linear(v[3m], 600) < 0 for 1m
-#   W=180s (window), H=600s (horizon), F=60s (for clause)
-#   Desired margin = 180s (3 min pipeline runway)
+# PrometheusRule: predict_linear(v[3m], 900) < 0 for 1m
+#   W=180s (window), H=900s (horizon), F=60s (for clause)
+#   Desired margin = 360s (6 min -- enough for LLM ~2m + approve + AWX + pg_dump)
 #
 # Two rate strategies:
 #   Case A (window-limited): write fast so the [3m] window is the
@@ -542,7 +542,7 @@ echo "==> Target node: ${NODE}"
 #
 #   Case B (slope-limited): write at the minimum rate that yields the
 #     desired margin.  Slower but always feasible.
-#     R = threshold / (H - F - margin) = threshold / 360
+#     R = threshold / (H - F - margin)
 #
 # We prefer Case A (faster) and fall back to Case B.
 
@@ -565,13 +565,13 @@ if [ "$USABLE_MB" -lt 2048 ]; then
     exit 1
 fi
 
-# W=180, H=600, F=60, margin=180  (all in seconds)
+# W=180, H=900, F=60, margin=360  (all in seconds)
 # PostgreSQL disk amplification: ~2x (tuple headers, WAL, TOAST)
 PG_AMP=2
 
 RATE_MB_S=$(awk "BEGIN {
     avail=${AVAIL_MB}; usable=${USABLE_MB}; threshold=${THRESHOLD_MB}
-    W=180; H=600; F=60; margin=180
+    W=180; H=900; F=60; margin=360
 
     r_fast = usable / (W + F + margin)   # Case A
     r_min  = avail / (W + H)             # min for prediction < 0 during window
@@ -593,7 +593,7 @@ ITERATIONS=$(awk "BEGIN { print int(${USABLE_MB}*1024/${BATCH_SIZE})+1000 }")
 
 # Estimate timing (minutes)
 EST_ALERT_MIN=$(awk "BEGIN {
-    r=${RATE_MB_S}*60; W=3; H=10; F=1
+    r=${RATE_MB_S}*60; W=3; H=15; F=1
     t_slope = ${AVAIL_MB}/r - H + F
     t_window = W + F
     t = (t_slope > t_window) ? t_slope : t_window
