@@ -1,5 +1,9 @@
 # Scenario #120: CrashLoopBackOff Remediation
 
+## Demo
+
+![Kubernaut detecting and remediating a CrashLoopBackOff](crashloop-lite.gif)
+
 ## Overview
 
 Demonstrates Kubernaut detecting a CrashLoopBackOff caused by a bad configuration
