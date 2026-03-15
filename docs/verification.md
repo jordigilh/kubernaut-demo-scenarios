@@ -39,12 +39,23 @@ kubectl get notificationrequests -A -o wide
 
 ### Check workflow catalog
 ```bash
-curl -s http://localhost:30081/api/v1/workflows | jq '.'
+# Requires port-forward to DataStorage and a bearer token
+kubectl port-forward -n kubernaut-system svc/datastorage-service 30081:8081 &
+DS_TOKEN=$(kubectl get secret kubernaut-ds-db-credentials -n kubernaut-system \
+  -o jsonpath='{.data.api-token}' | base64 -d)
+curl -s -H "Authorization: Bearer ${DS_TOKEN}" \
+  http://localhost:30081/api/v1/workflows | jq '.'
 ```
 
 ### Check audit events
 ```bash
-curl -s http://localhost:30081/api/v1/audit-events | jq '.'
+curl -s -H "Authorization: Bearer ${DS_TOKEN}" \
+  http://localhost:30081/api/v1/audit-events | jq '.'
+```
+
+### Quick health check (no auth required)
+```bash
+curl -s http://localhost:30081/health | jq '.'
 ```
 
 ## Monitoring

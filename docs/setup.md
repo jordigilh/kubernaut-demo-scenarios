@@ -222,7 +222,7 @@ Every step is idempotent -- you can safely re-run the script if it fails partway
 |------|---------|
 | `--create-cluster` | Delete and recreate the Kind cluster from scratch |
 | `--skip-infra` | Skip optional infrastructure (cert-manager, Istio, Gitea, ArgoCD) |
-| `--with-awx` | Install AWX (required for the `memory-limits-gitops-ansible` scenario) |
+| `--with-awx` | Install AWX/AAP (required for `disk-pressure-emptydir`; OCP uses AAP, Kind uses AWX) |
 | `--kind-config PATH` | Custom Kind cluster config (default: `scenarios/kind-config-multinode.yaml`) |
 
 ### Apply LLM Credentials
@@ -250,7 +250,7 @@ Each scenario's `run.sh` does three things:
 
 > `run.sh` does **not** create the Kind cluster or install the platform. That is handled by `setup-demo-cluster.sh`. If you see an error like `"ERROR: Cannot connect to Kubernetes cluster"`, run the bootstrap first.
 
-Browse all 23 available scenarios in the [Scenario Catalog](scenarios.md).
+Browse all 24 available scenarios in the [Scenario Catalog](scenarios.md).
 
 > **Infrastructure dependencies:** Some scenarios require components like cert-manager, Istio, or AWX that are only installed when `setup-demo-cluster.sh` runs without `--skip-infra`. If a required component is missing, `run.sh` will exit with a clear error message. See the [dependency table](scenarios.md#dependencies) for details.
 
