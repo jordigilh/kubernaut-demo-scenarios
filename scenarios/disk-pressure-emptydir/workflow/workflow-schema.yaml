@@ -50,4 +50,4 @@ spec:
       type: string
       required: false
       description: "Size for the new persistent volume claim"
-      default: "2Gi"
+      default: "10Gi"
