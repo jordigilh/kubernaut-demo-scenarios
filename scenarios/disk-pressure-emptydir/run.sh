@@ -65,6 +65,21 @@ setup_gitea_argocd_webhook() {
         return 0
     fi
 
+    # ArgoCD uses TLS internally; Gitea must skip certificate verification.
+    local current_wh_cfg
+    current_wh_cfg=$(kubectl get secret gitea-inline-config -n "${GITEA_NAMESPACE}" \
+      -o jsonpath='{.data.webhook}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    if ! echo "$current_wh_cfg" | grep -q "SKIP_TLS_VERIFY"; then
+        kubectl patch secret gitea-inline-config -n "${GITEA_NAMESPACE}" --type=merge \
+          -p '{"stringData":{"webhook":"SKIP_TLS_VERIFY=true\nALLOWED_HOST_LIST=*"}}' 2>/dev/null
+        kubectl rollout restart deployment/gitea -n "${GITEA_NAMESPACE}" 2>/dev/null
+        kubectl rollout status deployment/gitea -n "${GITEA_NAMESPACE}" --timeout=120s 2>/dev/null
+        # Re-read pod name after restart
+        gitea_pod=$(kubectl get pods -n "${GITEA_NAMESPACE}" -l app.kubernetes.io/name=gitea \
+          -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+        echo "  Gitea SKIP_TLS_VERIFY configured (pod restarted)."
+    fi
+
     # Ensure ArgoCD has a webhook.gitea.secret; generate one if missing.
     webhook_secret=$(kubectl get secret argocd-secret -n "${argocd_ns}" \
       -o jsonpath='{.data.webhook\.gitea\.secret}' 2>/dev/null | base64 -d 2>/dev/null || true)
