@@ -12,14 +12,14 @@ spec:
         # Proactive alert: fires BEFORE DiskPressure occurs (BR-SP-106 / ADR-054).
         # SP normalizes PredictedDiskPressure -> DiskPressure (signalMode=proactive).
         # predict_linear() projects disk exhaustion based on recent growth trend.
-        # Window [3m] balances slope accuracy vs. speed; 900s horizon gives the
-        # pipeline ~6 min margin (LLM ~2m + approve + AWX + pg_dump) before
-        # eviction; for: 1m sustain.
+        # Window [3m] balances slope accuracy vs. speed; 1200s horizon gives the
+        # pipeline ~8 min margin (LLM ~2m + approve + AWX + pg_dump + ArgoCD
+        # sync + pg_restore) before eviction; for: 1m sustain.
         - alert: PredictedDiskPressure
           expr: |
             predict_linear(
               node_filesystem_avail_bytes{mountpoint="/", instance=~"stress-worker.*"}[3m],
-              900
+              1200
             ) < 0
           for: 1m
           labels:
@@ -27,11 +27,11 @@ spec:
             namespace: demo-diskpressure
             node: '{{ $labels.instance }}'
           annotations:
-            summary: "Node {{ $labels.instance }} predicted to exhaust disk within 15 minutes"
+            summary: "Node {{ $labels.instance }} predicted to exhaust disk within 20 minutes"
             description: >-
               Linear regression on node {{ $labels.instance }} filesystem usage
               over the last 3 minutes predicts available space will reach
-              zero within 15 minutes. This is likely caused by emptyDir growth
+              zero within 20 minutes. This is likely caused by emptyDir growth
               from the postgres-emptydir deployment in demo-diskpressure
               namespace. Proactive remediation can migrate the database to
               persistent storage before data loss occurs.
