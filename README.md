@@ -28,31 +28,27 @@ The Kubernaut Helm chart is installed automatically from the OCI registry (`oci:
 
 ### 3. Configure your LLM provider
 
-Kubernaut needs an LLM to analyze issues. Set your provider and model **before running the setup script** -- these are passed to `helm install` during cluster creation:
-
-```bash
-export KUBERNAUT_LLM_PROVIDER=openai    # or: anthropic
-export KUBERNAUT_LLM_MODEL=gpt-4o       # or: claude-sonnet-4-20250514
-```
-
-<details>
-<summary>Advanced: Vertex AI or custom endpoint (SDK config file)</summary>
-
-Vertex AI requires additional fields (`gcp_project_id`, `gcp_region`) that cannot be set via env vars. For Vertex AI or multi-model setups, use the SDK config file instead:
+Kubernaut needs an LLM to analyze issues. Pick one provider and configure it:
 
 ```bash
 mkdir -p ~/.kubernaut/helm
-cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
-# Edit with your Vertex AI project/region, then run setup.
+cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
 ```
 
-See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) guide for details.
+Edit `~/.kubernaut/helm/llm-values.yaml` with your provider details. Example for Anthropic:
 
-</details>
+```yaml
+holmesgptApi:
+  llm:
+    provider: "anthropic"
+    model: "claude-sonnet-4-20250514"
+```
+
+See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) guide for all supported providers: Vertex AI, Anthropic, OpenAI, and local models (Ollama, vLLM, LM Studio).
 
 ### 4. Create the cluster
 
-This creates a Kind cluster, installs monitoring (Prometheus, Grafana), and deploys the Kubernaut platform including all demo ActionTypes and RemediationWorkflows. Takes ~10 minutes on first run:
+This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys the Kubernaut platform, and seeds the workflow catalog. Takes ~10 minutes on first run:
 
 ```bash
 ./scripts/setup-demo-cluster.sh
@@ -60,25 +56,15 @@ This creates a Kind cluster, installs monitoring (Prometheus, Grafana), and depl
 
 ### 5. Apply LLM credentials
 
-Once the cluster is running, create the LLM credentials Secret with your API key:
+Once the cluster is running, apply your provider's API key as a Kubernetes Secret:
 
 ```bash
-# OpenAI
-kubectl create secret generic llm-credentials \
-  --from-literal=OPENAI_API_KEY=sk-... -n kubernaut-system
-
-# Anthropic
-kubectl create secret generic llm-credentials \
-  --from-literal=ANTHROPIC_API_KEY=sk-ant-... -n kubernaut-system
-```
-
-Then restart the API pod to pick up the new credentials:
-
-```bash
+# Pick the example for your provider (anthropic, openai, or vertex-ai)
+cp credentials/anthropic-example.yaml my-llm-credentials.yaml
+# Edit with your actual API key
+kubectl apply -f my-llm-credentials.yaml
 kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
 ```
-
-The setup script prints provider-specific instructions if credentials are missing.
 
 ### 6. Run a scenario and watch it work
 

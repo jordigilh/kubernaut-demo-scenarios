@@ -162,6 +162,102 @@ except:
     echo "  Gitea webhook created -> ${argocd_svc_url}"
 }
 
+# Verify webhook CA bundle is correctly patched on all Validating/Mutating
+# webhook configurations owned by Kubernaut. After an interrupted helm install
+# the CA bundle may be empty, causing all CR validation to fail with TLS errors.
+# See: kubernaut-demo-scenarios#3 sub-issue 3.1
+_verify_webhook_ca_bundle() {
+    local ca_data
+    ca_data=$(kubectl get configmap authwebhook-ca -n "${PLATFORM_NS}" \
+      -o jsonpath='{.data.ca\.crt}' 2>/dev/null || true)
+    if [ -z "$ca_data" ]; then
+        echo "  WARNING: authwebhook-ca ConfigMap not found or empty; skipping CA bundle check."
+        return 0
+    fi
+
+    local ca_b64
+    ca_b64=$(printf '%s' "$ca_data" | base64 | tr -d '\n')
+
+    for kind in validatingwebhookconfigurations mutatingwebhookconfigurations; do
+        local configs
+        configs=$(kubectl get "$kind" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | grep -i authwebhook || true)
+        for cfg in $configs; do
+            local count
+            count=$(kubectl get "$kind" "$cfg" -o json 2>/dev/null | \
+              python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('webhooks',[])))" 2>/dev/null || echo "0")
+            for idx in $(seq 0 $((count - 1))); do
+                local existing
+                existing=$(kubectl get "$kind" "$cfg" -o jsonpath="{.webhooks[${idx}].clientConfig.caBundle}" 2>/dev/null || true)
+                if [ -z "$existing" ]; then
+                    echo "  Patching empty caBundle on ${kind}/${cfg} webhook[${idx}]..."
+                    kubectl patch "$kind" "$cfg" --type='json' \
+                      -p "[{\"op\":\"replace\",\"path\":\"/webhooks/${idx}/clientConfig/caBundle\",\"value\":\"${ca_b64}\"}]" 2>/dev/null || true
+                fi
+            done
+        done
+    done
+    echo "  Webhook CA bundles verified."
+}
+
+# On OCP, ensure the Alertmanager ServiceAccount can POST signals to the Gateway.
+# The chart creates the ClusterRole but not the OCP-specific ClusterRoleBinding.
+# See: kubernaut-demo-scenarios#3 sub-issue 3.2
+_ensure_alertmanager_rbac() {
+    if [ "$PLATFORM" != "ocp" ]; then
+        return 0
+    fi
+    if kubectl get clusterrolebinding alertmanager-ocp-gateway-signal-source &>/dev/null; then
+        echo "  Alertmanager ClusterRoleBinding already exists."
+        return 0
+    fi
+    if ! kubectl get clusterrole gateway-signal-source &>/dev/null; then
+        echo "  WARNING: gateway-signal-source ClusterRole not found; chart may not be installed yet."
+        return 0
+    fi
+    kubectl create clusterrolebinding alertmanager-ocp-gateway-signal-source \
+      --clusterrole=gateway-signal-source \
+      --serviceaccount=openshift-monitoring:alertmanager-main \
+      --dry-run=client -o yaml | kubectl apply -f -
+    echo "  Created Alertmanager -> Gateway RBAC binding (OCP)."
+}
+
+# Create gitea-repo-creds secret for workflow dependency validation.
+# See: kubernaut-demo-scenarios#3 sub-issue 3.5
+_ensure_gitea_repo_creds() {
+    local ns="kubernaut-workflows"
+    if ! kubectl get namespace "$ns" &>/dev/null; then
+        echo "  WARNING: ${ns} namespace does not exist yet; skipping gitea-repo-creds."
+        return 0
+    fi
+    kubectl create secret generic gitea-repo-creds \
+      -n "$ns" \
+      --from-literal=username="${GITEA_ADMIN_USER}" \
+      --from-literal=password="${GITEA_ADMIN_PASS}" \
+      --dry-run=client -o yaml | kubectl apply -f -
+    echo "  gitea-repo-creds secret ensured in ${ns}."
+}
+
+# Warn (non-fatal) if required secrets are missing before setup proceeds.
+# See: kubernaut-demo-scenarios#3 sub-issue 3.7
+_check_prerequisites() {
+    local missing=false
+    if ! kubectl get secret llm-credentials -n "${PLATFORM_NS}" &>/dev/null; then
+        echo "  WARNING: llm-credentials secret not found in ${PLATFORM_NS}."
+        echo "    Create it before running the scenario:"
+        echo "      kubectl create secret generic llm-credentials -n ${PLATFORM_NS} \\"
+        echo "        --from-literal=OPENAI_API_KEY=sk-..."
+        missing=true
+    fi
+    if ! kubectl get secret slack-webhook -n "${PLATFORM_NS}" &>/dev/null; then
+        echo "  NOTE: slack-webhook secret not found in ${PLATFORM_NS} (notifications will use console only)."
+    fi
+    if [ "$missing" = true ]; then
+        echo ""
+        echo "  Setup will continue, but the pipeline may fail without LLM credentials."
+        echo ""
+    fi
+}
+
 run_setup() {
 echo "============================================="
 echo " DiskPressure emptyDir Migration Demo (#324)"
@@ -172,6 +268,9 @@ echo ""
 echo " Rate auto-tuned to node filesystem capacity"
 echo "============================================="
 echo ""
+
+echo "==> Checking prerequisites..."
+_check_prerequisites
 
 # Step 0: Ensure a worker node has the scenario label and taint.
 # On Kind, kind-config-diskpressure.yaml bakes the label at cluster creation.
@@ -563,8 +662,19 @@ kill "${PF_PID}" 2>/dev/null || true
 cd /
 rm -rf "${WORK_DIR}"
 
+# Step 1b: Ensure gitea-repo-creds secret exists for workflow dependency validation
+echo "==> Step 1b: Ensuring gitea-repo-creds secret..."
+_ensure_gitea_repo_creds
+
 # Step 2: Apply all manifests (namespace, Prometheus rule, ArgoCD Application)
 echo "==> Step 2: Applying manifests (namespace, Prometheus rule, ArgoCD Application)..."
+
+echo "  Verifying webhook CA bundles..."
+_verify_webhook_ca_bundle
+
+echo "  Ensuring Alertmanager RBAC..."
+_ensure_alertmanager_rbac
+
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 

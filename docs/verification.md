@@ -39,15 +39,23 @@ kubectl get notificationrequests -A -o wide
 
 ### Check workflow catalog
 ```bash
-# Workflows are stored as CRDs -- no DataStorage API required
-kubectl get remediationworkflows -n kubernaut-system
+# Requires port-forward to DataStorage and a bearer token
+kubectl port-forward -n kubernaut-system svc/datastorage-service 30081:8081 &
+DS_TOKEN=$(kubectl get secret kubernaut-ds-db-credentials -n kubernaut-system \
+  -o jsonpath='{.data.api-token}' | base64 -d)
+curl -s -H "Authorization: Bearer ${DS_TOKEN}" \
+  http://localhost:30081/api/v1/workflows | jq '.'
 ```
 
-### Check DataStorage health (optional debugging)
+### Check audit events
 ```bash
-# Start a port-forward to the DataStorage service
-kubectl port-forward -n kubernaut-system svc/data-storage-service 8080:8080 &
-curl -s http://localhost:8080/health | jq '.'
+curl -s -H "Authorization: Bearer ${DS_TOKEN}" \
+  http://localhost:30081/api/v1/audit-events | jq '.'
+```
+
+### Quick health check (no auth required)
+```bash
+curl -s http://localhost:30081/health | jq '.'
 ```
 
 ## Monitoring

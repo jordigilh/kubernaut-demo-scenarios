@@ -51,13 +51,19 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 ## Automated Run
 
 ```bash
-# Full run (setup + inject + validate)
-./scenarios/disk-pressure-emptydir/run.sh
+# Full run (setup + inject + validate) -- recommended
+./scenarios/disk-pressure-emptydir/run.sh all
 
 # Or step-by-step:
-./scenarios/disk-pressure-emptydir/run.sh setup
-./scenarios/disk-pressure-emptydir/run.sh inject
+./scenarios/disk-pressure-emptydir/run.sh setup    # Deploy manifests, Gitea repo, ArgoCD app
+./scenarios/disk-pressure-emptydir/run.sh inject   # Start data growth (runs init.sql then calls stored procedure)
 ```
+
+> **Note**: The `setup` subcommand explicitly runs `init.sql` via `psql` (Step 5) to
+> create the `simulate_data_growth()` stored procedure. The Red Hat sclorg PostgreSQL
+> image does not auto-execute `/docker-entrypoint-initdb.d/*.sql` files like the
+> upstream Docker image. Always run `setup` before `inject`, or use `run.sh all`
+> which handles both steps automatically.
 
 ## Manual Step-by-Step
 

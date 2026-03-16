@@ -84,4 +84,17 @@ beta_action=$(kubectl get aianalyses "ai-${beta_rr}" -n "${PLATFORM_NS}" \
 log_info "Alpha workflow: ${alpha_workflow} (${alpha_action})"
 log_info "Beta workflow:  ${beta_workflow} (${beta_action})"
 
+# Mixed approval mode assertions (issue #4):
+# Alpha (staging) should be auto-approved by Rego; Beta (production) should require manual approval.
+alpha_approval=$(kubectl get aianalyses "ai-${alpha_rr}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.approvalRequired}' 2>/dev/null || echo "")
+beta_approval=$(kubectl get aianalyses "ai-${beta_rr}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.approvalRequired}' 2>/dev/null || echo "")
+
+assert_eq "$alpha_approval" "false" "Alpha auto-approved (staging, Rego policy)"
+assert_eq "$beta_approval" "true" "Beta required manual approval (production, Rego policy)"
+
+log_info "Alpha approval required: ${alpha_approval}"
+log_info "Beta approval required:  ${beta_approval}"
+
 print_result "concurrent-cross-namespace"
