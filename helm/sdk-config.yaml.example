@@ -1,0 +1,41 @@
+# HolmesGPT SDK configuration for Kubernaut demo scenarios.
+#
+# QUICKSTART: For OpenAI, Anthropic, and other simple API-key providers you
+# do NOT need this file. Use environment variables instead:
+#
+#   export KUBERNAUT_LLM_PROVIDER=openai
+#   export KUBERNAUT_LLM_MODEL=gpt-4o
+#   kubectl create secret generic llm-credentials \
+#     --from-literal=OPENAI_API_KEY=sk-... -n kubernaut-system
+#
+# ADVANCED: This file is only needed for Vertex AI (which requires
+# gcp_project_id / gcp_region) or multi-model / custom-endpoint setups.
+#
+# To use:
+#   cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
+#   # Fill in provider credentials, then run setup-demo-cluster.sh.
+#   # platform-helper.sh detects this file and passes it via:
+#   #   helm install ... --set-file holmesgptApi.sdkConfigContent=~/.kubernaut/helm/sdk-config.yaml
+
+# -- LLM provider configuration
+llm:
+  provider: ""       # "openai", "azure", "vertexai", "bedrock", etc.
+  model: ""          # e.g., "gpt-4o", "gemini-2.0-flash"
+  endpoint: ""       # API endpoint (required for Azure, optional for others)
+  # GCP Vertex AI specific:
+  # gcp_project_id: ""
+  # gcp_region: ""
+  max_retries: 3
+  timeout_seconds: 120
+  temperature: 0.7
+
+# -- Toolsets (optional)
+# See: https://holmesgpt.dev/data-sources/builtin-toolsets/
+toolsets: {}
+  # prometheus/metrics:
+  #   enabled: true
+  #   config:
+  #     prometheus_url: "http://kube-prometheus-stack-prometheus.monitoring.svc:9090"
+
+# -- MCP servers (optional, future)
+mcp_servers: {}

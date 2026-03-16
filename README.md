@@ -17,39 +17,42 @@ See the [Setup Guide](docs/setup.md#prerequisites) for detailed installation ins
 
 </details>
 
-### 2. Clone both repositories
-
-The demo scenarios need the main Kubernaut repo as a sibling (the Helm chart is installed from source):
+### 2. Clone the demo scenarios
 
 ```bash
-git clone https://github.com/jordigilh/kubernaut.git
 git clone https://github.com/jordigilh/kubernaut-demo-scenarios.git
 cd kubernaut-demo-scenarios
 ```
 
+The Kubernaut Helm chart is installed automatically from the OCI registry (`oci://quay.io/kubernaut-ai/charts/kubernaut`). If you have the [main Kubernaut repo](https://github.com/jordigilh/kubernaut) cloned as a sibling directory, the scripts will use the local chart instead (useful for development).
+
 ### 3. Configure your LLM provider
 
-Kubernaut needs an LLM to analyze issues. Pick one provider and configure it:
+Kubernaut needs an LLM to analyze issues. Set your provider and model via environment variables:
+
+```bash
+export KUBERNAUT_LLM_PROVIDER=openai    # or: anthropic, vertexai, bedrock
+export KUBERNAUT_LLM_MODEL=gpt-4o       # or: claude-sonnet-4-20250514, gemini-2.0-flash, etc.
+```
+
+<details>
+<summary>Advanced: Vertex AI or custom endpoint (SDK config file)</summary>
+
+Vertex AI requires additional fields (`gcp_project_id`, `gcp_region`) that cannot be set via env vars. For Vertex AI or multi-model setups, use the SDK config file instead:
 
 ```bash
 mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
+cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
+# Edit with your Vertex AI project/region, then run setup.
 ```
 
-Edit `~/.kubernaut/helm/llm-values.yaml` with your provider details. Example for Anthropic:
+See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) guide for details.
 
-```yaml
-holmesgptApi:
-  llm:
-    provider: "anthropic"
-    model: "claude-sonnet-4-20250514"
-```
-
-See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) guide for all supported providers: Vertex AI, Anthropic, OpenAI, and local models (Ollama, vLLM, LM Studio).
+</details>
 
 ### 4. Create the cluster
 
-This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys the Kubernaut platform, and seeds the workflow catalog. Takes ~10 minutes on first run:
+This creates a Kind cluster, installs monitoring (Prometheus, Grafana), and deploys the Kubernaut platform including all demo ActionTypes and RemediationWorkflows. Takes ~10 minutes on first run:
 
 ```bash
 ./scripts/setup-demo-cluster.sh
@@ -57,15 +60,19 @@ This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys 
 
 ### 5. Apply LLM credentials
 
-Once the cluster is running, apply your provider's API key as a Kubernetes Secret:
+Once the cluster is running, create the LLM credentials Secret with your API key:
 
 ```bash
-# Pick the example for your provider (anthropic, openai, or vertex-ai)
-cp credentials/anthropic-example.yaml my-llm-credentials.yaml
-# Edit with your actual API key
-kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
+# OpenAI
+kubectl create secret generic llm-credentials \
+  --from-literal=OPENAI_API_KEY=sk-... -n kubernaut-system
+
+# Anthropic
+kubectl create secret generic llm-credentials \
+  --from-literal=ANTHROPIC_API_KEY=sk-ant-... -n kubernaut-system
 ```
+
+The setup script prints provider-specific instructions if credentials are missing.
 
 ### 6. Run a scenario and watch it work
 

@@ -35,20 +35,10 @@ DO_CLEANUP=false
 VALIDATE_ONLY=false
 PIPELINE_TIMEOUT=600
 NO_COLOR_FLAG=""
-DS_PORT_FORWARD_PID=""
-
 usage() {
     sed -n '2,/^set /{ /^#/s/^# \?//p }' "$0"
     exit 0
 }
-
-cleanup_port_forward() {
-    if [ -n "$DS_PORT_FORWARD_PID" ]; then
-        kill "$DS_PORT_FORWARD_PID" 2>/dev/null || true
-        DS_PORT_FORWARD_PID=""
-    fi
-}
-trap cleanup_port_forward EXIT
 
 list_scenarios() {
     echo "Available scenarios:"
@@ -127,29 +117,6 @@ require_demo_ready
 
 # ── Port-forward management ──────────────────────────────────────────────────
 
-ensure_datastorage_port_forward() {
-    if curl -sf -o /dev/null --connect-timeout 2 "http://localhost:30081/health" 2>/dev/null; then
-        return 0
-    fi
-
-    log_phase "Starting DataStorage port-forward (localhost:30081 -> svc/data-storage-service:8080)..."
-    kubectl port-forward -n kubernaut-system svc/data-storage-service 30081:8080 >/dev/null 2>&1 &
-    DS_PORT_FORWARD_PID=$!
-
-    local retries=0
-    while [ "$retries" -lt 15 ]; do
-        if curl -sf -o /dev/null --connect-timeout 1 "http://localhost:30081/health" 2>/dev/null; then
-            log_success "DataStorage port-forward ready"
-            return 0
-        fi
-        sleep 1
-        retries=$((retries + 1))
-    done
-
-    log_error "Failed to establish DataStorage port-forward"
-    return 1
-}
-
 ensure_prometheus_port_forward() {
     if curl -sf -o /dev/null --connect-timeout 2 "http://localhost:9090/-/ready" 2>/dev/null; then
         return 0
@@ -178,8 +145,7 @@ IFS=',' read -ra SCENARIOS <<< "$SCENARIO_LIST"
 RESULTS=()
 TOTAL_START=$(date +%s)
 
-# Ensure port-forwards before any scenario
-ensure_datastorage_port_forward
+# Ensure Prometheus port-forward for validation queries
 ensure_prometheus_port_forward
 
 for scenario in "${SCENARIOS[@]}"; do

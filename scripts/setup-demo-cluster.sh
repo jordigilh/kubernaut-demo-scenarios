@@ -157,22 +157,6 @@ bash "${SCRIPT_DIR}/seed-action-types.sh" --continue-on-error --skip-wait
 echo ""
 
 echo "==> Phase 5b: Seeding workflow catalog"
-
-DS_PORT_FORWARD_PID=""
-cleanup_port_forward() {
-    if [ -n "$DS_PORT_FORWARD_PID" ]; then
-        kill "$DS_PORT_FORWARD_PID" 2>/dev/null || true
-    fi
-}
-trap cleanup_port_forward EXIT
-
-if ! curl -sf -o /dev/null --connect-timeout 2 "http://localhost:30081/health" 2>/dev/null; then
-    echo "  Starting DataStorage port-forward..."
-    kubectl port-forward -n kubernaut-system svc/data-storage-service 30081:8080 >/dev/null 2>&1 &
-    DS_PORT_FORWARD_PID=$!
-    sleep 3
-fi
-
 bash "${SCRIPT_DIR}/seed-workflows.sh" --continue-on-error
 echo ""
 
