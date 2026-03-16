@@ -1,9 +1,9 @@
 # OCP-specific value overrides for the Kubernaut Helm chart.
-# No NodePort, no nodeSelector (OCP schedules to worker nodes).
-# cert-manager TLS mode (OCP has cert-manager installed).
+# Layered on top of the chart's own values-ocp.yaml (which provides
+# postgresql.variant, Red Hat images, and ose-cli hook image).
 global:
   image:
-    tag: 1.0.1-rc1-amd64
+    tag: "v1.1.0-rc0"
 
 tls:
   mode: cert-manager
@@ -27,15 +27,10 @@ postgresql:
   auth:
     existingSecret: kubernaut-pg-credentials
 
-redis:
-  existingSecret: kubernaut-redis-credentials
-
-notification:
-  slack:
-    enabled: true
-    channel: "#kubernaut-alerts"
+valkey:
+  existingSecret: kubernaut-valkey-credentials
 
 effectivenessmonitor:
   external:
-    prometheusEnabled: false
-    alertManagerEnabled: false
+    prometheusUrl: "http://prometheus-k8s.openshift-monitoring.svc:9091"
+    alertManagerUrl: "http://alertmanager-main.openshift-monitoring.svc:9094"

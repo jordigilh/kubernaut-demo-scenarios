@@ -34,23 +34,14 @@ chmod +x kubectl && sudo mv kubectl /usr/local/bin/
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 ```
 
-## Clone the Repositories
-
-The demo scenarios require the main Kubernaut repository as a sibling directory (the Helm chart is installed from source during bootstrap):
+## Clone the Repository
 
 ```bash
-git clone https://github.com/jordigilh/kubernaut.git
 git clone https://github.com/jordigilh/kubernaut-demo-scenarios.git
 cd kubernaut-demo-scenarios
 ```
 
-Your directory layout should look like:
-
-```
-parent/
-  kubernaut/                  # Main repo (Helm chart, CRDs, source)
-  kubernaut-demo-scenarios/   # This repo (scenarios, scripts, credentials)
-```
+The Kubernaut Helm chart is installed automatically from the OCI registry (`oci://quay.io/kubernaut-ai/charts/kubernaut`). If you have the [main Kubernaut repo](https://github.com/jordigilh/kubernaut) cloned as a sibling directory, the scripts will use the local chart instead (useful for development).
 
 ## LLM Provider Configuration
 
@@ -58,27 +49,26 @@ Kubernaut uses an LLM to analyze Kubernetes issues and select remediation workfl
 
 There are two configuration files involved:
 
-1. **`~/.kubernaut/helm/llm-values.yaml`** -- Helm values that configure which provider, model, and endpoint to use. Read by `setup-demo-cluster.sh` during platform installation.
+1. **`~/.kubernaut/helm/sdk-config.yaml`** -- HolmesGPT SDK configuration that defines which provider, model, and endpoint to use. Passed to the Helm chart via `--set-file` during platform installation.
 2. **`credentials/<provider>-example.yaml`** -- Kubernetes Secret with the actual API key. Applied to the cluster after bootstrap.
 
 ### Vertex AI (default)
 
 Vertex AI is the default provider. You need a GCP project with the Vertex AI API enabled.
 
-**Step 1: Configure Helm values**
+**Step 1: Configure SDK config**
 ```bash
 mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
+cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
 ```
 
-Edit `~/.kubernaut/helm/llm-values.yaml`:
+Edit `~/.kubernaut/helm/sdk-config.yaml`:
 ```yaml
-holmesgptApi:
-  llm:
-    provider: "vertexai"
-    model: "claude-sonnet-4-20250514"
-    gcpProjectId: "your-gcp-project-id"
-    gcpRegion: "us-east5"
+llm:
+  provider: "vertexai"
+  model: "claude-sonnet-4-20250514"
+  gcp_project_id: "your-gcp-project-id"
+  gcp_region: "us-east5"
 ```
 
 **Step 2: Authenticate with GCP**
@@ -102,18 +92,17 @@ kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
 
 ### Anthropic
 
-**Step 1: Configure Helm values**
+**Step 1: Configure SDK config**
 ```bash
 mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
+cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
 ```
 
-Edit `~/.kubernaut/helm/llm-values.yaml`:
+Edit `~/.kubernaut/helm/sdk-config.yaml`:
 ```yaml
-holmesgptApi:
-  llm:
-    provider: "anthropic"
-    model: "claude-sonnet-4-20250514"
+llm:
+  provider: "anthropic"
+  model: "claude-sonnet-4-20250514"
 ```
 
 **Step 2: Apply credentials Secret** (after bootstrap)
@@ -131,18 +120,17 @@ kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
 
 ### OpenAI
 
-**Step 1: Configure Helm values**
+**Step 1: Configure SDK config**
 ```bash
 mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
+cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
 ```
 
-Edit `~/.kubernaut/helm/llm-values.yaml`:
+Edit `~/.kubernaut/helm/sdk-config.yaml`:
 ```yaml
-holmesgptApi:
-  llm:
-    provider: "openai"
-    model: "gpt-4o"
+llm:
+  provider: "openai"
+  model: "gpt-4o"
 ```
 
 **Step 2: Apply credentials Secret** (after bootstrap)
@@ -170,19 +158,18 @@ ollama serve
 ollama pull llama3.1
 ```
 
-**Step 2: Configure Helm values**
+**Step 2: Configure SDK config**
 ```bash
 mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
+cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
 ```
 
-Edit `~/.kubernaut/helm/llm-values.yaml`:
+Edit `~/.kubernaut/helm/sdk-config.yaml`:
 ```yaml
-holmesgptApi:
-  llm:
-    provider: "openai"
-    model: "llama3.1"
-    endpoint: "http://host.docker.internal:11434/v1"
+llm:
+  provider: "openai"
+  model: "llama3.1"
+  endpoint: "http://host.docker.internal:11434/v1"
 ```
 
 > **Kind networking note:** Containers inside Kind cannot reach `localhost` on your host machine. Use `host.docker.internal` (Docker) or `host.containers.internal` (Podman) to reach the host's local server from inside the cluster.
@@ -208,11 +195,11 @@ kubectl exec -it deploy/holmesgpt-api -n kubernaut-system -- \
 
 This takes ~10 minutes on first run and performs the following steps:
 
-1. **Kind cluster** -- Creates a multi-node Kind cluster (`kubernaut-demo`) with port mappings for Gateway, DataStorage, and monitoring
+1. **Kind cluster** -- Creates a multi-node Kind cluster (`kubernaut-demo`) with port mappings for monitoring dashboards (Grafana)
 2. **Monitoring stack** -- Installs kube-prometheus-stack (Prometheus, AlertManager, Grafana, kube-state-metrics) and the Kubernaut Grafana dashboard
 3. **Infrastructure dependencies** -- cert-manager, metrics-server, Istio, blackbox-exporter, Gitea, ArgoCD
-4. **Kubernaut platform** -- Installs the Helm chart from the sibling `kubernaut/charts/kubernaut/` directory, including CRDs, pre-install Secrets, and all 10 platform services
-5. **Workflow catalog** -- Seeds ActionType CRDs and registers all scenario workflows in DataStorage
+4. **Kubernaut platform** -- Installs the Helm chart (from OCI registry, or local sibling if present), including CRDs, pre-install Secrets, and all 10 platform services
+5. **Workflow catalog** -- Seeds ActionType and RemediationWorkflow CRDs via `kubectl apply`
 
 Every step is idempotent -- you can safely re-run the script if it fails partway through.
 

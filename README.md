@@ -17,15 +17,14 @@ See the [Setup Guide](docs/setup.md#prerequisites) for detailed installation ins
 
 </details>
 
-### 2. Clone both repositories
-
-The demo scenarios need the main Kubernaut repo as a sibling (the Helm chart is installed from source):
+### 2. Clone the demo scenarios
 
 ```bash
-git clone https://github.com/jordigilh/kubernaut.git
 git clone https://github.com/jordigilh/kubernaut-demo-scenarios.git
 cd kubernaut-demo-scenarios
 ```
+
+The Kubernaut Helm chart is installed automatically from the OCI registry (`oci://quay.io/kubernaut-ai/charts/kubernaut`). If you have the [main Kubernaut repo](https://github.com/jordigilh/kubernaut) cloned as a sibling directory, the scripts will use the local chart instead (useful for development).
 
 ### 3. Configure your LLM provider
 
@@ -33,16 +32,15 @@ Kubernaut needs an LLM to analyze issues. Pick one provider and configure it:
 
 ```bash
 mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
+cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
 ```
 
-Edit `~/.kubernaut/helm/llm-values.yaml` with your provider details. Example for Anthropic:
+Edit `~/.kubernaut/helm/sdk-config.yaml` with your provider details. Example for Anthropic:
 
 ```yaml
-holmesgptApi:
-  llm:
-    provider: "anthropic"
-    model: "claude-sonnet-4-20250514"
+llm:
+  provider: "anthropic"
+  model: "claude-sonnet-4-20250514"
 ```
 
 See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) guide for all supported providers: Vertex AI, Anthropic, OpenAI, and local models (Ollama, vLLM, LM Studio).

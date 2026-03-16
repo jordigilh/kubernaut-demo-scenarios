@@ -6,9 +6,18 @@
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KUBERNAUT_REPO="${KUBERNAUT_REPO:-$(cd "${REPO_ROOT}/../kubernaut" 2>/dev/null && pwd)}"
-CHART_DIR="${KUBERNAUT_REPO}/charts/kubernaut"
+KUBERNAUT_OCI_CHART="oci://quay.io/kubernaut-ai/charts/kubernaut"
+if [ -n "${KUBERNAUT_REPO}" ] && [ -d "${KUBERNAUT_REPO}/charts/kubernaut" ]; then
+    CHART_REF="${KUBERNAUT_REPO}/charts/kubernaut"
+    CHART_SOURCE="local"
+else
+    CHART_REF="${KUBERNAUT_OCI_CHART}"
+    CHART_SOURCE="oci"
+fi
 KIND_VALUES="${REPO_ROOT}/helm/kubernaut-kind-values.yaml"
-LLM_VALUES="${HOME}/.kubernaut/helm/llm-values.yaml"
+OCP_VALUES="${REPO_ROOT}/helm/kubernaut-ocp-values.yaml"
+SDK_CONFIG="${HOME}/.kubernaut/helm/sdk-config.yaml"
+ROUTING_CONFIG="${REPO_ROOT}/helm/notification-routing.yaml"
 
 # ── Platform detection ───────────────────────────────────────────────────────
 # Detects whether the target cluster is OpenShift (ocp) or vanilla Kubernetes (kind).
@@ -201,25 +210,56 @@ ensure_platform() {
 
     _ensure_pre_install_secrets
 
-    echo "  Applying CRDs..."
-    kubectl apply -f "${CHART_DIR}/crds/" 2>&1 | sed 's/^/    /'
-
-    local llm_flag=""
-    if [ -f "${LLM_VALUES}" ]; then
-        llm_flag="--values ${LLM_VALUES}"
-        echo "  LLM config loaded from ${LLM_VALUES}"
+    echo "  Applying CRDs (source: ${CHART_SOURCE})..."
+    if [ "${CHART_SOURCE}" = "local" ]; then
+        kubectl apply -f "${CHART_REF}/crds/" 2>&1 | sed 's/^/    /'
     else
-        echo "  WARNING: No LLM config found at ${LLM_VALUES}"
-        echo "  Copy the example and fill in your values:"
-        echo "    cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml"
+        local _crd_tmp
+        _crd_tmp=$(mktemp -d)
+        helm pull "${CHART_REF}" --untar --untardir "${_crd_tmp}" 2>&1 | sed 's/^/    /'
+        kubectl apply -f "${_crd_tmp}/kubernaut/crds/" 2>&1 | sed 's/^/    /'
+        rm -rf "${_crd_tmp}"
     fi
 
-    echo "  Installing Helm chart..."
-    helm upgrade --install kubernaut "${CHART_DIR}" \
+    # Platform-specific values layering:
+    #   Kind: kubernaut-kind-values.yaml
+    #   OCP:  chart's values-ocp.yaml (images, variant) + demo's kubernaut-ocp-values.yaml (secrets, TLS, URLs)
+    local values_flags=""
+    if [ "$PLATFORM" = "ocp" ]; then
+        if [ "${CHART_SOURCE}" = "local" ] && [ -f "${CHART_REF}/values-ocp.yaml" ]; then
+            values_flags="--values ${CHART_REF}/values-ocp.yaml"
+            echo "  Layering chart values-ocp.yaml (OCP images, variant)"
+        fi
+        values_flags="${values_flags} --values ${OCP_VALUES}"
+        echo "  Platform values: OCP (${OCP_VALUES})"
+    else
+        values_flags="--values ${KIND_VALUES}"
+        echo "  Platform values: Kind (${KIND_VALUES})"
+    fi
+
+    local sdk_flag=""
+    if [ -f "${SDK_CONFIG}" ]; then
+        sdk_flag="--set-file holmesgptApi.sdkConfigContent=${SDK_CONFIG}"
+        echo "  SDK config loaded from ${SDK_CONFIG}"
+    else
+        echo "  WARNING: No SDK config found at ${SDK_CONFIG}"
+        echo "  Copy the example and fill in your values:"
+        echo "    cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml"
+    fi
+
+    local routing_flag=""
+    if [ -f "${ROUTING_CONFIG}" ]; then
+        routing_flag="--set-file notification.routing.content=${ROUTING_CONFIG}"
+        echo "  Notification routing config loaded from ${ROUTING_CONFIG}"
+    fi
+
+    echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF})..."
+    helm upgrade --install kubernaut "${CHART_REF}" \
         --namespace "${PLATFORM_NS}" \
         --create-namespace \
-        --values "${KIND_VALUES}" \
-        ${llm_flag} \
+        ${values_flags} \
+        ${sdk_flag} \
+        ${routing_flag} \
         --skip-crds \
         --wait --timeout 10m
 
@@ -260,11 +300,11 @@ _ensure_pre_install_secrets() {
 
     # LLM credentials (VertexAI ADC)
     local adc_file="${HOME}/.config/gcloud/application_default_credentials.json"
-    local llm_values_file="${LLM_VALUES}"
-    if [ -f "${adc_file}" ] && [ -f "${llm_values_file}" ]; then
+    local sdk_config_file="${SDK_CONFIG}"
+    if [ -f "${adc_file}" ] && [ -f "${sdk_config_file}" ]; then
         local project region
-        project=$(grep 'gcpProjectId' "${llm_values_file}" | awk -F'"' '{print $2}')
-        region=$(grep 'gcpRegion' "${llm_values_file}" | awk -F'"' '{print $2}')
+        project=$(grep 'gcp_project_id' "${sdk_config_file}" | awk -F'"' '{print $2}')
+        region=$(grep 'gcp_region' "${sdk_config_file}" | awk -F'"' '{print $2}')
         kubectl create secret generic llm-credentials \
             -n "${PLATFORM_NS}" \
             --from-literal=VERTEXAI_PROJECT="${project}" \
@@ -319,11 +359,13 @@ _check_llm_credentials() {
         echo "  WARNING: LLM credentials not configured."
         echo "  AI analysis will not work until you create the llm-credentials Secret."
         echo ""
-        echo "  Quick setup (Vertex AI):"
-        echo "    cp credentials/vertex-ai-example.yaml my-llm-credentials.yaml"
-        echo "    # Edit with your provider credentials"
-        echo "    kubectl apply -f my-llm-credentials.yaml"
-        echo "    kubectl rollout restart deployment/holmesgpt-api -n ${PLATFORM_NS}"
+        echo "  Quick setup:"
+        echo "    1. Copy and fill in SDK config:"
+        echo "       cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml"
+        echo "    2. For Vertex AI, ensure ADC is configured:"
+        echo "       gcloud auth application-default login"
+        echo "    3. Re-run setup to apply:"
+        echo "       bash scripts/setup-demo-cluster.sh"
         echo ""
     fi
 }

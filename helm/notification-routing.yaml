@@ -1,0 +1,34 @@
+# Notification routing configuration for Kubernaut demos.
+# Enables Slack delivery alongside console logging.
+#
+# Passed to the chart via:
+#   helm install ... --set-file notification.routing.content=helm/notification-routing.yaml
+#
+# Prerequisites:
+#   - A Slack webhook URL stored in a K8s Secret (see platform-helper.sh)
+#   - notification.credentials[] configured to mount the Secret
+
+route:
+  receiver: default-console
+  routes:
+    - match:
+        type: escalation
+      receiver: slack-alerts
+    - match:
+        type: approval_required
+      receiver: slack-alerts
+    - match:
+        type: failed
+      receiver: slack-alerts
+
+receivers:
+  - name: default-console
+    consoleConfigs:
+      - enabled: true
+    slackConfigs:
+      - channel: "#demo-notifications"
+        credentialRef: slack-webhook
+  - name: slack-alerts
+    slackConfigs:
+      - channel: "#demo-notifications"
+        credentialRef: slack-webhook

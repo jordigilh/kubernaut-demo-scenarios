@@ -27,7 +27,7 @@ kubectl logs -l app=holmesgpt-api -n kubernaut-system
 
 Common causes:
 - Missing or incorrect API key in the `llm-credentials` Secret
-- Wrong provider/model in `~/.kubernaut/helm/llm-values.yaml`
+- Wrong provider/model in `~/.kubernaut/helm/sdk-config.yaml`
 - For local models: endpoint unreachable from inside the Kind cluster (use `host.docker.internal` instead of `localhost`)
 
 See the [LLM Provider Configuration](setup.md#llm-provider-configuration) guide for setup instructions.
@@ -35,8 +35,7 @@ See the [LLM Provider Configuration](setup.md#llm-provider-configuration) guide 
 ## No RemediationRequests created
 
 1. Check Gateway logs: `kubectl logs -l app=gateway -n kubernaut-system`
-2. Check Event Exporter logs: `kubectl logs -l app=event-exporter -n kubernaut-system`
-3. Verify the scenario namespace has the `kubernaut.ai/managed: "true"` label (each scenario's `namespace.yaml` sets this)
+2. Verify the scenario namespace has the `kubernaut.ai/managed: "true"` label (each scenario's `namespace.yaml` sets this)
 
 ## Prometheus not scraping metrics
 

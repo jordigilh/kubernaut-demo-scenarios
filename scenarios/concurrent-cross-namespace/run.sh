@@ -36,10 +36,10 @@ echo " Same Issue, Different Risk -> Different Workflows"
 echo "============================================="
 echo ""
 
-# Step 0: Fix the SP Rego custom labels policy
-echo "==> Step 0: Patching SP custom labels Rego policy (fix package name)..."
-kubectl create configmap signalprocessing-customlabels-policy \
-  --from-file=customlabels.rego="${SCRIPT_DIR}/rego/risk-tolerance.rego" \
+# Step 0: Patch the unified SP Rego policy with custom labels for risk-tolerance
+echo "==> Step 0: Patching SP unified policy with risk-tolerance labels..."
+kubectl create configmap signalprocessing-policy \
+  --from-file=policy.rego="${SCRIPT_DIR}/rego/risk-tolerance.rego" \
   -n kubernaut-system \
   --dry-run=client -o yaml | kubectl apply -f -
 
