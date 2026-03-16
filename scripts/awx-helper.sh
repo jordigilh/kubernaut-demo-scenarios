@@ -90,11 +90,11 @@ EOF
 create_awx_database() {
     echo "==> Step 2: Creating AWX database in shared PostgreSQL..."
 
-    PG_USER=$(kubectl get secret postgresql-secret -n "${AWX_NAMESPACE}" \
+    PG_USER=$(kubectl get secret kubernaut-pg-credentials -n "${AWX_NAMESPACE}" \
         -o jsonpath='{.data.POSTGRES_USER}' 2>/dev/null | base64 -d 2>/dev/null || echo "slm_user")
-    PG_PASS=$(kubectl get secret postgresql-secret -n "${AWX_NAMESPACE}" \
+    PG_PASS=$(kubectl get secret kubernaut-pg-credentials -n "${AWX_NAMESPACE}" \
         -o jsonpath='{.data.POSTGRES_PASSWORD}' 2>/dev/null | base64 -d 2>/dev/null || echo "test_password")
-    PG_DB=$(kubectl get secret postgresql-secret -n "${AWX_NAMESPACE}" \
+    PG_DB=$(kubectl get secret kubernaut-pg-credentials -n "${AWX_NAMESPACE}" \
         -o jsonpath='{.data.POSTGRES_DB}' 2>/dev/null | base64 -d 2>/dev/null || echo "action_history")
 
     kubectl apply -f - <<EOF

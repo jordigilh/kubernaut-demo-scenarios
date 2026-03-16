@@ -109,11 +109,22 @@ build_and_push() {
     podman manifest rm "${ref}" &>/dev/null || true
     podman manifest create "${ref}" >/dev/null
     for arch in "${ARCHITECTURES[@]}"; do
-        podman manifest add "${ref}" "docker://${ref}-${arch}" >/dev/null
+        local attempt
+        for attempt in 1 2 3; do
+            if podman manifest add "${ref}" "docker://${ref}-${arch}" >/dev/null 2>&1; then
+                break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+                echo "ERROR: podman manifest add failed for ${arch} after 3 attempts" >&2
+                return 1
+            fi
+            local wait=$(( attempt * 5 ))
+            echo "  Retry ${attempt}/3: manifest add for ${arch} (waiting ${wait}s for registry propagation)..." >&2
+            sleep "$wait"
+        done
     done
     podman manifest push "${ref}" "docker://${ref}" >&2
 
-    # Compute manifest list digest from the registry (skopeo returns raw bytes, hash them)
     skopeo inspect --raw "docker://${ref}" 2>/dev/null | \
         python3 -c "import sys,hashlib; data=sys.stdin.buffer.read(); print('sha256:'+hashlib.sha256(data).hexdigest())"
 }
@@ -153,6 +164,31 @@ content = re.sub(
 )
 with open(f, 'w') as fh: fh.write(content)
 " "${schema_file}" "${new_bundle}"
+}
+
+# bump_patch_version increments the patch segment of spec.version in
+# workflow-schema.yaml (e.g., 1.8.0 -> 1.8.1) so the DataStorage detects
+# the schema as a new version after a digest-only change.
+# Args: $1=schema_file
+bump_patch_version() {
+    local schema_file="$1"
+    python3 -c "
+import re, sys
+f = sys.argv[1]
+with open(f) as fh:
+    content = fh.read()
+def _bump(m):
+    prefix, major, minor, patch = m.group(1), m.group(2), m.group(3), int(m.group(4))
+    return f'{prefix}{major}.{minor}.{patch + 1}'
+content, n = re.subn(r'(  version: )(\d+)\.(\d+)\.(\d+)', _bump, content, count=1)
+if n == 0:
+    print('WARNING: no spec.version found to bump', file=sys.stderr)
+    sys.exit(0)
+with open(f, 'w') as fh:
+    fh.write(content)
+m = re.search(r'version: (\S+)', content)
+print(m.group(1) if m else 'unknown')
+" "${schema_file}"
 }
 
 build_count=0
@@ -197,6 +233,11 @@ for entry in "${WORKFLOWS[@]}"; do
     if [ -n "${EXEC_DIGEST}" ]; then
         update_bundle_digest "${SCHEMA_FILE}" "${REGISTRY}/${IMAGE_NAME}" "${EXEC_DIGEST}"
         echo "  [digest] Updated execution.bundle in workflow-schema.yaml"
+
+        if ! $LOCAL_ONLY; then
+            new_ver=$(bump_patch_version "${SCHEMA_FILE}")
+            echo "  [version] Bumped spec.version -> ${new_ver}"
+        fi
     else
         echo "  [digest] WARNING: Could not extract digest, schema not updated"
     fi
