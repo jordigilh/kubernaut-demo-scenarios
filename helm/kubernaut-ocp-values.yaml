@@ -20,17 +20,9 @@ gateway:
         serviceAccount: alertmanager-main
         namespace: openshift-monitoring
 
-datastorage:
-  dbExistingSecret: kubernaut-ds-db-credentials
-
-postgresql:
-  auth:
-    existingSecret: kubernaut-pg-credentials
-
-valkey:
-  existingSecret: kubernaut-valkey-credentials
-
 effectivenessmonitor:
   external:
+    prometheusEnabled: true
+    alertManagerEnabled: true
     prometheusUrl: "http://prometheus-k8s.openshift-monitoring.svc:9091"
     alertManagerUrl: "http://alertmanager-main.openshift-monitoring.svc:9094"

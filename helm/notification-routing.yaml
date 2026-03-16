@@ -1,8 +1,14 @@
-# Notification routing configuration for Kubernaut demos.
-# Enables Slack delivery alongside console logging.
+# Advanced notification routing configuration for Kubernaut demos.
 #
-# Passed to the chart via:
-#   helm install ... --set-file notification.routing.content=helm/notification-routing.yaml
+# QUICKSTART: For Slack-only notifications, you do NOT need this file.
+# The chart generates routing automatically when you set:
+#   --set notification.slack.secretName=slack-webhook
+#   --set notification.slack.channel="#demo-notifications"
+# platform-helper.sh handles this via the KUBERNAUT_SLACK_CHANNEL env var.
+#
+# ADVANCED: Use this file only for multi-receiver routing (e.g., different
+# channels per notification type, PagerDuty integration, etc.).
+# Pass via: helm install ... --set-file notification.routing.content=helm/notification-routing.yaml
 #
 # Prerequisites:
 #   - A Slack webhook URL stored in a K8s Secret (see platform-helper.sh)

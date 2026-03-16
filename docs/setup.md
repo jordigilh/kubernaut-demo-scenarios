@@ -47,14 +47,35 @@ The Kubernaut Helm chart is installed automatically from the OCI registry (`oci:
 
 Kubernaut uses an LLM to analyze Kubernetes issues and select remediation workflows. You need credentials for at least one provider.
 
-There are two configuration files involved:
+### Quickstart (env vars) -- OpenAI, Anthropic, etc.
 
-1. **`~/.kubernaut/helm/sdk-config.yaml`** -- HolmesGPT SDK configuration that defines which provider, model, and endpoint to use. Passed to the Helm chart via `--set-file` during platform installation.
-2. **`credentials/<provider>-example.yaml`** -- Kubernetes Secret with the actual API key. Applied to the cluster after bootstrap.
+For providers that use a simple API key, set two environment variables before running `setup-demo-cluster.sh`:
 
-### Vertex AI (default)
+```bash
+export KUBERNAUT_LLM_PROVIDER=openai    # or: anthropic
+export KUBERNAUT_LLM_MODEL=gpt-4o       # or: claude-sonnet-4-20250514
+```
 
-Vertex AI is the default provider. You need a GCP project with the Vertex AI API enabled.
+After the cluster is up, create the credentials Secret:
+
+```bash
+# OpenAI
+kubectl create secret generic llm-credentials \
+  --from-literal=OPENAI_API_KEY=sk-... -n kubernaut-system
+
+# Anthropic
+kubectl create secret generic llm-credentials \
+  --from-literal=ANTHROPIC_API_KEY=sk-ant-... -n kubernaut-system
+```
+
+**Verify:**
+```bash
+kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
+```
+
+### Advanced: Vertex AI
+
+Vertex AI requires `gcp_project_id` and `gcp_region`, which cannot be set via env vars. Use the SDK config file instead:
 
 **Step 1: Configure SDK config**
 ```bash
@@ -76,77 +97,14 @@ llm:
 gcloud auth application-default login
 ```
 
-**Step 3: Apply credentials Secret** (after bootstrap)
-```bash
-cp credentials/vertex-ai-example.yaml my-llm-credentials.yaml
-# Edit my-llm-credentials.yaml with your GCP project ID
-kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
-```
-
-**Verify:**
-```bash
-kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
-# Look for "LLM provider initialized" or similar startup message
-```
-
-### Anthropic
-
-**Step 1: Configure SDK config**
-```bash
-mkdir -p ~/.kubernaut/helm
-cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
-```
-
-Edit `~/.kubernaut/helm/sdk-config.yaml`:
-```yaml
-llm:
-  provider: "anthropic"
-  model: "claude-sonnet-4-20250514"
-```
-
-**Step 2: Apply credentials Secret** (after bootstrap)
-```bash
-cp credentials/anthropic-example.yaml my-llm-credentials.yaml
-# Edit my-llm-credentials.yaml with your Anthropic API key from https://console.anthropic.com/
-kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
-```
+`platform-helper.sh` automatically detects the SDK config file and ADC credentials, creates the `llm-credentials` Secret with Vertex AI project/region, and passes the SDK config to the chart via `--set-file`.
 
 **Verify:**
 ```bash
 kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
 ```
 
-### OpenAI
-
-**Step 1: Configure SDK config**
-```bash
-mkdir -p ~/.kubernaut/helm
-cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
-```
-
-Edit `~/.kubernaut/helm/sdk-config.yaml`:
-```yaml
-llm:
-  provider: "openai"
-  model: "gpt-4o"
-```
-
-**Step 2: Apply credentials Secret** (after bootstrap)
-```bash
-cp credentials/openai-example.yaml my-llm-credentials.yaml
-# Edit my-llm-credentials.yaml with your OpenAI API key from https://platform.openai.com/
-kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
-```
-
-**Verify:**
-```bash
-kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
-```
-
-### Local Models (OpenAI-compatible)
+### Advanced: Local Models (OpenAI-compatible)
 
 Any server that exposes an OpenAI-compatible API can be used: [Ollama](https://ollama.com/), [vLLM](https://docs.vllm.ai/), [LM Studio](https://lmstudio.ai/), or similar.
 
@@ -178,7 +136,6 @@ llm:
 
 **Verify:**
 ```bash
-# Confirm the model server is reachable from inside the cluster
 kubectl exec -it deploy/holmesgpt-api -n kubernaut-system -- \
   curl -s http://host.docker.internal:11434/v1/models | head -20
 ```
@@ -198,8 +155,7 @@ This takes ~10 minutes on first run and performs the following steps:
 1. **Kind cluster** -- Creates a multi-node Kind cluster (`kubernaut-demo`) with port mappings for monitoring dashboards (Grafana)
 2. **Monitoring stack** -- Installs kube-prometheus-stack (Prometheus, AlertManager, Grafana, kube-state-metrics) and the Kubernaut Grafana dashboard
 3. **Infrastructure dependencies** -- cert-manager, metrics-server, Istio, blackbox-exporter, Gitea, ArgoCD
-4. **Kubernaut platform** -- Installs the Helm chart (from OCI registry, or local sibling if present), including CRDs, pre-install Secrets, and all 10 platform services
-5. **Workflow catalog** -- Seeds ActionType and RemediationWorkflow CRDs via `kubectl apply`
+4. **Kubernaut platform** -- Installs the Helm chart (from OCI registry, or local sibling if present), including CRDs, auto-generated infrastructure Secrets, LLM provider configuration, and all 10 platform services. The chart also embeds all 25 ActionTypes and 20 RemediationWorkflows when `demoContent.enabled=true` (the default).
 
 Every step is idempotent -- you can safely re-run the script if it fails partway through.
 
@@ -214,12 +170,15 @@ Every step is idempotent -- you can safely re-run the script if it fails partway
 
 ### Apply LLM Credentials
 
-Once the bootstrap completes and pods are running, apply your LLM credentials Secret (see the provider-specific instructions above):
+Once the bootstrap completes and pods are running, create the LLM credentials Secret if you haven't already (see the provider-specific instructions in [LLM Provider Configuration](#llm-provider-configuration)):
 
 ```bash
-kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
+# Example for OpenAI:
+kubectl create secret generic llm-credentials \
+  --from-literal=OPENAI_API_KEY=sk-... -n kubernaut-system
 ```
+
+The setup script prints provider-specific instructions at the end if the Secret is missing.
 
 ## Run a Scenario
 
@@ -243,17 +202,36 @@ Browse all 24 available scenarios in the [Scenario Catalog](scenarios.md).
 
 ## Optional: Slack Notifications
 
-To receive remediation notifications in Slack after the cluster is running:
+To receive remediation notifications in Slack:
+
+**Automatic setup (before bootstrap):**
 
 1. Create a [Slack Incoming Webhook](https://api.slack.com/messaging/webhooks) for your workspace
-2. Create the Secret in-cluster:
+2. Save the webhook URL:
+
+```bash
+mkdir -p ~/.kubernaut/notification
+echo "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" > ~/.kubernaut/notification/slack-webhook.url
+```
+
+3. Optionally set the channel:
+
+```bash
+export KUBERNAUT_SLACK_CHANNEL="#demo-notifications"
+```
+
+`platform-helper.sh` automatically creates the `slack-webhook` Secret and passes `--set notification.slack.secretName=slack-webhook` to the chart during install.
+
+**Manual setup (after bootstrap):**
 
 ```bash
 kubectl create secret generic slack-webhook \
   -n kubernaut-system \
   --from-literal=webhook-url="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
 
-kubectl rollout restart deployment/notification-controller -n kubernaut-system
+helm upgrade kubernaut <chart-ref> -n kubernaut-system \
+  --reuse-values \
+  --set notification.slack.secretName=slack-webhook
 ```
 
 ## Architecture
@@ -261,12 +239,10 @@ kubectl rollout restart deployment/notification-controller -n kubernaut-system
 ```
 scripts/
   setup-demo-cluster.sh            # Bootstrap orchestrator (Kind + monitoring + platform + catalog)
-  platform-helper.sh               # Platform detection (Kind vs OCP), kustomize overlay selection
+  platform-helper.sh               # Platform detection (Kind vs OCP), Helm install, LLM/Slack config
   monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
   kind-helper.sh                   # Kind cluster lifecycle
   aap-helper.sh                   # AWX/AAP deployment and playbook registration
-  seed-workflows.sh                # Apply RemediationWorkflow CRDs (kubectl apply)
-  seed-action-types.sh             # Apply ActionType CRDs
 scenarios/
   <name>/
     run.sh                         # Deploy manifests + inject fault (requires bootstrapped cluster)

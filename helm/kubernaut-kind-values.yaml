@@ -20,12 +20,7 @@ gateway:
         serviceAccount: kube-prometheus-stack-alertmanager
         namespace: monitoring
 
-datastorage:
-  dbExistingSecret: kubernaut-ds-db-credentials
-
-postgresql:
-  auth:
-    existingSecret: kubernaut-pg-credentials
-
-valkey:
-  existingSecret: kubernaut-valkey-credentials
+effectivenessmonitor:
+  external:
+    prometheusEnabled: true
+    alertManagerEnabled: true

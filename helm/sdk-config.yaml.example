@@ -1,13 +1,21 @@
 # HolmesGPT SDK configuration for Kubernaut demo scenarios.
 #
-# Copy this file and fill in your LLM provider credentials:
+# QUICKSTART: For OpenAI, Anthropic, and other simple API-key providers you
+# do NOT need this file. Use environment variables instead:
+#
+#   export KUBERNAUT_LLM_PROVIDER=openai
+#   export KUBERNAUT_LLM_MODEL=gpt-4o
+#   kubectl create secret generic llm-credentials \
+#     --from-literal=OPENAI_API_KEY=sk-... -n kubernaut-system
+#
+# ADVANCED: This file is only needed for Vertex AI (which requires
+# gcp_project_id / gcp_region) or multi-model / custom-endpoint setups.
+#
+# To use:
 #   cp helm/sdk-config.yaml.example ~/.kubernaut/helm/sdk-config.yaml
-#
-# The platform-helper.sh script automatically picks up this file during
-# Helm install if it exists at ~/.kubernaut/helm/sdk-config.yaml.
-#
-# This file is passed to the chart via:
-#   helm install ... --set-file holmesgptApi.sdkConfigContent=~/.kubernaut/helm/sdk-config.yaml
+#   # Fill in provider credentials, then run setup-demo-cluster.sh.
+#   # platform-helper.sh detects this file and passes it via:
+#   #   helm install ... --set-file holmesgptApi.sdkConfigContent=~/.kubernaut/helm/sdk-config.yaml
 
 # -- LLM provider configuration
 llm:
