@@ -56,7 +56,7 @@ export KUBERNAUT_LLM_PROVIDER=openai    # or: anthropic
 export KUBERNAUT_LLM_MODEL=gpt-4o       # or: claude-sonnet-4-20250514
 ```
 
-After the cluster is up, create the credentials Secret:
+After the cluster is up, create the credentials Secret and restart the API pod:
 
 ```bash
 # OpenAI
@@ -66,6 +66,9 @@ kubectl create secret generic llm-credentials \
 # Anthropic
 kubectl create secret generic llm-credentials \
   --from-literal=ANTHROPIC_API_KEY=sk-ant-... -n kubernaut-system
+
+# Restart to pick up new credentials
+kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
 ```
 
 **Verify:**
@@ -176,6 +179,9 @@ Once the bootstrap completes and pods are running, create the LLM credentials Se
 # Example for OpenAI:
 kubectl create secret generic llm-credentials \
   --from-literal=OPENAI_API_KEY=sk-... -n kubernaut-system
+
+# Restart to pick up new credentials
+kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
 ```
 
 The setup script prints provider-specific instructions at the end if the Secret is missing.
