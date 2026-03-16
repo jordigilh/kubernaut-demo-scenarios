@@ -28,11 +28,11 @@ The Kubernaut Helm chart is installed automatically from the OCI registry (`oci:
 
 ### 3. Configure your LLM provider
 
-Kubernaut needs an LLM to analyze issues. Set your provider and model via environment variables:
+Kubernaut needs an LLM to analyze issues. Set your provider and model **before running the setup script** -- these are passed to `helm install` during cluster creation:
 
 ```bash
-export KUBERNAUT_LLM_PROVIDER=openai    # or: anthropic, vertexai, bedrock
-export KUBERNAUT_LLM_MODEL=gpt-4o       # or: claude-sonnet-4-20250514, gemini-2.0-flash, etc.
+export KUBERNAUT_LLM_PROVIDER=openai    # or: anthropic
+export KUBERNAUT_LLM_MODEL=gpt-4o       # or: claude-sonnet-4-20250514
 ```
 
 <details>
@@ -70,6 +70,12 @@ kubectl create secret generic llm-credentials \
 # Anthropic
 kubectl create secret generic llm-credentials \
   --from-literal=ANTHROPIC_API_KEY=sk-ant-... -n kubernaut-system
+```
+
+Then restart the API pod to pick up the new credentials:
+
+```bash
+kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
 ```
 
 The setup script prints provider-specific instructions if credentials are missing.
