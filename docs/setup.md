@@ -47,29 +47,30 @@ The Kubernaut Helm chart is installed automatically from the OCI registry (`oci:
 
 Kubernaut uses an LLM to analyze Kubernetes issues and select remediation workflows. You need credentials for at least one provider.
 
-There are two configuration files involved:
+The v1.1.0 chart offers two configuration paths:
 
-1. **`~/.kubernaut/helm/llm-values.yaml`** -- Helm values that configure which provider, model, and endpoint to use. Read by `setup-demo-cluster.sh` during platform installation.
-2. **`credentials/<provider>-example.yaml`** -- Kubernetes Secret with the actual API key. Applied to the cluster after bootstrap.
+- **Quickstart** (Anthropic, OpenAI) -- set `KUBERNAUT_LLM_PROVIDER` and `KUBERNAUT_LLM_MODEL` environment variables. The chart auto-generates a minimal SDK config.
+- **SDK config file** (Vertex AI, Azure, local models, toolsets, MCP) -- copy `helm/sdk-config.yaml.example` to `~/.kubernaut/sdk-config.yaml` and edit it. The bootstrap passes it via `--set-file holmesgptApi.sdkConfigContent=...`.
+
+In both cases, API credentials are provided separately as a Kubernetes Secret (`credentials/<provider>-example.yaml`), applied to the cluster after bootstrap.
 
 ### Vertex AI (default)
 
 Vertex AI is the default provider. You need a GCP project with the Vertex AI API enabled.
 
-**Step 1: Configure Helm values**
+**Step 1: Create SDK config**
 ```bash
-mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
+mkdir -p ~/.kubernaut
+cp helm/sdk-config.yaml.example ~/.kubernaut/sdk-config.yaml
 ```
 
-Edit `~/.kubernaut/helm/llm-values.yaml`:
+Edit `~/.kubernaut/sdk-config.yaml`:
 ```yaml
-holmesgptApi:
-  llm:
-    provider: "vertexai"
-    model: "claude-sonnet-4-20250514"
-    gcpProjectId: "your-gcp-project-id"
-    gcpRegion: "us-east5"
+llm:
+  provider: "vertexai"
+  model: "claude-sonnet-4-20250514"
+  gcp_project_id: "your-gcp-project-id"
+  gcp_region: "us-east5"
 ```
 
 **Step 2: Authenticate with GCP**
@@ -93,19 +94,13 @@ kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
 
 ### Anthropic
 
-**Step 1: Configure Helm values**
+**Step 1: Set environment variables**
 ```bash
-mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
+export KUBERNAUT_LLM_PROVIDER=anthropic
+export KUBERNAUT_LLM_MODEL=claude-sonnet-4-20250514
 ```
 
-Edit `~/.kubernaut/helm/llm-values.yaml`:
-```yaml
-holmesgptApi:
-  llm:
-    provider: "anthropic"
-    model: "claude-sonnet-4-20250514"
-```
+No SDK config file is needed -- the chart generates a minimal config from these values.
 
 **Step 2: Apply credentials Secret** (after bootstrap)
 ```bash
@@ -122,18 +117,10 @@ kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
 
 ### OpenAI
 
-**Step 1: Configure Helm values**
+**Step 1: Set environment variables**
 ```bash
-mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
-```
-
-Edit `~/.kubernaut/helm/llm-values.yaml`:
-```yaml
-holmesgptApi:
-  llm:
-    provider: "openai"
-    model: "gpt-4o"
+export KUBERNAUT_LLM_PROVIDER=openai
+export KUBERNAUT_LLM_MODEL=gpt-4o
 ```
 
 **Step 2: Apply credentials Secret** (after bootstrap)
@@ -161,19 +148,21 @@ ollama serve
 ollama pull llama3.1
 ```
 
-**Step 2: Configure Helm values**
+**Step 2: Create SDK config**
+
+Local models require the `endpoint` field, which is only available in the SDK config (not the quickstart env vars):
+
 ```bash
-mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
+mkdir -p ~/.kubernaut
+cp helm/sdk-config.yaml.example ~/.kubernaut/sdk-config.yaml
 ```
 
-Edit `~/.kubernaut/helm/llm-values.yaml`:
+Edit `~/.kubernaut/sdk-config.yaml`:
 ```yaml
-holmesgptApi:
-  llm:
-    provider: "openai"
-    model: "llama3.1"
-    endpoint: "http://host.docker.internal:11434/v1"
+llm:
+  provider: "openai"
+  model: "llama3.1"
+  endpoint: "http://host.docker.internal:11434/v1"
 ```
 
 > **Kind networking note:** Containers inside Kind cannot reach `localhost` on your host machine. Use `host.docker.internal` (Docker) or `host.containers.internal` (Podman) to reach the host's local server from inside the cluster.
@@ -247,17 +236,24 @@ Browse all 24 available scenarios in the [Scenario Catalog](scenarios.md).
 
 ## Optional: Slack Notifications
 
-To receive remediation notifications in Slack after the cluster is running:
+To receive remediation notifications in Slack:
 
 1. Create a [Slack Incoming Webhook](https://api.slack.com/messaging/webhooks) for your workspace
-2. Create the Secret in-cluster:
+2. Save the webhook URL before running `setup-demo-cluster.sh`:
+
+```bash
+mkdir -p ~/.kubernaut/notification
+echo "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" > ~/.kubernaut/notification/slack-webhook.url
+```
+
+The bootstrap creates the `slack-webhook` Secret from this file. The Kind and OCP Helm values set `notification.slack.secretName: slack-webhook`, so the chart configures Slack routing automatically.
+
+If the cluster is already running, create the Secret manually:
 
 ```bash
 kubectl create secret generic slack-webhook \
   -n kubernaut-system \
   --from-literal=webhook-url="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
-
-kubectl rollout restart deployment/notification-controller -n kubernaut-system
 ```
 
 ## Architecture
@@ -278,9 +274,13 @@ scenarios/
     README.md                      # BDD spec, acceptance criteria, manual steps
     manifests/                     # Namespace, Deployment, Service, PrometheusRule
     overlays/ocp/                  # OCP kustomize overlay (restricted-v2 SCC, namespace overrides)
-    workflow/                      # workflow-schema.yaml + Dockerfile for OCI image
 deploy/
   action-types/                    # ActionType CRD YAMLs (25 types)
+  remediation-workflows/           # RemediationWorkflow CRDs + OCI image build assets
+    <name>/
+      <name>.yaml                  # RemediationWorkflow CRD
+      Dockerfile.exec              # OCI exec image build context
+      remediate.sh                 # Remediation script baked into exec image
 helm/                              # Helm values: kube-prometheus-stack + Kubernaut Kind/OCP overrides
 credentials/                       # LLM credential Secret examples
 overlays/kind/                     # Kind cluster config (port mappings, node topology)

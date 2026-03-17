@@ -27,7 +27,7 @@ kubectl logs -l app=holmesgpt-api -n kubernaut-system
 
 Common causes:
 - Missing or incorrect API key in the `llm-credentials` Secret
-- Wrong provider/model in `~/.kubernaut/helm/llm-values.yaml`
+- Wrong provider/model in `~/.kubernaut/sdk-config.yaml` (or `KUBERNAUT_LLM_PROVIDER`/`KUBERNAUT_LLM_MODEL` env vars)
 - For local models: endpoint unreachable from inside the Kind cluster (use `host.docker.internal` instead of `localhost`)
 
 See the [LLM Provider Configuration](setup.md#llm-provider-configuration) guide for setup instructions.

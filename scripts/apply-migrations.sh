@@ -62,7 +62,7 @@ kubectl wait --for=condition=ready pod -l app=postgresql -n "${NAMESPACE}" --tim
 POSTGRES_POD=$(kubectl get pods -n "${NAMESPACE}" -l app=postgresql -o jsonpath='{.items[0].metadata.name}')
 echo "  PostgreSQL pod: ${POSTGRES_POD}"
 
-PG_PASSWORD=$(kubectl get secret kubernaut-pg-credentials -n "${NAMESPACE}" \
+PG_PASSWORD=$(kubectl get secret postgresql-secret -n "${NAMESPACE}" \
     -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d)
 
 echo "  Port-forwarding PostgreSQL to localhost:${PG_LOCAL_PORT}..."

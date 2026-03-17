@@ -41,7 +41,7 @@ kubectl get notificationrequests -A -o wide
 ```bash
 # Requires port-forward to DataStorage and a bearer token
 kubectl port-forward -n kubernaut-system svc/datastorage-service 30081:8081 &
-DS_TOKEN=$(kubectl get secret kubernaut-ds-db-credentials -n kubernaut-system \
+DS_TOKEN=$(kubectl get secret datastorage-db-secret -n kubernaut-system \
   -o jsonpath='{.data.api-token}' | base64 -d)
 curl -s -H "Authorization: Bearer ${DS_TOKEN}" \
   http://localhost:30081/api/v1/workflows | jq '.'

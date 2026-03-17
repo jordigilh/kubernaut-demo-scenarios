@@ -131,8 +131,8 @@ kubectl get certificate -n demo-cert-gitops
 
 - **Workflow ID**: `fix-certificate-gitops-v1`
 - **Action Type**: `GitRevertCommit`
-- **Bundle**: `workflow/Dockerfile` (ubi9-minimal + git + kubectl)
-- **Script**: `workflow/remediate.sh` (Validate -> Action pattern; RO/EM handle verification)
+- **Bundle**: `deploy/remediation-workflows/cert-failure-gitops/Dockerfile.exec` (ubi9-minimal + git + kubectl)
+- **Script**: `deploy/remediation-workflows/cert-failure-gitops/remediate.sh` (Validate -> Action pattern; RO/EM handle verification)
 
 ## Observed Alternative: FixCertificate (Direct Remediation)
 

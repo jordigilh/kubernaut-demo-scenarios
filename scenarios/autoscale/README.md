@@ -116,7 +116,7 @@ kill $PROVISIONER_PID
 - [ ] nginx Deployment manifests in `scenarios/autoscale/manifests/`
 - [ ] WE Job workflow (remediate.sh) creates ScaleRequest and verifies fulfillment
 - [ ] Host-side provisioner agent (provisioner.sh) watches and provisions nodes
-- [ ] workflow-schema.yaml with actionType `ProvisionNode` registered in DataStorage
+- [ ] `deploy/remediation-workflows/autoscale/autoscale.yaml` with actionType `ProvisionNode` registered in DataStorage
 - [ ] Prometheus alerting rule for `FailedScheduling` / `Insufficient` resources
 - [ ] Full pipeline with real LLM: Gateway -> RO -> SP -> AA -> WE -> EM
 - [ ] LLM identifies resource exhaustion and selects node provisioning workflow

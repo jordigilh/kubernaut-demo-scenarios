@@ -15,7 +15,16 @@ else
     CHART_SOURCE="oci"
 fi
 KIND_VALUES="${REPO_ROOT}/helm/kubernaut-kind-values.yaml"
-LLM_VALUES="${HOME}/.kubernaut/helm/llm-values.yaml"
+SDK_CONFIG="${HOME}/.kubernaut/sdk-config.yaml"
+
+# ── Kubeconfig resolution (BEFORE platform detection) ─────────────────────
+# If the Kind demo kubeconfig exists and KUBECONFIG isn't explicitly set,
+# use it. This ensures detect_platform() queries the Kind cluster, not
+# whatever the default ~/.kube/config happens to point to (e.g., OCP).
+DEMO_KUBECONFIG="${DEMO_KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
+if [ -z "${KUBECONFIG:-}" ] && [ -f "${DEMO_KUBECONFIG}" ]; then
+    export KUBECONFIG="${DEMO_KUBECONFIG}"
+fi
 
 # ── Platform detection ───────────────────────────────────────────────────────
 # Detects whether the target cluster is OpenShift (ocp) or vanilla Kubernetes (kind).
@@ -32,13 +41,6 @@ detect_platform() {
 
 PLATFORM="${PLATFORM:-$(detect_platform)}"
 export PLATFORM
-
-# For Kind clusters, use the demo-specific kubeconfig created by kind-helper.sh
-# so Kind users get isolation from ~/.kube/config. OCP users keep their
-# default kubeconfig (~/.kube/config) or any user-provided KUBECONFIG.
-if [ -z "${KUBECONFIG:-}" ] && [ "$PLATFORM" = "kind" ]; then
-    export KUBECONFIG="${HOME}/.kube/kubernaut-demo-config"
-fi
 
 # Returns the kustomize directory to use for kubectl apply -k.
 # Uses the OCP overlay when available and PLATFORM=ocp, otherwise the base manifests.
@@ -94,7 +96,6 @@ silence_alert() {
 # Idempotent: kubectl apply is a no-op when resources are unchanged.
 seed_action_types_and_workflows() {
     local at_dir="${REPO_ROOT}/deploy/action-types"
-    local scenarios_dir="${REPO_ROOT}/scenarios"
     local ns="${PLATFORM_NS:-kubernaut-system}"
 
     if [ -d "$at_dir" ] && ls "$at_dir"/*.yaml &>/dev/null; then
@@ -102,13 +103,10 @@ seed_action_types_and_workflows() {
         kubectl apply -f "$at_dir/" 2>&1 | grep -v unchanged | sed 's/^/    /' || true
     fi
 
-    local workflow_dirs
-    workflow_dirs=$(find "$scenarios_dir" -type d -name workflow 2>/dev/null)
-    if [ -n "$workflow_dirs" ]; then
+    local wf_dir="${REPO_ROOT}/deploy/remediation-workflows"
+    if [ -d "$wf_dir" ]; then
         echo "==> Seeding RemediationWorkflow CRDs (namespace: ${ns})..."
-        echo "$workflow_dirs" | while read -r dir; do
-            kubectl apply -n "$ns" -f "$dir/" 2>&1 | grep -v unchanged | sed 's/^/    /' || true
-        done
+        kubectl apply -R -n "$ns" -f "$wf_dir/" 2>&1 | grep -v unchanged | sed 's/^/    /' || true
     fi
 }
 
@@ -219,14 +217,20 @@ ensure_platform() {
         rm -rf "${_crd_tmp}"
     fi
 
-    local llm_flag=""
-    if [ -f "${LLM_VALUES}" ]; then
-        llm_flag="--values ${LLM_VALUES}"
-        echo "  LLM config loaded from ${LLM_VALUES}"
+    local llm_flags=""
+    if [ -f "${SDK_CONFIG}" ]; then
+        llm_flags="--set-file holmesgptApi.sdkConfigContent=${SDK_CONFIG}"
+        echo "  SDK config loaded from ${SDK_CONFIG}"
+    elif [ -n "${KUBERNAUT_LLM_PROVIDER:-}" ] && [ -n "${KUBERNAUT_LLM_MODEL:-}" ]; then
+        llm_flags="--set holmesgptApi.llm.provider=${KUBERNAUT_LLM_PROVIDER} --set holmesgptApi.llm.model=${KUBERNAUT_LLM_MODEL}"
+        echo "  LLM quickstart: provider=${KUBERNAUT_LLM_PROVIDER} model=${KUBERNAUT_LLM_MODEL}"
     else
-        echo "  WARNING: No LLM config found at ${LLM_VALUES}"
-        echo "  Copy the example and fill in your values:"
-        echo "    cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml"
+        echo "  WARNING: No LLM config found."
+        echo "  Either create an SDK config file:"
+        echo "    cp helm/sdk-config.yaml.example ~/.kubernaut/sdk-config.yaml"
+        echo "  Or set environment variables for the quickstart path:"
+        echo "    export KUBERNAUT_LLM_PROVIDER=anthropic"
+        echo "    export KUBERNAUT_LLM_MODEL=claude-sonnet-4-20250514"
     fi
 
     echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF})..."
@@ -234,12 +238,14 @@ ensure_platform() {
         --namespace "${PLATFORM_NS}" \
         --create-namespace \
         --values "${KIND_VALUES}" \
-        ${llm_flag} \
+        ${llm_flags} \
+        --set demoContent.enabled=false \
         --skip-crds \
         --wait --timeout 10m
 
     echo "  Kubernaut platform installed in ${PLATFORM_NS}."
     wait_platform_ready
+    seed_action_types_and_workflows
     _check_llm_credentials
 }
 
@@ -248,10 +254,10 @@ ensure_platform() {
 # Args: $1=scenario directory name (e.g., "crashloop")
 seed_scenario_workflow() {
     local scenario="$1"
-    local schema_file="${REPO_ROOT}/scenarios/${scenario}/workflow/workflow-schema.yaml"
+    local schema_file="${REPO_ROOT}/deploy/remediation-workflows/${scenario}/${scenario}.yaml"
 
     if [ ! -f "$schema_file" ]; then
-        echo "WARNING: No workflow-schema.yaml for scenario '${scenario}', skipping."
+        echo "WARNING: No deploy/remediation-workflows/${scenario}/${scenario}.yaml, skipping."
         return 0
     fi
 
@@ -275,18 +281,19 @@ _ensure_pre_install_secrets() {
 
     # LLM credentials (VertexAI ADC)
     local adc_file="${HOME}/.config/gcloud/application_default_credentials.json"
-    local llm_values_file="${LLM_VALUES}"
-    if [ -f "${adc_file}" ] && [ -f "${llm_values_file}" ]; then
+    if [ -f "${adc_file}" ] && [ -f "${SDK_CONFIG}" ]; then
         local project region
-        project=$(grep 'gcpProjectId' "${llm_values_file}" | awk -F'"' '{print $2}')
-        region=$(grep 'gcpRegion' "${llm_values_file}" | awk -F'"' '{print $2}')
-        kubectl create secret generic llm-credentials \
-            -n "${PLATFORM_NS}" \
-            --from-literal=VERTEXAI_PROJECT="${project}" \
-            --from-literal=VERTEXAI_LOCATION="${region}" \
-            --from-literal=GOOGLE_APPLICATION_CREDENTIALS="/etc/holmesgpt/credentials/application_default_credentials.json" \
-            --from-file=application_default_credentials.json="${adc_file}" \
-            --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
+        project=$(grep 'gcp_project_id' "${SDK_CONFIG}" | awk -F'"' '{print $2}')
+        region=$(grep 'gcp_region' "${SDK_CONFIG}" | awk -F'"' '{print $2}')
+        if [ -n "${project}" ] && [ -n "${region}" ]; then
+            kubectl create secret generic llm-credentials \
+                -n "${PLATFORM_NS}" \
+                --from-literal=VERTEXAI_PROJECT="${project}" \
+                --from-literal=VERTEXAI_LOCATION="${region}" \
+                --from-literal=GOOGLE_APPLICATION_CREDENTIALS="/etc/holmesgpt/credentials/application_default_credentials.json" \
+                --from-file=application_default_credentials.json="${adc_file}" \
+                --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
+        fi
     fi
 
     # Slack webhook (issue #104: named credential store)
@@ -300,32 +307,8 @@ _ensure_pre_install_secrets() {
             --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
     fi
 
-    # DB and Redis credential Secrets for demo (#204)
-    # Pre-create so the chart can reference them via existingSecret.
-    local pg_password="${KUBERNAUT_PG_PASSWORD:-demo-password}"
-    local pg_user="${KUBERNAUT_PG_USER:-slm_user}"
-    local pg_db="${KUBERNAUT_PG_DB:-action_history}"
-
-    echo "  Creating PostgreSQL credential Secrets..."
-    kubectl create secret generic kubernaut-pg-credentials \
-        -n "${PLATFORM_NS}" \
-        --from-literal=POSTGRES_USER="${pg_user}" \
-        --from-literal=POSTGRES_PASSWORD="${pg_password}" \
-        --from-literal=POSTGRES_DB="${pg_db}" \
-        --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
-
-    kubectl create secret generic kubernaut-ds-db-credentials \
-        -n "${PLATFORM_NS}" \
-        --from-literal="db-secrets.yaml=username: ${pg_user}
-password: ${pg_password}" \
-        --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
-
-    local valkey_password="${KUBERNAUT_VALKEY_PASSWORD:-}"
-    echo "  Creating Valkey credential Secret..."
-    kubectl create secret generic kubernaut-valkey-credentials \
-        -n "${PLATFORM_NS}" \
-        --from-literal="valkey-secrets.yaml=password: \"${valkey_password}\"" \
-        --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
+    # DB, DataStorage, and Valkey Secrets are auto-generated by the
+    # v1.1.0 chart (randAlphaNum + lookup). No pre-creation needed.
 }
 
 _check_llm_credentials() {

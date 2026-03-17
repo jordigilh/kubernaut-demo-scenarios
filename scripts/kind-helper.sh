@@ -53,6 +53,10 @@ _create_cluster() {
 
 _export_kubeconfig() {
     kind export kubeconfig --name "${CLUSTER_NAME}" --kubeconfig "${DEMO_KUBECONFIG}"
+    # Also merge into the default kubeconfig so the context is visible in
+    # `kubectl config get-contexts` and usable with `kubectl --context`.
+    kind export kubeconfig --name "${CLUSTER_NAME}" 2>/dev/null || true
+    echo "  Context 'kind-${CLUSTER_NAME}' available (kubeconfig: ${DEMO_KUBECONFIG})"
 }
 
 # Validate that the running cluster has the expected node topology

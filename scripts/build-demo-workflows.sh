@@ -5,7 +5,7 @@
 # remediate.sh + tools, run by WorkflowExecution as a K8s Job.
 #
 # After pushing, the manifest list digest is written back into
-# workflow-schema.yaml so the bundle reference stays in sync.
+# deploy/remediation-workflows/<scenario>.yaml so the bundle reference stays in sync.
 #
 # Authority: BR-WE-014 (Kubernetes Job Execution Backend)
 #
@@ -25,7 +25,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCENARIOS_DIR="${SCRIPT_DIR}/../scenarios"
+WORKFLOWS_DIR="${SCRIPT_DIR}/../deploy/remediation-workflows"
 REGISTRY="quay.io/kubernaut-cicd/test-workflows"
 VERSION="v1.0.0"
 LOCAL_ONLY=false
@@ -143,7 +143,7 @@ build_local() {
     echo "${digest}"
 }
 
-# update_bundle_digest writes the exec image digest into workflow-schema.yaml
+# update_bundle_digest writes the exec image digest into the workflow CRD YAML
 # Replaces the bundle line precisely, discarding any trailing garbage.
 # Args: $1=schema_file $2=registry/image_name $3=digest
 update_bundle_digest() {
@@ -167,7 +167,7 @@ with open(f, 'w') as fh: fh.write(content)
 }
 
 # bump_patch_version increments the patch segment of spec.version in
-# workflow-schema.yaml (e.g., 1.8.0 -> 1.8.1) so the DataStorage detects
+# the workflow CRD YAML (e.g., 1.8.0 -> 1.8.1) so the DataStorage detects
 # the schema as a new version after a digest-only change.
 # Args: $1=schema_file
 bump_patch_version() {
@@ -197,9 +197,9 @@ skip_count=0
 for entry in "${WORKFLOWS[@]}"; do
     SCENARIO="${entry%%:*}"
     IMAGE_NAME="${entry#*:}"
-    BUILD_DIR="${SCENARIOS_DIR}/${SCENARIO}/workflow"
+    BUILD_DIR="${WORKFLOWS_DIR}/${SCENARIO}"
     EXEC_REF="${REGISTRY}/${IMAGE_NAME}:${VERSION}"
-    SCHEMA_FILE="${BUILD_DIR}/workflow-schema.yaml"
+    SCHEMA_FILE="${BUILD_DIR}/${SCENARIO}.yaml"
 
     if [ -n "$SINGLE_SCENARIO" ] && [ "$SCENARIO" != "$SINGLE_SCENARIO" ]; then
         skip_count=$((skip_count + 1))
@@ -207,13 +207,13 @@ for entry in "${WORKFLOWS[@]}"; do
     fi
 
     if [ ! -f "${BUILD_DIR}/Dockerfile.exec" ]; then
-        echo "SKIP: ${SCENARIO} -- no Dockerfile.exec at ${BUILD_DIR}/Dockerfile.exec"
+        echo "SKIP: ${SCENARIO} -- no Dockerfile.exec at deploy/remediation-workflows/${SCENARIO}/Dockerfile.exec"
         skip_count=$((skip_count + 1))
         continue
     fi
 
     if [ ! -f "${SCHEMA_FILE}" ]; then
-        echo "ERROR: ${SCENARIO} -- missing workflow-schema.yaml (required by ADR-043)"
+        echo "ERROR: ${SCENARIO} -- missing deploy/remediation-workflows/${SCENARIO}/${SCENARIO}.yaml (required by ADR-043)"
         exit 1
     fi
 
@@ -229,10 +229,10 @@ for entry in "${WORKFLOWS[@]}"; do
         echo "  [exec] Pushed. Digest: ${EXEC_DIGEST}"
     fi
 
-    # Step 2: Update workflow-schema.yaml with exec image digest
+    # Step 2: Update workflow CRD with exec image digest
     if [ -n "${EXEC_DIGEST}" ]; then
         update_bundle_digest "${SCHEMA_FILE}" "${REGISTRY}/${IMAGE_NAME}" "${EXEC_DIGEST}"
-        echo "  [digest] Updated execution.bundle in workflow-schema.yaml"
+        echo "  [digest] Updated execution.bundle in ${SCENARIO}.yaml"
 
         if ! $LOCAL_ONLY; then
             new_ver=$(bump_patch_version "${SCHEMA_FILE}")

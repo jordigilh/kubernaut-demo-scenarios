@@ -149,5 +149,5 @@ kubectl get pods -n demo-gitops
 
 - **Workflow ID**: `git-revert-v1`
 - **Action Type**: `GitRevertCommit`
-- **Bundle**: `workflow/Dockerfile` (ubi9-minimal + git + kubectl)
-- **Script**: `workflow/remediate.sh` (Validate -> Action -> Verify pattern)
+- **Bundle**: `deploy/remediation-workflows/gitops-drift/Dockerfile.exec` (ubi9-minimal + git + kubectl)
+- **Script**: `deploy/remediation-workflows/gitops-drift/remediate.sh` (Validate -> Action -> Verify pattern)

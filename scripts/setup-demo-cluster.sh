@@ -71,6 +71,7 @@ echo "==> Phase 1: Kind cluster"
 # shellcheck source=kind-helper.sh
 source "${SCRIPT_DIR}/kind-helper.sh"
 ensure_kind_cluster "${KIND_CONFIG}" "${CREATE_FLAG}"
+echo "  Using kubeconfig: ${KUBECONFIG}"
 echo ""
 
 # ── 2. Monitoring stack ─────────────────────────────────────────────────────
