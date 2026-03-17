@@ -28,20 +28,21 @@ The Kubernaut Helm chart is installed automatically from the OCI registry (`oci:
 
 ### 3. Configure your LLM provider
 
-Kubernaut needs an LLM to analyze issues. Pick one provider and configure it:
+Kubernaut needs an LLM to analyze issues. Pick one provider and configure it.
+
+**Quickstart** (Anthropic, OpenAI) -- set environment variables:
 
 ```bash
-mkdir -p ~/.kubernaut/helm
-cp helm/llm-values.yaml.example ~/.kubernaut/helm/llm-values.yaml
+export KUBERNAUT_LLM_PROVIDER=anthropic
+export KUBERNAUT_LLM_MODEL=claude-sonnet-4-20250514
 ```
 
-Edit `~/.kubernaut/helm/llm-values.yaml` with your provider details. Example for Anthropic:
+**Advanced** (Vertex AI, Azure, local models, toolsets, MCP) -- use an SDK config file:
 
-```yaml
-holmesgptApi:
-  llm:
-    provider: "anthropic"
-    model: "claude-sonnet-4-20250514"
+```bash
+mkdir -p ~/.kubernaut
+cp helm/sdk-config.yaml.example ~/.kubernaut/sdk-config.yaml
+# Edit ~/.kubernaut/sdk-config.yaml with your provider details
 ```
 
 See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) guide for all supported providers: Vertex AI, Anthropic, OpenAI, and local models (Ollama, vLLM, LM Studio).

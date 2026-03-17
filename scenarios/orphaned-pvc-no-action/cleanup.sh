@@ -17,11 +17,11 @@ while kubectl get ns demo-orphaned-pvc &>/dev/null; do
 done
 
 # B15: Restore cleanup-pvc-v1 workflow if it was removed during run.sh.
-# The workflow definition lives in the scenario's workflow/ directory.
 if ! kubectl get remediationworkflow cleanup-pvc-v1 -n "${PLATFORM_NS}" &>/dev/null; then
-    if [ -f "${SCRIPT_DIR}/workflow/workflow-schema.yaml" ]; then
+    local_schema="${REPO_ROOT}/deploy/remediation-workflows/orphaned-pvc-no-action/orphaned-pvc-no-action.yaml"
+    if [ -f "${local_schema}" ]; then
         echo "==> B15: Restoring cleanup-pvc-v1 workflow..."
-        kubectl apply -f "${SCRIPT_DIR}/workflow/workflow-schema.yaml"
+        kubectl apply -f "${local_schema}"
     fi
 fi
 

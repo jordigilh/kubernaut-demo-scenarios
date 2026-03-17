@@ -3,7 +3,7 @@ name: Build Demo Workflow Images
 # Builds multi-arch (amd64 + arm64) exec and schema images for all demo
 # scenarios and pushes them to quay.io/kubernaut-cicd/test-workflows.
 #
-# After pushing, any workflow-schema.yaml files with updated bundle digests
+# After pushing, any updated workflow CRDs in deploy/remediation-workflows/
 # are auto-committed back to the branch to keep the repo in sync.
 #
 # Authority: kubernaut#350 (Multi-arch builds for demo workflow job images)
@@ -12,7 +12,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'scenarios/*/workflow/**'
+      - 'deploy/remediation-workflows/**'
       - 'scripts/build-demo-workflows.sh'
       - 'scripts/workflow-mappings.sh'
       - '.github/workflows/build-demo-workflows.yml'
@@ -81,11 +81,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet -- 'scenarios/*/workflow/workflow-schema.yaml'; then
+          if git diff --quiet -- 'deploy/remediation-workflows/'; then
             echo "No digest changes to commit."
           else
-            CHANGED=$(git diff --name-only -- 'scenarios/*/workflow/workflow-schema.yaml' | wc -l)
-            git add scenarios/*/workflow/workflow-schema.yaml
+            CHANGED=$(git diff --name-only -- 'deploy/remediation-workflows/' | wc -l)
+            git add deploy/remediation-workflows/
             git commit -m "ci: update bundle digests for ${CHANGED} workflow(s) [skip ci]"
             git push
             echo "Committed and pushed digest updates for ${CHANGED} workflow(s)."
