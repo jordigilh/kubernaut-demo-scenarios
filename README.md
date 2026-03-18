@@ -71,7 +71,7 @@ If you already have a cluster, install the platform manually.
 # OCP: ensure you're logged in (oc login ...)
 # Kind: ensure your kubeconfig points to the right cluster
 
-kubectl create namespace kubernaut-system --dry-run=client -o yaml | kubectl apply -f -
+kubectl create namespace kubernaut-system 2>/dev/null || true
 
 # Pick your provider's credential template:
 #   credentials/anthropic-example.yaml
