@@ -11,14 +11,14 @@ The LLM must choose the GitOps-aware remediation path.
 
 ## Prerequisites
 
-| Component | Requirement |
-|-----------|-------------|
-| Kind cluster | `overlays/kind/kind-cluster-config.yaml` |
-| Podman | Container runtime |
-| Kubernaut services | All controllers deployed with real LLM backend |
-| Gitea | Lightweight Git server (~200-300MB RAM) |
-| ArgoCD | Core install (~800MB-1.2GB RAM) |
-| Memory budget | ~6.1GB total (4.6GB base + 1.5GB GitOps infra) |
+| Component | Kind | OCP |
+|-----------|------|-----|
+| Cluster | `overlays/kind/kind-cluster-config.yaml` | OpenShift 4.x cluster |
+| Container runtime | Podman | — (provided by OCP) |
+| Kubernaut services | All controllers deployed with real LLM backend | Same |
+| Gitea | Deployed via `scenarios/gitops/scripts/setup-gitea.sh` | Same (adds OCP-compatible securityContext) |
+| ArgoCD | Community core-install via `scenarios/gitops/scripts/setup-argocd.sh` | OpenShift GitOps operator (script skips install, provisions credentials only) |
+| Memory budget | ~6.1GB total (4.6GB base + 1.5GB GitOps infra) | N/A (cluster-managed) |
 
 ## BDD Specification
 
