@@ -33,7 +33,7 @@ certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady ale
 | Prometheus | With cert-manager metrics | OCP monitoring stack |
 | cert-manager | Installed (run.sh installs if missing) | Same |
 | Gitea | Via `scenarios/gitops/scripts/setup-gitea.sh` | Same (adds OCP-compatible securityContext) |
-| ArgoCD | Community core-install via `setup-argocd.sh` | OpenShift GitOps operator (script provisions credentials only) |
+| ArgoCD | Community core-install via `scenarios/gitops/scripts/setup-argocd.sh` | OpenShift GitOps operator (script provisions credentials only) |
 | Workflow catalog | `fix-certificate-gitops-v1` registered in DataStorage | Same |
 | Memory budget | ~6.1GB total (4.6GB base + 1.5GB GitOps infra) | N/A (cluster-managed) |
 

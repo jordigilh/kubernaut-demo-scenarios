@@ -40,7 +40,7 @@ kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} for 0m
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
 | AWX | Deployed via `scripts/awx-helper.sh` |
-| Gitea + ArgoCD | Deployed via `scripts/setup-gitea.sh` and `scripts/setup-argocd.sh` |
+| Gitea + ArgoCD | Deployed via `scenarios/gitops/scripts/setup-gitea.sh` and `scenarios/gitops/scripts/setup-argocd.sh` |
 | Workflow catalog | `increase-memory-limits-gitops-v1` registered in DataStorage |
 
 ## Automated Run

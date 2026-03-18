@@ -43,7 +43,7 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics and `node-exporter` |
-| AAP/AWX | AAP on OCP, AWX on Kind (deploy via `scripts/aap-helper.sh`) |
+| AAP/AWX | AAP on OCP (`scripts/aap-helper.sh`), AWX on Kind (`scripts/awx-helper.sh`) |
 | Gitea + ArgoCD | Deployed via `scenarios/gitops/scripts/setup-gitea.sh` and `scenarios/gitops/scripts/setup-argocd.sh` |
 | Gitea webhook | Automated by `run.sh setup` (see [Gitea-ArgoCD Webhook](#gitea-argocd-webhook)) |
 | Workflow catalog | `migrate-emptydir-to-pvc-gitops-v1` registered in DataStorage |

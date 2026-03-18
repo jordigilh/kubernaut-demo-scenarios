@@ -264,10 +264,14 @@ scripts/
   platform-helper.sh               # Platform detection (Kind vs OCP), kustomize overlay selection
   monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
   kind-helper.sh                   # Kind cluster lifecycle
-  aap-helper.sh                   # AWX/AAP deployment and playbook registration
+  aap-helper.sh                   # AAP deployment (OCP)
+  awx-helper.sh                   # AWX deployment (Kind)
   seed-workflows.sh                # Apply RemediationWorkflow CRDs (kubectl apply)
   seed-action-types.sh             # Apply ActionType CRDs
 scenarios/
+  gitops/scripts/
+    setup-gitea.sh                 # Gitea Helm install (platform-aware: OCP adds SCC values + Route)
+    setup-argocd.sh                # ArgoCD install (Kind) or credential provisioning only (OCP)
   <name>/
     run.sh                         # Deploy manifests + inject fault (requires bootstrapped cluster)
     cleanup.sh                     # Teardown script (if applicable)
