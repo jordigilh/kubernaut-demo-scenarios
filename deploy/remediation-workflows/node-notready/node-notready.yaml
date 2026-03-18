@@ -22,7 +22,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/cordon-drain-job@sha256:440c164a70e7e31b9969d7b0b38acc93181b78670bbb986d4b22c92392f5d5df
+    bundle: quay.io/kubernaut-cicd/test-workflows/cordon-drain-job@sha256:44f7662b287bb586ff3cd11eb856c7e941ee13bc93a00d436efc615a47b91db3
   parameters:
     - name: TARGET_NODE
       type: string
