@@ -43,6 +43,10 @@ echo ""
 echo "==> Step 4: Injecting deny-all NetworkPolicy..."
 bash "${SCRIPT_DIR}/inject-deny-all-netpol.sh"
 echo ""
+echo "  Waiting for health checks to fail..."
+sleep 5
+kubectl get pods -n "${NAMESPACE}"
+echo ""
 
 echo "==> Step 5: Waiting for KubeDeploymentReplicasMismatch alert (~3-4 min)..."
 echo "  Readiness probes will fail -> traffic-gen becomes NotReady."

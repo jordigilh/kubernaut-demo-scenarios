@@ -43,4 +43,3 @@ kubectl patch deployment api-gateway -n "${NAMESPACE}" \
   -p '[{"op":"replace","path":"/spec/template/spec/volumes/0/configMap/name","value":"gateway-config-bad"}]'
 
 echo "==> Bad config injected. All 5 pods will crash simultaneously."
-echo "==> Watch: kubectl get pods -n ${NAMESPACE} -w"

@@ -59,6 +59,10 @@ echo ""
 echo "==> Step 4: Injecting invalid nginx config via helm upgrade..."
 bash "${SCRIPT_DIR}/inject-bad-config.sh"
 echo ""
+echo "  Waiting for pods to start crashing..."
+sleep 10
+kubectl get pods -n "${NAMESPACE}"
+echo ""
 
 # Step 5: Monitor
 echo "==> Step 5: Waiting for CrashLoop alert to fire (~2-3 min)..."

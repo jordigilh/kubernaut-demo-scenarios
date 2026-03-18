@@ -51,5 +51,4 @@ rm -f "${TMPFILE}"
 
 echo "==> Bad config injected via helm upgrade. Pods will crash on startup with:"
 echo "     nginx: [emerg] unknown directive \"invalid_directive_that_breaks_nginx\""
-echo "==> Watch: kubectl get pods -n demo-crashloop-helm -w"
 echo "==> Helm history: helm history demo-crashloop-helm -n demo-crashloop-helm"
