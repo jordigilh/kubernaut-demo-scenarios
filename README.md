@@ -116,7 +116,12 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     --wait --timeout 10m
 ```
 
-> **Tip:** Pin the chart version with `--version 1.1.0` to ensure reproducible installs.
+> **Chart version:** The latest stable version is installed by default. Helm's OCI resolver
+> skips pre-release tags (e.g., `1.1.0-rc0`), so add `--version` to pin a specific release:
+>
+> ```
+> --version 1.1.0-rc0
+> ```
 
 **Step B3: Seed the workflow catalog:**
 
