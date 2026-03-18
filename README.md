@@ -63,42 +63,81 @@ This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys 
 <details>
 <summary><strong>Option B: Bring your own cluster</strong> (existing Kind or OCP)</summary>
 
-If you already have a cluster, install the platform manually:
+If you already have a cluster, install the platform manually.
+
+**Step B1: Create the namespace and apply LLM credentials first:**
 
 ```bash
 # OCP: ensure you're logged in (oc login ...)
 # Kind: ensure your kubeconfig points to the right cluster
 
-# Install CRDs
-kubectl apply -f <(helm template kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut --include-crds --no-hooks -s 'templates/crds/*.yaml') 2>/dev/null \
-  || helm pull oci://quay.io/kubernaut-ai/charts/kubernaut --untar && kubectl apply -f kubernaut/crds/
+kubectl create namespace kubernaut-system --dry-run=client -o yaml | kubectl apply -f -
 
-# Install the platform with the appropriate values file
-# For Kind:
+# Pick your provider's credential template:
+#   credentials/anthropic-example.yaml
+#   credentials/openai-example.yaml
+#   credentials/vertex-ai-example.yaml
+cp credentials/<your-provider>-example.yaml my-llm-credentials.yaml
+# Edit with your actual API key / credentials
+kubectl apply -f my-llm-credentials.yaml
+```
+
+**Step B2: Install the platform.** Pick the command matching your LLM config from Step 3:
+
+For **Kind** with quickstart (env vars):
+
+```bash
 helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
-    --values helm/kubernaut-kind-values.yaml --skip-crds --wait
+    --values helm/kubernaut-kind-values.yaml \
+    --set holmesgptApi.llm.provider=$KUBERNAUT_LLM_PROVIDER \
+    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL \
+    --wait --timeout 10m
+```
 
-# For OCP:
+For **OCP** with quickstart (env vars):
+
+```bash
 helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
-    --values helm/kubernaut-ocp-values.yaml --skip-crds --wait
+    --values helm/kubernaut-ocp-values.yaml \
+    --set holmesgptApi.llm.provider=$KUBERNAUT_LLM_PROVIDER \
+    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL \
+    --wait --timeout 10m
+```
 
-# Seed action types and workflows
+For **either platform** with advanced config (SDK config file from Step 3):
+
+```bash
+helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
+    -n kubernaut-system --create-namespace \
+    --values helm/kubernaut-<kind|ocp>-values.yaml \
+    --set-file holmesgptApi.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml \
+    --wait --timeout 10m
+```
+
+> **Tip:** Pin the chart version with `--version 1.1.0` to ensure reproducible installs.
+
+**Step B3: Seed the workflow catalog:**
+
+```bash
 kubectl apply -f deploy/action-types/
 kubectl apply -R -f deploy/remediation-workflows/ -n kubernaut-system
 ```
 
 </details>
 
-### 5. Apply LLM credentials
+### 5. Apply LLM credentials (Option A only)
 
-Once the cluster is running, apply your provider's API key as a Kubernetes Secret:
+If you used Option A (`setup-demo-cluster.sh`), apply your provider's API key now. Option B users already did this in Step B1.
 
 ```bash
-# Pick the example for your provider (anthropic, openai, or vertex-ai)
-cp credentials/anthropic-example.yaml my-llm-credentials.yaml
-# Edit with your actual API key
+# Pick your provider's template:
+cp credentials/anthropic-example.yaml my-llm-credentials.yaml   # Anthropic
+# cp credentials/openai-example.yaml my-llm-credentials.yaml    # OpenAI
+# cp credentials/vertex-ai-example.yaml my-llm-credentials.yaml # Vertex AI
+
+# Edit with your actual API key, then apply:
 kubectl apply -f my-llm-credentials.yaml
 kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
 ```
