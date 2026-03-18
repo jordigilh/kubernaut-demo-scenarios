@@ -25,7 +25,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:81be93355c54a6f094be9796ae7f65e54e3407be0ddd5a7d12bdaf9cbe87b98e
+    bundle: quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:1b0b7ef825e1a91da069d11af7dd1069bfd9f405917b76113141697f8b2cc218
   parameters:
     - name: TARGET_NAMESPACE
       type: string
