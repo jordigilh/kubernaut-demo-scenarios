@@ -516,9 +516,13 @@ show_outcome_notification() {
 # ── Approval ─────────────────────────────────────────────────────────────────
 
 # Auto-approve the RAR for a specific RR.
+# Waits up to 30s for the RAR to be created (RO creates it asynchronously
+# after the RR transitions to AwaitingApproval).
 # Args: $1=rr_name (required) — derives RAR name as rar-{rr_name}
 auto_approve_rar() {
     local rr_name="${1:-}"
+    local rar_wait_timeout=30
+    local rar_wait_elapsed=0
 
     local rar_name
     if [ -n "$rr_name" ]; then
@@ -529,12 +533,21 @@ auto_approve_rar() {
     fi
 
     if [ -z "$rar_name" ]; then
-        log_warn "No RemediationApprovalRequest found to approve"
+        log_warn "No RemediationApprovalRequest name could be derived"
         return 1
     fi
 
+    log_phase "Waiting for RAR ${rar_name} to be created..."
+    while [ "$rar_wait_elapsed" -lt "$rar_wait_timeout" ]; do
+        if kubectl get remediationapprovalrequest "$rar_name" -n "$PLATFORM_NS" &>/dev/null; then
+            break
+        fi
+        sleep 2
+        rar_wait_elapsed=$((rar_wait_elapsed + 2))
+    done
+
     if ! kubectl get remediationapprovalrequest "$rar_name" -n "$PLATFORM_NS" &>/dev/null; then
-        log_warn "RAR ${rar_name} not found yet"
+        log_error "RAR ${rar_name} not found after ${rar_wait_timeout}s"
         return 1
     fi
 
@@ -583,7 +596,6 @@ poll_pipeline() {
                     fi
                     show_approval_notification "$target_ns"
                     if [ "$approve_mode" = "--auto-approve" ]; then
-                        sleep 2
                         local rr_name
                         rr_name=$(_find_rr_name "$target_ns")
                         auto_approve_rar "$rr_name"
