@@ -16,11 +16,6 @@ gateway:
         serviceAccount: alertmanager-main
         namespace: openshift-monitoring
 
-notification:
-  slack:
-    secretName: slack-webhook
-    channel: "#kubernaut-alerts"
-
 effectivenessmonitor:
   external:
     prometheusEnabled: false

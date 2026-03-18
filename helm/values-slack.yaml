@@ -1,0 +1,15 @@
+# Optional: Slack notification overrides.
+# Layer this on top of the platform values file to enable Slack alerts.
+#
+# Prerequisites:
+#   kubectl create secret generic slack-webhook -n kubernaut-system \
+#     --from-literal=webhook-url="https://hooks.slack.com/services/T.../B.../xxx"
+#
+# Usage:
+#   helm upgrade --install kubernaut ... \
+#     --values helm/kubernaut-<kind|ocp>-values.yaml \
+#     --values helm/values-slack.yaml
+notification:
+  slack:
+    secretName: slack-webhook
+    channel: "#kubernaut-alerts"

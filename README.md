@@ -125,6 +125,14 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
 
 The chart seeds ActionTypes and RemediationWorkflows automatically (`demoContent.enabled: true` by default). No manual seeding needed.
 
+**Optional: Slack notifications.** To receive alerts in Slack, create the webhook Secret and add the Slack values layer:
+
+```bash
+kubectl create secret generic slack-webhook -n kubernaut-system \
+    --from-literal=webhook-url="https://hooks.slack.com/services/T.../B.../xxx"
+# Then add --values helm/values-slack.yaml to your helm install command above.
+```
+
 </details>
 
 ### 5. Apply LLM credentials (Option A only)
