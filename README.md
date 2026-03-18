@@ -49,11 +49,47 @@ See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) g
 
 ### 4. Create the cluster
 
+<details>
+<summary><strong>Option A: New Kind cluster</strong> (recommended for first-time users)</summary>
+
 This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys the Kubernaut platform, and seeds the workflow catalog. Takes ~10 minutes on first run:
 
 ```bash
 ./scripts/setup-demo-cluster.sh
 ```
+
+</details>
+
+<details>
+<summary><strong>Option B: Bring your own cluster</strong> (existing Kind or OCP)</summary>
+
+If you already have a cluster, install the platform manually:
+
+```bash
+# OCP: ensure you're logged in (oc login ...)
+# Kind: ensure your kubeconfig points to the right cluster
+
+# Install CRDs
+kubectl apply -f <(helm template kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut --include-crds --no-hooks -s 'templates/crds/*.yaml') 2>/dev/null \
+  || helm pull oci://quay.io/kubernaut-ai/charts/kubernaut --untar && kubectl apply -f kubernaut/crds/
+
+# Install the platform with the appropriate values file
+# For Kind:
+helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
+    -n kubernaut-system --create-namespace \
+    --values helm/kubernaut-kind-values.yaml --skip-crds --wait
+
+# For OCP:
+helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
+    -n kubernaut-system --create-namespace \
+    --values helm/kubernaut-ocp-values.yaml --skip-crds --wait
+
+# Seed action types and workflows
+kubectl apply -f deploy/action-types/
+kubectl apply -R -f deploy/remediation-workflows/ -n kubernaut-system
+```
+
+</details>
 
 ### 5. Apply LLM credentials
 

@@ -74,11 +74,18 @@ ensure_monitoring_stack() {
 
     kubectl create namespace "${MONITORING_NS}" --dry-run=client -o yaml | kubectl apply -f -
 
+    local prom_args=(
+        --namespace "${MONITORING_NS}"
+        --values "${DEMO_HELM_DIR}/kube-prometheus-stack-values.yaml"
+    )
+    if [ "${PLATFORM:-kind}" = "ocp" ] && [ -f "${DEMO_HELM_DIR}/kube-prometheus-stack-ocp-overrides.yaml" ]; then
+        prom_args+=(--values "${DEMO_HELM_DIR}/kube-prometheus-stack-ocp-overrides.yaml")
+    fi
+    prom_args+=(--wait --timeout 5m)
+
     helm upgrade --install kube-prometheus-stack \
         prometheus-community/kube-prometheus-stack \
-        --namespace "${MONITORING_NS}" \
-        --values "${DEMO_HELM_DIR}/kube-prometheus-stack-values.yaml" \
-        --wait --timeout 5m
+        "${prom_args[@]}"
 
     echo "  kube-prometheus-stack installed in ${MONITORING_NS}."
 
