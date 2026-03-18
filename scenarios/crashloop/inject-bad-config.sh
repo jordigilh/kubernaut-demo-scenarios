@@ -46,4 +46,3 @@ kubectl patch deployment worker -n "${NAMESPACE}" \
 
 echo "==> Bad config injected. Pods will crash on startup with:"
 echo "     nginx: [emerg] unknown directive \"invalid_directive_that_breaks_nginx\""
-echo "==> Watch: kubectl get pods -n ${NAMESPACE} -w"
