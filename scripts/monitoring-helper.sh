@@ -17,6 +17,7 @@ require_infra() {
             exit 1 ;;
         metrics-server)
             kubectl get deployment metrics-server -n kube-system &>/dev/null && return 0
+            kubectl get apiservice v1beta1.metrics.k8s.io &>/dev/null && return 0
             echo "ERROR: metrics-server is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
         blackbox)
@@ -132,6 +133,10 @@ ensure_cert_manager() {
 ensure_metrics_server() {
     if kubectl get deployment metrics-server -n kube-system &>/dev/null; then
         echo "  metrics-server already installed."
+        return 0
+    fi
+    if kubectl get apiservice v1beta1.metrics.k8s.io &>/dev/null; then
+        echo "  metrics-server provided by platform (OCP)."
         return 0
     fi
 
