@@ -123,12 +123,7 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
 > --version 1.1.0-rc0
 > ```
 
-**Step B3: Seed the workflow catalog:**
-
-```bash
-kubectl apply -f deploy/action-types/
-kubectl apply -R -f deploy/remediation-workflows/ -n kubernaut-system
-```
+The chart seeds ActionTypes and RemediationWorkflows automatically (`demoContent.enabled: true` by default). No manual seeding needed.
 
 </details>
 
