@@ -96,10 +96,12 @@ Edit `~/.kubernaut/sdk-config.yaml`:
 ```yaml
 llm:
   provider: "vertexai"
-  model: "claude-sonnet-4-20250514"
+  model: "claude-sonnet-4"
   gcp_project_id: "your-gcp-project-id"
   gcp_region: "us-east5"
 ```
+
+> **Note:** Vertex AI requires the undated model name (`claude-sonnet-4`). The dated version (`claude-sonnet-4-20250514`) is only valid for direct Anthropic API calls.
 
 **Step 2: Authenticate with GCP**
 ```bash
