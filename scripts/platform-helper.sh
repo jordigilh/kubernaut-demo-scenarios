@@ -5,7 +5,13 @@
 
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-KUBERNAUT_REPO="${KUBERNAUT_REPO:-$(cd "${REPO_ROOT}/../kubernaut" 2>/dev/null && pwd)}"
+if [ -z "${KUBERNAUT_REPO:-}" ]; then
+    if [ -d "${REPO_ROOT}/../kubernaut" ]; then
+        KUBERNAUT_REPO="$(cd "${REPO_ROOT}/../kubernaut" && pwd)"
+    else
+        KUBERNAUT_REPO=""
+    fi
+fi
 KUBERNAUT_OCI_CHART="oci://quay.io/kubernaut-ai/charts/kubernaut"
 if [ -n "${KUBERNAUT_REPO}" ] && [ -d "${KUBERNAUT_REPO}/charts/kubernaut" ]; then
     CHART_REF="${KUBERNAUT_REPO}/charts/kubernaut"
