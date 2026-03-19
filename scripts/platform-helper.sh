@@ -5,21 +5,7 @@
 
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-if [ -z "${KUBERNAUT_REPO:-}" ]; then
-    if [ -d "${REPO_ROOT}/../kubernaut" ]; then
-        KUBERNAUT_REPO="$(cd "${REPO_ROOT}/../kubernaut" && pwd)"
-    else
-        KUBERNAUT_REPO=""
-    fi
-fi
-KUBERNAUT_OCI_CHART="oci://quay.io/kubernaut-ai/charts/kubernaut"
-if [ -n "${KUBERNAUT_REPO}" ] && [ -d "${KUBERNAUT_REPO}/charts/kubernaut" ]; then
-    CHART_REF="${KUBERNAUT_REPO}/charts/kubernaut"
-    CHART_SOURCE="local"
-else
-    CHART_REF="${KUBERNAUT_OCI_CHART}"
-    CHART_SOURCE="oci"
-fi
+CHART_REF="oci://quay.io/kubernaut-ai/charts/kubernaut"
 KIND_VALUES="${REPO_ROOT}/helm/kubernaut-kind-values.yaml"
 OCP_VALUES="${REPO_ROOT}/helm/kubernaut-ocp-values.yaml"
 SDK_CONFIG="${HOME}/.kubernaut/sdk-config.yaml"
@@ -239,16 +225,12 @@ ensure_platform() {
 
     _ensure_pre_install_secrets
 
-    echo "  Applying CRDs (source: ${CHART_SOURCE})..."
-    if [ "${CHART_SOURCE}" = "local" ]; then
-        kubectl apply -f "${CHART_REF}/crds/" 2>&1 | sed 's/^/    /'
-    else
-        local _crd_tmp
-        _crd_tmp=$(mktemp -d)
-        helm pull "${CHART_REF}" --untar --untardir "${_crd_tmp}" 2>&1 | sed 's/^/    /'
-        kubectl apply -f "${_crd_tmp}/kubernaut/crds/" 2>&1 | sed 's/^/    /'
-        rm -rf "${_crd_tmp}"
-    fi
+    echo "  Applying CRDs..."
+    local _crd_tmp
+    _crd_tmp=$(mktemp -d)
+    helm pull "${CHART_REF}" --untar --untardir "${_crd_tmp}" 2>&1 | sed 's/^/    /'
+    kubectl apply -f "${_crd_tmp}/kubernaut/crds/" 2>&1 | sed 's/^/    /'
+    rm -rf "${_crd_tmp}"
 
     local llm_flags=""
     if [ -f "${SDK_CONFIG}" ]; then
@@ -276,9 +258,9 @@ ensure_platform() {
     local version_flag=""
     if [ -n "${CHART_VERSION:-}" ]; then
         version_flag="--version ${CHART_VERSION}"
-        echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF}, version: ${CHART_VERSION}, platform: ${PLATFORM})..."
+        echo "  Installing Helm chart (version: ${CHART_VERSION}, platform: ${PLATFORM})..."
     else
-        echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF}, platform: ${PLATFORM})..."
+        echo "  Installing Helm chart (platform: ${PLATFORM})..."
     fi
     helm upgrade --install kubernaut "${CHART_REF}" \
         --namespace "${PLATFORM_NS}" \
