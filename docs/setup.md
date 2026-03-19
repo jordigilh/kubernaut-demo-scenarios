@@ -15,6 +15,19 @@ This guide covers the full setup process for running Kubernaut demo scenarios. I
 
 **Memory:** ~9GB available for the Kind cluster.
 
+### OCP prerequisites
+
+When deploying on OpenShift (Option B), the following operators must be pre-installed:
+
+| Operator | Required for | Install from |
+|----------|-------------|-------------|
+| openshift-cert-manager-operator | All scenarios (chart TLS) | OperatorHub |
+| OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir) | OperatorHub |
+| OpenShift Service Mesh (OSSM) | mesh-routing-failure | OperatorHub |
+| AAP (Ansible Automation Platform) | disk-pressure-emptydir | OperatorHub |
+
+> **Note:** OCP provides Prometheus, AlertManager, and metrics-server via the built-in cluster monitoring stack. These do not need separate installation.
+
 **macOS (Homebrew):**
 ```bash
 brew install kind kubectl helm
