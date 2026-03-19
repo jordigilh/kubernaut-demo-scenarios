@@ -5,7 +5,7 @@ metadata:
 spec:
   # Proactive Rollback Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #128 -- SLO error budget burn -> proactive rollback
-  version: "1.0.0"
+  version: "1.0.1"
   description:
     what: "Proactively rolls back a deployment based on SLO error budget burn rate analysis"
     whenToUse: "When the current error rate will exhaust the SLO error budget before the next maintenance window, and a recent deployment revision is the likely cause"

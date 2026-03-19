@@ -5,7 +5,7 @@ metadata:
 spec:
   # Relax PDB Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #124 -- PDB deadlock -> temporarily relax PDB
-  version: "1.0.0"
+  version: "1.0.1"
   description:
     what: "Temporarily relaxes a PodDisruptionBudget by reducing minAvailable to allow voluntary disruptions to proceed"
     whenToUse: "When a PDB is blocking rolling updates or node drains because minAvailable equals the replica count, leaving zero allowed disruptions"

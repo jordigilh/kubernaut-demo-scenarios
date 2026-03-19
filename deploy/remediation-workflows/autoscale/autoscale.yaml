@@ -5,7 +5,7 @@ metadata:
 spec:
   # Node Provisioning Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #126 -- Cluster autoscaling (Kind + Podman)
-  version: "1.0.0"
+  version: "1.0.1"
   description:
     what: "Requests provisioning of a new Kubernetes node to increase cluster capacity when pods are stuck Pending"
     whenToUse: "When pods are Pending due to insufficient cluster-wide resources (CPU, memory) and no existing node has capacity"
