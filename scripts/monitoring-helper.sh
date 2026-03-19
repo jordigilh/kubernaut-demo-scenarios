@@ -13,6 +13,7 @@ require_infra() {
     case "$component" in
         cert-manager)
             helm status cert-manager -n cert-manager &>/dev/null && return 0
+            kubectl get deployment -n cert-manager -l app.kubernetes.io/name=cert-manager --no-headers 2>/dev/null | grep -q . && return 0
             echo "ERROR: cert-manager is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
         metrics-server)
