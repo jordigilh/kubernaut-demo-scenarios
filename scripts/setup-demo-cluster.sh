@@ -22,6 +22,7 @@ CREATE_FLAG=""
 SKIP_INFRA=false
 WITH_AWX=false
 KIND_CONFIG="${SCENARIOS_DIR}/kind-config-multinode.yaml"
+export CHART_VERSION="${CHART_VERSION:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -41,14 +42,20 @@ while [[ $# -gt 0 ]]; do
             KIND_CONFIG="$2"
             shift 2
             ;;
+        --chart-version)
+            CHART_VERSION="$2"
+            export CHART_VERSION
+            shift 2
+            ;;
         --help|-h)
-            echo "Usage: $0 [--create-cluster] [--skip-infra] [--with-awx] [--kind-config PATH]"
+            echo "Usage: $0 [--create-cluster] [--skip-infra] [--with-awx] [--kind-config PATH] [--chart-version VERSION]"
             echo ""
             echo "Options:"
-            echo "  --create-cluster   Force-recreate the Kind cluster (deletes existing)"
-            echo "  --skip-infra       Skip optional infrastructure (cert-manager, Gitea, etc.)"
-            echo "  --with-awx         Install AWX Operator for Ansible engine demos (#312)"
-            echo "  --kind-config PATH Override Kind cluster config (default: multinode)"
+            echo "  --create-cluster      Force-recreate the Kind cluster (deletes existing)"
+            echo "  --skip-infra          Skip optional infrastructure (cert-manager, Gitea, etc.)"
+            echo "  --with-awx            Install AWX Operator for Ansible engine demos (#312)"
+            echo "  --kind-config PATH    Override Kind cluster config (default: multinode)"
+            echo "  --chart-version VER   Pin Helm chart version (e.g. 1.1.0-rc1); required for pre-release tags"
             exit 0
             ;;
         *)

@@ -267,12 +267,19 @@ ensure_platform() {
         values_file="${KIND_VALUES}"
     fi
 
-    echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF}, platform: ${PLATFORM})..."
+    local version_flag=""
+    if [ -n "${CHART_VERSION:-}" ]; then
+        version_flag="--version ${CHART_VERSION}"
+        echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF}, version: ${CHART_VERSION}, platform: ${PLATFORM})..."
+    else
+        echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF}, platform: ${PLATFORM})..."
+    fi
     helm upgrade --install kubernaut "${CHART_REF}" \
         --namespace "${PLATFORM_NS}" \
         --create-namespace \
         --values "${values_file}" \
         ${llm_flags} \
+        ${version_flag} \
         --set demoContent.enabled=false \
         --skip-crds \
         --wait --timeout 10m
