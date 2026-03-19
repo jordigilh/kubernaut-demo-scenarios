@@ -17,11 +17,26 @@ This guide covers the full setup process for running Kubernaut demo scenarios. I
 
 ### OCP prerequisites
 
-When deploying on OpenShift (Option B), the following operators must be pre-installed:
+When deploying on OpenShift (Option B), ensure the following before installing the Helm chart:
+
+**Storage:** A default StorageClass must exist (e.g. ODF, LVM Storage, or any CSI provisioner). The chart creates PVCs for postgresql (10Gi) and valkey (512Mi). Verify with:
+
+```bash
+kubectl get storageclass
+```
+
+**cert-manager:** Install the `openshift-cert-manager-operator` from OperatorHub. The operator does **not** create any ClusterIssuers by default, so create the one referenced by the chart:
+
+```bash
+kubectl apply -f helm/ocp-cluster-issuer.yaml
+```
+
+This creates a `selfsigned-issuer` ClusterIssuer used by the chart's TLS configuration.
+
+**Scenario-specific operators** (install from OperatorHub as needed):
 
 | Operator | Required for | Install from |
 |----------|-------------|-------------|
-| openshift-cert-manager-operator | All scenarios (chart TLS) | OperatorHub |
 | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir) | OperatorHub |
 | OpenShift Service Mesh (OSSM) | mesh-routing-failure | OperatorHub |
 | AAP (Ansible Automation Platform) | disk-pressure-emptydir | OperatorHub |

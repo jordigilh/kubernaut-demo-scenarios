@@ -85,11 +85,17 @@ This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys 
 
 If you already have a cluster, install the platform manually.
 
-> **OCP prerequisites:** The Kubernaut Helm chart requires **cert-manager** on OCP (for TLS). Install the `openshift-cert-manager-operator` from OperatorHub before proceeding. Some scenarios require additional operators:
+> **OCP prerequisites:** Before deploying the Helm chart on OCP:
+>
+> 1. **Storage:** A default StorageClass must exist (e.g. ODF, LVM Storage, or any CSI provisioner). The chart creates PVCs for postgresql (10Gi) and valkey (512Mi).
+> 2. **cert-manager:** Install the `openshift-cert-manager-operator` from OperatorHub, then create the ClusterIssuer referenced by the chart:
+>    ```bash
+>    kubectl apply -f helm/ocp-cluster-issuer.yaml
+>    ```
+> 3. **Scenario-specific operators** (install from OperatorHub as needed):
 >
 > | Operator | Required for |
 > |----------|-------------|
-> | openshift-cert-manager-operator | All scenarios (chart TLS) |
 > | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir) |
 > | OpenShift Service Mesh (OSSM) | mesh-routing-failure |
 > | AAP (Ansible Automation Platform) | disk-pressure-emptydir |
