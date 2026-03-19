@@ -2,27 +2,155 @@
 
 ## Overview
 
-This scenario demonstrates Kubernaut detecting that a service is burning its SLO error budget at an unsustainable rate, and proactively rolling back the deployment to preserve the SLO before it breaches.
+This scenario demonstrates Kubernaut detecting that a service is burning its SLO error
+budget at an unsustainable rate and proactively rolling back the deployment to preserve
+the SLO before it breaches.
 
-This is arguably the **highest enterprise-value** demo scenario because it connects **business objectives** (SLOs) directly to automated remediation. The LLM adds unique value by:
+This is arguably the **highest enterprise-value** demo scenario because it connects
+**business objectives** (SLOs) directly to automated remediation. The LLM adds unique
+value by:
 
 - Correlating the error budget burn timing with the most recent deployment revision
 - Reasoning about which revision caused the degradation
 - Choosing rollback to the specific revision that introduced the errors
-- Distinguishing between: bad deploy (rollback), traffic spike (scale out), dependency failure (wait)
-- Explaining in the audit trail: "Error budget burning at 14x sustainable rate since revision N. Rolling back to preserve SLO."
+- Distinguishing between: bad deploy (rollback), traffic spike (scale out),
+  dependency failure (wait)
+- Explaining in the audit trail: *"Error budget burning at 14x sustainable rate since
+  revision N. Rolling back to preserve SLO."*
+
+## Signal Flow
+
+```
+blackbox-exporter  ──probe──>  api-gateway /api/status
+        │
+        ▼
+   probe_success{namespace="demo-slo"} = 0          (scraped every 10s)
+        │
+        ▼
+   Recording rule:
+     job:api_gateway:error_rate_5m =
+       1 - avg_over_time(probe_success{namespace="demo-slo", instance=~".*api-gateway.*"}[5m])
+        │
+        ▼
+   Alert:  ErrorBudgetBurn
+     expr:  job:api_gateway:error_rate_5m > (0.001 * 14.4)   # >1.44% error rate
+     for:   3m
+     labels:
+       severity: critical
+       deployment: api-gateway
+```
 
 ## Failure Mode
 
-The injection is realistic: a **bad nginx config** that returns 500 on `/api/` but passes health checks (`/healthz` returns 200). This mirrors a real production issue where readiness probes pass but the service is functionally broken.
+The injection is realistic: a **bad nginx ConfigMap** (`api-config-bad`) that returns
+500 on `/api/` but passes health checks (`/healthz` returns 200). This mirrors a real
+production issue where readiness probes pass but the service is functionally broken.
+
+The threshold (14.4x burn rate) means the 0.1% error budget would exhaust in ~1 hour
+at the observed rate.
+
+## LLM Analysis (OCP observed)
+
+| Field | Value |
+|-------|-------|
+| Root Cause | `api-gateway deployment using misconfigured nginx ConfigMap 'api-config-bad' that explicitly returns HTTP 500 errors for all /api/ requests` |
+| Severity | `critical` |
+| Confidence | 0.9 |
+| Selected Workflow | `RollbackDeployment` (crashloop-rollback-v1) |
+| Alternative | `crashloop-rollback-risk-v1` (confidence 0.75) — risk-averse variant |
+| Approval | Required — production environment |
+| Contributing Factors | Misconfigured nginx configuration, Bad ConfigMap deployment |
+
+The LLM correctly identifies `api-config-bad` as the root cause and selects
+`RollbackDeployment` over the risk-averse variant because the configuration issue is
+clear-cut and warrants a direct rollback.
 
 ## Prerequisites
 
-- Kind cluster created with `overlays/kind/kind-cluster-config.yaml`
+- Kubernetes / OpenShift cluster with Prometheus Operator (CRD: Probe, PrometheusRule)
 - Kubernaut services deployed with HAPI configured for a real LLM backend
-- Prometheus with nginx metrics collection (stub_status or exporter)
-- `ProactiveRollback` action type registered in DataStorage (migration 026)
-- `proactive-rollback-v1` workflow registered in the workflow catalog
+- `RollbackDeployment` action type registered
+- `crashloop-rollback-v1` (or equivalent) workflow in the catalog
+
+> **OCP note**: The scenario deploys its own blackbox-exporter in the `demo-slo`
+> namespace — no cluster-level blackbox installation is required. The OCP overlay
+> (`overlays/ocp/`) patches the nginx image to `nginx-unprivileged` (port 8080),
+> updates the ConfigMap listen directive, traffic-gen URL, and Probe target
+> accordingly.
+
+## Automated Run
+
+```bash
+bash scenarios/slo-burn/run.sh                # interactive — pauses at approval gate
+bash scenarios/slo-burn/run.sh --auto-approve  # auto-approve (requires #57 fix)
+bash scenarios/slo-burn/run.sh --no-validate   # deploy + inject only, skip pipeline
+```
+
+| Flag | Behaviour |
+|------|-----------|
+| *(none)* | Deploy, inject, wait for alert, poll pipeline, pause at approval |
+| `--auto-approve` | Same but patches RAR automatically |
+| `--no-validate` | Deploy + inject only; useful for manual observation |
+
+## Manual Step-by-Step
+
+```bash
+# 1. Deploy namespace, ConfigMap, API gateway, traffic-gen, blackbox, and Prometheus rules
+#    Kind:
+kubectl apply -k scenarios/slo-burn/manifests/
+#    OCP:
+kubectl apply -k scenarios/slo-burn/overlays/ocp/
+
+# 2. Wait for pods
+kubectl wait --for=condition=Available deployment/api-gateway \
+  deployment/blackbox-exporter deployment/traffic-gen \
+  -n demo-slo --timeout=60s
+
+# 3. Establish healthy baseline (~30s)
+sleep 30
+
+# 4. Inject bad config
+bash scenarios/slo-burn/inject-bad-config.sh
+
+# 5. Watch error rate climb
+#    Prometheus: job:api_gateway:error_rate_5m should go to ~1.0
+#    Alert fires after 3 min for: duration
+
+# 6. Watch pipeline
+kubectl get rr,aa,we,ea -n kubernaut-system -w
+
+# 7. Approve when prompted (production environment)
+kubectl patch remediationapprovalrequest <RAR> -n kubernaut-system \
+  --type merge --subresource status \
+  -p '{"status":{"decision":"Approved","decidedBy":"<you>","decidedAt":"<now>"}}'
+
+# 8. Verify rollback
+kubectl rollout history deployment/api-gateway -n demo-slo
+kubectl get pods -n demo-slo
+
+# 9. Cleanup
+bash scenarios/slo-burn/cleanup.sh
+```
+
+## Pipeline Timeline (OCP observed)
+
+| Event | Wall clock | Delta |
+|-------|-----------|-------|
+| Deploy + baseline | T+0:00 | — |
+| Fault injection (bad ConfigMap) | T+0:30 | 30 s baseline |
+| ErrorBudgetBurn alert fires | T+3:33 | 3 min `for:` duration |
+| RR created | T+3:37 | 4 s after alert |
+| AA completes (7 poll cycles, 105 s) | T+5:22 | 1 min 45 s investigation |
+| Manual approval | T+17:20 | *waited for operator* |
+| WFE completes (rollout undo, 11 s) | T+17:31 | 11 s job |
+| EA completes (healthScore = 1.0) | T+18:31 | 60 s health check |
+| **Total (excl. approval wait)** | **~7 min** | |
+
+## Cleanup
+
+```bash
+bash scenarios/slo-burn/cleanup.sh
+```
 
 ## BDD Specification
 
@@ -31,102 +159,47 @@ Feature: SLO Error Budget Burn -> Proactive Rollback
 
   Scenario: Error budget burning at unsustainable rate triggers proactive rollback
     Given an nginx api-gateway Deployment with 2 replicas in demo-slo namespace
+      And a blackbox-exporter Probe targeting /api/status every 10s
       And a traffic generator sending steady requests to /api/status
       And the service is healthy with ~0% error rate (SLO: 99.9%)
       And the Kubernaut pipeline is active with a real LLM
-      And the "proactive-rollback-v1" workflow is registered in the catalog
+      And the "crashloop-rollback-v1" workflow is registered in the catalog
 
-    When a bad ConfigMap is deployed (returns 500 on /api/)
-      And the Deployment is rolling-restarted to pick up the new config
-      And the error rate spikes to ~100% on the /api/ path
-      And health checks (/healthz) continue to pass
+    When a bad ConfigMap (api-config-bad) is deployed returning 500 on /api/
+      And the Deployment is patched to reference api-config-bad
+      And the rollout completes (health checks /healthz still pass)
+      And the 5-minute rolling error rate exceeds 1.44% (14.4x burn rate)
 
-    Then Prometheus detects the error rate exceeds 14.4x sustainable burn rate
-      And ErrorBudgetBurn alert fires after 5 minutes
-      And Signal Processing enriches with deployment revision history
-      And the LLM correlates the error spike with the recent deployment change
-      And the LLM selects the ProactiveRollback action type
-      And Remediation Orchestrator creates a WorkflowExecution
-      And the WE Job rolls back the deployment to the previous revision
-      And the rollout completes with all replicas ready
-      And the error rate drops back within SLO (< 0.1%)
-      And EffectivenessAssessment confirms the SLO is preserved
-```
-
-## Automated Execution
-
-```bash
-./scenarios/slo-burn/run.sh
-```
-
-This script:
-1. Deploys the namespace, API gateway, traffic generator, and Prometheus rules
-2. Establishes a 30s healthy traffic baseline
-3. Injects the bad config and triggers a rolling restart
-4. Prints monitoring instructions
-
-## Manual Step-by-Step
-
-```bash
-# 1. Deploy namespace, ConfigMap, API gateway, traffic generator, and Prometheus rules
-kubectl apply -k scenarios/slo-burn/manifests/
-kubectl wait --for=condition=Available deployment/api-gateway \
-  -n demo-slo --timeout=60s
-
-# 3. Let healthy traffic run for ~30 seconds (establishes baseline)
-sleep 30
-
-# 4. Check Prometheus for healthy metrics
-#    kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
-#    then open http://localhost:9090 -> job:http_requests:error_rate_5m should be ~0
-
-# 5. Inject: deploy bad config (500 errors on /api/)
-./scenarios/slo-burn/inject-bad-config.sh
-
-# 6. Watch error rate climb in Prometheus
-#    The SLO burn rate alert should fire within ~5 minutes
-
-# 7. Watch Kubernaut pipeline
-kubectl get rr,sp,aa,we,ea -n demo-slo -w
-
-# 8. Verify: deployment rolled back, error rate within SLO
-kubectl rollout history deployment/api-gateway -n demo-slo
-kubectl get pods -n demo-slo
-
-# 9. Cleanup
-./scenarios/slo-burn/cleanup.sh
+    Then ErrorBudgetBurn alert fires after the 3-minute for: duration
+      And a RemediationRequest is created for Deployment/api-gateway
+      And the LLM identifies "api-config-bad" ConfigMap as root cause
+      And the LLM selects RollbackDeployment with confidence >= 0.9
+      And Rego policy requires manual approval (production environment)
+      And after approval the WFE Job runs "kubectl rollout undo"
+      And the deployment reverts to the previous revision (api-config)
+      And EffectivenessAssessment reports healthScore = 1.0
+      And the RR outcome is "Remediated"
 ```
 
 ## Acceptance Criteria
 
-- [ ] nginx API gateway + ConfigMap + traffic generator manifests
-- [ ] Injection script to deploy bad config
-- [ ] Prometheus SLO burn rate alerting rule
-- [ ] nginx metrics exported to Prometheus (stub_status or exporter)
-- [ ] Full pipeline with real LLM: Gateway -> RO -> SP -> AA -> WE -> EM
-- [ ] LLM correlates error spike with deployment revision and selects rollback
-- [ ] EffectivenessAssessment shows error rate within SLO, alert resolved
-- [ ] Demo documentation with step-by-step instructions
-
-## Memory Budget
-
-| Component | Estimate |
-|---|---|
-| nginx (api-gateway, 2 replicas) | ~64MB |
-| Traffic generator | ~16MB |
-| nginx-prometheus-exporter | ~16MB |
-| **Additional overhead** | **~100MB** |
-| **Total cluster** | **~4.7GB** |
-| **Headroom on 12GB** | **~7.3GB** |
-
-## Cleanup
-
-```bash
-./scenarios/slo-burn/cleanup.sh
-```
+- [x] nginx API gateway + ConfigMap + traffic generator + blackbox-exporter manifests
+- [x] Injection script to deploy bad config (platform-aware: port 80 / 8080)
+- [x] Prometheus Probe CRD + SLO burn rate PrometheusRule
+- [x] OCP overlay patches (nginx-unprivileged, port 8080, Probe target)
+- [x] Full pipeline with real LLM: Gateway -> SP -> AA -> WE -> EA
+- [x] LLM correlates error spike with ConfigMap change and selects rollback
+- [x] EffectivenessAssessment healthScore = 1.0, outcome = Remediated
+- [x] Approval gate enforced (production environment, critical severity)
 
 ## Notes
 
-- **Readiness vs. Functionality**: The /healthz endpoint still returns 200 while /api/ returns 500. This is a realistic production failure mode where health checks pass but the service is broken for users.
-- **Proactive vs. Reactive**: Per ADR-054, the `signal_mode` classification happens at the SP layer (runtime), not in the workflow schema labels. The workflow schema uses the normalized base signal type.
-- **Shared Rollback**: The remediation action (`kubectl rollout undo`) is the same as #120 (CrashLoopBackOff). The difference is the trigger (SLO burn rate vs. pod crash) and the LLM's reasoning (business objective vs. health check).
+- **Readiness vs. Functionality**: The `/healthz` endpoint still returns 200 while
+  `/api/` returns 500. This is a realistic production failure mode where health checks
+  pass but the service is functionally broken.
+- **Shared Rollback**: The remediation action (`kubectl rollout undo`) is the same as
+  #120 (CrashLoopBackOff). The difference is the trigger (SLO burn rate vs. pod crash)
+  and the LLM's reasoning (business objective vs. health check).
+- **Multi-arch workflow image**: The `crashloop-rollback-job` image must be a
+  multi-arch manifest (amd64 + arm64). An arm64-only build will fail with
+  `Exec format error` on amd64 clusters.
