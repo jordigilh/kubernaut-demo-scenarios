@@ -16,9 +16,13 @@ gateway:
         serviceAccount: alertmanager-main
         namespace: openshift-monitoring
 
+# EffectivenessMonitor: Prometheus/AlertManager disabled until the chart
+# adds TLS CA support (kubernaut#452). OCP monitoring serves HTTPS only;
+# the EM's HTTP clients cannot validate the service-serving CA today.
+# When enabled, use https:// URLs and set tlsCaFile once supported.
 effectivenessmonitor:
   external:
-    prometheusUrl: "http://prometheus-k8s.openshift-monitoring.svc:9091"
-    prometheusEnabled: true
-    alertManagerUrl: "http://alertmanager-main.openshift-monitoring.svc:9094"
-    alertManagerEnabled: true
+    prometheusUrl: "https://prometheus-k8s.openshift-monitoring.svc:9091"
+    prometheusEnabled: false
+    alertManagerUrl: "https://alertmanager-main.openshift-monitoring.svc:9094"
+    alertManagerEnabled: false
