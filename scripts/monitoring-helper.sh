@@ -134,6 +134,64 @@ ensure_cert_manager() {
     echo "  cert-manager installed."
 }
 
+# Enable OCP Prometheus to scrape cert-manager metrics.
+# The openshift-cert-manager-operator does not configure monitoring out of
+# the box: the namespace needs the cluster-monitoring label, a ServiceMonitor,
+# and RBAC for the prometheus-k8s ServiceAccount.
+ensure_cert_manager_ocp_monitoring() {
+    if [ "${PLATFORM:-kind}" != "ocp" ]; then
+        return 0
+    fi
+
+    echo "==> Configuring OCP monitoring for cert-manager..."
+
+    kubectl label namespace cert-manager openshift.io/cluster-monitoring=true --overwrite 2>/dev/null
+
+    kubectl apply -f - <<'SM'
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cert-manager
+  namespace: cert-manager
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/instance: cert-manager
+  endpoints:
+  - port: tcp-prometheus-servicemonitor
+    interval: 30s
+SM
+
+    kubectl apply -f - <<'RBAC'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-k8s
+  namespace: cert-manager
+rules:
+- apiGroups: [""]
+  resources: ["services","endpoints","pods"]
+  verbs: ["get","list","watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-k8s
+  namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s
+subjects:
+- kind: ServiceAccount
+  name: prometheus-k8s
+  namespace: openshift-monitoring
+RBAC
+
+    echo "  cert-manager namespace labeled, ServiceMonitor and RBAC created."
+}
+
 # ── metrics-server ───────────────────────────────────────────────────────────
 # Used by: hpa-maxed, autoscale (HPA requires real CPU/memory metrics)
 ensure_metrics_server() {

@@ -28,6 +28,7 @@ require_demo_ready
 # shellcheck source=../../scripts/monitoring-helper.sh
 source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
 require_infra cert-manager
+ensure_cert_manager_ocp_monitoring
 
 echo "============================================="
 echo " cert-manager Certificate Failure Demo (#133)"
