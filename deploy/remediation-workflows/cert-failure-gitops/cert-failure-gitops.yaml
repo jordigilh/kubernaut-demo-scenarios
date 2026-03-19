@@ -5,7 +5,7 @@ metadata:
 spec:
   # Fix Certificate (GitOps) Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #134 -- GitOps-managed Certificate failure -> git revert
-  version: "1.0.0"
+  version: "1.0.1"
   description:
     what: "Reverts a bad Git commit that broke a cert-manager ClusterIssuer in a GitOps-managed environment"
     whenToUse: "When a GitOps-managed cert-manager Certificate is stuck NotReady because a recent Git commit changed the ClusterIssuer to reference a non-existent CA Secret"

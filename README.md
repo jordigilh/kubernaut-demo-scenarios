@@ -6,16 +6,30 @@
 
 ### 1. Install tools
 
+**macOS (Homebrew):**
+
 ```bash
-brew install kind kubectl helm    # macOS
+brew install kind kubectl helm podman
 ```
 
-<details>
-<summary>Linux / other platforms</summary>
+**Linux:**
 
-See the [Setup Guide](docs/setup.md#prerequisites) for detailed installation instructions.
+```bash
+# Kind
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
 
-</details>
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+# Helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Podman — see https://podman.io/docs/installation#linux
+```
+
+> **Container runtime:** All demo scenarios are tested with [Podman](https://podman.io/). Docker may work but is untested.
 
 ### 2. Clone the demo scenarios
 
@@ -57,6 +71,12 @@ This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys 
 ```bash
 ./scripts/setup-demo-cluster.sh
 ```
+
+> **Pre-release charts:** Helm's OCI resolver skips pre-release tags by default. To install a specific version (e.g. `1.1.0-rc1`), pass `--chart-version`:
+>
+> ```bash
+> ./scripts/setup-demo-cluster.sh --chart-version 1.1.0-rc1
+> ```
 
 </details>
 
