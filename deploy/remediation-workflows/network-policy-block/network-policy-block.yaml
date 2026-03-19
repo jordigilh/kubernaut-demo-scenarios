@@ -25,7 +25,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:747e88d0200286a20119dcd9406d0354d925d82e2076b139b90e9abc45f1ea4c
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:a6827e98c55e9eaddaa0256edc432342bc29e13427da2eb0a5647ef9806926b1
   parameters:
     - name: TARGET_NAMESPACE
       type: string

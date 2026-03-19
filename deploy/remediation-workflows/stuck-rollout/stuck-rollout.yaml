@@ -22,7 +22,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/rollback-deployment-job@sha256:236398d6bfd3c723b754576485211056416bb1be7e79cb8cb5487756cfec1c49
+    bundle: quay.io/kubernaut-cicd/test-workflows/rollback-deployment-job@sha256:ef21120e0e54c73b871c1c6ab22d52882ffa5fd497f88a0cc28c0ef75e759720
   parameters:
     - name: TARGET_NAMESPACE
       type: string

@@ -22,7 +22,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:722fab16c8fc304cd5e39b44f514d73474963aecf1b2e4867b262130729ea43a
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:dce4caf14f70aefda8c39d2ce5b1c025ca1c1d8a501fcda20d4321295c3889d3
   parameters:
     - name: TARGET_NAMESPACE
       type: string
