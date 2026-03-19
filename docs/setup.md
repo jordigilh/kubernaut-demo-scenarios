@@ -11,7 +11,7 @@ This guide covers the full setup process for running Kubernaut demo scenarios. I
 | [Kind](https://kind.sigs.k8s.io/) | v0.30+ | Local Kubernetes cluster |
 | [kubectl](https://kubernetes.io/docs/tasks/tools/) | v1.34+ | Cluster interaction |
 | [Helm](https://helm.sh/docs/intro/install/) | v3.14+ | Chart installation |
-| Docker or Podman | recent | Container runtime for Kind |
+| [Podman](https://podman.io/) (recommended) or Docker | recent | Container runtime for Kind (tested with Podman) |
 
 **Memory:** ~9GB available for the Kind cluster.
 
@@ -204,6 +204,7 @@ Every step is idempotent -- you can safely re-run the script if it fails partway
 | `--skip-infra` | Skip optional infrastructure (cert-manager, Istio, Gitea, ArgoCD) |
 | `--with-awx` | Install AWX/AAP (required for `disk-pressure-emptydir`; OCP uses AAP, Kind uses AWX) |
 | `--kind-config PATH` | Custom Kind cluster config (default: `scenarios/kind-config-multinode.yaml`) |
+| `--chart-version VER` | Pin Helm chart version (e.g. `1.1.0-rc1`); required for pre-release tags |
 
 ### Apply LLM Credentials
 
