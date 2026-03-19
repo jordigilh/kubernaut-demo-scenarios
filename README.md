@@ -160,6 +160,29 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
 
 The chart seeds ActionTypes and RemediationWorkflows automatically (`demoContent.enabled: true` by default). No manual seeding needed.
 
+**Step B3: Configure AlertManager to route alerts to the Gateway.**
+
+Without this, Prometheus alerts fire but never reach the Kubernaut pipeline.
+
+For **Kind** (kube-prometheus-stack):
+
+```bash
+helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+    -n monitoring --create-namespace \
+    --values helm/kube-prometheus-stack-values.yaml \
+    --wait --timeout 5m
+```
+
+For **OCP** (patch the cluster monitoring AlertManager):
+
+```bash
+kubectl -n openshift-monitoring create secret generic alertmanager-main \
+    --from-file=alertmanager.yaml=helm/ocp-alertmanager-config.yaml \
+    --dry-run=client -o yaml | kubectl apply -f -
+```
+
+This routes alerts from `demo-*` namespaces and cluster-scoped alerts (e.g. `KubeNodeNotReady`) to the Kubernaut Gateway webhook.
+
 **Optional: Slack notifications.** To receive alerts in Slack, create the webhook Secret and add the Slack values layer:
 
 ```bash

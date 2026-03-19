@@ -263,6 +263,43 @@ Browse all 24 available scenarios in the [Scenario Catalog](scenarios.md).
 
 > **Infrastructure dependencies:** Some scenarios require components like cert-manager, Istio, or AWX that are only installed when `setup-demo-cluster.sh` runs without `--skip-infra`. If a required component is missing, `run.sh` will exit with a clear error message. See the [dependency table](scenarios.md#dependencies) for details.
 
+## AlertManager Configuration (Option B only)
+
+Option A (`setup-demo-cluster.sh`) automatically configures AlertManager to route demo scenario alerts to the Kubernaut Gateway. Option B users must configure this manually -- without it, Prometheus alerts fire but never reach the pipeline.
+
+### Kind (kube-prometheus-stack)
+
+Install kube-prometheus-stack with the provided values file, which pre-configures the Gateway webhook receiver and `demo-*` namespace routing:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+    -n monitoring --create-namespace \
+    --values helm/kube-prometheus-stack-values.yaml \
+    --wait --timeout 5m
+```
+
+If you already have kube-prometheus-stack installed, add the following to your AlertManager config:
+- A `gateway-webhook` receiver with `url: http://gateway-service.kubernaut-system.svc.cluster.local:8080/api/v1/signals/prometheus`
+- A route matching `namespace: "demo-.*"` to that receiver
+- A route matching `alertname: KubeNodeNotReady` for cluster-scoped alerts
+
+See `helm/kube-prometheus-stack-values.yaml` for the full config.
+
+### OCP (openshift-monitoring)
+
+Patch the cluster monitoring AlertManager with the provided config:
+
+```bash
+kubectl -n openshift-monitoring create secret generic alertmanager-main \
+    --from-file=alertmanager.yaml=helm/ocp-alertmanager-config.yaml \
+    --dry-run=client -o yaml | kubectl apply -f -
+```
+
+This adds a webhook route for `demo-*` namespace alerts and `KubeNodeNotReady` to the Kubernaut Gateway, while preserving OCP's default alert routing.
+
+> **Note:** The `alertmanager-main` Secret is managed by the cluster monitoring operator. If you later reconfigure cluster monitoring, you may need to re-apply this patch.
+
 ## Optional: Slack Notifications
 
 To receive remediation notifications in Slack:
