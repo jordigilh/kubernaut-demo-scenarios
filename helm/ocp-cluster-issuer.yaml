@@ -1,0 +1,12 @@
+# ClusterIssuer for OCP cert-manager TLS.
+# The openshift-cert-manager-operator does not create any ClusterIssuers
+# by default. This must be applied before installing the Kubernaut Helm
+# chart with kubernaut-ocp-values.yaml (which references selfsigned-issuer).
+#
+# Usage: kubectl apply -f helm/ocp-cluster-issuer.yaml
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned-issuer
+spec:
+  selfSigned: {}
