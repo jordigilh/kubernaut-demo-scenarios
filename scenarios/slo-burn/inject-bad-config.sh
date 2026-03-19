@@ -9,9 +9,11 @@
 set -euo pipefail
 
 NAMESPACE="demo-slo"
+LISTEN_PORT=80
+[ "${PLATFORM:-}" = "ocp" ] && LISTEN_PORT=8080
 
-echo "==> Creating bad ConfigMap (500 errors on /api/)..."
-kubectl apply -f - <<'YAML'
+echo "==> Creating bad ConfigMap (500 errors on /api/, port ${LISTEN_PORT})..."
+kubectl apply -f - <<YAML
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -22,7 +24,7 @@ metadata:
 data:
   default.conf: |
     server {
-      listen 80;
+      listen ${LISTEN_PORT};
       location /api/ {
         return 500 "internal server error";
       }

@@ -37,6 +37,43 @@ patches:
         path: /spec/ports/0/targetPort
         value: 8080
   - target:
+      kind: ConfigMap
+      name: api-config
+    patch: |
+      - op: replace
+        path: /data/default.conf
+        value: |
+          server {
+            listen 8080;
+            location /api/ {
+              return 200 '{"status": "ok"}';
+              add_header Content-Type application/json;
+            }
+            location /healthz {
+              return 200 "ok";
+            }
+          }
+  - target:
+      kind: Deployment
+      name: traffic-gen
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/args/0
+        value: |
+          while true; do
+            wget -q -O /dev/null http://api-gateway:8080/api/status 2>/dev/null
+            sleep 0.2
+          done
+  - target:
+      kind: Probe
+      name: api-gateway-probe
+    patch: |
+      - op: replace
+        path: /spec/targets/staticConfig/static/0
+        value: "http://api-gateway.demo-slo.svc:8080/api/status"
+      - op: remove
+        path: /metadata/labels/release
+  - target:
       kind: PrometheusRule
       name: slo-burn-rules
     patch: |
