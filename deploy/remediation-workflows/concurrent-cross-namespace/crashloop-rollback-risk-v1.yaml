@@ -23,7 +23,7 @@ spec:
 
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:0b63700b8c985e08148dedf80ee100ac8e6f32fa2acad182dfa7b7ff3d6589f2
+    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:30d614a1840bc89d087cdf70667a550dc45fa3d26481fe0b3833bb44621573dd
 
   parameters:
     - name: TARGET_NAMESPACE
