@@ -18,5 +18,7 @@ gateway:
 
 effectivenessmonitor:
   external:
-    prometheusEnabled: false
-    alertManagerEnabled: false
+    prometheusUrl: "http://prometheus-k8s.openshift-monitoring.svc:9091"
+    prometheusEnabled: true
+    alertManagerUrl: "http://alertmanager-main.openshift-monitoring.svc:9094"
+    alertManagerEnabled: true
