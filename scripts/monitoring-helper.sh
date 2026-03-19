@@ -13,10 +13,12 @@ require_infra() {
     case "$component" in
         cert-manager)
             helm status cert-manager -n cert-manager &>/dev/null && return 0
+            kubectl get deployment -n cert-manager -l app.kubernetes.io/name=cert-manager --no-headers 2>/dev/null | grep -q . && return 0
             echo "ERROR: cert-manager is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
         metrics-server)
             kubectl get deployment metrics-server -n kube-system &>/dev/null && return 0
+            kubectl get apiservice v1beta1.metrics.k8s.io &>/dev/null && return 0
             echo "ERROR: metrics-server is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
         blackbox)
@@ -74,11 +76,18 @@ ensure_monitoring_stack() {
 
     kubectl create namespace "${MONITORING_NS}" --dry-run=client -o yaml | kubectl apply -f -
 
+    local prom_args=(
+        --namespace "${MONITORING_NS}"
+        --values "${DEMO_HELM_DIR}/kube-prometheus-stack-values.yaml"
+    )
+    if [ "${PLATFORM:-kind}" = "ocp" ] && [ -f "${DEMO_HELM_DIR}/kube-prometheus-stack-ocp-overrides.yaml" ]; then
+        prom_args+=(--values "${DEMO_HELM_DIR}/kube-prometheus-stack-ocp-overrides.yaml")
+    fi
+    prom_args+=(--wait --timeout 5m)
+
     helm upgrade --install kube-prometheus-stack \
         prometheus-community/kube-prometheus-stack \
-        --namespace "${MONITORING_NS}" \
-        --values "${DEMO_HELM_DIR}/kube-prometheus-stack-values.yaml" \
-        --wait --timeout 5m
+        "${prom_args[@]}"
 
     echo "  kube-prometheus-stack installed in ${MONITORING_NS}."
 
@@ -125,6 +134,10 @@ ensure_cert_manager() {
 ensure_metrics_server() {
     if kubectl get deployment metrics-server -n kube-system &>/dev/null; then
         echo "  metrics-server already installed."
+        return 0
+    fi
+    if kubectl get apiservice v1beta1.metrics.k8s.io &>/dev/null; then
+        echo "  metrics-server provided by platform (OCP)."
         return 0
     fi
 

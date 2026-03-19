@@ -15,16 +15,12 @@ else
     CHART_SOURCE="oci"
 fi
 KIND_VALUES="${REPO_ROOT}/helm/kubernaut-kind-values.yaml"
+OCP_VALUES="${REPO_ROOT}/helm/kubernaut-ocp-values.yaml"
 SDK_CONFIG="${HOME}/.kubernaut/sdk-config.yaml"
 
-# ── Kubeconfig resolution (BEFORE platform detection) ─────────────────────
-# If the Kind demo kubeconfig exists and KUBECONFIG isn't explicitly set,
-# use it. This ensures detect_platform() queries the Kind cluster, not
-# whatever the default ~/.kube/config happens to point to (e.g., OCP).
-DEMO_KUBECONFIG="${DEMO_KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
-if [ -z "${KUBECONFIG:-}" ] && [ -f "${DEMO_KUBECONFIG}" ]; then
-    export KUBECONFIG="${DEMO_KUBECONFIG}"
-fi
+# KUBECONFIG is managed by kind-helper.sh (for Kind clusters) or by the
+# user's environment (for OCP / BYO clusters). We do NOT override it here
+# to avoid masking an OCP context with a stale Kind kubeconfig (#44).
 
 # ── Platform detection ───────────────────────────────────────────────────────
 # Detects whether the target cluster is OpenShift (ocp) or vanilla Kubernetes (kind).
@@ -106,7 +102,38 @@ seed_action_types_and_workflows() {
     local wf_dir="${REPO_ROOT}/deploy/remediation-workflows"
     if [ -d "$wf_dir" ]; then
         echo "==> Seeding RemediationWorkflow CRDs (namespace: ${ns})..."
-        kubectl apply -R -n "$ns" -f "$wf_dir/" 2>&1 | grep -v unchanged | sed 's/^/    /' || true
+        local applied=0 skipped=0
+        while IFS= read -r -d '' yaml_file; do
+            local basename="${yaml_file##*/}"
+
+            # Skip Ansible-engine workflows (require AWX infrastructure)
+            if grep -q 'engine: ansible' "$yaml_file"; then
+                echo "    SKIP ${basename} (engine: ansible — requires AWX)"
+                skipped=$((skipped + 1))
+                continue
+            fi
+
+            # Check secret dependencies declared in the workflow
+            local unmet=""
+            while IFS= read -r secret_name; do
+                if ! kubectl get secret "$secret_name" -n "${ns}" &>/dev/null; then
+                    unmet="${secret_name}"
+                    break
+                fi
+            done < <(grep -A1 'secrets:' "$yaml_file" 2>/dev/null \
+                      | grep -- '- name:' | awk '{print $NF}')
+
+            if [ -n "$unmet" ]; then
+                echo "    SKIP ${basename} (secret \"${unmet}\" not found in ${ns})"
+                skipped=$((skipped + 1))
+                continue
+            fi
+
+            kubectl apply -n "$ns" -f "$yaml_file" 2>&1 \
+                | grep -v unchanged | sed 's/^/    /' || true
+            applied=$((applied + 1))
+        done < <(find "$wf_dir" -name '*.yaml' -print0)
+        echo "    Applied ${applied} workflow(s), skipped ${skipped}."
     fi
 }
 
@@ -233,11 +260,18 @@ ensure_platform() {
         echo "    export KUBERNAUT_LLM_MODEL=claude-sonnet-4-20250514"
     fi
 
-    echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF})..."
+    local values_file
+    if [ "$PLATFORM" = "ocp" ]; then
+        values_file="${OCP_VALUES}"
+    else
+        values_file="${KIND_VALUES}"
+    fi
+
+    echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF}, platform: ${PLATFORM})..."
     helm upgrade --install kubernaut "${CHART_REF}" \
         --namespace "${PLATFORM_NS}" \
         --create-namespace \
-        --values "${KIND_VALUES}" \
+        --values "${values_file}" \
         ${llm_flags} \
         --set demoContent.enabled=false \
         --skip-crds \

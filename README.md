@@ -49,20 +49,103 @@ See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) g
 
 ### 4. Create the cluster
 
+<details>
+<summary><strong>Option A: New Kind cluster</strong> (recommended for first-time users)</summary>
+
 This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys the Kubernaut platform, and seeds the workflow catalog. Takes ~10 minutes on first run:
 
 ```bash
 ./scripts/setup-demo-cluster.sh
 ```
 
-### 5. Apply LLM credentials
+</details>
 
-Once the cluster is running, apply your provider's API key as a Kubernetes Secret:
+<details>
+<summary><strong>Option B: Bring your own cluster</strong> (existing Kind or OCP)</summary>
+
+If you already have a cluster, install the platform manually.
+
+**Step B1: Create the namespace and apply LLM credentials first:**
 
 ```bash
-# Pick the example for your provider (anthropic, openai, or vertex-ai)
-cp credentials/anthropic-example.yaml my-llm-credentials.yaml
-# Edit with your actual API key
+# OCP: ensure you're logged in (oc login ...)
+# Kind: ensure your kubeconfig points to the right cluster
+
+kubectl create namespace kubernaut-system 2>/dev/null || true
+
+# Pick your provider's credential template:
+#   credentials/anthropic-example.yaml
+#   credentials/openai-example.yaml
+#   credentials/vertex-ai-example.yaml
+cp credentials/<your-provider>-example.yaml my-llm-credentials.yaml
+# Edit with your actual API key / credentials
+kubectl apply -f my-llm-credentials.yaml
+```
+
+**Step B2: Install the platform.** Pick the command matching your LLM config from Step 3:
+
+For **Kind** with quickstart (env vars):
+
+```bash
+helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
+    -n kubernaut-system --create-namespace \
+    --values helm/kubernaut-kind-values.yaml \
+    --set holmesgptApi.llm.provider=$KUBERNAUT_LLM_PROVIDER \
+    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL \
+    --wait --timeout 10m
+```
+
+For **OCP** with quickstart (env vars):
+
+```bash
+helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
+    -n kubernaut-system --create-namespace \
+    --values helm/kubernaut-ocp-values.yaml \
+    --set holmesgptApi.llm.provider=$KUBERNAUT_LLM_PROVIDER \
+    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL \
+    --wait --timeout 10m
+```
+
+For **either platform** with advanced config (SDK config file from Step 3):
+
+```bash
+helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
+    -n kubernaut-system --create-namespace \
+    --values helm/kubernaut-<kind|ocp>-values.yaml \
+    --set-file holmesgptApi.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml \
+    --wait --timeout 10m
+```
+
+> **Chart version:** The latest stable version is installed by default. Helm's OCI resolver
+> skips pre-release tags (e.g., `1.1.0-rc0`), so add `--version` to pin a specific release:
+>
+> ```
+> --version 1.1.0-rc0
+> ```
+
+The chart seeds ActionTypes and RemediationWorkflows automatically (`demoContent.enabled: true` by default). No manual seeding needed.
+
+**Optional: Slack notifications.** To receive alerts in Slack, create the webhook Secret and add the Slack values layer:
+
+```bash
+kubectl create secret generic slack-webhook -n kubernaut-system \
+    --from-literal=webhook-url="https://hooks.slack.com/services/T.../B.../xxx"
+# Then add --values helm/values-slack.yaml to your helm install command above.
+```
+
+</details>
+
+### 5. Apply LLM credentials (Option A only)
+
+If you used Option A (`setup-demo-cluster.sh`), apply your provider's API key now. Option B users already did this in Step B1.
+
+```bash
+# Pick your provider's template:
+cp credentials/anthropic-example.yaml my-llm-credentials.yaml   # Anthropic
+# cp credentials/openai-example.yaml my-llm-credentials.yaml    # OpenAI
+# cp credentials/vertex-ai-example.yaml my-llm-credentials.yaml # Vertex AI
+
+# Edit with your actual API key, then apply:
 kubectl apply -f my-llm-credentials.yaml
 kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
 ```

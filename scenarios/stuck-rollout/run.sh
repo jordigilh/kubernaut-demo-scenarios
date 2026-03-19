@@ -53,6 +53,10 @@ echo ""
 echo "==> Step 4: Injecting non-existent image tag (triggers stuck rollout)..."
 bash "${SCRIPT_DIR}/inject-bad-image.sh"
 echo ""
+echo "  Waiting for new pods to fail image pull..."
+sleep 10
+kubectl get pods -n "${NAMESPACE}"
+echo ""
 
 # Step 5: Wait for stuck rollout + alert
 echo "==> Step 5: Waiting for rollout to exceed progressDeadlineSeconds (~2 min)..."

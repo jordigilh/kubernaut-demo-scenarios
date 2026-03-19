@@ -34,9 +34,6 @@ datastorage:
     runAsUser: 65534
 
 notification:
-  slack:
-    secretName: slack-webhook
-    channel: "#kubernaut-alerts"
   containerSecurityContext:
     runAsUser: 65534
 

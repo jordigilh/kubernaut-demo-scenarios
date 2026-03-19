@@ -58,6 +58,10 @@ echo ""
 echo "==> Step 4: Injecting invalid config (all 5 pods will CrashLoop)..."
 bash "${SCRIPT_DIR}/inject-bad-config.sh"
 echo ""
+echo "  Waiting for pods to start crashing..."
+sleep 10
+kubectl get pods -n "${NAMESPACE}"
+echo ""
 
 # Step 5: Wait for alerts
 echo "==> Step 5: Waiting for CrashLoop alerts to fire (~2-3 min)..."

@@ -16,4 +16,3 @@ echo "==> Adding NoSchedule taint to ${TARGET_NODE}..."
 kubectl taint nodes "${TARGET_NODE}" maintenance=scheduled:NoSchedule --overwrite
 
 echo "==> Taint applied to ${TARGET_NODE}. Pods pinned to this node will remain Pending."
-echo "    Watch: kubectl get pods -n demo-taint -w"

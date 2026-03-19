@@ -60,6 +60,10 @@ echo ""
 echo "==> Step 3: Injecting restrictive AuthorizationPolicy..."
 bash "${SCRIPT_DIR}/inject-deny-policy.sh"
 echo ""
+echo "  Waiting for policy to take effect..."
+sleep 5
+kubectl get pods -n "${NAMESPACE}"
+echo ""
 
 # Step 4: Monitor
 echo "==> Step 4: Waiting for high error rate alert (~2-3 min)..."

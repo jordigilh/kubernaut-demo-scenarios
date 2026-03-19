@@ -193,6 +193,7 @@ print(m.group(1) if m else 'unknown')
 
 build_count=0
 skip_count=0
+declare -A BUILT_DIGESTS  # image-name -> digest for reconciliation pass
 
 for entry in "${WORKFLOWS[@]}"; do
     SCENARIO="${entry%%:*}"
@@ -231,6 +232,7 @@ for entry in "${WORKFLOWS[@]}"; do
 
     # Step 2: Update workflow CRD with exec image digest
     if [ -n "${EXEC_DIGEST}" ]; then
+        BUILT_DIGESTS["${IMAGE_NAME}"]="${EXEC_DIGEST}"
         update_bundle_digest "${SCHEMA_FILE}" "${REGISTRY}/${IMAGE_NAME}" "${EXEC_DIGEST}"
         echo "  [digest] Updated execution.bundle in ${SCENARIO}.yaml"
 
@@ -246,6 +248,38 @@ for entry in "${WORKFLOWS[@]}"; do
     echo ""
 done
 
+# ---------------------------------------------------------------------------
+# Reconciliation pass: update any *other* workflow YAML that references a
+# just-built image with a stale digest.  This covers workflows that reuse an
+# image owned by a different scenario (e.g. concurrent-cross-namespace/
+# restart-pods-v1 shares graceful-restart-job with memory-leak).
+# ---------------------------------------------------------------------------
+if [ "${#BUILT_DIGESTS[@]}" -gt 0 ]; then
+    reconcile_count=0
+    while IFS= read -r -d '' yaml_file; do
+        for img_name in "${!BUILT_DIGESTS[@]}"; do
+            current_digest="${BUILT_DIGESTS[$img_name]}"
+            full_ref="${REGISTRY}/${img_name}"
+            if grep -q "bundle:.*${full_ref}" "${yaml_file}" && \
+               ! grep -q "bundle: ${full_ref}@${current_digest}" "${yaml_file}"; then
+                update_bundle_digest "${yaml_file}" "${full_ref}" "${current_digest}"
+                if ! $LOCAL_ONLY; then
+                    new_ver=$(bump_patch_version "${yaml_file}")
+                    echo "  [reconcile] ${yaml_file##*/}: updated ${img_name} digest, version -> ${new_ver}"
+                else
+                    echo "  [reconcile] ${yaml_file##*/}: updated ${img_name} digest"
+                fi
+                reconcile_count=$((reconcile_count + 1))
+            fi
+        done
+    done < <(find "${WORKFLOWS_DIR}" -name '*.yaml' -print0)
+    if [ "$reconcile_count" -gt 0 ]; then
+        echo ""
+        echo "Reconciled ${reconcile_count} shared-image reference(s)."
+    fi
+fi
+
+echo ""
 echo "============================================"
 echo "Built: ${build_count} scenario(s)"
 if [ "$skip_count" -gt 0 ]; then

@@ -428,12 +428,101 @@ show_effectiveness() {
     printf '\n'
 }
 
+# ── Notification display ──────────────────────────────────────────────────────
+# Show NotificationRequest CRDs inline during pipeline polling.
+# Graceful no-op when no NR exists (e.g., notifications disabled).
+
+_find_nr_for_rr() {
+    local rr_name="$1" pattern="${2:-}"
+    kubectl get notificationrequests -n "$PLATFORM_NS" \
+        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.remediationRequestRef.name}{"\n"}{end}' 2>/dev/null \
+        | { grep "$rr_name" || true; } \
+        | while IFS=$'\t' read -r nr_name nr_rr; do
+            if [ -n "$pattern" ]; then
+                [[ "$nr_name" == *"$pattern"* ]] && echo "$nr_name"
+            else
+                echo "$nr_name"
+            fi
+        done
+}
+
+_display_nr() {
+    local nr_name="$1"
+    local subj body prio nr_type phase
+
+    subj=$(kubectl get notificationrequest "$nr_name" -n "$PLATFORM_NS" \
+        -o jsonpath='{.spec.subject}' 2>/dev/null || true)
+    body=$(kubectl get notificationrequest "$nr_name" -n "$PLATFORM_NS" \
+        -o jsonpath='{.spec.body}' 2>/dev/null || true)
+    prio=$(kubectl get notificationrequest "$nr_name" -n "$PLATFORM_NS" \
+        -o jsonpath='{.spec.priority}' 2>/dev/null || true)
+    nr_type=$(kubectl get notificationrequest "$nr_name" -n "$PLATFORM_NS" \
+        -o jsonpath='{.spec.type}' 2>/dev/null || true)
+    phase=$(kubectl get notificationrequest "$nr_name" -n "$PLATFORM_NS" \
+        -o jsonpath='{.status.phase}' 2>/dev/null || true)
+
+    [ -z "$subj" ] && [ -z "$body" ] && return
+
+    printf '\n'
+    printf '           %s%sNotification%s  %s[%s | %s | %s]%s\n' \
+        "$_c_bold" "$_c_yellow" "$_c_reset" \
+        "$_c_dim" "${nr_type:-notification}" "${prio:-normal}" "${phase:-Pending}" "$_c_reset"
+    printf '           %s──────────────────────────────────────────%s\n' "$_c_dim" "$_c_reset"
+    if [ -n "$subj" ]; then
+        printf '           %s\n' "$subj"
+        printf '           %s──────────────────────────────────────────%s\n' "$_c_dim" "$_c_reset"
+    fi
+    if [ -n "$body" ]; then
+        echo "$body" | fold -s -w 70 | while IFS= read -r line; do
+            printf '           %s\n' "$line"
+        done
+    fi
+    printf '\n'
+}
+
+show_approval_notification() {
+    local target_ns="$1"
+    local rr_name
+    rr_name=$(_find_rr_name "$target_ns")
+    [ -z "$rr_name" ] && return
+
+    local nr_name
+    nr_name=$(_find_nr_for_rr "$rr_name" "rar" | head -1)
+    if [ -z "$nr_name" ]; then
+        nr_name=$(_find_nr_for_rr "$rr_name" | head -1)
+    fi
+    [ -z "$nr_name" ] && return
+    _display_nr "$nr_name"
+}
+
+show_outcome_notification() {
+    local target_ns="$1"
+    local rr_name
+    rr_name=$(_find_rr_name "$target_ns")
+    [ -z "$rr_name" ] && return
+
+    local all_nrs last_nr
+    all_nrs=$(_find_nr_for_rr "$rr_name")
+    last_nr=$(echo "$all_nrs" | tail -1)
+    [ -z "$last_nr" ] && return
+
+    local first_nr
+    first_nr=$(echo "$all_nrs" | head -1)
+    [ "$last_nr" = "$first_nr" ] && return
+
+    _display_nr "$last_nr"
+}
+
 # ── Approval ─────────────────────────────────────────────────────────────────
 
 # Auto-approve the RAR for a specific RR.
+# Waits up to 30s for the RAR to be created (RO creates it asynchronously
+# after the RR transitions to AwaitingApproval).
 # Args: $1=rr_name (required) — derives RAR name as rar-{rr_name}
 auto_approve_rar() {
     local rr_name="${1:-}"
+    local rar_wait_timeout=30
+    local rar_wait_elapsed=0
 
     local rar_name
     if [ -n "$rr_name" ]; then
@@ -444,12 +533,21 @@ auto_approve_rar() {
     fi
 
     if [ -z "$rar_name" ]; then
-        log_warn "No RemediationApprovalRequest found to approve"
+        log_warn "No RemediationApprovalRequest name could be derived"
         return 1
     fi
 
+    log_phase "Waiting for RAR ${rar_name} to be created..."
+    while [ "$rar_wait_elapsed" -lt "$rar_wait_timeout" ]; do
+        if kubectl get remediationapprovalrequest "$rar_name" -n "$PLATFORM_NS" &>/dev/null; then
+            break
+        fi
+        sleep 2
+        rar_wait_elapsed=$((rar_wait_elapsed + 2))
+    done
+
     if ! kubectl get remediationapprovalrequest "$rar_name" -n "$PLATFORM_NS" &>/dev/null; then
-        log_warn "RAR ${rar_name} not found yet"
+        log_error "RAR ${rar_name} not found after ${rar_wait_timeout}s"
         return 1
     fi
 
@@ -496,8 +594,8 @@ poll_pipeline() {
                         show_ai_analysis "$target_ns"
                         aa_shown=true
                     fi
+                    show_approval_notification "$target_ns"
                     if [ "$approve_mode" = "--auto-approve" ]; then
-                        sleep 2
                         local rr_name
                         rr_name=$(_find_rr_name "$target_ns")
                         auto_approve_rar "$rr_name"
@@ -529,6 +627,7 @@ poll_pipeline() {
                     outcome=$(get_rr_outcome "$target_ns")
                     log_success "Pipeline completed (outcome: ${outcome})"
                     _wait_for_ea "$target_ns"
+                    show_outcome_notification "$target_ns"
                     return 0
                     ;;
                 Failed|TimedOut|Cancelled)

@@ -131,11 +131,7 @@ if [ "$SKIP_INFRA" = false ]; then
     echo ""
 
     echo "--- ArgoCD ---"
-    if kubectl get namespace argocd &>/dev/null; then
-        echo "  ArgoCD already installed."
-    else
-        bash "${SCENARIOS_DIR}/gitops/scripts/setup-argocd.sh"
-    fi
+    bash "${SCENARIOS_DIR}/gitops/scripts/setup-argocd.sh"
     echo ""
 fi
 

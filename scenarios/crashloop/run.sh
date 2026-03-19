@@ -55,11 +55,20 @@ echo "==> Step 4: Injecting invalid nginx config (triggers CrashLoopBackOff)..."
 bash "${SCRIPT_DIR}/inject-bad-config.sh"
 echo ""
 
-# Step 5: Wait for alert
+# Step 5: Wait for pods to start crashing and alert to fire
 echo "==> Step 5: Waiting for CrashLoop alert to fire (~2-3 min)..."
 echo "  Pods will fail to start with 'unknown directive' error."
-echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
+echo ""
+echo "  Waiting for new rollout to begin..."
+sleep 10
+kubectl get pods -n "${NAMESPACE}"
+echo ""
+echo "  Waiting for restarts to accumulate..."
+sleep 30
+kubectl get pods -n "${NAMESPACE}"
+echo ""
 echo "  The KubePodCrashLooping alert fires after >3 restarts in 10 min."
+echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 
 # Step 6: Validate pipeline

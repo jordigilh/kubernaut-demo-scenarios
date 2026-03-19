@@ -25,17 +25,17 @@ certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady ale
 
 ## Prerequisites
 
-| Component | Requirement |
-|-----------|-------------|
-| Kind cluster | `scenarios/kind-config-singlenode.yaml` |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
-| Prometheus | With cert-manager metrics |
-| cert-manager | Installed (run.sh installs if missing) |
-| Gitea | Lightweight Git server (run.sh installs if missing) |
-| ArgoCD | Core install (run.sh installs if missing) |
-| Workflow catalog | `fix-certificate-gitops-v1` registered in DataStorage |
-| Memory budget | ~6.1GB total (4.6GB base + 1.5GB GitOps infra) |
+| Component | Kind | OCP |
+|-----------|------|-----|
+| Cluster | `scenarios/kind-config-singlenode.yaml` | OpenShift 4.x cluster |
+| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed | Same |
+| LLM backend | Real LLM (not mock) via HAPI | Same |
+| Prometheus | With cert-manager metrics | OCP monitoring stack |
+| cert-manager | Installed (run.sh installs if missing) | Same |
+| Gitea | Via `scenarios/gitops/scripts/setup-gitea.sh` | Same (adds OCP-compatible securityContext) |
+| ArgoCD | Community core-install via `scenarios/gitops/scripts/setup-argocd.sh` | OpenShift GitOps operator (script provisions credentials only) |
+| Workflow catalog | `fix-certificate-gitops-v1` registered in DataStorage | Same |
+| Memory budget | ~6.1GB total (4.6GB base + 1.5GB GitOps infra) | N/A (cluster-managed) |
 
 ## BDD Specification
 

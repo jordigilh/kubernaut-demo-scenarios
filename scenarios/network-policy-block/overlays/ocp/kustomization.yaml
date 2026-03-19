@@ -23,3 +23,16 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/image
         value: nginxinc/nginx-unprivileged:1.27-alpine
+  - target:
+      kind: Deployment
+      name: traffic-gen
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext
+        value:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop: ["ALL"]
