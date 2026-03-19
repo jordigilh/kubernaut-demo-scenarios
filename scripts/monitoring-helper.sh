@@ -14,7 +14,12 @@ require_infra() {
         cert-manager)
             helm status cert-manager -n cert-manager &>/dev/null && return 0
             kubectl get deployment -n cert-manager -l app.kubernetes.io/name=cert-manager --no-headers 2>/dev/null | grep -q . && return 0
-            echo "ERROR: cert-manager is not installed. Run: bash scripts/setup-demo-cluster.sh"
+            if [ "${PLATFORM:-}" = "ocp" ]; then
+                echo "ERROR: cert-manager is not installed."
+                echo "  Install the openshift-cert-manager-operator from OperatorHub."
+            else
+                echo "ERROR: cert-manager is not installed. Run: bash scripts/setup-demo-cluster.sh"
+            fi
             exit 1 ;;
         metrics-server)
             kubectl get deployment metrics-server -n kube-system &>/dev/null && return 0
@@ -33,7 +38,7 @@ require_infra() {
             if [ "${PLATFORM:-}" = "ocp" ]; then
                 kubectl get namespace openshift-gitops &>/dev/null && return 0
                 echo "ERROR: OpenShift GitOps is not installed."
-                echo "  Install via: oc apply -f operators/openshift-gitops-subscription.yaml"
+                echo "  Install the OpenShift GitOps operator from OperatorHub."
             else
                 kubectl get namespace argocd &>/dev/null && return 0
                 echo "ERROR: ArgoCD is not installed. Run: bash scripts/setup-demo-cluster.sh"
@@ -159,6 +164,13 @@ ensure_istio() {
     if kubectl get namespace istio-system &>/dev/null; then
         echo "  Istio already installed."
         return 0
+    fi
+
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        echo "ERROR: OpenShift Service Mesh (OSSM) is not installed."
+        echo "  Install the OSSM operator from OperatorHub, then create a ServiceMeshControlPlane."
+        echo "  Skipping automated install on OCP."
+        exit 1
     fi
 
     echo "==> Installing Istio..."

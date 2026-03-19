@@ -1,6 +1,6 @@
 # OCP-specific value overrides for the Kubernaut Helm chart (v1.1.0+).
 # No NodePort, no nodeSelector (OCP schedules to worker nodes).
-# cert-manager TLS mode (OCP has cert-manager installed).
+# cert-manager TLS mode (requires openshift-cert-manager-operator from OperatorHub).
 tls:
   mode: cert-manager
   certManager:
