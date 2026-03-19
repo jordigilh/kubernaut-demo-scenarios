@@ -32,19 +32,10 @@ done
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
 
-# NOTE: We intentionally do NOT seed a workflow for this scenario.
-# Orphaned PVCs are housekeeping, not a critical issue. The LLM should
-# correctly identify this as benign and conclude no action is needed.
-#
-# B15: On shared clusters (OCP), the cleanup-pvc-v1 workflow may have been
-# seeded globally by another scenario. Its presence causes the LLM to see
-# CleanupPVC as an available action type, creating an ambiguous state that
-# prevents the "not actionable" conclusion. We temporarily remove it.
-if kubectl get remediationworkflow cleanup-pvc-v1 -n "${PLATFORM_NS}" &>/dev/null; then
-    echo "==> B15: Removing cleanup-pvc-v1 workflow (will restore in cleanup.sh)..."
-    kubectl delete remediationworkflow cleanup-pvc-v1 -n "${PLATFORM_NS}"
-    sleep 5
-fi
+# NOTE: The cleanup-pvc-v1 workflow IS present in the catalog. The LLM
+# should still conclude that orphaned PVCs from completed batch jobs are
+# benign housekeeping and do not warrant automated cleanup. This tests
+# genuine LLM judgment, not just the absence of a matching workflow.
 
 echo "============================================="
 echo " Orphaned PVC Demo (#122)"

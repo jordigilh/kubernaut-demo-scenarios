@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../manifests
+patches:
+  - target:
+      kind: Namespace
+      name: demo-orphaned-pvc
+    patch: |
+      - op: replace
+        path: /metadata/labels/kubernaut.ai~1environment
+        value: staging
+      - op: add
+        path: /metadata/labels/openshift.io~1cluster-monitoring
+        value: "true"
+  - target:
+      kind: Deployment
+      name: data-processor
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: nginxinc/nginx-unprivileged:1.27-alpine
+      - op: replace
+        path: /spec/template/spec/containers/0/ports/0/containerPort
+        value: 8080
+      - op: replace
+        path: /spec/template/spec/containers/0/livenessProbe/httpGet/port
+        value: 8080
+      - op: replace
+        path: /spec/template/spec/containers/0/readinessProbe/httpGet/port
+        value: 8080
+  - target:
+      kind: PrometheusRule
+      name: orphaned-pvc-rules
+    patch: |
+      - op: remove
+        path: /metadata/labels/release
