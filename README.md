@@ -98,7 +98,7 @@ If you already have a cluster, install the platform manually.
 > |----------|-------------|
 > | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible) |
 > | OpenShift Service Mesh (OSSM) | mesh-routing-failure |
-> | AAP (Ansible Automation Platform) | disk-pressure-emptydir, memory-limits-gitops-ansible |
+> | AWX (community) | disk-pressure-emptydir, memory-limits-gitops-ansible |
 
 **Step B1: Create the namespace and apply LLM credentials first:**
 

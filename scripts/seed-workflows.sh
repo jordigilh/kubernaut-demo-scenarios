@@ -39,7 +39,7 @@ while IFS= read -r -d '' yaml_file; do
         fi
     fi
 
-    # Skip Ansible-engine workflows unless AWX or AAP is available
+    # Skip Ansible-engine workflows unless AWX is available
     if grep -q 'engine: ansible' "$yaml_file"; then
         if ! kubectl get deployment -A -l 'app.kubernetes.io/name=awx' --no-headers 2>/dev/null | grep -q . && \
            ! kubectl get automationcontroller -A --no-headers 2>/dev/null | grep -q .; then

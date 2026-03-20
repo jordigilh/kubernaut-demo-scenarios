@@ -39,7 +39,7 @@ This creates a `selfsigned-issuer` ClusterIssuer used by the chart's TLS configu
 |----------|-------------|-------------|
 | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible) | OperatorHub |
 | OpenShift Service Mesh (OSSM) | mesh-routing-failure | OperatorHub |
-| AAP (Ansible Automation Platform) | disk-pressure-emptydir, memory-limits-gitops-ansible | OperatorHub |
+| AWX (community) | disk-pressure-emptydir, memory-limits-gitops-ansible | `awx-helper.sh` |
 
 > **Note:** OCP provides Prometheus, AlertManager, and metrics-server via the built-in cluster monitoring stack. These do not need separate installation.
 
@@ -232,7 +232,7 @@ Every step is idempotent -- you can safely re-run the script if it fails partway
 |------|---------|
 | `--create-cluster` | Delete and recreate the Kind cluster from scratch |
 | `--skip-infra` | Skip optional infrastructure (cert-manager, Istio, Gitea, ArgoCD) |
-| `--with-awx` | Install AWX/AAP (required for `disk-pressure-emptydir`; OCP uses AAP, Kind uses AWX) |
+| `--with-awx` | Install AWX (required for Ansible-engine scenarios: `disk-pressure-emptydir`, `memory-limits-gitops-ansible`) |
 | `--kind-config PATH` | Custom Kind cluster config (default: `scenarios/kind-config-multinode.yaml`) |
 | `--chart-version VER` | Pin Helm chart version (e.g. `1.1.0-rc1`); required for pre-release tags |
 
@@ -333,8 +333,8 @@ scripts/
   monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
   gitops-helper.sh                 # Gitea→ArgoCD webhook setup (shared by GitOps scenarios)
   kind-helper.sh                   # Kind cluster lifecycle
-  aap-helper.sh                   # AAP deployment (OCP)
-  awx-helper.sh                   # AWX deployment (Kind)
+  aap-helper.sh                   # AAP deployment (deprecated; use awx-helper.sh)
+  awx-helper.sh                   # AWX deployment (Kind + OCP)
   seed-workflows.sh                # Apply RemediationWorkflow CRDs (kubectl apply)
   seed-action-types.sh             # Apply ActionType CRDs
 scenarios/

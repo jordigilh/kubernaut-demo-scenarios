@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
+# DEPRECATED: Use awx-helper.sh instead. AWX works on both Kind and OCP
+# without requiring a Red Hat subscription manifest.
+#
+# This script is kept for users who already have AAP licenses and prefer
+# the supported Red Hat operator. For demo/testing, awx-helper.sh is
+# recommended (#102).
+#
 # Deploy Ansible Automation Platform (AAP) Controller on OCP via the official
 # Red Hat operator, then configure it for Kubernaut Ansible-engine workflows.
 #
-# Mirrors awx-helper.sh but uses OLM + AutomationController CR instead of
-# the community AWX operator.
-#
 # Prerequisites:
 #   - OCP cluster with OperatorHub access (Red Hat Operators catalog)
+#   - Red Hat subscription manifest (upload via AAP UI after setup)
 #   - Kubernaut platform deployed in kubernaut-system
 #   - Gitea deployed (for GitOps scenarios)
 #
@@ -16,6 +21,9 @@
 #   ./scripts/aap-helper.sh --configure-only     # Only configure AAP
 #
 # Issue #324: DiskPressure emptyDir migration scenario (Ansible engine)
+echo "WARNING: aap-helper.sh is deprecated. Use awx-helper.sh instead (no license needed)."
+echo "         Continuing in 5s... (Ctrl+C to cancel)"
+sleep 5
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
