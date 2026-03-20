@@ -96,9 +96,9 @@ If you already have a cluster, install the platform manually.
 >
 > | Operator | Required for |
 > |----------|-------------|
-> | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir) |
+> | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible) |
 > | OpenShift Service Mesh (OSSM) | mesh-routing-failure |
-> | AAP (Ansible Automation Platform) | disk-pressure-emptydir |
+> | AAP (Ansible Automation Platform) | disk-pressure-emptydir, memory-limits-gitops-ansible |
 
 **Step B1: Create the namespace and apply LLM credentials first:**
 
@@ -247,6 +247,7 @@ Prometheus alert fires (KubePodCrashLooping)
   -> SignalProcessing classifies severity, environment, priority
   -> AI Analysis investigates the root cause via LLM
   -> LLM selects the best remediation workflow from the catalog
+  -> Remediation Orchestrator manages approval and creates WorkflowExecution
   -> WorkflowExecution runs the fix (rollback, patch, restart, etc.)
   -> EffectivenessMonitor verifies the fix worked (or didn't)
   -> Notification delivers the final result including effectiveness assessment

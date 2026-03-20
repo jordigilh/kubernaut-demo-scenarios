@@ -81,7 +81,7 @@ kubectl get pods -n demo-crashloop -w
 # Alert fires after >3 restarts in 10 min (~2-3 min)
 # Check: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
 #        then open http://localhost:9090/alerts
-kubectl get rr,sp,aa,we,ea -n demo-crashloop -w
+kubectl get rr,sp,aa,we,ea -n kubernaut-system -w
 ```
 
 ### 6. Verify remediation

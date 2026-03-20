@@ -37,15 +37,15 @@ This creates a `selfsigned-issuer` ClusterIssuer used by the chart's TLS configu
 
 | Operator | Required for | Install from |
 |----------|-------------|-------------|
-| OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir) | OperatorHub |
+| OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible) | OperatorHub |
 | OpenShift Service Mesh (OSSM) | mesh-routing-failure | OperatorHub |
-| AAP (Ansible Automation Platform) | disk-pressure-emptydir | OperatorHub |
+| AAP (Ansible Automation Platform) | disk-pressure-emptydir, memory-limits-gitops-ansible | OperatorHub |
 
 > **Note:** OCP provides Prometheus, AlertManager, and metrics-server via the built-in cluster monitoring stack. These do not need separate installation.
 
 **macOS (Homebrew):**
 ```bash
-brew install kind kubectl helm
+brew install kind kubectl helm podman
 ```
 
 **Linux:**

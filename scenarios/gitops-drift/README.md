@@ -126,7 +126,7 @@ git add . && git commit -m "chore: update nginx config (broken value)" && git pu
 kubectl get pods -n demo-gitops -w
 
 # Watch Kubernaut CRDs
-kubectl get rr,sp,aa,we,ea -n demo-gitops -w
+kubectl get rr,sp,aa,we,ea -n kubernaut-system -w
 ```
 
 ### 6. Verify Remediation
@@ -147,7 +147,7 @@ kubectl get pods -n demo-gitops
 
 ## Workflow Details
 
-- **Workflow ID**: `git-revert-v1`
+- **Workflow ID**: `git-revert-v2`
 - **Action Type**: `GitRevertCommit`
 - **Bundle**: `deploy/remediation-workflows/gitops-drift/Dockerfile.exec` (ubi9-minimal + git + kubectl)
 - **Script**: `deploy/remediation-workflows/gitops-drift/remediate.sh` (Validate -> Action -> Verify pattern)
