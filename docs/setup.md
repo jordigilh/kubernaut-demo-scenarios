@@ -15,9 +15,37 @@ This guide covers the full setup process for running Kubernaut demo scenarios. I
 
 **Memory:** ~9GB available for the Kind cluster.
 
+### OCP prerequisites
+
+When deploying on OpenShift (Option B), ensure the following before installing the Helm chart:
+
+**Storage:** A default StorageClass must exist (e.g. ODF, LVM Storage, or any CSI provisioner). The chart creates PVCs for postgresql (10Gi) and valkey (512Mi). Verify with:
+
+```bash
+kubectl get storageclass
+```
+
+**cert-manager:** Install the `openshift-cert-manager-operator` from OperatorHub. The operator does **not** create any ClusterIssuers by default, so create the one referenced by the chart:
+
+```bash
+kubectl apply -f helm/ocp-cluster-issuer.yaml
+```
+
+This creates a `selfsigned-issuer` ClusterIssuer used by the chart's TLS configuration.
+
+**Scenario-specific operators** (install from OperatorHub as needed):
+
+| Operator | Required for | Install from |
+|----------|-------------|-------------|
+| OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible) | OperatorHub |
+| OpenShift Service Mesh (OSSM) | mesh-routing-failure | OperatorHub |
+| AWX (community) | disk-pressure-emptydir, memory-limits-gitops-ansible | `awx-helper.sh` |
+
+> **Note:** OCP provides Prometheus, AlertManager, and metrics-server via the built-in cluster monitoring stack. These do not need separate installation.
+
 **macOS (Homebrew):**
 ```bash
-brew install kind kubectl helm
+brew install kind kubectl helm podman
 ```
 
 **Linux:**
@@ -68,10 +96,12 @@ Edit `~/.kubernaut/sdk-config.yaml`:
 ```yaml
 llm:
   provider: "vertexai"
-  model: "claude-sonnet-4-20250514"
+  model: "claude-sonnet-4"
   gcp_project_id: "your-gcp-project-id"
   gcp_region: "us-east5"
 ```
+
+> **Note:** Vertex AI requires the undated model name (`claude-sonnet-4`). The dated version (`claude-sonnet-4-20250514`) is only valid for direct Anthropic API calls.
 
 **Step 2: Authenticate with GCP**
 ```bash
@@ -202,7 +232,7 @@ Every step is idempotent -- you can safely re-run the script if it fails partway
 |------|---------|
 | `--create-cluster` | Delete and recreate the Kind cluster from scratch |
 | `--skip-infra` | Skip optional infrastructure (cert-manager, Istio, Gitea, ArgoCD) |
-| `--with-awx` | Install AWX/AAP (required for `disk-pressure-emptydir`; OCP uses AAP, Kind uses AWX) |
+| `--with-awx` | Install AWX (required for Ansible-engine scenarios: `disk-pressure-emptydir`, `memory-limits-gitops-ansible`) |
 | `--kind-config PATH` | Custom Kind cluster config (default: `scenarios/kind-config-multinode.yaml`) |
 | `--chart-version VER` | Pin Helm chart version (e.g. `1.1.0-rc1`); required for pre-release tags |
 
@@ -235,6 +265,43 @@ Browse all 24 available scenarios in the [Scenario Catalog](scenarios.md).
 
 > **Infrastructure dependencies:** Some scenarios require components like cert-manager, Istio, or AWX that are only installed when `setup-demo-cluster.sh` runs without `--skip-infra`. If a required component is missing, `run.sh` will exit with a clear error message. See the [dependency table](scenarios.md#dependencies) for details.
 
+## AlertManager Configuration (Option B only)
+
+Option A (`setup-demo-cluster.sh`) automatically configures AlertManager to route demo scenario alerts to the Kubernaut Gateway. Option B users must configure this manually -- without it, Prometheus alerts fire but never reach the pipeline.
+
+### Kind (kube-prometheus-stack)
+
+Install kube-prometheus-stack with the provided values file, which pre-configures the Gateway webhook receiver and `demo-*` namespace routing:
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+    -n monitoring --create-namespace \
+    --values helm/kube-prometheus-stack-values.yaml \
+    --wait --timeout 5m
+```
+
+If you already have kube-prometheus-stack installed, add the following to your AlertManager config:
+- A `gateway-webhook` receiver with `url: http://gateway-service.kubernaut-system.svc.cluster.local:8080/api/v1/signals/prometheus`
+- A route matching `namespace: "demo-.*"` to that receiver
+- A route matching `alertname: KubeNodeNotReady` for cluster-scoped alerts
+
+See `helm/kube-prometheus-stack-values.yaml` for the full config.
+
+### OCP (openshift-monitoring)
+
+Patch the cluster monitoring AlertManager with the provided config:
+
+```bash
+kubectl -n openshift-monitoring create secret generic alertmanager-main \
+    --from-file=alertmanager.yaml=helm/ocp-alertmanager-config.yaml \
+    --dry-run=client -o yaml | kubectl apply -f -
+```
+
+This adds a webhook route for `demo-*` namespace alerts and `KubeNodeNotReady` to the Kubernaut Gateway, while preserving OCP's default alert routing.
+
+> **Note:** The `alertmanager-main` Secret is managed by the cluster monitoring operator. If you later reconfigure cluster monitoring, you may need to re-apply this patch.
+
 ## Optional: Slack Notifications
 
 To receive remediation notifications in Slack:
@@ -264,9 +331,10 @@ scripts/
   setup-demo-cluster.sh            # Bootstrap orchestrator (Kind + monitoring + platform + catalog)
   platform-helper.sh               # Platform detection (Kind vs OCP), kustomize overlay selection
   monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
+  gitops-helper.sh                 # Gitea→ArgoCD webhook setup (shared by GitOps scenarios)
   kind-helper.sh                   # Kind cluster lifecycle
-  aap-helper.sh                   # AAP deployment (OCP)
-  awx-helper.sh                   # AWX deployment (Kind)
+  aap-helper.sh                   # AAP deployment (deprecated; use awx-helper.sh)
+  awx-helper.sh                   # AWX deployment (Kind + OCP)
   seed-workflows.sh                # Apply RemediationWorkflow CRDs (kubectl apply)
   seed-action-types.sh             # Apply ActionType CRDs
 scenarios/

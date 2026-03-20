@@ -39,11 +39,14 @@ while IFS= read -r -d '' yaml_file; do
         fi
     fi
 
-    # Skip Ansible-engine workflows (require AWX infrastructure)
+    # Skip Ansible-engine workflows unless AWX is available
     if grep -q 'engine: ansible' "$yaml_file"; then
-        echo "  SKIP ${basename} (engine: ansible — requires AWX)"
-        skipped=$((skipped + 1))
-        continue
+        if ! kubectl get deployment -A -l 'app.kubernetes.io/name=awx' --no-headers 2>/dev/null | grep -q . && \
+           ! kubectl get automationcontroller -A --no-headers 2>/dev/null | grep -q .; then
+            echo "  SKIP ${basename} (engine: ansible — no AWX/AAP found)"
+            skipped=$((skipped + 1))
+            continue
+        fi
     fi
 
     # Check secret dependencies declared in the workflow
