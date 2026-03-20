@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate gitops-drift scenario (#158) pipeline outcome.
+# Validate gitops-drift scenario (#125) pipeline outcome.
 # Called by run-scenario.sh or standalone:
 #   ./scenarios/gitops-drift/validate.sh [--auto-approve] [--no-color]
 set -euo pipefail
@@ -66,7 +66,9 @@ crashing_pods=$(kubectl get pods -n "${NAMESPACE}" --no-headers 2>/dev/null \
 assert_eq "${crashing_pods:-0}" "0" "No pods in CrashLoopBackOff"
 
 # Verify ArgoCD application is Synced (git revert restored correct config)
-argocd_sync=$(kubectl get application web-frontend -n argocd \
+_argocd_ns="argocd"
+[ "${PLATFORM:-kind}" = "ocp" ] && _argocd_ns="openshift-gitops"
+argocd_sync=$(kubectl get application web-frontend -n "$_argocd_ns" \
   -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "")
 assert_eq "$argocd_sync" "Synced" "ArgoCD application Synced"
 

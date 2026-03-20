@@ -49,11 +49,11 @@ echo "============================================="
 echo ""
 
 # Step 1: Apply all manifests (namespace, ArgoCD Application, deployment, PrometheusRule)
-echo "==> Step 2: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
+echo "==> Step 1: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
-echo "==> Step 3: Waiting for ArgoCD to sync and pods to be ready..."
+echo "==> Step 2: Waiting for ArgoCD to sync and pods to be ready..."
 echo "  Waiting for namespace to be created by ArgoCD..."
 for i in $(seq 1 60); do
   if kubectl get namespace "${NAMESPACE}" &>/dev/null; then
@@ -65,20 +65,20 @@ kubectl wait --for=condition=Available deployment/web-frontend \
   -n "${NAMESPACE}" --timeout=180s
 echo "  web-frontend is healthy."
 
-# Step 4: Configure webhook for instant sync on push
-echo "==> Step 4: Ensuring Gitea webhook notifies ArgoCD on push..."
+# Step 3: Configure webhook for instant sync on push
+echo "==> Step 3: Ensuring Gitea webhook notifies ArgoCD on push..."
 setup_gitea_argocd_webhook "${GITEA_ADMIN_USER}" "${REPO_NAME}"
 
-# Step 5: Establish baseline
+# Step 4: Establish baseline
 echo ""
-echo "==> Step 5: Initial state (healthy):"
+echo "==> Step 4: Initial state (healthy):"
 kubectl get pods -n "${NAMESPACE}" -o wide
 echo ""
 }
 
 run_inject() {
-# Step 6: Inject failure -- push bad ConfigMap to Gitea
-echo "==> Step 6: Injecting failure (bad ConfigMap via Git commit)..."
+# Step 5: Inject failure -- push bad ConfigMap to Gitea
+echo "==> Step 5: Injecting failure (bad ConfigMap via Git commit)..."
 WORK_DIR=$(mktemp -d)
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
 PF_PID=$!
@@ -201,8 +201,8 @@ echo ""
 }
 
 run_monitor() {
-# Step 8: Wait for ArgoCD to sync and pods to crash
-echo "==> Step 8: Waiting for ArgoCD to sync and pods to enter CrashLoopBackOff..."
+# Step 6: Wait for ArgoCD to sync and pods to crash
+echo "==> Step 6: Waiting for ArgoCD to sync and pods to enter CrashLoopBackOff..."
 for i in $(seq 1 30); do
     ANNOTATION=$(kubectl get deployment web-frontend -n "${NAMESPACE}" \
       -o jsonpath='{.spec.template.metadata.annotations.kubernaut\.ai/config-version}' 2>/dev/null || echo "")
@@ -216,7 +216,7 @@ sleep 10
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
-# Step 8: Validate pipeline
+# Step 7: Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."

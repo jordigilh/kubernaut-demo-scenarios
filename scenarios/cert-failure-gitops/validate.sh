@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate cert-failure-gitops scenario (#160) pipeline outcome.
+# Validate cert-failure-gitops scenario (#134) pipeline outcome.
 # Called by run-scenario.sh or standalone:
 #   ./scenarios/cert-failure-gitops/validate.sh [--auto-approve] [--no-color]
 set -euo pipefail
@@ -66,11 +66,13 @@ cert_ready=$(kubectl get certificate demo-app-cert -n "${NAMESPACE}" \
 assert_eq "$cert_ready" "True" "Certificate Ready"
 
 # Verify ArgoCD application is Synced (git revert restored correct config)
-argocd_sync=$(kubectl get application demo-cert-gitops -n argocd \
+_argocd_ns="argocd"
+[ "${PLATFORM:-kind}" = "ocp" ] && _argocd_ns="openshift-gitops"
+argocd_sync=$(kubectl get application demo-cert-gitops -n "$_argocd_ns" \
   -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "")
 assert_eq "$argocd_sync" "Synced" "ArgoCD application Synced"
 
-argocd_health=$(kubectl get application demo-cert-gitops -n argocd \
+argocd_health=$(kubectl get application demo-cert-gitops -n "$_argocd_ns" \
   -o jsonpath='{.status.health.status}' 2>/dev/null || echo "")
 assert_eq "$argocd_health" "Healthy" "ArgoCD application Healthy"
 

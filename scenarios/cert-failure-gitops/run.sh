@@ -60,8 +60,8 @@ kubectl create secret tls demo-ca-key-pair \
   -n cert-manager --dry-run=client -o yaml | kubectl apply -f -
 rm -rf "${TMPDIR_CA}"
 
-# Step 3: Create Gitea repo with cert-manager manifests
-echo "==> Step 4: Pushing cert-manager manifests to Gitea..."
+# Step 2: Create Gitea repo with cert-manager manifests
+echo "==> Step 2: Pushing cert-manager manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
 PF_PID=$!
@@ -197,8 +197,8 @@ kill "${PF_PID}" 2>/dev/null || true
 cd /
 rm -rf "${WORK_DIR}"
 
-# Step 5: Deploy ServiceMonitor, PrometheusRule, and ArgoCD Application
-echo "==> Step 5: Applying manifests (ServiceMonitor, PrometheusRule, ArgoCD Application)..."
+# Step 3: Deploy ServiceMonitor, PrometheusRule, and ArgoCD Application
+echo "==> Step 3: Applying manifests (ServiceMonitor, PrometheusRule, ArgoCD Application)..."
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
 if [ "$PLATFORM" = "ocp" ]; then
     kubectl label namespace "${NAMESPACE}" openshift.io/cluster-monitoring=true --overwrite
@@ -206,7 +206,7 @@ fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
-echo "==> Step 5b: Ensuring Gitea webhook notifies ArgoCD on push..."
+echo "==> Step 3b: Ensuring Gitea webhook notifies ArgoCD on push..."
 setup_gitea_argocd_webhook "${GITEA_ADMIN_USER}" "${REPO_NAME}"
 
 echo "  Waiting for ArgoCD sync..."
@@ -217,7 +217,7 @@ for i in $(seq 1 60); do
     sleep 5
 done
 
-echo "==> Step 6: Waiting for Certificate to become Ready..."
+echo "==> Step 4: Waiting for Certificate to become Ready..."
 for i in $(seq 1 30); do
   STATUS=$(kubectl get certificate demo-app-cert -n "${NAMESPACE}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
   if [ "$STATUS" = "True" ]; then
@@ -230,16 +230,16 @@ done
 kubectl get certificate -n "${NAMESPACE}"
 echo ""
 
-# Step 7: Baseline
-echo "==> Step 7: Establishing healthy baseline (20s)..."
+# Step 5: Baseline
+echo "==> Step 5: Establishing healthy baseline (20s)..."
 sleep 20
 echo "  Baseline established."
 echo ""
 }
 
 run_inject() {
-# Step 8: Inject failure via git push
-echo "==> Step 8: Injecting failure (pushing broken ClusterIssuer via git)..."
+# Step 6: Inject failure via git push
+echo "==> Step 6: Injecting failure (pushing broken ClusterIssuer via git)..."
 WORK_DIR=$(mktemp -d)
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
 PF_PID=$!
@@ -311,7 +311,7 @@ echo ""
 }
 
 run_monitor() {
-echo "==> Step 9: Waiting for pipeline to process alert..."
+echo "==> Step 7: Waiting for pipeline to process alert..."
 
 # Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
