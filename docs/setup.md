@@ -331,6 +331,7 @@ scripts/
   setup-demo-cluster.sh            # Bootstrap orchestrator (Kind + monitoring + platform + catalog)
   platform-helper.sh               # Platform detection (Kind vs OCP), kustomize overlay selection
   monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
+  gitops-helper.sh                 # Gitea→ArgoCD webhook setup (shared by GitOps scenarios)
   kind-helper.sh                   # Kind cluster lifecycle
   aap-helper.sh                   # AAP deployment (OCP)
   awx-helper.sh                   # AWX deployment (Kind)

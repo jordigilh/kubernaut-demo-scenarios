@@ -25,8 +25,8 @@ Some scenarios require additional components beyond the base platform. All depen
 | [**Istio**](https://istio.io/latest/docs/setup/getting-started/) | mesh-routing-failure | Service mesh control plane |
 | [**blackbox-exporter**](https://github.com/prometheus/blackbox_exporter) | slo-burn | HTTP probe metrics (probe_success) |
 | [**Helm CLI**](https://helm.sh/docs/intro/install/) | crashloop-helm | Helm-managed release rollback |
-| [**ArgoCD**](https://argo-cd.readthedocs.io/en/stable/getting_started/) + [**Gitea**](https://gitea.io/) | gitops-drift, cert-failure-gitops, disk-pressure-emptydir | GitOps delivery + Git repository |
-| [**AAP/AWX**](https://ansible.readthedocs.io/projects/awx-operator/en/latest/) | disk-pressure-emptydir | Ansible automation platform (AAP on OCP, AWX on Kind) |
+| [**ArgoCD**](https://argo-cd.readthedocs.io/en/stable/getting_started/) + [**Gitea**](https://gitea.io/) | gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible | GitOps delivery + Git repository |
+| [**AAP/AWX**](https://ansible.readthedocs.io/projects/awx-operator/en/latest/) | disk-pressure-emptydir, memory-limits-gitops-ansible | Ansible automation platform (AAP on OCP, AWX on Kind) |
 
 Each scenario's `README.md` lists its specific prerequisites.
 
