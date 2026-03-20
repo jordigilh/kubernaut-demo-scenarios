@@ -20,6 +20,10 @@ for NS in demo-team-alpha demo-team-beta; do
   done
 done
 
+kubectl patch configmap signalprocessing-policy -n kubernaut-system --type=json \
+  -p '[{"op":"remove","path":"/data/customlabels.rego"}]' 2>/dev/null || true
+kubectl rollout restart deployment/signalprocessing-controller -n kubernaut-system 2>/dev/null || true
+
 restart_alertmanager
 
 echo "==> Cleanup complete."

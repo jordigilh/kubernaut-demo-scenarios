@@ -36,12 +36,13 @@ echo " Same Issue, Different Risk -> Different Workflows"
 echo "============================================="
 echo ""
 
-# Step 0: Patch the unified SP Rego policy with custom labels for risk-tolerance
-echo "==> Step 0: Patching SP unified policy with risk-tolerance labels..."
-kubectl create configmap signalprocessing-policy \
-  --from-file=policy.rego="${SCRIPT_DIR}/rego/risk-tolerance.rego" \
-  -n kubernaut-system \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Step 0: Add the risk-tolerance custom-labels Rego to the SP policy ConfigMap.
+# The ConfigMap already has policy.rego (unified classifier). We add
+# customlabels.rego as a SEPARATE key so OPA loads both packages without
+# overwriting the existing environment/severity/priority classifiers (#78).
+echo "==> Step 0: Adding risk-tolerance custom-labels policy to SP ConfigMap..."
+kubectl patch configmap signalprocessing-policy -n kubernaut-system --type=merge \
+  -p "{\"data\":{\"customlabels.rego\":$(cat "${SCRIPT_DIR}/rego/risk-tolerance.rego" | jq -Rs .)}}"
 
 echo "  Restarting SignalProcessing controller to pick up policy change..."
 kubectl rollout restart deployment/signalprocessing-controller -n kubernaut-system

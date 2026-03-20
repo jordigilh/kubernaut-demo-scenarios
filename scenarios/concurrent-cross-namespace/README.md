@@ -97,14 +97,12 @@ Options:
 The scenario requires a custom SignalProcessing Rego policy that extracts the
 `kubernaut.ai/risk-tolerance` namespace label into `customLabels`.
 
-> **Important**: This must be merged into the existing unified SP policy, not replace it.
-> See [#78](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/78).
+This adds the custom-labels Rego as a separate key to the existing SP ConfigMap
+(preserving the unified environment/severity/priority classifiers).
 
 ```bash
-kubectl create configmap signalprocessing-policy \
-  --from-file=policy.rego=scenarios/concurrent-cross-namespace/rego/risk-tolerance.rego \
-  -n kubernaut-system \
-  --dry-run=client -o yaml | kubectl apply -f -
+kubectl patch configmap signalprocessing-policy -n kubernaut-system --type=merge \
+  -p "{\"data\":{\"customlabels.rego\":$(cat scenarios/concurrent-cross-namespace/rego/risk-tolerance.rego | jq -Rs .)}}"
 kubectl rollout restart deployment/signalprocessing-controller -n kubernaut-system
 kubectl rollout status deployment/signalprocessing-controller -n kubernaut-system --timeout=60s
 ```
@@ -328,4 +326,4 @@ Then Kubernaut processes both alerts in parallel
 
 ## Known Issues
 
-- [#78](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/78): `run.sh` overwrites the entire SP policy ConfigMap instead of merging the risk-tolerance rule
+None.
