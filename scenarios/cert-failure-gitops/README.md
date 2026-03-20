@@ -134,6 +134,19 @@ kubectl get certificate -n demo-cert-gitops
 - **Bundle**: `deploy/remediation-workflows/cert-failure-gitops/Dockerfile.exec` (ubi9-minimal + git + kubectl)
 - **Script**: `deploy/remediation-workflows/cert-failure-gitops/remediate.sh` (Validate -> Action pattern; RO/EM handle verification)
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Moves the ArgoCD `Application` to the `openshift-gitops` namespace
+- Removes the `release` label from `PrometheusRule` (OCP user workload monitoring does not filter by Helm release)
+
+The script also auto-configures cert-manager monitoring and Prometheus RBAC for the demo namespace — no manual steps required.
+
+**OCP prerequisites**: OpenShift GitOps and cert-manager operators must be installed from OperatorHub. See [docs/setup.md](../../docs/setup.md).
+
 ## Observed Alternative: FixCertificate (Direct Remediation)
 
 During live validation, the LLM chose `FixCertificate` instead of `GitRevertCommit`.

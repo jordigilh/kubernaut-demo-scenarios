@@ -184,6 +184,21 @@ kubectl logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-serv
 # Expected URL: http://gitea-http.gitea:3000/kubernaut/demo-diskpressure-repo
 ```
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
+- Swaps `postgres:16-alpine` to `registry.redhat.io/rhel9/postgresql-16` with adjusted env vars and data paths
+- Moves the ArgoCD `Application` to the `openshift-gitops` namespace
+- Removes the `release` label from `PrometheusRule`
+
+Gitea access uses the OCP Route automatically when available. No manual steps required.
+
+**OCP prerequisites**: OpenShift GitOps and AAP operators must be installed from OperatorHub. See [docs/setup.md](../../docs/setup.md).
+
 ## Cleanup
 
 ```bash

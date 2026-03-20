@@ -147,6 +147,17 @@ helm history demo-crashloop-helm -n demo-crashloop-helm
 # 3         deployed    Rollback to 1
 ```
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace (via a dedicated namespace resource)
+- Removes the `release` label from `PrometheusRule`
+
+No manual steps required.
+
 ## Cleanup
 
 ```bash

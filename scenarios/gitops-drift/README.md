@@ -145,6 +145,21 @@ kubectl get pods -n demo-gitops
 ./scenarios/gitops-drift/cleanup.sh
 ```
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
+- Swaps `nginx:1.27-alpine` to `nginxinc/nginx-unprivileged:1.27-alpine`
+- Moves the ArgoCD `Application` to the `openshift-gitops` namespace
+- Removes the `release` label from `PrometheusRule`
+
+Gitea access uses the OCP Route automatically when available; falls back to port-forward on Kind. No manual steps required.
+
+**OCP prerequisites**: OpenShift GitOps operator must be installed from OperatorHub. See [docs/setup.md](../../docs/setup.md).
+
 ## Workflow Details
 
 - **Workflow ID**: `git-revert-v2`

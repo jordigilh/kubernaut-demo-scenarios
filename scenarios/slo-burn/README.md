@@ -146,6 +146,19 @@ bash scenarios/slo-burn/cleanup.sh
 | EA completes (healthScore = 1.0) | T+18:31 | 60 s health check |
 | **Total (excl. approval wait)** | **~7 min** | |
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
+- Swaps `nginx:1.27-alpine` to `nginxinc/nginx-unprivileged:1.27-alpine` (port 80 → 8080)
+- Updates the ConfigMap, Service, traffic-gen args, and Blackbox Probe to use port 8080
+- Removes the `release` label from `PrometheusRule` and `Probe`
+
+No manual steps required.
+
 ## Cleanup
 
 ```bash

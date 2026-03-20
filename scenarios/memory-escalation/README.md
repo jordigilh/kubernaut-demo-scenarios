@@ -196,6 +196,18 @@ kubectl get rr -n kubernaut-system -o wide
 In both cases, a `ManualReviewRequired` notification is sent, flagging the issue
 for human investigation of the underlying memory leak.
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
+- Adds restricted `securityContext` to the ml-worker container (non-root, drop all capabilities, RuntimeDefault seccomp)
+- Removes the `release` label from `PrometheusRule`
+
+No manual steps required.
+
 ## Cleanup
 
 ```bash

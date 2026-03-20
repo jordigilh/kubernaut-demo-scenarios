@@ -26,6 +26,18 @@ investigates, identifies the taint as the root cause, and removes it.
 ./scenarios/pending-taint/run.sh
 ```
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
+- Swaps `nginx:1.27-alpine` to `nginxinc/nginx-unprivileged:1.27-alpine` (port 80 → 8080, probes adjusted)
+- Removes the `release` label from `PrometheusRule`
+
+No manual steps required.
+
 ## Cleanup
 
 ```bash

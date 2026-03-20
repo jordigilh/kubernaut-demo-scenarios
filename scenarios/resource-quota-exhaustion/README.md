@@ -101,6 +101,19 @@ kubectl get rr -n kubernaut-system -w
 # Expect: Failed with outcome=ManualReviewRequired
 ```
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
+- Swaps `nginx:1.27-alpine` to `nginxinc/nginx-unprivileged:1.27-alpine` (port 80 → 8080)
+- Adjusts Service targetPort and liveness/readiness probes to match
+- Removes the `release` label from `PrometheusRule`
+
+No manual steps required.
+
 ## Cleanup
 
 ```bash

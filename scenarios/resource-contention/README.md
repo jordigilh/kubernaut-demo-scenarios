@@ -110,6 +110,18 @@ kubectl set resources deployment/contention-app -n demo-resource-contention \
   --limits=memory=256Mi --requests=memory=128Mi
 ```
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
+- Adds restricted `securityContext` to the contention-app container (non-root, drop all capabilities, RuntimeDefault seccomp)
+- Removes the `release` label from `PrometheusRule`
+
+No manual steps required.
+
 ## Cleanup
 
 ```bash

@@ -130,6 +130,19 @@ kubectl get pods -n demo-hpa
 The `validate.sh` script kills the CPU stress processes during the Verifying phase,
 allowing HPA to naturally scale back down and the alert to resolve.
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
+- Swaps `nginx:1.27-alpine` to `nginxinc/nginx-unprivileged:1.27-alpine` (port 80 → 8080)
+- Adjusts Service targetPort and liveness/readiness probes to match
+- Removes the `release` label from `PrometheusRule`
+
+OCP provides built-in metrics via the metrics server — no additional install needed. No manual steps required.
+
 ## Cleanup
 
 ```bash
