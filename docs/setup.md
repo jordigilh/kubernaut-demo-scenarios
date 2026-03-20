@@ -39,7 +39,7 @@ This creates a `selfsigned-issuer` ClusterIssuer used by the chart's TLS configu
 |----------|-------------|-------------|
 | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible) | OperatorHub |
 | OpenShift Service Mesh (OSSM) | mesh-routing-failure | OperatorHub |
-| AWX (community) | disk-pressure-emptydir, memory-limits-gitops-ansible | `awx-helper.sh` |
+| AWX/AAP | disk-pressure-emptydir, memory-limits-gitops-ansible | `awx-helper.sh` (AAP: `aap-helper.sh` + license) |
 
 > **Note:** OCP provides Prometheus, AlertManager, and metrics-server via the built-in cluster monitoring stack. These do not need separate installation.
 
@@ -333,8 +333,8 @@ scripts/
   monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
   gitops-helper.sh                 # Gitea→ArgoCD webhook setup (shared by GitOps scenarios)
   kind-helper.sh                   # Kind cluster lifecycle
-  aap-helper.sh                   # AAP deployment (deprecated; use awx-helper.sh)
-  awx-helper.sh                   # AWX deployment (Kind + OCP)
+  awx-helper.sh                   # AWX deployment (Kind + OCP, recommended)
+  aap-helper.sh                   # AAP deployment (OCP only, requires Red Hat subscription)
   seed-workflows.sh                # Apply RemediationWorkflow CRDs (kubectl apply)
   seed-action-types.sh             # Apply ActionType CRDs
 scenarios/
