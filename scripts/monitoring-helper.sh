@@ -134,6 +134,48 @@ ensure_cert_manager() {
     echo "  cert-manager installed."
 }
 
+# Grant OCP Prometheus RBAC to scrape ServiceMonitor/PodMonitor targets in a
+# user namespace. The cluster-monitoring label lets CMO discover PrometheusRules,
+# but Prometheus still needs get/list/watch on services, endpoints, and pods to
+# actually scrape targets defined by ServiceMonitors or PodMonitors.
+#
+# Usage: ensure_ocp_namespace_monitoring <namespace>
+ensure_ocp_namespace_monitoring() {
+    if [ "${PLATFORM:-kind}" != "ocp" ]; then
+        return 0
+    fi
+    local ns="$1"
+    if kubectl get rolebinding prometheus-k8s -n "$ns" &>/dev/null; then
+        return 0
+    fi
+    echo "  Configuring OCP Prometheus RBAC for namespace ${ns}..."
+    kubectl apply -f - <<RBAC
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-k8s
+  namespace: ${ns}
+rules:
+- apiGroups: [""]
+  resources: ["services","endpoints","pods"]
+  verbs: ["get","list","watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-k8s
+  namespace: ${ns}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s
+subjects:
+- kind: ServiceAccount
+  name: prometheus-k8s
+  namespace: openshift-monitoring
+RBAC
+}
+
 # Enable OCP Prometheus to scrape cert-manager metrics.
 # The openshift-cert-manager-operator does not configure monitoring out of
 # the box: the namespace needs the cluster-monitoring label, a ServiceMonitor,

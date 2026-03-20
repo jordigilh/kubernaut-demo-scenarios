@@ -39,6 +39,7 @@ echo ""
 echo "==> Step 1: Deploying namespace and meshed workload..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
+ensure_ocp_namespace_monitoring "${NAMESPACE}"
 
 echo "  Waiting for deployments to be ready..."
 kubectl wait --for=condition=Available deployment/api-server \

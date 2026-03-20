@@ -202,6 +202,7 @@ if [ "$PLATFORM" = "ocp" ]; then
 fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
+ensure_ocp_namespace_monitoring "${NAMESPACE}"
 
 echo "==> Step 3b: Ensuring Gitea webhook notifies ArgoCD on push..."
 setup_gitea_argocd_webhook "${GITEA_ADMIN_USER}" "${REPO_NAME}"
