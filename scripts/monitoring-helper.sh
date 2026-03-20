@@ -57,7 +57,7 @@ require_infra() {
         awx)
             kubectl get deployment -n kubernaut-system -l app.kubernetes.io/managed-by=awx-operator --no-headers 2>/dev/null | grep -q . && return 0
             kubectl get automationcontroller -A --no-headers 2>/dev/null | grep -q . && return 0
-            echo "ERROR: AWX is not installed. Run: bash scripts/awx-helper.sh"
+            echo "ERROR: AWX/AAP is not installed. Run: bash scripts/awx-helper.sh"
             exit 1 ;;
         *)
             echo "ERROR: Unknown infrastructure component: ${component}"

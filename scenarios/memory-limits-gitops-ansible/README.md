@@ -39,7 +39,7 @@ kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} for 0m
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
-| AWX | Deployed via `scripts/awx-helper.sh` |
+| AWX/AAP | `scripts/awx-helper.sh` (or `aap-helper.sh` with Red Hat subscription) |
 | Gitea + ArgoCD | Deployed via `scenarios/gitops/scripts/setup-gitea.sh` and `scenarios/gitops/scripts/setup-argocd.sh` |
 | Workflow catalog | `increase-memory-limits-gitops-v1` registered in DataStorage |
 
@@ -117,7 +117,7 @@ The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` ku
 
 Gitea access uses the OCP Route automatically when available. No manual steps required.
 
-**OCP prerequisites**: OpenShift GitOps operator must be installed from OperatorHub. AWX is deployed via `scripts/awx-helper.sh`. See [docs/setup.md](../../docs/setup.md).
+**OCP prerequisites**: OpenShift GitOps operator must be installed from OperatorHub. AWX is deployed via `scripts/awx-helper.sh` (or AAP via `aap-helper.sh` with a Red Hat subscription). See [docs/setup.md](../../docs/setup.md).
 
 ## Cleanup
 

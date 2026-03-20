@@ -26,7 +26,7 @@ Some scenarios require additional components beyond the base platform. All depen
 | [**blackbox-exporter**](https://github.com/prometheus/blackbox_exporter) | slo-burn | HTTP probe metrics (probe_success) |
 | [**Helm CLI**](https://helm.sh/docs/intro/install/) | crashloop-helm | Helm-managed release rollback |
 | [**ArgoCD**](https://argo-cd.readthedocs.io/en/stable/getting_started/) + [**Gitea**](https://gitea.io/) | gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible | GitOps delivery + Git repository |
-| [**AWX**](https://ansible.readthedocs.io/projects/awx-operator/en/latest/) | disk-pressure-emptydir, memory-limits-gitops-ansible | Ansible automation (community, no license needed) |
+| [**AWX/AAP**](https://ansible.readthedocs.io/projects/awx-operator/en/latest/) | disk-pressure-emptydir, memory-limits-gitops-ansible | Ansible automation (AWX recommended; AAP supported with license) |
 
 Each scenario's `README.md` lists its specific prerequisites.
 
