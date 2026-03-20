@@ -147,6 +147,43 @@ The script also auto-configures cert-manager monitoring and Prometheus RBAC for 
 
 **OCP prerequisites**: OpenShift GitOps and cert-manager operators must be installed from OperatorHub. See [docs/setup.md](../../docs/setup.md).
 
+## Pipeline Timeline (OCP observed, 1.1.0-rc1 on OCP 4.21)
+
+Wall-clock times from a live run on a 4-node OCP 4.21 cluster using Claude Sonnet 4 as the LLM backend.
+The LLM selected the **direct FixCertificate** path (see [Observed Alternative](#observed-alternative-fixcertificate-direct-remediation) below).
+
+| Phase | Duration | Notes |
+|-------|----------|-------|
+| CA generation + Gitea push | ~10s | Step 1-2: self-signed CA, manifests pushed to Gitea |
+| ArgoCD sync + cert Ready | ~2 min | Certificate `demo-app-cert` reaches `Ready=True` |
+| Baseline + failure injection | ~30s | Bad ClusterIssuer commit pushed, CA secret deleted, cert-manager restarted |
+| Alert fires | ~2 min | `CertManagerCertNotReady` fires after `for: 2m` threshold |
+| Gateway → SP → AA | ~90s | HAPI detects `gitOpsManaged=true` and cert-manager context |
+| AA completes | — | **FixCertificate** selected, confidence **0.95**, approval **required** (production env) |
+| Human approval | manual | RAR created; `--auto-approve` patched status to `Approved` |
+| WE Job | ~10s | Creates missing CA Secret directly in cluster |
+| Certificate restored | immediate | cert-manager signs new certificate, `Ready=True` |
+| EM assessment | ~10 min | `WaitingForPropagation` → `Stabilizing` → `Assessing` → `Completed` (partial) |
+| **Total** | **~17 min** | End-to-end including human approval wait |
+
+### LLM Analysis (OCP observed)
+
+```
+Root Cause:    Missing CA Secret for cert-manager ClusterIssuer — The
+               demo-selfsigned-ca-gitops ClusterIssuer references a CA secret
+               'nonexistent-ca-secret' that does not exist, preventing
+               certificate issuance
+Workflow:      FixCertificate (fix-certificate-v1)
+Confidence:    0.95
+Rationale:     The workflow is specifically designed for this exact scenario —
+               recreating missing CA secrets for cert-manager ClusterIssuers.
+               Despite the GitOps environment, this is an infrastructure fix
+               that needs immediate attention to restore certificate issuance.
+Approval:      required (Production environment — requires manual approval)
+```
+
+The EM completed with outcome `partial` — expected because the direct fix restored the certificate but the broken Git commit remains in Gitea (ArgoCD still references `nonexistent-ca-secret` in the ClusterIssuer spec).
+
 ## Observed Alternative: FixCertificate (Direct Remediation)
 
 During live validation, the LLM chose `FixCertificate` instead of `GitRevertCommit`.

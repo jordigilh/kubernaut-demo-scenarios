@@ -199,6 +199,41 @@ Gitea access uses the OCP Route automatically when available. No manual steps re
 
 **OCP prerequisites**: OpenShift GitOps and AAP operators must be installed from OperatorHub. See [docs/setup.md](../../docs/setup.md).
 
+## Pipeline Timeline (OCP observed, 1.1.0-rc1 on OCP 4.21)
+
+Wall-clock times from a live run on a 4-node OCP 4.21 cluster (56 GB worker disks) using Claude Sonnet 4 as the LLM backend.
+
+> **Known issue**: On OCP 4.21, the LLM chose `NoActionRequired` because HAPI's investigation inspected the noise workloads (redis, nginx) which had stabilized, but missed the actual PostgreSQL emptyDir volume growth (18+ GB at the time of investigation). See [#101](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/101).
+
+| Phase | Duration | Notes |
+|-------|----------|-------|
+| Gitea push + ArgoCD sync | ~30s | Manifests pushed, ArgoCD synced on first attempt |
+| Pod readiness | ~3 min | nginx-cache has a 3 min init container for cache warm-up |
+| Data growth start | immediate | `simulate_data_growth(4290, 8192, 50)` — ~42 MB/s |
+| Alert fires | ~4 min | `PredictedDiskPressure` fires via `predict_linear` |
+| Gateway → SP → AA | ~90s | SP normalizes to `DiskPressure` with `signalMode=proactive` |
+| AA completes | — | **NoActionRequired** — LLM assessed false positive (see issue) |
+| **Total** | **~10 min** | Pipeline completed but remediation was not triggered |
+
+### LLM Analysis (OCP observed — incorrect)
+
+```
+Assessment:    False positive DiskPressure prediction. Demo workloads designed
+               to simulate disk pressure have stabilized at ~100-200MB usage
+               on a node with 52GB available space.
+Severity:      low
+Workflow:      None
+Actionable:    false
+```
+
+The LLM correctly inspected the noise pods (redis at ~100 MB stable, nginx burst then stable) but did not check the PostgreSQL emptyDir volume (`du -sh /var/lib/pgsql/data` showed 18 GB and growing). This is a HAPI tool gap — the investigation prompt should instruct the LLM to check emptyDir volume utilization for all pods, not just node-level capacity.
+
+### Additional OCP Issues Found
+
+- PrometheusRule uses `mountpoint="/"` and `instance=~"stress-worker.*"` — neither exists on RHCOS (should be `/var` and the actual node FQDN). See [#100](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/100).
+- ArgoCD managed-by label missing on namespace. See [#96](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/96).
+- `seed-workflows.sh` skips Ansible workflows even when AAP is installed. See [#99](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/99).
+
 ## Cleanup
 
 ```bash

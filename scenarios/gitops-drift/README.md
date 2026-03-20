@@ -9,6 +9,21 @@ and selects `git revert` over `kubectl rollback` because the environment is GitO
 **Key differentiator**: Signal resource (crashing Pod) differs from RCA resource (broken ConfigMap).
 The LLM must choose the GitOps-aware remediation path.
 
+## Signal Flow
+
+```
+Bad Git commit → ArgoCD syncs broken ConfigMap → nginx CrashLoopBackOff
+  → kube_pod_container_status_restarts_total increase > 2 for 30s
+  → KubePodCrashLooping alert
+  → Gateway → SP (enriches: environment=staging, criticality=high)
+  → AA (HAPI LabelDetector detects gitOpsManaged=true from ArgoCD annotations)
+  → LLM traces crash to ConfigMap (signal ≠ RCA resource)
+  → LLM selects GitRevertCommit (not RollbackDeployment)
+  → RO → WE Job (git clone → git revert HEAD → git push)
+  → ArgoCD syncs reverted ConfigMap
+  → EM verifies pods Running and Ready
+```
+
 ## Prerequisites
 
 | Component | Kind | OCP |
@@ -159,6 +174,42 @@ The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` ku
 Gitea access uses the OCP Route automatically when available; falls back to port-forward on Kind. No manual steps required.
 
 **OCP prerequisites**: OpenShift GitOps operator must be installed from OperatorHub. See [docs/setup.md](../../docs/setup.md).
+
+## Pipeline Timeline (OCP observed, 1.1.0-rc1 on OCP 4.21)
+
+Wall-clock times from a live run on a 4-node OCP 4.21 cluster using Claude Sonnet 4 as the LLM backend.
+
+| Phase | Duration | Notes |
+|-------|----------|-------|
+| Alert fires | ~4 min | `KubePodCrashLooping` after CrashLoop sustained for 30s (`for:` threshold) |
+| Gateway → SP → AA | ~90s | HAPI LabelDetector detects `gitOpsManaged=true`; LLM investigation |
+| AA completes | — | **GitRevertCommit** selected, confidence **0.95**, approval not required (staging) |
+| WE Job | ~20s | `git clone` → `git revert HEAD` → `git push` to Gitea |
+| ArgoCD sync | ~15s | Webhook triggers instant sync of reverted ConfigMap |
+| EM assessment | ~8 min | `WaitingForPropagation` → `Stabilizing` → `Completed` (spec_drift) |
+| **Total** | **~14 min** | End-to-end from fault injection to `Remediated` |
+
+### LLM Analysis (OCP observed)
+
+```
+Root Cause:    GitOps-managed environment requires git-based remediation.
+               The crash is caused by a recent commit that introduced invalid
+               nginx configuration. Reverting the commit will restore the
+               previous healthy configuration and allow ArgoCD to reconcile
+               the working state.
+Workflow:      GitRevertCommit (git-revert-v2)
+Confidence:    0.95
+Approval:      not required (staging environment)
+```
+
+### Gitea Commit Log After Remediation
+
+```
+Revert "chore: update nginx config (broken value)"
+  This reverts commit a89769845ca015e73b041ddff33c5c02ad98e9bf.
+chore: update nginx config (broken value)
+Initial deployment: nginx web-frontend with healthy config
+```
 
 ## Workflow Details
 
