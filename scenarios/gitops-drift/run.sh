@@ -52,6 +52,7 @@ echo ""
 echo "==> Step 1: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
+ensure_ocp_namespace_monitoring "${NAMESPACE}"
 
 echo "==> Step 2: Waiting for ArgoCD to sync and pods to be ready..."
 echo "  Waiting for namespace to be created by ArgoCD..."
@@ -128,7 +129,13 @@ data:
 EOF
 
 # Also update deployment to force a pod rollout with the new config
-cat > manifests/deployment.yaml <<'DEPLOY_EOF'
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    _NGINX_IMAGE="nginxinc/nginx-unprivileged:1.27-alpine"
+else
+    _NGINX_IMAGE="nginx:1.27-alpine"
+fi
+
+cat > manifests/deployment.yaml <<DEPLOY_EOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -152,7 +159,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:1.27-alpine
+        image: ${_NGINX_IMAGE}
         ports:
         - containerPort: 8080
         volumeMounts:

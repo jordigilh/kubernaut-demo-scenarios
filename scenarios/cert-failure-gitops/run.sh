@@ -90,6 +90,7 @@ metadata:
     kubernaut.ai/criticality: high
     kubernaut.ai/sla-tier: tier-1
 $([ "$PLATFORM" = "ocp" ] && echo '    openshift.io/cluster-monitoring: "true"')
+$([ "$PLATFORM" = "ocp" ] && echo '    argocd.argoproj.io/managed-by: openshift-gitops')
 MANIFEST
 
 cat > manifests/clusterissuer.yaml <<'MANIFEST'
@@ -199,6 +200,7 @@ echo "==> Step 3: Applying manifests (ServiceMonitor, PrometheusRule, ArgoCD App
 kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
 if [ "$PLATFORM" = "ocp" ]; then
     kubectl label namespace "${NAMESPACE}" openshift.io/cluster-monitoring=true --overwrite
+    kubectl label namespace "${NAMESPACE}" argocd.argoproj.io/managed-by=openshift-gitops --overwrite
 fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"

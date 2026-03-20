@@ -134,7 +134,7 @@ git config user.name "Kubernaut Setup"
 
 mkdir -p manifests
 
-cat > manifests/namespace.yaml <<'EOF'
+cat > manifests/namespace.yaml <<EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -145,6 +145,7 @@ metadata:
     kubernaut.ai/service-owner: sre-team
     kubernaut.ai/criticality: high
     kubernaut.ai/sla-tier: tier-2
+$([ "${PLATFORM:-kind}" = "ocp" ] && echo '    argocd.argoproj.io/managed-by: openshift-gitops')
 EOF
 
 cat > manifests/configmap.yaml <<'EOF'
@@ -183,7 +184,13 @@ data:
     }
 EOF
 
-cat > manifests/deployment.yaml <<'EOF'
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    NGINX_IMAGE="nginxinc/nginx-unprivileged:1.27-alpine"
+else
+    NGINX_IMAGE="nginx:1.27-alpine"
+fi
+
+cat > manifests/deployment.yaml <<EOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -205,7 +212,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:1.27-alpine
+        image: ${NGINX_IMAGE}
         ports:
         - containerPort: 8080
         volumeMounts:
