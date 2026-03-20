@@ -80,19 +80,16 @@ Root cause analysis:
 The `data-processor` deployment is healthy — the orphaned PVCs are leftover storage,
 not a service-impacting issue.
 
-## Staging vs Production
+## Why Staging?
 
-The scenario ships with three overlays:
+The scenario runs in a **staging** namespace to isolate the `has_warnings` approval
+mechanism. In a production namespace, the default `is_production` rule would always
+require approval regardless of warnings — you'd never know whether approval was
+triggered by the environment or by the LLM warning.
 
-| Overlay | Environment label | Approval trigger |
-|---------|------------------|-----------------|
-| `manifests/` (base) | `production` | `is_production` (always) |
-| `overlays/ocp` | `production` | `is_production` (always) |
-| `overlays/staging` | `staging` | `has_warnings` (only when LLM warns) |
-
-The staging overlay isolates the warnings rule — if the LLM takes Path B, approval
-is triggered solely by the warning, proving the Rego rule works independently of the
-production environment guard.
+In staging, the default policy auto-approves everything. Only the custom
+`has_warnings` rule can trigger the approval gate, proving the Rego catches
+LLM ambivalence independently of the environment guard.
 
 ## Prerequisites
 
@@ -118,8 +115,8 @@ Options:
 ## Manual Step-by-Step
 
 ```bash
-# 1. Deploy (use overlays/staging to test warnings rule in isolation)
-kubectl apply -k scenarios/orphaned-pvc-no-action/overlays/staging  # or overlays/ocp
+# 1. Deploy (base manifests use staging; overlays/ocp for OpenShift)
+kubectl apply -k scenarios/orphaned-pvc-no-action/manifests  # or overlays/ocp
 
 # 2. Wait for deployment
 kubectl wait --for=condition=Available deploy/data-processor -n demo-orphaned-pvc --timeout=120s
@@ -218,6 +215,6 @@ Feature: Orphaned PVC — LLM judgment with available workflow
 - [ ] Alert fires after 3 minutes
 - [ ] Path A: RR reaches `Completed` with outcome `NoActionRequired`, no WFE
 - [ ] Path B: RR reaches `AwaitingApproval`, reason mentions "LLM raised warnings"
-- [ ] Path B: `approvalReason` is **not** "Production environment" when using staging overlay
+- [ ] Path B: `approvalReason` mentions "LLM raised warnings", not "Production environment"
 - [ ] Orphaned PVCs remain untouched regardless of path
 - [ ] Both paths are valid — scenario passes if either outcome is observed
