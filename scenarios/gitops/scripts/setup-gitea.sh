@@ -55,6 +55,8 @@ SCC_RBAC
     echo "  Adding OCP-compatible securityContext values."
 fi
 
+GITEA_SVC_URL="http://gitea-http.${GITEA_NAMESPACE}:3000"
+
 helm upgrade --install gitea gitea-charts/gitea \
   --namespace "${GITEA_NAMESPACE}" \
   --set gitea.admin.username="${GITEA_ADMIN_USER}" \
@@ -62,6 +64,10 @@ helm upgrade --install gitea gitea-charts/gitea \
   --set gitea.admin.email="admin@kubernaut.ai" \
   --set persistence.enabled=false \
   --set "gitea.config.database.DB_TYPE=sqlite3" \
+  --set "gitea.config.server.ROOT_URL=${GITEA_SVC_URL}" \
+  --set "gitea.config.server.DOMAIN=gitea-http.${GITEA_NAMESPACE}" \
+  --set "gitea.config.webhook.SKIP_TLS_VERIFY=true" \
+  --set "gitea.config.webhook.ALLOWED_HOST_LIST=*" \
   --set postgresql.enabled=false \
   --set postgresql-ha.enabled=false \
   --set redis-cluster.enabled=false \
@@ -122,7 +128,7 @@ curl -sf -X POST "${GITEA_API_URL}/api/v1/user/repos" \
 echo "==> Pushing initial manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
 cd "${WORK_DIR}"
-git init
+git init -b main
 git config user.email "kubernaut@kubernaut.ai"
 git config user.name "Kubernaut Setup"
 

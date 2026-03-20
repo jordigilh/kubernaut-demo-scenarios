@@ -119,7 +119,15 @@ setup_gitea_argocd_webhook() {
         kubectl rollout status deployment/gitea -n "${gitea_ns}" --timeout=120s 2>/dev/null
         gitea_pod=$(kubectl get pods -n "${gitea_ns}" -l app.kubernetes.io/name=gitea \
           -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-        echo "  Gitea restarted with updated configuration."
+        echo "  Gitea restarted. Waiting for API readiness..."
+        for _i in $(seq 1 30); do
+            if kubectl exec -n "${gitea_ns}" "${gitea_pod}" -- \
+                wget -q -O /dev/null "http://localhost:3000/api/v1/version" 2>/dev/null; then
+                echo "  Gitea API is ready."
+                break
+            fi
+            sleep 2
+        done
     fi
 
     # Ensure ArgoCD has a webhook.gitea.secret; generate one if missing.
