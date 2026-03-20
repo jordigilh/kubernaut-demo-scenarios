@@ -67,7 +67,7 @@ else
       -n "${PLATFORM_NS}" -o jsonpath='{.status.approvalReason}' 2>/dev/null || echo "")
 
     if [ -n "$approval_reason" ]; then
-        assert_contains "$approval_reason" "LLM raised warnings" "Approval reason mentions LLM warnings"
+        assert_contains "$approval_reason" "no remediation warranted" "Approval reason reflects LLM warning signal"
     fi
 fi
 
