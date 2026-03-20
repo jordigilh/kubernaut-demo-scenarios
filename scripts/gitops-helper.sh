@@ -2,6 +2,61 @@
 # Shared GitOps helper functions for demo scenarios.
 # Requires: platform-helper.sh sourced first (provides PLATFORM, get_argocd_namespace).
 
+# ── Gitea connectivity ───────────────────────────────────────────────────────
+# On OCP: uses the existing Route (edge TLS).
+# On Kind: starts a port-forward to localhost:3000.
+#
+# After calling gitea_connect, the following variables are set:
+#   GITEA_API_URL  — base URL for Gitea API calls (e.g. curl)
+#   GITEA_GIT_BASE — base URL for git clone/push (includes credentials)
+#   _GITEA_PF_PID  — port-forward PID (empty on OCP)
+#
+# Usage:
+#   gitea_connect
+#   curl -s "${GITEA_API_URL}/api/v1/user/repos" ...
+#   git clone "${GITEA_GIT_BASE}/${REPO_NAME}.git" repo
+#   gitea_disconnect
+GITEA_API_URL=""
+GITEA_GIT_BASE=""
+_GITEA_PF_PID=""
+
+gitea_connect() {
+    local gitea_ns="${GITEA_NAMESPACE:-gitea}"
+    local gitea_user="${GITEA_ADMIN_USER:-kubernaut}"
+    local gitea_pass="${GITEA_ADMIN_PASS:-kubernaut123}"
+
+    GITEA_API_URL=""
+    GITEA_GIT_BASE=""
+    _GITEA_PF_PID=""
+
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        local route_host
+        route_host=$(kubectl get route gitea-http -n "${gitea_ns}" \
+          -o jsonpath='{.spec.host}' 2>/dev/null || true)
+        if [ -n "$route_host" ]; then
+            GITEA_API_URL="https://${route_host}"
+            GITEA_GIT_BASE="https://${gitea_user}:${gitea_pass}@${route_host}/${gitea_user}"
+            export GIT_SSL_NO_VERIFY=true
+            echo "  Gitea via OCP Route: ${GITEA_API_URL}"
+            return 0
+        fi
+        echo "  WARNING: OCP Route not found, falling back to port-forward."
+    fi
+
+    kubectl port-forward -n "${gitea_ns}" svc/gitea-http 3000:3000 &>/dev/null &
+    _GITEA_PF_PID=$!
+    sleep 3
+    GITEA_API_URL="http://localhost:3000"
+    GITEA_GIT_BASE="http://${gitea_user}:${gitea_pass}@localhost:3000/${gitea_user}"
+}
+
+gitea_disconnect() {
+    if [ -n "${_GITEA_PF_PID}" ]; then
+        kill "${_GITEA_PF_PID}" 2>/dev/null || true
+        _GITEA_PF_PID=""
+    fi
+}
+
 # Configure a Gitea webhook that notifies ArgoCD on push, enabling instant
 # sync instead of waiting for the default ~3 min poll interval.
 #

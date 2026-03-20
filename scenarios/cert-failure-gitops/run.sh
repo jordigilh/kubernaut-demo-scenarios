@@ -63,18 +63,15 @@ rm -rf "${TMPDIR_CA}"
 # Step 2: Create Gitea repo with cert-manager manifests
 echo "==> Step 2: Pushing cert-manager manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
-kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
-PF_PID=$!
-sleep 3
+gitea_connect
 
-# Create repo in Gitea
-curl -s -X POST "http://localhost:3000/api/v1/user/repos" \
+curl -sk -X POST "${GITEA_API_URL}/api/v1/user/repos" \
   -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"${REPO_NAME}\", \"auto_init\": true}" -o /dev/null || true
 
 cd "${WORK_DIR}"
-git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:3000/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
+git clone "${GITEA_GIT_BASE}/${REPO_NAME}.git" repo
 cd repo
 git config user.email "kubernaut@kubernaut.ai"
 git config user.name "Kubernaut Setup"
@@ -193,7 +190,7 @@ git add .
 git commit -m "feat: initial cert-manager resources (healthy state)"
 git push origin main
 
-kill "${PF_PID}" 2>/dev/null || true
+gitea_disconnect
 cd /
 rm -rf "${WORK_DIR}"
 
@@ -241,12 +238,10 @@ run_inject() {
 # Step 6: Inject failure via git push
 echo "==> Step 6: Injecting failure (pushing broken ClusterIssuer via git)..."
 WORK_DIR=$(mktemp -d)
-kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
-PF_PID=$!
-sleep 3
+gitea_connect
 
 cd "${WORK_DIR}"
-git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:3000/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
+git clone "${GITEA_GIT_BASE}/${REPO_NAME}.git" repo
 cd repo
 git config user.email "bad-actor@example.com"
 git config user.name "Bad Deploy"
@@ -266,7 +261,7 @@ git add .
 git commit -m "chore: update CA secret reference (broken)"
 git push origin main
 
-kill "${PF_PID}" 2>/dev/null || true
+gitea_disconnect
 cd /
 rm -rf "${WORK_DIR}"
 echo "  Bad commit pushed. Gitea webhook will notify ArgoCD."
