@@ -43,7 +43,7 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics and `node-exporter` |
-| AAP/AWX | AAP on OCP (`scripts/aap-helper.sh`), AWX on Kind (`scripts/awx-helper.sh`) |
+| AWX | `scripts/awx-helper.sh` (Kind + OCP) |
 | Gitea + ArgoCD | Deployed via `scenarios/gitops/scripts/setup-gitea.sh` and `scenarios/gitops/scripts/setup-argocd.sh` |
 | Gitea webhook | Automated by `run.sh setup` (see [Gitea-ArgoCD Webhook](#gitea-argocd-webhook)) |
 | Workflow catalog | `migrate-emptydir-to-pvc-gitops-v1` registered in DataStorage |
@@ -197,7 +197,7 @@ The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` ku
 
 Gitea access uses the OCP Route automatically when available. No manual steps required.
 
-**OCP prerequisites**: OpenShift GitOps and AAP operators must be installed from OperatorHub. See [docs/setup.md](../../docs/setup.md).
+**OCP prerequisites**: OpenShift GitOps operator must be installed from OperatorHub. AWX is deployed via `scripts/awx-helper.sh`. See [docs/setup.md](../../docs/setup.md).
 
 ## Pipeline Timeline (OCP observed, 1.1.0-rc1 on OCP 4.21)
 
@@ -232,7 +232,7 @@ The LLM correctly inspected the noise pods (redis at ~100 MB stable, nginx burst
 
 - PrometheusRule uses `mountpoint="/"` and `instance=~"stress-worker.*"` — neither exists on RHCOS (should be `/var` and the actual node FQDN). See [#100](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/100).
 - ArgoCD managed-by label missing on namespace. See [#96](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/96).
-- `seed-workflows.sh` skips Ansible workflows even when AAP is installed. See [#99](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/99).
+- `seed-workflows.sh` skips Ansible workflows even when AWX is installed. See [#99](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/99).
 
 ## Cleanup
 

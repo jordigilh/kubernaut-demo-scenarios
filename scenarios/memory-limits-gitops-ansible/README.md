@@ -117,7 +117,7 @@ The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` ku
 
 Gitea access uses the OCP Route automatically when available. No manual steps required.
 
-**OCP prerequisites**: OpenShift GitOps and AAP operators must be installed from OperatorHub. See [docs/setup.md](../../docs/setup.md).
+**OCP prerequisites**: OpenShift GitOps operator must be installed from OperatorHub. AWX is deployed via `scripts/awx-helper.sh`. See [docs/setup.md](../../docs/setup.md).
 
 ## Cleanup
 
