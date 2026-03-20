@@ -386,7 +386,7 @@ RBAC
 | Issue | Impact | Status |
 |-------|--------|--------|
 | [#80] CA Secret placeholder clobber | Certificate never becomes Ready; requires manual re-creation of CA Secret | Open |
-| [#81] OCP cert-manager metrics not scraped | Alert never fires without ServiceMonitor + RBAC | Open |
+| [#81] OCP cert-manager metrics not scraped | Alert never fires without ServiceMonitor + RBAC | Fixed (6585383) |
 | [#79] EM HTTPS endpoint | EM cannot verify remediation on OCP (HTTP→HTTPS mismatch) | Open |
 
 [#79]: https://github.com/jordigilh/kubernaut-demo-scenarios/issues/79

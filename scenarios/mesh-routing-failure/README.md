@@ -377,7 +377,7 @@ RBAC
 | Issue | Impact | Status |
 |-------|--------|--------|
 | [#79] EM HTTPS endpoint | EM assessment is `partial` on OCP (HTTP→HTTPS mismatch for Prometheus/AlertManager) | Open |
-| [#81] Prometheus RBAC for user namespaces | Demo namespaces need manual Role/RoleBinding for `prometheus-k8s` | Open |
+| [#81] Prometheus RBAC for user namespaces | Demo namespaces need manual Role/RoleBinding for `prometheus-k8s` | Fixed (6585383) |
 
 [#79]: https://github.com/jordigilh/kubernaut-demo-scenarios/issues/79
 [#81]: https://github.com/jordigilh/kubernaut-demo-scenarios/issues/81
