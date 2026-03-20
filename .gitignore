@@ -14,6 +14,9 @@ test-results-*.txt
 # Per-scenario recording cache
 .alert-cache.json
 
+# Runtime backups created by run.sh (restored by cleanup.sh)
+.approval-rego-backup
+
 # User-specific LLM credentials (example templates are tracked)
 my-llm-credentials.yaml
 

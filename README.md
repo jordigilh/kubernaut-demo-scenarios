@@ -85,6 +85,21 @@ This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys 
 
 If you already have a cluster, install the platform manually.
 
+> **OCP prerequisites:** Before deploying the Helm chart on OCP:
+>
+> 1. **Storage:** A default StorageClass must exist (e.g. ODF, LVM Storage, or any CSI provisioner). The chart creates PVCs for postgresql (10Gi) and valkey (512Mi).
+> 2. **cert-manager:** Install the `openshift-cert-manager-operator` from OperatorHub, then create the ClusterIssuer referenced by the chart:
+>    ```bash
+>    kubectl apply -f helm/ocp-cluster-issuer.yaml
+>    ```
+> 3. **Scenario-specific operators** (install from OperatorHub as needed):
+>
+> | Operator | Required for |
+> |----------|-------------|
+> | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible) |
+> | OpenShift Service Mesh (OSSM) | mesh-routing-failure |
+> | AWX/AAP | disk-pressure-emptydir, memory-limits-gitops-ansible |
+
 **Step B1: Create the namespace and apply LLM credentials first:**
 
 ```bash
@@ -144,6 +159,29 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
 > ```
 
 The chart seeds ActionTypes and RemediationWorkflows automatically (`demoContent.enabled: true` by default). No manual seeding needed.
+
+**Step B3: Configure AlertManager to route alerts to the Gateway.**
+
+Without this, Prometheus alerts fire but never reach the Kubernaut pipeline.
+
+For **Kind** (kube-prometheus-stack):
+
+```bash
+helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+    -n monitoring --create-namespace \
+    --values helm/kube-prometheus-stack-values.yaml \
+    --wait --timeout 5m
+```
+
+For **OCP** (patch the cluster monitoring AlertManager):
+
+```bash
+kubectl -n openshift-monitoring create secret generic alertmanager-main \
+    --from-file=alertmanager.yaml=helm/ocp-alertmanager-config.yaml \
+    --dry-run=client -o yaml | kubectl apply -f -
+```
+
+This routes alerts from `demo-*` namespaces and cluster-scoped alerts (e.g. `KubeNodeNotReady`) to the Kubernaut Gateway webhook.
 
 **Optional: Slack notifications.** To receive alerts in Slack, create the webhook Secret and add the Slack values layer:
 
@@ -209,6 +247,7 @@ Prometheus alert fires (KubePodCrashLooping)
   -> SignalProcessing classifies severity, environment, priority
   -> AI Analysis investigates the root cause via LLM
   -> LLM selects the best remediation workflow from the catalog
+  -> Remediation Orchestrator manages approval and creates WorkflowExecution
   -> WorkflowExecution runs the fix (rollback, patch, restart, etc.)
   -> EffectivenessMonitor verifies the fix worked (or didn't)
   -> Notification delivers the final result including effectiveness assessment

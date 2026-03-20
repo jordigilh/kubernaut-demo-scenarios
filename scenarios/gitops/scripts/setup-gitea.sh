@@ -27,14 +27,35 @@ helm repo update gitea-charts
 
 OCP_VALUES=()
 if [ "$PLATFORM" = "ocp" ]; then
+    echo "  Granting anyuid SCC to Gitea service accounts (init containers require runAsUser: 1000)..."
+    kubectl apply -f - <<'SCC_RBAC'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gitea-anyuid
+  namespace: gitea
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+- kind: ServiceAccount
+  name: gitea
+  namespace: gitea
+- kind: ServiceAccount
+  name: default
+  namespace: gitea
+SCC_RBAC
+
     OCP_VALUES=(
         --set "containerSecurityContext.allowPrivilegeEscalation=false"
         --set "containerSecurityContext.runAsNonRoot=true"
         --set "containerSecurityContext.capabilities.drop={ALL}"
-        --set "containerSecurityContext.seccompProfile.type=RuntimeDefault"
     )
     echo "  Adding OCP-compatible securityContext values."
 fi
+
+GITEA_SVC_URL="http://gitea-http.${GITEA_NAMESPACE}:3000"
 
 helm upgrade --install gitea gitea-charts/gitea \
   --namespace "${GITEA_NAMESPACE}" \
@@ -43,6 +64,10 @@ helm upgrade --install gitea gitea-charts/gitea \
   --set gitea.admin.email="admin@kubernaut.ai" \
   --set persistence.enabled=false \
   --set "gitea.config.database.DB_TYPE=sqlite3" \
+  --set "gitea.config.server.ROOT_URL=${GITEA_SVC_URL}" \
+  --set "gitea.config.server.DOMAIN=gitea-http.${GITEA_NAMESPACE}" \
+  --set "gitea.config.webhook.SKIP_TLS_VERIFY=true" \
+  --set "gitea.config.webhook.ALLOWED_HOST_LIST=*" \
   --set postgresql.enabled=false \
   --set postgresql-ha.enabled=false \
   --set redis-cluster.enabled=false \
@@ -103,13 +128,13 @@ curl -sf -X POST "${GITEA_API_URL}/api/v1/user/repos" \
 echo "==> Pushing initial manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
 cd "${WORK_DIR}"
-git init
+git init -b main
 git config user.email "kubernaut@kubernaut.ai"
 git config user.name "Kubernaut Setup"
 
 mkdir -p manifests
 
-cat > manifests/namespace.yaml <<'EOF'
+cat > manifests/namespace.yaml <<EOF
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -120,6 +145,8 @@ metadata:
     kubernaut.ai/service-owner: sre-team
     kubernaut.ai/criticality: high
     kubernaut.ai/sla-tier: tier-2
+$([ "${PLATFORM:-kind}" = "ocp" ] && echo '    openshift.io/cluster-monitoring: "true"')
+$([ "${PLATFORM:-kind}" = "ocp" ] && echo '    argocd.argoproj.io/managed-by: openshift-gitops')
 EOF
 
 cat > manifests/configmap.yaml <<'EOF'
@@ -158,7 +185,13 @@ data:
     }
 EOF
 
-cat > manifests/deployment.yaml <<'EOF'
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    NGINX_IMAGE="nginxinc/nginx-unprivileged:1.27-alpine"
+else
+    NGINX_IMAGE="nginx:1.27-alpine"
+fi
+
+cat > manifests/deployment.yaml <<EOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -180,7 +213,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:1.27-alpine
+        image: ${NGINX_IMAGE}
         ports:
         - containerPort: 8080
         volumeMounts:
@@ -233,11 +266,10 @@ git add .
 git commit -m "Initial deployment: nginx web-frontend with healthy config"
 
 # Push via port-forward or Route
-GIT_PUSH_URL="${GITEA_API_URL}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
 if [ -n "${PF_PID}" ]; then
     GIT_PUSH_URL="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:3000/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
 else
-    GIT_PUSH_URL="${GITEA_API_URL}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
+    GIT_PUSH_URL="https://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@${ROUTE_HOST}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
     git config http.sslVerify false
 fi
 git remote add origin "${GIT_PUSH_URL}"

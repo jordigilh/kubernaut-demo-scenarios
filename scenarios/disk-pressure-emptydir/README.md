@@ -43,7 +43,7 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics and `node-exporter` |
-| AAP/AWX | AAP on OCP (`scripts/aap-helper.sh`), AWX on Kind (`scripts/awx-helper.sh`) |
+| AWX/AAP | `scripts/awx-helper.sh` (or `aap-helper.sh` with Red Hat subscription) |
 | Gitea + ArgoCD | Deployed via `scenarios/gitops/scripts/setup-gitea.sh` and `scenarios/gitops/scripts/setup-argocd.sh` |
 | Gitea webhook | Automated by `run.sh setup` (see [Gitea-ArgoCD Webhook](#gitea-argocd-webhook)) |
 | Workflow catalog | `migrate-emptydir-to-pvc-gitops-v1` registered in DataStorage |
@@ -183,6 +183,56 @@ kubectl logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-serv
   --tail=20 | grep "Received push event"
 # Expected URL: http://gitea-http.gitea:3000/kubernaut/demo-diskpressure-repo
 ```
+
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
+- Swaps `postgres:16-alpine` to `registry.redhat.io/rhel9/postgresql-16` with adjusted env vars and data paths
+- Moves the ArgoCD `Application` to the `openshift-gitops` namespace
+- Removes the `release` label from `PrometheusRule`
+
+Gitea access uses the OCP Route automatically when available. No manual steps required.
+
+**OCP prerequisites**: OpenShift GitOps operator must be installed from OperatorHub. AWX is deployed via `scripts/awx-helper.sh` (or AAP via `aap-helper.sh` with a Red Hat subscription). See [docs/setup.md](../../docs/setup.md).
+
+## Pipeline Timeline (OCP observed, 1.1.0-rc1 on OCP 4.21)
+
+Wall-clock times from a live run on a 4-node OCP 4.21 cluster (56 GB worker disks) using Claude Sonnet 4 as the LLM backend.
+
+> **Known issue**: On OCP 4.21, the LLM chose `NoActionRequired` because HAPI's investigation inspected the noise workloads (redis, nginx) which had stabilized, but missed the actual PostgreSQL emptyDir volume growth (18+ GB at the time of investigation). See [#101](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/101).
+
+| Phase | Duration | Notes |
+|-------|----------|-------|
+| Gitea push + ArgoCD sync | ~30s | Manifests pushed, ArgoCD synced on first attempt |
+| Pod readiness | ~3 min | nginx-cache has a 3 min init container for cache warm-up |
+| Data growth start | immediate | `simulate_data_growth(4290, 8192, 50)` — ~42 MB/s |
+| Alert fires | ~4 min | `PredictedDiskPressure` fires via `predict_linear` |
+| Gateway → SP → AA | ~90s | SP normalizes to `DiskPressure` with `signalMode=proactive` |
+| AA completes | — | **NoActionRequired** — LLM assessed false positive (see issue) |
+| **Total** | **~10 min** | Pipeline completed but remediation was not triggered |
+
+### LLM Analysis (OCP observed — incorrect)
+
+```
+Assessment:    False positive DiskPressure prediction. Demo workloads designed
+               to simulate disk pressure have stabilized at ~100-200MB usage
+               on a node with 52GB available space.
+Severity:      low
+Workflow:      None
+Actionable:    false
+```
+
+The LLM correctly inspected the noise pods (redis at ~100 MB stable, nginx burst then stable) but did not check the PostgreSQL emptyDir volume (`du -sh /var/lib/pgsql/data` showed 18 GB and growing). This is a HAPI tool gap — the investigation prompt should instruct the LLM to check emptyDir volume utilization for all pods, not just node-level capacity.
+
+### Additional OCP Issues Found
+
+- PrometheusRule uses `mountpoint="/"` and `instance=~"stress-worker.*"` — neither exists on RHCOS (should be `/var` and the actual node FQDN). See [#100](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/100).
+- ArgoCD managed-by label missing on namespace. See [#96](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/96).
+- `seed-workflows.sh` skips Ansible workflows even when AWX/AAP is installed. See [#99](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/99).
 
 ## Cleanup
 

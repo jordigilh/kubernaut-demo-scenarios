@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   name: demo-orphaned-pvc
   labels:
-    kubernaut.ai/environment: production
+    kubernaut.ai/environment: staging
     kubernaut.ai/business-unit: data
     kubernaut.ai/service-owner: data-team
     kubernaut.ai/criticality: high

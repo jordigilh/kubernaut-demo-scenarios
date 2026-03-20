@@ -16,9 +16,14 @@ gateway:
         serviceAccount: alertmanager-main
         namespace: openshift-monitoring
 
+# EffectivenessMonitor: full Prometheus/AlertManager integration on OCP.
+# TLS CA support added in kubernaut#452 (1.1.0-rc2+). The service-serving
+# CA is injected by the chart via the openshift-service-ca.crt ConfigMap.
 effectivenessmonitor:
   external:
-    prometheusUrl: "http://prometheus-k8s.openshift-monitoring.svc:9091"
+    prometheusUrl: "https://prometheus-k8s.openshift-monitoring.svc:9091"
     prometheusEnabled: true
-    alertManagerUrl: "http://alertmanager-main.openshift-monitoring.svc:9094"
+    alertManagerUrl: "https://alertmanager-main.openshift-monitoring.svc:9094"
     alertManagerEnabled: true
+    tlsCaFile: "/etc/ssl/em/service-ca.crt"
+    ocpMonitoringRbac: true

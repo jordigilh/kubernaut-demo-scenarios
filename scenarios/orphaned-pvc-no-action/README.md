@@ -30,36 +30,44 @@ Batch jobs complete → PVCs remain (orphaned) → kube-state-metrics
 → Prometheus (count bound PVCs > 3 for 3m) → AlertManager
 → Gateway webhook → RR created → SP → AA (HAPI/LLM)
 → Path A: NoActionRequired (auto-complete)
-→ Path B: CleanupPVC selected + warning → Rego has_warnings → AwaitingApproval
+→ Path B: CleanupPVC selected + warning → Rego llm_warns_no_remediation → AwaitingApproval
 ```
 
 ## Warning-Aware Rego Policy
 
-The default shipping Rego policy defines a `has_warnings` helper but does not wire it
-into any `require_approval` rule. This means Path B would auto-execute the `CleanupPVC`
-workflow in non-production environments without human review — the warning is silently
+The default shipping Rego policy only gates on `is_production`. It does not inspect
+`input.warnings`. This means Path B would auto-execute the `CleanupPVC` workflow in
+non-production environments without human review — the LLM's warning is silently
 ignored.
 
-The fix adds one rule and one risk factor:
+The custom `rego/approval-warnings.rego` adds targeted and catch-all rules:
 
 ```rego
-# LLM warnings indicate the analysis flagged potential concerns.
-# Even in non-production environments, these warrant human review.
-require_approval if {
-    has_warnings
+llm_warns_no_remediation if {
+    some w in input.warnings
+    contains(w, "no remediation warranted")
 }
 
+require_approval if { llm_warns_no_remediation }
+require_approval if { has_warnings }
+
+risk_factors contains {"score": 80, "reason": "LLM warning: no remediation warranted"} if {
+    llm_warns_no_remediation
+}
 risk_factors contains {"score": 75, "reason": "LLM raised warnings — human review recommended"} if {
     has_warnings
+    not llm_warns_no_remediation
 }
 ```
 
-With this rule:
-- **Production namespaces**: approval already required by `is_production` (score 70);
-  warnings raise the score to 75 so the reason reflects the warning, not just the
-  environment.
-- **Staging/dev namespaces**: approval now required when LLM raises warnings;
+With these rules:
+- **Staging/dev namespaces**: approval required only when LLM raises warnings;
   without warnings, the pipeline auto-approves as before.
+- **"no remediation warranted" signal** (score 80): the specific warning string
+  from the LLM gets the highest score and a targeted reason.
+- **Production namespaces**: approval already required by `is_production` (score 40);
+  warnings raise the score to 80 so the reason reflects the warning, not the
+  environment.
 
 > **Issue**: [kubernaut#439](https://github.com/jordigilh/kubernaut/issues/439) tracks
 > adding this rule to the default Helm chart Rego.
@@ -80,19 +88,16 @@ Root cause analysis:
 The `data-processor` deployment is healthy — the orphaned PVCs are leftover storage,
 not a service-impacting issue.
 
-## Staging vs Production
+## Why Staging?
 
-The scenario ships with three overlays:
+The scenario runs in a **staging** namespace to isolate the `has_warnings` approval
+mechanism. In a production namespace, the default `is_production` rule would always
+require approval regardless of warnings — you'd never know whether approval was
+triggered by the environment or by the LLM warning.
 
-| Overlay | Environment label | Approval trigger |
-|---------|------------------|-----------------|
-| `manifests/` (base) | `production` | `is_production` (always) |
-| `overlays/ocp` | `production` | `is_production` (always) |
-| `overlays/staging` | `staging` | `has_warnings` (only when LLM warns) |
-
-The staging overlay isolates the warnings rule — if the LLM takes Path B, approval
-is triggered solely by the warning, proving the Rego rule works independently of the
-production environment guard.
+In staging, the default policy auto-approves everything. Only the custom
+`llm_warns_no_remediation` rule can trigger the approval gate, proving the Rego catches
+LLM ambivalence independently of the environment guard.
 
 ## Prerequisites
 
@@ -103,7 +108,7 @@ production environment guard.
 | Prometheus | With kube-state-metrics |
 | StorageClass | `standard` (Kind) or cluster default (OCP) |
 | Workflow catalog | `cleanup-pvc-v1` present (shipped with demo content) |
-| Rego policy | Warning-aware rule recommended (`has_warnings`) |
+| Rego policy | Warning-aware rule (`llm_warns_no_remediation`) — applied by `run.sh` |
 
 ## Automated Run
 
@@ -118,8 +123,8 @@ Options:
 ## Manual Step-by-Step
 
 ```bash
-# 1. Deploy (use overlays/staging to test warnings rule in isolation)
-kubectl apply -k scenarios/orphaned-pvc-no-action/overlays/staging  # or overlays/ocp
+# 1. Deploy (base manifests use staging; overlays/ocp for OpenShift)
+kubectl apply -k scenarios/orphaned-pvc-no-action/manifests  # or overlays/ocp
 
 # 2. Wait for deployment
 kubectl wait --for=condition=Available deploy/data-processor -n demo-orphaned-pvc --timeout=120s
@@ -163,7 +168,7 @@ kubectl get rr -n kubernaut-system -w
 | Alert fires | T+3:55 | 3 min `for:` + scrape interval |
 | RR created | T+4:00 | 5 s |
 | AA completes | T+5:31 | ~91 s investigation (6 poll cycles) |
-| Rego evaluates warnings | T+5:31 | `has_warnings` → `require_approval` |
+| Rego evaluates warnings | T+5:31 | `llm_warns_no_remediation` → `require_approval` |
 | **RR → AwaitingApproval** | **T+5:31** | **human review gate** |
 | RAR expires (if no action) | T+20:31 | 15 min timeout |
 
@@ -175,7 +180,7 @@ Feature: Orphaned PVC — LLM judgment with available workflow
   Background:
     Given a cluster with Kubernaut services and a real LLM backend
       And the "cleanup-pvc-v1" workflow is registered in the catalog
-      And the warning-aware Rego policy (has_warnings) is active
+      And the warning-aware Rego policy (llm_warns_no_remediation) is active
       And the "data-processor" deployment is running in namespace "demo-orphaned-pvc"
 
   Scenario: Path A — LLM determines no action needed
@@ -193,8 +198,8 @@ Feature: Orphaned PVC — LLM judgment with available workflow
       And the KubePersistentVolumeClaimOrphaned alert fires (>3 bound PVCs for 3 min)
     Then the alert flows through Gateway → SP → AA (HAPI)
       And the LLM selects CleanupPVC with warnings ["Alert not actionable — no remediation warranted"]
-      And Rego policy evaluates has_warnings → require_approval
-      And approvalReason is "LLM raised warnings — human review recommended"
+      And Rego policy evaluates llm_warns_no_remediation → require_approval
+      And approvalReason is "LLM warning: no remediation warranted"
       And RR transitions to AwaitingApproval
       And a RemediationApprovalRequest is created
       And all 5 orphaned PVCs remain in the namespace (pending human decision)
@@ -205,7 +210,7 @@ Feature: Orphaned PVC — LLM judgment with available workflow
 - [ ] 5 orphaned PVCs are created and bound successfully
 - [ ] Alert fires after 3 minutes
 - [ ] Path A: RR reaches `Completed` with outcome `NoActionRequired`, no WFE
-- [ ] Path B: RR reaches `AwaitingApproval`, reason mentions "LLM raised warnings"
-- [ ] Path B: `approvalReason` is **not** "Production environment" when using staging overlay
+- [ ] Path B: RR reaches `AwaitingApproval`, reason mentions "no remediation warranted"
+- [ ] Path B: `approvalReason` is "LLM warning: no remediation warranted", not "Production environment"
 - [ ] Orphaned PVCs remain untouched regardless of path
 - [ ] Both paths are valid — scenario passes if either outcome is observed

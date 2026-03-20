@@ -3,7 +3,7 @@
 # Reuses Kubernaut's shared PostgreSQL (creates an 'awx' database/role).
 # The AWX Operator manages its own Redis sidecar.
 #
-# Ported from test/infrastructure/awx_e2e.go for use in demo environments.
+# Works on both Kind (NodePort) and OCP (ClusterIP + Route). No license needed.
 #
 # Usage:
 #   ./scripts/awx-helper.sh                     # Full AWX setup
@@ -12,6 +12,10 @@
 #
 # Issue #312: First Ansible engine demo scenario
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./platform-helper.sh
+source "${SCRIPT_DIR}/platform-helper.sh"
 
 AWX_OPERATOR_VERSION="2.19.1"
 AWX_IMAGE_VERSION="24.6.1"
@@ -181,6 +185,13 @@ EOF
 apply_awx_cr() {
     echo "==> Step 4: Applying AWX Custom Resource (${AWX_INSTANCE_NAME})..."
 
+    local svc_spec
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        svc_spec="service_type: ClusterIP"
+    else
+        svc_spec=$(printf 'service_type: nodeport\n  nodeport_port: %s' "${AWX_NODEPORT}")
+    fi
+
     kubectl apply -f - <<EOF
 apiVersion: awx.ansible.com/v1beta1
 kind: AWX
@@ -188,8 +199,7 @@ metadata:
   name: ${AWX_INSTANCE_NAME}
   namespace: ${AWX_NAMESPACE}
 spec:
-  service_type: nodeport
-  nodeport_port: ${AWX_NODEPORT}
+  ${svc_spec}
   admin_user: ${AWX_ADMIN_USER}
   admin_password_secret: ${AWX_INSTANCE_NAME}-admin-password
   secret_key_secret: ${AWX_INSTANCE_NAME}-secret-key
@@ -235,6 +245,26 @@ spec:
       cpu: 500m
       memory: 256Mi
 EOF
+
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        echo "  Creating OCP Route for AWX UI..."
+        kubectl apply -f - <<ROUTE
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ${AWX_INSTANCE_NAME}
+  namespace: ${AWX_NAMESPACE}
+spec:
+  to:
+    kind: Service
+    name: ${AWX_SERVICE_NAME}
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+ROUTE
+    fi
 
     echo "  AWX CR applied. Operator will reconcile."
     echo ""
@@ -307,7 +337,18 @@ awx_api() {
 configure_awx() {
     echo "==> Step 6: Configuring AWX..."
 
-    local awx_url="http://localhost:${AWX_NODEPORT}"
+    local awx_url awx_pf_pid=""
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        local pf_port
+        pf_port=$(awk 'BEGIN{srand(); print 30000+int(rand()*5000)}')
+        kubectl port-forward "svc/${AWX_SERVICE_NAME}" "${pf_port}:${AWX_SERVICE_PORT}" \
+            -n "${AWX_NAMESPACE}" &>/dev/null &
+        awx_pf_pid=$!
+        sleep 3
+        awx_url="http://localhost:${pf_port}"
+    else
+        awx_url="http://localhost:${AWX_NODEPORT}"
+    fi
 
     # 6a. Create organization
     echo "  Creating organization..."
@@ -488,9 +529,21 @@ EOFK8S
         --dry-run=client -o yaml | kubectl apply -f -
     echo "    Token Secret created (${AWX_TOKEN_SECRET_NAME})."
 
+    if [ -n "$awx_pf_pid" ]; then
+        kill "$awx_pf_pid" 2>/dev/null || true
+        wait "$awx_pf_pid" 2>/dev/null || true
+    fi
+
     echo ""
     echo "  AWX configuration complete."
-    echo "    AWX API: ${awx_url}"
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        local route_host
+        route_host=$(kubectl get route "${AWX_INSTANCE_NAME}" -n "${AWX_NAMESPACE}" \
+            -o jsonpath='{.spec.host}' 2>/dev/null || echo "")
+        echo "    AWX UI: https://${route_host}"
+    else
+        echo "    AWX API: ${awx_url}"
+    fi
     echo "    Job Template: kubernaut-gitops-update-memory (ID: ${tmpl_id})"
     echo ""
 }
