@@ -183,6 +183,24 @@ _ensure_scenario_node() {
 echo "==> Step 0: Ensuring a worker node is labeled for this scenario..."
 _ensure_scenario_node
 
+_patch_prometheusrule_for_ocp() {
+    if [ "${PLATFORM:-kind}" != "ocp" ]; then
+        return 0
+    fi
+    local target_node
+    target_node=$(kubectl get nodes -l scenario=disk-pressure \
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [ -z "$target_node" ]; then
+        echo "  WARNING: no scenario node found, skipping PromQL patch."
+        return 0
+    fi
+    echo "  Patching PrometheusRule PromQL for OCP (mountpoint=/var, node=${target_node})..."
+    kubectl get prometheusrule demo-diskpressure-rules -n "${NAMESPACE}" -o json | \
+      jq --arg node "$target_node" \
+        '.spec.groups[0].rules[0].expr = "predict_linear(node_filesystem_avail_bytes{mountpoint=\"/var\", instance=~\"" + $node + ".*\"}[3m], 1200) < 0"' | \
+      kubectl apply -f -
+}
+
 # Step 1: Push deployment YAML to Gitea repo
 echo "==> Step 1: Pushing deployment manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
@@ -564,6 +582,7 @@ _ensure_alertmanager_rbac
 
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
+_patch_prometheusrule_for_ocp
 
 # Speed up ArgoCD polling for demo
 ARGOCD_NS=$(get_argocd_namespace)
