@@ -45,6 +45,8 @@ source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
 require_infra awx
 require_infra gitea
 require_infra argocd
+# shellcheck source=../../scripts/gitops-helper.sh
+source "${SCRIPT_DIR}/../../scripts/gitops-helper.sh"
 
 run_setup() {
 echo "============================================="
@@ -132,9 +134,8 @@ echo "==> Step 2: Applying manifests (namespace, Prometheus rule, ArgoCD Applica
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
-# Speed up ArgoCD polling for demo
-kubectl patch configmap argocd-cm -n argocd --type merge \
-  -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
+echo "==> Step 2b: Ensuring Gitea webhook notifies ArgoCD on push..."
+setup_gitea_argocd_webhook "${GITEA_ADMIN_USER}" "${REPO_NAME}"
 
 # Step 3: Wait for ArgoCD sync
 echo "==> Step 3: Waiting for ArgoCD sync..."

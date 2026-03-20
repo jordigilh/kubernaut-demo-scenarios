@@ -33,6 +33,8 @@ require_demo_ready
 source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
 require_infra gitea
 require_infra argocd
+# shellcheck source=../../scripts/gitops-helper.sh
+source "${SCRIPT_DIR}/../../scripts/gitops-helper.sh"
 
 GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
@@ -63,9 +65,13 @@ kubectl wait --for=condition=Available deployment/web-frontend \
   -n "${NAMESPACE}" --timeout=180s
 echo "  web-frontend is healthy."
 
-# Step 4: Establish baseline
+# Step 4: Configure webhook for instant sync on push
+echo "==> Step 4: Ensuring Gitea webhook notifies ArgoCD on push..."
+setup_gitea_argocd_webhook "${GITEA_ADMIN_USER}" "${REPO_NAME}"
+
+# Step 5: Establish baseline
 echo ""
-echo "==> Step 4: Initial state (healthy):"
+echo "==> Step 5: Initial state (healthy):"
 kubectl get pods -n "${NAMESPACE}" -o wide
 echo ""
 }
@@ -195,10 +201,18 @@ echo ""
 }
 
 run_monitor() {
-# Step 7: Wait for ArgoCD to sync and pods to crash
-echo "==> Step 7: Waiting for ArgoCD to sync and pods to enter CrashLoopBackOff..."
-echo "  ArgoCD poll interval is ~3 min. Waiting..."
-sleep 60
+# Step 8: Wait for ArgoCD to sync and pods to crash
+echo "==> Step 8: Waiting for ArgoCD to sync and pods to enter CrashLoopBackOff..."
+for i in $(seq 1 30); do
+    ANNOTATION=$(kubectl get deployment web-frontend -n "${NAMESPACE}" \
+      -o jsonpath='{.spec.template.metadata.annotations.kubernaut\.ai/config-version}' 2>/dev/null || echo "")
+    if [ "$ANNOTATION" = "broken" ]; then
+        echo "  ArgoCD synced broken deployment (attempt $i)."
+        break
+    fi
+    sleep 5
+done
+sleep 10
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 

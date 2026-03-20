@@ -40,6 +40,8 @@ require_infra cert-manager
 ensure_cert_manager_ocp_monitoring
 require_infra gitea
 require_infra argocd
+# shellcheck source=../../scripts/gitops-helper.sh
+source "${SCRIPT_DIR}/../../scripts/gitops-helper.sh"
 
 run_setup() {
 echo "============================================="
@@ -57,10 +59,6 @@ kubectl create secret tls demo-ca-key-pair \
   --cert="${TMPDIR_CA}/ca.crt" --key="${TMPDIR_CA}/ca.key" \
   -n cert-manager --dry-run=client -o yaml | kubectl apply -f -
 rm -rf "${TMPDIR_CA}"
-
-# Speed up ArgoCD polling for demo scenarios (default 180s -> 60s)
-kubectl patch configmap argocd-cm -n argocd --type merge \
-  -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
 
 # Step 3: Create Gitea repo with cert-manager manifests
 echo "==> Step 4: Pushing cert-manager manifests to Gitea..."
@@ -208,8 +206,16 @@ fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
+echo "==> Step 5b: Ensuring Gitea webhook notifies ArgoCD on push..."
+setup_gitea_argocd_webhook "${GITEA_ADMIN_USER}" "${REPO_NAME}"
+
 echo "  Waiting for ArgoCD sync..."
-sleep 15
+for i in $(seq 1 60); do
+    if kubectl get namespace "${NAMESPACE}" &>/dev/null; then
+        break
+    fi
+    sleep 5
+done
 
 echo "==> Step 6: Waiting for Certificate to become Ready..."
 for i in $(seq 1 30); do
@@ -263,13 +269,8 @@ git push origin main
 kill "${PF_PID}" 2>/dev/null || true
 cd /
 rm -rf "${WORK_DIR}"
-echo "  Bad commit pushed. ArgoCD will sync broken ClusterIssuer."
+echo "  Bad commit pushed. Gitea webhook will notify ArgoCD."
 
-# Force ArgoCD to refresh immediately instead of waiting for the next poll cycle.
-kubectl annotate application demo-cert-gitops -n argocd \
-  argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
-
-# Wait for ArgoCD to sync the broken commit.
 echo "  Waiting for ArgoCD to sync broken ClusterIssuer..."
 for i in $(seq 1 90); do
   SECRET_REF=$(kubectl get clusterissuer demo-selfsigned-ca-gitops \
@@ -277,11 +278,6 @@ for i in $(seq 1 90); do
   if [ "$SECRET_REF" = "nonexistent-ca-secret" ]; then
     echo "  ArgoCD synced broken ClusterIssuer (attempt $i)."
     break
-  fi
-  if [ $((i % 12)) -eq 0 ]; then
-    echo "  Still waiting... (attempt $i, re-triggering refresh)"
-    kubectl annotate application demo-cert-gitops -n argocd \
-      argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
   fi
   sleep 5
 done
