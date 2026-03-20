@@ -105,6 +105,20 @@ kubectl get pods -n demo-memory-gitops-ansible
 # Pod should be Running without OOMKills
 ```
 
+## Platform Notes
+
+### OCP
+
+The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
+
+- Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
+- Moves the ArgoCD `Application` to the `openshift-gitops` namespace
+- Removes the `release` label from `PrometheusRule`
+
+Gitea access uses the OCP Route automatically when available. No manual steps required.
+
+**OCP prerequisites**: OpenShift GitOps operator must be installed from OperatorHub. AWX is deployed via `scripts/awx-helper.sh`. See [docs/setup.md](../../docs/setup.md).
+
 ## Cleanup
 
 ```bash
