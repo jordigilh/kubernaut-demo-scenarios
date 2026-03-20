@@ -27,11 +27,30 @@ helm repo update gitea-charts
 
 OCP_VALUES=()
 if [ "$PLATFORM" = "ocp" ]; then
+    echo "  Granting anyuid SCC to Gitea service accounts (init containers require runAsUser: 1000)..."
+    kubectl apply -f - <<'SCC_RBAC'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gitea-anyuid
+  namespace: gitea
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+- kind: ServiceAccount
+  name: gitea
+  namespace: gitea
+- kind: ServiceAccount
+  name: default
+  namespace: gitea
+SCC_RBAC
+
     OCP_VALUES=(
         --set "containerSecurityContext.allowPrivilegeEscalation=false"
         --set "containerSecurityContext.runAsNonRoot=true"
         --set "containerSecurityContext.capabilities.drop={ALL}"
-        --set "containerSecurityContext.seccompProfile.type=RuntimeDefault"
     )
     echo "  Adding OCP-compatible securityContext values."
 fi
