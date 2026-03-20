@@ -81,8 +81,8 @@ echo "==> Step 5: Fault injected. Waiting for KubePersistentVolumeClaimOrphaned 
 echo ""
 echo "  Expected outcomes (both are valid — LLM is non-deterministic):"
 echo "    Path A: LLM says not actionable   → NoActionRequired (auto-complete)"
-echo "    Path B: LLM selects CleanupPVC    → has_warnings Rego → AwaitingApproval"
-echo "            (approval reason: 'LLM raised warnings — human review recommended')"
+echo "    Path B: LLM selects CleanupPVC    → llm_warns_no_remediation Rego → AwaitingApproval"
+echo "            (approval reason: 'LLM warning: no remediation warranted')"
 echo ""
 
 # Validate pipeline
