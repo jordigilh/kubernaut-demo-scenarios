@@ -524,18 +524,12 @@ auto_approve_rar() {
     local rar_wait_timeout=30
     local rar_wait_elapsed=0
 
-    local rar_name
-    if [ -n "$rr_name" ]; then
-        rar_name="rar-${rr_name}"
-    else
-        rar_name=$(kubectl get remediationapprovalrequests -n "$PLATFORM_NS" \
-            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-    fi
-
-    if [ -z "$rar_name" ]; then
-        log_warn "No RemediationApprovalRequest name could be derived"
+    if [ -z "$rr_name" ]; then
+        log_warn "auto_approve_rar requires an RR name argument"
         return 1
     fi
+
+    local rar_name="rar-${rr_name}"
 
     log_phase "Waiting for RAR ${rar_name} to be created..."
     while [ "$rar_wait_elapsed" -lt "$rar_wait_timeout" ]; do
@@ -547,16 +541,20 @@ auto_approve_rar() {
     done
 
     if ! kubectl get remediationapprovalrequest "$rar_name" -n "$PLATFORM_NS" &>/dev/null; then
-        log_error "RAR ${rar_name} not found after ${rar_wait_timeout}s"
+        log_warn "RAR ${rar_name} not found after ${rar_wait_timeout}s"
         return 1
     fi
 
-    kubectl patch remediationapprovalrequest "$rar_name" -n "$PLATFORM_NS" \
+    if ! kubectl patch remediationapprovalrequest "$rar_name" -n "$PLATFORM_NS" \
         --type=merge --subresource=status \
         -p '{"status":{"decision":"Approved","decidedBy":"validate.sh","decisionMessage":"Auto-approved by validation script"}}' \
-        >/dev/null 2>&1
+        2>/dev/null; then
+        log_warn "Failed to patch RAR ${rar_name}, will retry"
+        return 1
+    fi
 
     log_success "Approved RAR ${rar_name}"
+    return 0
 }
 
 # ── Main pipeline poller ─────────────────────────────────────────────────────
@@ -595,11 +593,7 @@ poll_pipeline() {
                         aa_shown=true
                     fi
                     show_approval_notification "$target_ns"
-                    if [ "$approve_mode" = "--auto-approve" ]; then
-                        local rr_name
-                        rr_name=$(_find_rr_name "$target_ns")
-                        auto_approve_rar "$rr_name"
-                    else
+                    if [ "$approve_mode" != "--auto-approve" ]; then
                         log_warn "Awaiting manual approval. Approve with:"
                         log_info "  kubectl patch rar \$(kubectl get rar -n $PLATFORM_NS -o name | head -1) -n $PLATFORM_NS --type=merge --subresource=status -p '{\"status\":{\"decision\":\"Approved\"}}'"
                     fi
@@ -652,6 +646,21 @@ poll_pipeline() {
             esac
 
             prev_phase="$phase"
+        fi
+
+        # Retry auto-approval on every poll while phase is AwaitingApproval (#115).
+        # The display (show_ai_analysis, show_approval_notification) fires once on
+        # transition above; the actual approval retries here until it succeeds.
+        if [ "$phase" = "AwaitingApproval" ] && [ "$approve_mode" = "--auto-approve" ]; then
+            local rr_name rar_decision
+            rr_name=$(_find_rr_name "$target_ns")
+            if [ -n "$rr_name" ]; then
+                rar_decision=$(kubectl get remediationapprovalrequest "rar-${rr_name}" \
+                    -n "$PLATFORM_NS" -o jsonpath='{.status.decision}' 2>/dev/null || true)
+                if [ "$rar_decision" != "Approved" ]; then
+                    auto_approve_rar "$rr_name" || true
+                fi
+            fi
         fi
 
         # Show WFE progress during Executing phase
