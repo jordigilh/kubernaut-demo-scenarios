@@ -60,6 +60,46 @@ require_infra() {
     esac
 }
 
+# ── OCP User Workload Monitoring ─────────────────────────────────────────────
+# Required on OCP for scraping PodMonitors/ServiceMonitors in user namespaces.
+# Used by: mesh-routing-failure (Istio sidecar metrics via PodMonitor)
+ensure_user_workload_monitoring() {
+    if [ "${PLATFORM:-}" != "ocp" ]; then
+        return 0
+    fi
+
+    if kubectl get namespace openshift-user-workload-monitoring &>/dev/null &&
+       kubectl get pods -n openshift-user-workload-monitoring --no-headers 2>/dev/null | grep -q Running; then
+        echo "  OCP user-workload monitoring already enabled."
+        return 0
+    fi
+
+    echo "==> Enabling OCP user-workload monitoring..."
+    kubectl apply -f - <<'UWM'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    enableUserWorkload: true
+UWM
+
+    echo "  Waiting for user-workload monitoring pods (up to 120s)..."
+    local elapsed=0
+    while [ "$elapsed" -lt 120 ]; do
+        if kubectl get pods -n openshift-user-workload-monitoring --no-headers 2>/dev/null | grep -q Running; then
+            echo "  OCP user-workload monitoring enabled."
+            return 0
+        fi
+        sleep 10
+        elapsed=$((elapsed + 10))
+    done
+    echo "  WARNING: user-workload monitoring pods not yet Running after 120s."
+    echo "  The scenario may still work via cluster-monitoring with openshift.io/cluster-monitoring label."
+}
+
 # ── kube-prometheus-stack ────────────────────────────────────────────────────
 # Installs kube-prometheus-stack via Helm (idempotent).
 # Provides: Prometheus Operator, Prometheus, AlertManager, Grafana,

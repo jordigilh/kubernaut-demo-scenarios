@@ -2,32 +2,34 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../manifests
+  # On OCP with OSSM 3, istio-proxy runs as a native sidecar (init container).
+  # PodMonitor cannot discover init-container ports, so we replace the base
+  # PodMonitor with a headless Service + ServiceMonitor that targets port 15020.
+  - istio-service.yaml
+  - istio-servicemonitor.yaml
 patches:
-  # Namespace: add OCP monitoring label
-  - target:
-      kind: Namespace
-      name: demo-mesh-failure
-    patch: |
-      - op: add
-        path: /metadata/labels/openshift.io~1cluster-monitoring
-        value: "true"
-  # PrometheusRule: remove release label for OCP user-workload monitoring
+  # Remove the base PodMonitor — replaced by ServiceMonitor above.
+  # OSSM 3 native sidecars (init containers) don't expose named ports that
+  # PodMonitor can discover.
+  - patch: |
+      apiVersion: monitoring.coreos.com/v1
+      kind: PodMonitor
+      metadata:
+        name: istio-proxy
+        namespace: monitoring
+      $patch: delete
+  # PrometheusRule: remove Kind-specific release label, add UWM evaluation scope.
+  # On OCP, user-workload monitoring (UWM) requires this label to evaluate rules
+  # in user namespaces.
   - target:
       kind: PrometheusRule
       name: kubernaut-mesh-failure-rules
     patch: |
       - op: remove
         path: /metadata/labels/release
-  # PodMonitor: move to app namespace and remove release label
-  - target:
-      kind: PodMonitor
-      name: istio-proxy
-    patch: |
-      - op: replace
-        path: /metadata/namespace
-        value: demo-mesh-failure
-      - op: remove
-        path: /metadata/labels/release
+      - op: add
+        path: /metadata/labels/openshift.io~1prometheus-rule-evaluation-scope
+        value: leaf-prometheus
   # Deployment api-server: swap to unprivileged nginx
   - target:
       kind: Deployment

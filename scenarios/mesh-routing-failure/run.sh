@@ -29,6 +29,7 @@ require_demo_ready
 # shellcheck source=../../scripts/monitoring-helper.sh
 source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
 require_infra istio
+ensure_user_workload_monitoring
 
 echo "============================================="
 echo " Istio Mesh Routing Failure Demo (#136)"
