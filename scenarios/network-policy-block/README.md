@@ -27,7 +27,7 @@ deny-all NetworkPolicy blocks inter-pod traffic
 
 | Component | Requirement |
 |-----------|-------------|
-| Kind cluster | `scenarios/kind-config-singlenode.yaml` |
+| Cluster | Kind or OCP 4.21+ with Kubernaut services deployed |
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (or mock) via HAPI |
 | Prometheus | With kube-state-metrics |
@@ -94,6 +94,43 @@ kubectl get pods -n demo-netpol
 ./scenarios/network-policy-block/cleanup.sh
 ```
 
+## LLM Analysis (OCP observed — rc4)
+
+| Field | Value |
+|-------|-------|
+| Root Cause | `NetworkPolicy deny-all-ingress is blocking traffic-gen pod's readiness probe from reaching web-frontend service, causing deployment replica mismatch` |
+| Severity | `high` |
+| Confidence | 0.95 |
+| Selected Workflow | `FixNetworkPolicy` (`fix-network-policy-v1`) |
+| Approval | Not required |
+| Rationale | Investigation confirmed a deny-all NetworkPolicy is blocking legitimate inter-pod traffic. |
+
+The LLM correctly detects `networkIsolated=true` from pod labels and diagnoses the
+deny-all NetworkPolicy as the root cause of readiness probe failures. Approval is
+not required for this action type.
+
+## Pipeline Timeline (OCP observed — rc4)
+
+| Event | UTC | Delta |
+|-------|-----|-------|
+| Inject deny-all NetworkPolicy | ~19:33:00 | — |
+| `KubeDeploymentReplicasMismatch` fires | 19:36:50 | ~3m 50s |
+| RR created → Analyzing | 19:36:51 | +0m 01s |
+| AA complete → Executing (no approval) | 19:38:03 | +1m 12s |
+| WFE complete → Verifying | 19:38:38 | +0m 35s |
+| EA complete → Completed | 19:40:42 | +2m 04s |
+| **Total pipeline** | | **3m 52s** |
+
+## Effectiveness Assessment (OCP observed — rc4)
+
+| Field | Value |
+|-------|-------|
+| Phase | Completed |
+| Reason | partial |
+| Health Score | 1 |
+| Alert Score | pending |
+| Metrics Score | pending |
+
 ## BDD Specification
 
 ```gherkin
@@ -123,18 +160,18 @@ Feature: NetworkPolicy Traffic Block remediation
 
 ## Acceptance Criteria
 
-- [ ] web-frontend deploys with 2 replicas and HTTP probes
-- [ ] traffic-gen deploys with readiness probe only (no liveness probe)
-- [ ] Baseline allow policy permits port 8080
-- [ ] All pods start Running and Ready
-- [ ] Deny-all NetworkPolicy blocks ingress; traffic-gen readiness fails
-- [ ] traffic-gen becomes NotReady; deployment shows unavailable replicas
-- [ ] Alert fires within 3-4 minutes of unavailable replicas
-- [ ] LLM correctly detects networkIsolated=true and diagnoses NetworkPolicy block
-- [ ] fix-network-policy-v1 workflow removes the deny-all NetworkPolicy
-- [ ] traffic-gen readiness recovers; alert self-resolves immediately
-- [ ] Single RR per incident (no recurring signal after remediation)
-- [ ] EM confirms successful remediation
+- [x] web-frontend deploys with 2 replicas and HTTP probes
+- [x] traffic-gen deploys with readiness probe only (no liveness probe)
+- [x] Baseline allow policy permits port 8080
+- [x] All pods start Running and Ready
+- [x] Deny-all NetworkPolicy blocks ingress; traffic-gen readiness fails
+- [x] traffic-gen becomes NotReady; deployment shows unavailable replicas
+- [x] Alert fires within 3-4 minutes of unavailable replicas
+- [x] LLM correctly detects networkIsolated=true and diagnoses NetworkPolicy block
+- [x] fix-network-policy-v1 workflow removes the deny-all NetworkPolicy
+- [x] traffic-gen readiness recovers; alert self-resolves immediately
+- [x] Single RR per incident (no recurring signal after remediation)
+- [x] EM confirms successful remediation
 
 ## Issue
 

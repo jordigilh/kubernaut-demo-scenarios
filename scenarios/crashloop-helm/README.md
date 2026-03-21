@@ -153,6 +153,45 @@ helm history demo-crashloop-helm -n demo-crashloop-helm
 ./scenarios/crashloop-helm/cleanup.sh
 ```
 
+## LLM Analysis (OCP observed — rc4)
+
+| Field | Value |
+|-------|-------|
+| Root Cause | `Pod crashes due to invalid nginx configuration directive 'invalid_directive_that_breaks_nginx' in ConfigMap worker-config, preventing nginx from starting. This was introduced in a recent Helm deployment update.` |
+| Severity | `high` |
+| Confidence | 0.95 |
+| Selected Workflow | `HelmRollback` (`helm-rollback-v1`) |
+| Approval | Required — production environment |
+| Rationale | The deployment is Helm-managed and the crash is caused by a bad configuration introduced in a recent helm upgrade. The previous revision was healthy as evidenced by the 2 running replicas from the old ReplicaSet. A Helm rollback will revert the ConfigMap to its previous working state. |
+
+The LLM correctly detects `helmManaged=true` from deployment labels and selects
+`HelmRollback` over `RollbackDeployment`, proving the resource-context enrichment
+drives the right workflow selection.
+
+## Pipeline Timeline (OCP observed — rc4)
+
+| Event | UTC | Delta |
+|-------|-----|-------|
+| Inject bad config (`helm upgrade`) | 19:08:33 | — |
+| `KubePodCrashLooping` fires | 19:13:09 | +4m 36s |
+| RR created → Analyzing | ~19:13:09 | +0m 00s |
+| AA complete → AwaitingApproval | by 19:16:30 | ~3m 21s |
+| RAR auto-approved | 19:16:34 | +0m 04s |
+| WFE starts (Executing) | 19:16:44 | +0m 10s |
+| WFE complete → Verifying | 19:17:06 | +0m 22s |
+| EA complete → Completed | 19:19:10 | +2m 04s |
+| **Total pipeline** | | **~6m 01s** |
+
+## Effectiveness Assessment (OCP observed — rc4)
+
+| Field | Value |
+|-------|-------|
+| Phase | Completed |
+| Reason | partial |
+| Health Score | 1 |
+| Alert Score | pending |
+| Metrics Score | pending |
+
 ## BDD Specification
 
 ```gherkin
@@ -180,13 +219,13 @@ Feature: Helm-managed CrashLoopBackOff remediation
 
 ## Acceptance Criteria
 
-- [ ] Helm chart deploys worker with `app.kubernetes.io/managed-by: Helm` label
-- [ ] `helm upgrade` with bad nginx config causes CrashLoopBackOff
-- [ ] PrometheusRule fires KubePodCrashLooping (>3 restarts in 10m, `for: 3m`)
-- [ ] HAPI detects `helmManaged=true` and surfaces it as cluster context
-- [ ] LLM selects `HelmRollback` action type (not `RollbackDeployment`)
-- [ ] WE Job runs `helm rollback` to the previous healthy revision
-- [ ] Helm history shows revision 3 as "Rollback to 1"
-- [ ] All worker replicas are Running/Ready after rollback
-- [ ] EA completes with healthScore=1
-- [ ] Works on both Kind and OCP (with `values-ocp.yaml` overlay)
+- [x] Helm chart deploys worker with `app.kubernetes.io/managed-by: Helm` label
+- [x] `helm upgrade` with bad nginx config causes CrashLoopBackOff
+- [x] PrometheusRule fires KubePodCrashLooping (>3 restarts in 10m, `for: 3m`)
+- [x] HAPI detects `helmManaged=true` and surfaces it as cluster context
+- [x] LLM selects `HelmRollback` action type (not `RollbackDeployment`)
+- [x] WE Job runs `helm rollback` to the previous healthy revision
+- [x] Helm history shows revision 3 as "Rollback to 1"
+- [x] All worker replicas are Running/Ready after rollback
+- [x] EA completes with healthScore=1
+- [x] Works on both Kind and OCP (with `values-ocp.yaml` overlay)

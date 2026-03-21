@@ -28,7 +28,7 @@ kube_pod_container_status_restarts_total increasing → KubePodCrashLooping aler
 
 | Component | Requirement |
 |-----------|-------------|
-| Kind cluster | `overlays/kind/kind-cluster-config.yaml` |
+| Cluster | Kind or OCP 4.21+ with Kubernaut services deployed |
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
@@ -98,10 +98,48 @@ kubectl rollout history deployment/worker -n demo-crashloop
 ./scenarios/crashloop/cleanup.sh
 ```
 
+## LLM Analysis (OCP observed — rc4)
+
+| Field | Value |
+|-------|-------|
+| Root Cause | `Pod crashes due to invalid nginx configuration directive 'invalid_directive_that_breaks_nginx' in ConfigMap worker-config-bad, causing nginx startup failure` |
+| Severity | `high` |
+| Confidence | 0.95 |
+| Selected Workflow | `RollbackDeployment` (`crashloop-rollback-v1`) |
+| Approval | Required — production environment |
+| Rationale | The crash is caused by a bad configuration change in the current deployment revision. Rolling back to the previous healthy revision will restore the working nginx configuration and resolve the CrashLoopBackOff. This workflow is appropriate for the medium risk tolerance and P0 priority. |
+
+The LLM correctly identifies `worker-config-bad` as the root cause with 95% confidence
+and selects `RollbackDeployment` to perform `kubectl rollout undo`.
+
+## Pipeline Timeline (OCP observed — rc4)
+
+| Event | UTC | Delta |
+|-------|-----|-------|
+| Inject bad config | 18:41:05 | — |
+| `KubePodCrashLooping` fires | 18:46:05 | +5m 00s |
+| RR created → Analyzing | 18:46:06 | +0m 01s |
+| AA complete → AwaitingApproval | 18:47:39 | +1m 33s |
+| RAR auto-approved | 18:47:43 | +0m 04s |
+| WFE starts (Executing) | 18:47:53 | +0m 10s |
+| WFE complete → Verifying | 18:48:04 | +0m 11s |
+| EA complete → Completed | 18:55:07 | +7m 03s |
+| **Total pipeline** | | **9m 02s** |
+
+## Effectiveness Assessment (OCP observed — rc4)
+
+| Field | Value |
+|-------|-------|
+| Phase | Completed |
+| Reason | partial |
+| Health Score | 1 |
+| Alert Score | pending |
+| Metrics Score | pending |
+
 ## BDD Specification
 
 ```gherkin
-Given a Kind cluster with Kubernaut services and a real LLM backend
+Given a Kind or OCP cluster with Kubernaut services and a real LLM backend
   And Prometheus is scraping kube-state-metrics
   And the "crashloop-rollback-v1" workflow is registered in the DataStorage catalog
   And the "worker" deployment is running healthily in namespace "demo-crashloop"
@@ -123,11 +161,11 @@ Then Kubernaut Gateway receives the alert via Alertmanager webhook
 
 ## Acceptance Criteria
 
-- [ ] Worker deployment starts healthy and serves traffic
-- [ ] Bad config injection causes immediate CrashLoopBackOff
-- [ ] Alert fires within 2-3 minutes of first crash
-- [ ] LLM correctly diagnoses bad config as root cause
-- [ ] Rollback restores the original healthy ConfigMap reference
-- [ ] All pods become Running/Ready after rollback
-- [ ] Restart count stabilizes (no further restarts)
-- [ ] EM confirms successful remediation
+- [x] Worker deployment starts healthy and serves traffic
+- [x] Bad config injection causes immediate CrashLoopBackOff
+- [x] Alert fires within 2-3 minutes of first crash
+- [x] LLM correctly diagnoses bad config as root cause
+- [x] Rollback restores the original healthy ConfigMap reference
+- [x] All pods become Running/Ready after rollback
+- [x] Restart count stabilizes (no further restarts)
+- [x] EM confirms successful remediation
