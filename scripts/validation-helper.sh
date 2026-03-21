@@ -487,9 +487,9 @@ show_approval_notification() {
     [ -z "$rr_name" ] && return
 
     local nr_name
-    nr_name=$(_find_nr_for_rr "$rr_name" "rar" | head -1)
+    nr_name=$(_find_nr_for_rr "$rr_name" "rar" | head -1) || true
     if [ -z "$nr_name" ]; then
-        nr_name=$(_find_nr_for_rr "$rr_name" | head -1)
+        nr_name=$(_find_nr_for_rr "$rr_name" | head -1) || true
     fi
     [ -z "$nr_name" ] && return
     _display_nr "$nr_name"
@@ -502,7 +502,7 @@ show_outcome_notification() {
     [ -z "$rr_name" ] && return
 
     local all_nrs last_nr
-    all_nrs=$(_find_nr_for_rr "$rr_name")
+    all_nrs=$(_find_nr_for_rr "$rr_name") || true
     last_nr=$(echo "$all_nrs" | tail -1)
     [ -z "$last_nr" ] && return
 

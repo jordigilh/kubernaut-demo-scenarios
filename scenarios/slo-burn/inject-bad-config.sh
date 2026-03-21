@@ -9,8 +9,14 @@
 set -euo pipefail
 
 NAMESPACE="demo-slo"
-LISTEN_PORT=80
-[ "${PLATFORM:-}" = "ocp" ] && LISTEN_PORT=8080
+
+# Detect listen port from the existing healthy ConfigMap so the bad config
+# uses the same port. More robust than relying on inherited PLATFORM when
+# the script is invoked standalone (#117).
+LISTEN_PORT=$(kubectl get cm api-config -n "${NAMESPACE}" \
+    -o jsonpath='{.data.default\.conf}' 2>/dev/null \
+    | grep -oE 'listen [0-9]+' | grep -oE '[0-9]+') || true
+LISTEN_PORT="${LISTEN_PORT:-80}"
 
 echo "==> Creating bad ConfigMap (500 errors on /api/, port ${LISTEN_PORT})..."
 kubectl apply -f - <<YAML
