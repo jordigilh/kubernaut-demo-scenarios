@@ -39,6 +39,7 @@ predict_linear(container_memory_working_set_bytes[5m], 1800)
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With cAdvisor scraping and kube-state-metrics |
 | Workflow catalog | `graceful-restart-v1` registered in DataStorage |
+| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` (#108) |
 
 ## Automated Run
 

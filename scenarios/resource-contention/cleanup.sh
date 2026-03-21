@@ -11,6 +11,13 @@ PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 
 echo "==> Cleaning up Resource Contention demo..."
 
+# Revert HAPI Prometheus toolset opt-in (#108).
+echo "==> Disabling HolmesGPT Prometheus toolset..."
+helm upgrade kubernaut "${CHART_REF}" \
+  -n "${PLATFORM_NS}" --reuse-values \
+  --set holmesgptApi.prometheus.enabled=false \
+  --wait --timeout 3m
+
 echo "==> Purging pipeline CRDs targeting ${NAMESPACE}..."
 for kind in remediationrequests signalprocessings aianalyses workflowexecutions effectivenessassessments; do
   for name in $(kubectl get "$kind" -n "$PLATFORM_NS" -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null | grep "$NAMESPACE" | cut -f1); do

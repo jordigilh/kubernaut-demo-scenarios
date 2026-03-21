@@ -35,6 +35,14 @@ echo " HPA Maxed Out Demo (#123)"
 echo "============================================="
 echo ""
 
+# Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
+echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
+helm upgrade kubernaut "${CHART_REF}" \
+  -n "${PLATFORM_NS}" --reuse-values \
+  --set holmesgptApi.prometheus.enabled=true \
+  --wait --timeout 3m
+echo ""
+
 # Step 1: Deploy scenario resources
 echo "==> Step 1: Deploying scenario resources..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")

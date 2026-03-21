@@ -4,7 +4,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/platform-helper.sh
+source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+
 echo "==> Cleaning up Cluster Autoscaling demo..."
+
+# Revert HAPI Prometheus toolset opt-in (#108).
+echo "==> Disabling HolmesGPT Prometheus toolset..."
+helm upgrade kubernaut "${CHART_REF}" \
+  -n "${PLATFORM_NS}" --reuse-values \
+  --set holmesgptApi.prometheus.enabled=false \
+  --wait --timeout 3m
 
 # Kill any running provisioner agent
 if pgrep -f "provisioner.sh" >/dev/null 2>&1; then

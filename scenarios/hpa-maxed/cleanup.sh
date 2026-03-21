@@ -8,6 +8,13 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up HPA Maxed Out demo..."
 
+# Revert HAPI Prometheus toolset opt-in (#108).
+echo "==> Disabling HolmesGPT Prometheus toolset..."
+helm upgrade kubernaut "${CHART_REF}" \
+  -n "${PLATFORM_NS}" --reuse-values \
+  --set holmesgptApi.prometheus.enabled=false \
+  --wait --timeout 3m
+
 # Kill any CPU stress processes running inside pods
 for pod in $(kubectl get pods -n demo-hpa -l app=api-frontend -o name 2>/dev/null); do
     kubectl exec -n demo-hpa "$pod" -- killall yes 2>/dev/null || true

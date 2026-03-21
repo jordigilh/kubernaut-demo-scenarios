@@ -10,6 +10,13 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up DiskPressure emptyDir demo..."
 
+# Revert HAPI Prometheus toolset opt-in (#108).
+echo "==> Disabling HolmesGPT Prometheus toolset..."
+helm upgrade kubernaut "${CHART_REF}" \
+  -n "${PLATFORM_NS}" --reuse-values \
+  --set holmesgptApi.prometheus.enabled=false \
+  --wait --timeout 3m
+
 # Delete ArgoCD Application first (stops sync loop).
 # The app lives in openshift-gitops on OCP, argocd on Kind.
 ARGOCD_NS=$(get_argocd_namespace)
