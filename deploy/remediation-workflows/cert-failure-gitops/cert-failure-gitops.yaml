@@ -25,7 +25,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-gitops-job@sha256:b5c12be2fceabb7ed4cd99afd838b64286cbc55184eb33be9b7e8dfdcbd9255a
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-gitops-job@sha256:eb1a6e625f45f01031a6fa92f394ed5dd9c25d486699111374817044754cecaf
 
   dependencies:
     secrets:
