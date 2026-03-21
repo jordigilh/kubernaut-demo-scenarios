@@ -377,7 +377,7 @@ rules:
     resources: ["deployments"]
     verbs: ["get", "list", "patch"]
   - apiGroups: [""]
-    resources: ["pods", "services", "secrets", "persistentvolumeclaims", "configmaps"]
+    resources: ["pods", "services", "endpoints", "secrets", "persistentvolumeclaims", "configmaps"]
     verbs: ["get", "list", "create", "delete", "patch"]
   - apiGroups: [""]
     resources: ["nodes"]
