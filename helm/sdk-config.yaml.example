@@ -38,11 +38,23 @@ llm:
 
 # -- Toolsets (optional)
 # See: https://holmesgpt.dev/data-sources/builtin-toolsets/
+#
+# When using holmesgptApi.prometheus.enabled=true with quickstart LLM config,
+# the chart auto-injects the prometheus/metrics toolset. When using
+# sdkConfigContent or existingSdkConfigMap, add it manually:
 toolsets: {}
+  # Kind:
   # prometheus/metrics:
   #   enabled: true
   #   config:
   #     prometheus_url: "http://kube-prometheus-stack-prometheus.monitoring.svc:9090"
+  #
+  # OCP (thanos-querier with service-serving CA):
+  # prometheus/metrics:
+  #   enabled: true
+  #   config:
+  #     prometheus_url: "https://thanos-querier.openshift-monitoring.svc:9091"
+  #     prometheus_ssl_ca_file: "/etc/ssl/hapi/service-ca.crt"
 
 # -- MCP servers (optional)
 mcp_servers: {}

@@ -1,4 +1,4 @@
-# OCP-specific value overrides for the Kubernaut Helm chart (v1.1.0+).
+# OCP-specific value overrides for the Kubernaut Helm chart (v1.1.0-rc3+).
 # No NodePort, no nodeSelector (OCP schedules to worker nodes).
 # cert-manager TLS mode (OCP has cert-manager installed).
 tls:
@@ -27,3 +27,21 @@ effectivenessmonitor:
     alertManagerEnabled: true
     tlsCaFile: "/etc/ssl/em/service-ca.crt"
     ocpMonitoringRbac: true
+
+# HolmesGPT API: Prometheus integration for LLM investigation context (1.1.0-rc3+).
+# Grants cluster-monitoring-view RBAC and injects the OCP service-serving CA.
+# When using quickstart LLM config (--set llm.provider/model), the chart auto-
+# configures the prometheus/metrics toolset. With sdkConfigContent or
+# existingSdkConfigMap, add the prometheus toolset to your SDK config manually.
+holmesgptApi:
+  prometheus:
+    enabled: false
+    url: "https://thanos-querier.openshift-monitoring.svc:9091"
+    tlsCaFile: "/etc/ssl/hapi/service-ca.crt"
+    ocpMonitoringRbac: true
+
+# PostgreSQL: use the Red Hat RHEL10 image for OCP (restricted-v2 SCC compatible).
+# Data directory is image-agnostic at /var/lib/kubernaut-pg/data (see kubernaut#464).
+postgresql:
+  variant: ocp
+  image: registry.redhat.io/rhel10/postgresql-16
