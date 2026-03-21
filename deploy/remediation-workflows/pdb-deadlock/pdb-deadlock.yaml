@@ -15,7 +15,7 @@ spec:
   actionType: RelaxPDB
   
   labels:
-    severity: [low, high, critical]
+    severity: [low, medium, high, critical]
     environment: [production, staging]
     component: "*"
     priority: "*"
