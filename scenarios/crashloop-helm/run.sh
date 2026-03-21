@@ -32,14 +32,28 @@ echo " Helm CrashLoopBackOff Remediation Demo (#135)"
 echo "============================================="
 echo ""
 
-# Step 1: Install via Helm
+# Step 1: Pre-create namespace with kubernaut labels, then install via Helm.
+# The namespace is created outside the chart to avoid the Helm 3 conflict where
+# --create-namespace + a Namespace template both try to create the same object (#122).
 echo "==> Step 1: Installing workload via Helm chart..."
+kubectl apply -f - <<'NSEOF'
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-crashloop-helm
+  labels:
+    kubernaut.ai/environment: production
+    kubernaut.ai/business-unit: engineering
+    kubernaut.ai/service-owner: backend-team
+    kubernaut.ai/criticality: high
+    kubernaut.ai/sla-tier: tier-1
+NSEOF
 HELM_VALUES_ARGS=""
 if [ "$PLATFORM" = "ocp" ]; then
     HELM_VALUES_ARGS="-f ${SCRIPT_DIR}/chart/values-ocp.yaml"
 fi
 helm upgrade --install demo-crashloop-helm "${SCRIPT_DIR}/chart" \
-  -n "${NAMESPACE}" --create-namespace --wait --timeout 120s ${HELM_VALUES_ARGS}
+  -n "${NAMESPACE}" --wait --timeout 120s ${HELM_VALUES_ARGS}
 echo "  Helm release installed. Deployment has app.kubernetes.io/managed-by: Helm label."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
