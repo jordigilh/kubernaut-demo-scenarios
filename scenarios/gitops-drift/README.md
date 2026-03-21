@@ -9,6 +9,22 @@ and selects `git revert` over `kubectl rollback` because the environment is GitO
 **Key differentiator**: Signal resource (crashing Pod) differs from RCA resource (broken ConfigMap).
 The LLM must choose the GitOps-aware remediation path.
 
+## Signal Flow
+
+```
+Bad commit pushed to Gitea → ArgoCD syncs broken ConfigMap
+  → nginx pods enter CrashLoopBackOff
+  → Prometheus fires KubePodCrashLooping (for: 3m)
+  → Gateway → SP (enriches: environment=staging, criticality=high)
+  → AA (HAPI + LLM)
+  → LabelDetector: gitOpsManaged=true (ArgoCD annotations)
+  → LLM traces crash to ConfigMap (signal resource ≠ RCA resource)
+  → Selects GitRevertCommit workflow (not RollbackDeployment)
+  → RO → WE (Job: git clone + git revert HEAD + git push)
+  → ArgoCD syncs reverted ConfigMap
+  → EM verifies pods Running and Ready
+```
+
 ## Prerequisites
 
 | Component | Kind | OCP |
