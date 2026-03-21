@@ -53,10 +53,12 @@ kubectl apply -k "${MANIFEST_DIR}"
 
 # Step 3: Wait for certificate to be issued
 echo "==> Step 3: Waiting for Certificate to become Ready..."
+CERT_READY=false
 for i in $(seq 1 30); do
   STATUS=$(kubectl get certificate demo-app-cert -n "${NAMESPACE}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
   if [ "$STATUS" = "True" ]; then
     echo "  Certificate is Ready."
+    CERT_READY=true
     break
   fi
   echo "  Attempt $i/30: Certificate status=$STATUS, waiting..."
@@ -69,7 +71,12 @@ echo ""
 # Step 4: Baseline
 echo "==> Step 4: Establishing healthy baseline (20s)..."
 sleep 20
-echo "  Baseline established. Certificate is Ready, workload is healthy."
+if [ "$CERT_READY" = "true" ]; then
+    echo "  Baseline established. Certificate is Ready, workload is healthy."
+else
+    echo "  WARNING: Certificate never became Ready after 30 attempts."
+    echo "  Continuing anyway — the inject step does not depend on certificate readiness."
+fi
 echo ""
 
 # Step 5: Inject failure

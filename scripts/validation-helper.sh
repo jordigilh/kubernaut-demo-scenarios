@@ -77,7 +77,14 @@ log_warn() {
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 
 # ── Platform-aware monitoring defaults ───────────────────────────────────────
-# PLATFORM is exported by platform-helper.sh (auto-detected or explicit).
+# Auto-detect PLATFORM when not already set (e.g. validate.sh invoked
+# standalone without run.sh having sourced platform-helper.sh first — #125).
+if [ -z "${PLATFORM:-}" ]; then
+    _VH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    # shellcheck source=platform-helper.sh
+    source "${_VH_DIR}/platform-helper.sh" 2>/dev/null || true
+    unset _VH_DIR
+fi
 if [ "${PLATFORM:-}" = "ocp" ]; then
     MONITORING_NS="${MONITORING_NS:-openshift-monitoring}"
     ALERTMANAGER_POD="${ALERTMANAGER_POD:-alertmanager-main-0}"
