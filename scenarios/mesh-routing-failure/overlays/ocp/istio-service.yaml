@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-metrics
+  namespace: demo-mesh-failure
+  labels:
+    app: istio-metrics
+spec:
+  selector:
+    security.istio.io/tlsMode: istio
+  ports:
+    - name: http-envoy-prom
+      port: 15020
+      targetPort: 15020
+      protocol: TCP
+  clusterIP: None
