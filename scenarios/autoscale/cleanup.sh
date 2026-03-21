@@ -9,12 +9,16 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up Cluster Autoscaling demo..."
 
-# Revert HAPI Prometheus toolset opt-in (#108).
+# Revert HAPI Prometheus toolset opt-in (#108). Non-fatal so resource
+# cleanup always proceeds even if Helm is unavailable.
 echo "==> Disabling HolmesGPT Prometheus toolset..."
-helm upgrade kubernaut "${CHART_REF}" \
+if ! helm upgrade kubernaut "${CHART_REF}" \
   -n "${PLATFORM_NS}" --reuse-values \
   --set holmesgptApi.prometheus.enabled=false \
-  --wait --timeout 3m
+  --wait --timeout 3m 2>/dev/null; then
+    echo "  WARNING: could not disable HAPI Prometheus toolset."
+    echo "  Run manually: helm upgrade kubernaut <chart> -n kubernaut-system --reuse-values --set holmesgptApi.prometheus.enabled=false"
+fi
 
 # Kill any running provisioner agent
 if pgrep -f "provisioner.sh" >/dev/null 2>&1; then

@@ -8,12 +8,16 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up HPA Maxed Out demo..."
 
-# Revert HAPI Prometheus toolset opt-in (#108).
+# Revert HAPI Prometheus toolset opt-in (#108). Non-fatal so resource
+# cleanup always proceeds even if Helm is unavailable.
 echo "==> Disabling HolmesGPT Prometheus toolset..."
-helm upgrade kubernaut "${CHART_REF}" \
+if ! helm upgrade kubernaut "${CHART_REF}" \
   -n "${PLATFORM_NS}" --reuse-values \
   --set holmesgptApi.prometheus.enabled=false \
-  --wait --timeout 3m
+  --wait --timeout 3m 2>/dev/null; then
+    echo "  WARNING: could not disable HAPI Prometheus toolset."
+    echo "  Run manually: helm upgrade kubernaut <chart> -n kubernaut-system --reuse-values --set holmesgptApi.prometheus.enabled=false"
+fi
 
 # Kill any CPU stress processes running inside pods
 for pod in $(kubectl get pods -n demo-hpa -l app=api-frontend -o name 2>/dev/null); do
