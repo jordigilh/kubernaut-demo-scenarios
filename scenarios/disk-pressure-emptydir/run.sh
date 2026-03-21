@@ -272,6 +272,14 @@ echo ""
 echo "==> Checking prerequisites..."
 _check_prerequisites
 
+# Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
+echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
+helm upgrade kubernaut "${CHART_REF}" \
+  -n "${PLATFORM_NS}" --reuse-values \
+  --set holmesgptApi.prometheus.enabled=true \
+  --wait --timeout 3m
+echo ""
+
 # Step 0: Ensure a worker node has the scenario label and taint.
 # On Kind, kind-config-diskpressure.yaml bakes the label at cluster creation.
 # On OCP, we pick the first schedulable worker and label it.

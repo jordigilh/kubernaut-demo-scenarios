@@ -87,6 +87,7 @@ Path B (3 cycles — RO guard-driven):
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `increase-memory-limits-v1` registered in DataStorage |
+| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` (#108) |
 
 ## Automated Run
 

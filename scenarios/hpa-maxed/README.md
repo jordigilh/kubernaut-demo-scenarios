@@ -42,6 +42,7 @@ CPU stress → HPA scales to maxReplicas (3) → can't scale further
 | Prometheus | With kube-state-metrics scraping |
 | metrics-server | Required for HPA CPU metrics (built-in on OCP) |
 | Workflow catalog | `patch-hpa-v1` registered in DataStorage |
+| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` (#108) |
 
 ## Automated Run
 
