@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Build and push demo scenario execution images to quay.io/kubernaut-cicd/test-workflows
 #
-# Each scenario produces one execution image (<name>:v1.0.0) containing
+# Each scenario produces one execution image (<name>:v<spec.version>) containing
 # remediate.sh + tools, run by WorkflowExecution as a K8s Job.
+# Image tags are immutable: each rebuild bumps spec.version and pushes to a new
+# tag, so old digest-pinned references stay resolvable (#139).
 #
 # After pushing, the manifest list digest is written back into
 # deploy/remediation-workflows/<scenario>.yaml so the bundle reference stays in sync.
@@ -27,7 +29,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKFLOWS_DIR="${SCRIPT_DIR}/../deploy/remediation-workflows"
 REGISTRY="quay.io/kubernaut-cicd/test-workflows"
-VERSION="v1.0.0"
+VERSION_OVERRIDE=""
 LOCAL_ONLY=false
 SINGLE_SCENARIO=""
 SEED_AFTER=false
@@ -44,7 +46,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --version)
-            VERSION="$2"
+            VERSION_OVERRIDE="$2"
             shift 2
             ;;
         --arch)
@@ -62,7 +64,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --local            Build for current arch only (no push)"
             echo "  --arch ARCH        Comma-separated architectures (default: amd64,arm64)"
             echo "  --scenario NAME    Build a single scenario (e.g., crashloop)"
-            echo "  --version TAG      Override version tag (default: v1.0.0)"
+            echo "  --version TAG      Override version tag (default: derived from spec.version)"
             echo "  --seed             Register workflow(s) in DataStorage after push"
             exit 0
             ;;
@@ -77,7 +79,7 @@ echo "============================================"
 echo "Building Demo Scenario Workflow Images"
 echo "============================================"
 echo "Registry: ${REGISTRY}"
-echo "Version:  ${VERSION}"
+echo "Tag:      $(if [ -n "$VERSION_OVERRIDE" ]; then echo "${VERSION_OVERRIDE} (override)"; else echo 'v<spec.version> (immutable, per-workflow)'; fi)"
 echo "Mode:     $(if $LOCAL_ONLY; then echo 'LOCAL ONLY (current arch)'; else echo "PUSH (${ARCHITECTURES[*]})"; fi)"
 if [ -n "$SINGLE_SCENARIO" ]; then
     echo "Scenario: ${SINGLE_SCENARIO}"
@@ -166,6 +168,18 @@ with open(f, 'w') as fh: fh.write(content)
 " "${schema_file}" "${new_bundle}"
 }
 
+# read_spec_version extracts the current spec.version from a workflow YAML.
+# Args: $1=schema_file  Output: version string (e.g., "1.0.3") on stdout
+read_spec_version() {
+    local schema_file="$1"
+    python3 -c "
+import re, sys
+with open(sys.argv[1]) as fh:
+    m = re.search(r'  version: [\"'\'']?(\d+\.\d+\.\d+)', fh.read())
+    print(m.group(1) if m else '')
+" "$schema_file"
+}
+
 # bump_patch_version increments the patch segment of spec.version in
 # the workflow CRD YAML (e.g., 1.8.0 -> 1.8.1) so the DataStorage detects
 # the schema as a new version after a digest-only change.
@@ -199,7 +213,6 @@ for entry in "${WORKFLOWS[@]}"; do
     SCENARIO="${entry%%:*}"
     IMAGE_NAME="${entry#*:}"
     BUILD_DIR="${WORKFLOWS_DIR}/${SCENARIO}"
-    EXEC_REF="${REGISTRY}/${IMAGE_NAME}:${VERSION}"
     SCHEMA_FILE="${BUILD_DIR}/${SCENARIO}.yaml"
 
     if [ -n "$SINGLE_SCENARIO" ] && [ "$SCENARIO" != "$SINGLE_SCENARIO" ]; then
@@ -218,7 +231,21 @@ for entry in "${WORKFLOWS[@]}"; do
         exit 1
     fi
 
-    echo "==> ${IMAGE_NAME} (scenario: ${SCENARIO})"
+    # Determine image tag: --version override, or bump spec.version for an
+    # immutable tag that won't orphan old digests (#139).
+    if [ -n "${VERSION_OVERRIDE}" ]; then
+        IMAGE_TAG="${VERSION_OVERRIDE}"
+    elif ! $LOCAL_ONLY; then
+        new_ver=$(bump_patch_version "${SCHEMA_FILE}")
+        IMAGE_TAG="v${new_ver}"
+        echo "  [version] Bumped spec.version -> ${new_ver}"
+    else
+        cur_ver=$(read_spec_version "${SCHEMA_FILE}")
+        IMAGE_TAG="v${cur_ver:-0.0.0}"
+    fi
+
+    EXEC_REF="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+    echo "==> ${IMAGE_NAME}:${IMAGE_TAG} (scenario: ${SCENARIO})"
 
     # Step 1: Build and push execution image
     echo "  [exec] Building ${EXEC_REF}..."
@@ -235,11 +262,6 @@ for entry in "${WORKFLOWS[@]}"; do
         BUILT_DIGESTS["${IMAGE_NAME}"]="${EXEC_DIGEST}"
         update_bundle_digest "${SCHEMA_FILE}" "${REGISTRY}/${IMAGE_NAME}" "${EXEC_DIGEST}"
         echo "  [digest] Updated execution.bundle in ${SCENARIO}.yaml"
-
-        if ! $LOCAL_ONLY; then
-            new_ver=$(bump_patch_version "${SCHEMA_FILE}")
-            echo "  [version] Bumped spec.version -> ${new_ver}"
-        fi
     else
         echo "  [digest] WARNING: Could not extract digest, schema not updated"
     fi
