@@ -1,5 +1,9 @@
 # Scenario #324: DiskPressure emptyDir Migration via GitOps + Ansible (Proactive)
 
+> **Environment: OCP only.** This scenario requires privileged node access for constrained
+> filesystem setup, AWX/AAP for Ansible playbook execution, and dedicated worker nodes with
+> controlled disk capacity. It is not supported on Kind.
+
 ## Overview
 
 Demonstrates Kubernaut's flagship enterprise **proactive** remediation pipeline. A PostgreSQL
@@ -39,7 +43,6 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 | Component | Requirement |
 |-----------|-------------|
 | OCP cluster | Dedicated stress-worker node (~25 GB disk, label `scenario=disk-pressure`) |
-| Kind cluster | `kind-config-diskpressure.yaml` (lowered kubelet eviction thresholds) |
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics and `node-exporter` |
