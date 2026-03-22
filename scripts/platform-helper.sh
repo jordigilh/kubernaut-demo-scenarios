@@ -396,7 +396,7 @@ enable_prometheus_toolset() {
             echo "  Prometheus toolset already enabled."
             return 0
         fi
-        current=$(echo "$current" | sed 's/enabled: false/enabled: true/')
+        current=$(echo "$current" | sed '/prometheus\/metrics:/{n;s/enabled: false/enabled: true/;}')
     else
         local prom_url="http://kube-prometheus-stack-prometheus.monitoring.svc:9090"
         if [ "${PLATFORM:-kind}" = "ocp" ]; then
@@ -436,7 +436,7 @@ disable_prometheus_toolset() {
         return 0
     fi
 
-    current=$(echo "$current" | sed 's/enabled: true/enabled: false/')
+    current=$(echo "$current" | sed '/prometheus\/metrics:/{n;s/enabled: true/enabled: false/;}')
     kubectl patch "configmap/${cm_name}" -n "${PLATFORM_NS}" --type merge \
       -p "{\"data\":{\"sdk-config.yaml\":$(echo "$current" | jq -Rs .)}}" >/dev/null 2>&1
     kubectl rollout restart deployment/holmesgpt-api -n "${PLATFORM_NS}" >/dev/null 2>&1
