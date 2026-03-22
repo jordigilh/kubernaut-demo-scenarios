@@ -66,6 +66,9 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 > upstream Docker image. Always run `setup` before `inject`, or use `run.sh all`
 > which handles both steps automatically.
 
+> **Remote execution:** When running scenarios over SSH, use `-tt` to force TTY
+> allocation for real-time output: `ssh -tt host "su - user -c './run.sh all'"`
+
 ## Manual Step-by-Step
 
 ### 1. Deploy scenario resources

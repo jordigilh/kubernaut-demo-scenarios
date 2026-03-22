@@ -3,6 +3,14 @@
 # Source this from run.sh:
 #   source "$(dirname "$0")/../../scripts/platform-helper.sh"
 
+# Force line-buffered stdout/stderr when not running in a TTY (e.g. over SSH).
+# Without this, output is 4KB-block-buffered and remote monitoring sees stale data.
+# Guard variable prevents infinite re-exec since this file is source'd.
+if [ -z "${_KUBERNAUT_LINEBUF:-}" ] && [ ! -t 1 ] && command -v stdbuf &>/dev/null; then
+    export _KUBERNAUT_LINEBUF=1
+    exec stdbuf -oL -eL "$0" "$@"
+fi
+
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KUBERNAUT_REPO="${KUBERNAUT_REPO:-$(cd "${REPO_ROOT}/../kubernaut" 2>/dev/null && pwd || true)}"

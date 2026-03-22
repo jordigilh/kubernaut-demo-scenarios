@@ -265,6 +265,9 @@ Browse all 24 available scenarios in the [Scenario Catalog](scenarios.md).
 
 > **Infrastructure dependencies:** Some scenarios require components like cert-manager, Istio, or AWX that are only installed when `setup-demo-cluster.sh` runs without `--skip-infra`. If a required component is missing, `run.sh` will exit with a clear error message. See the [dependency table](scenarios.md#dependencies) for details.
 
+> **Remote execution:** When running scenarios over SSH, use `-tt` to force TTY
+> allocation for real-time output: `ssh -tt host "su - user -c './run.sh all'"`
+
 ## AlertManager Configuration (Option B only)
 
 Option A (`setup-demo-cluster.sh`) automatically configures AlertManager to route demo scenario alerts to the Kubernaut Gateway. Option B users must configure this manually -- without it, Prometheus alerts fire but never reach the pipeline.
