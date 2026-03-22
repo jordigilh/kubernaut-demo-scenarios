@@ -335,14 +335,14 @@ _setup_constrained_nodefs() {
 
     if [ "${PLATFORM:-kind}" = "ocp" ]; then
         local already
-        already=$(oc debug "node/${node_name}" -- chroot /host bash -c \
+        already=$(oc debug "node/${node_name}" -- nsenter -a -t 1 bash -c \
           "mount | grep '/var/lib/kubelet.*loop'" 2>/dev/null || true)
         if [ -n "$already" ]; then
             echo "  Constrained filesystem already mounted on ${node_name}."
             return 0
         fi
         echo "  Creating ${CONSTRAINED_FS_SIZE_MB}MB constrained filesystem on ${node_name} (via oc debug)..."
-        oc debug "node/${node_name}" -- chroot /host bash -c "$host_cmds"
+        oc debug "node/${node_name}" -- nsenter -a -t 1 bash -c "$host_cmds"
     else
         local container_runtime="podman"
         if ! command -v podman &>/dev/null; then
