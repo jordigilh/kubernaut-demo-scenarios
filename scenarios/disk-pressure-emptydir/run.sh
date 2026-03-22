@@ -299,6 +299,72 @@ _ensure_scenario_node() {
 echo "==> Step 0: Ensuring a worker node is labeled for this scenario..."
 _ensure_scenario_node
 
+# Step 0b: On Kind, mount a constrained loop filesystem on the worker node's
+# kubelet data dir so that nodefs.available reports against a small (fixed-size)
+# filesystem instead of the host's potentially huge disk.
+# This makes the scenario work on any host regardless of disk size.
+# On OCP, real worker nodes have their own disks; skip this step.
+CONSTRAINED_FS_SIZE_MB="${CONSTRAINED_FS_SIZE_MB:-512}"
+_setup_constrained_nodefs() {
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        echo "  OCP: using worker node's native filesystem."
+        return 0
+    fi
+
+    local node_name
+    node_name=$(kubectl get nodes -l scenario=disk-pressure \
+      -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [ -z "$node_name" ]; then
+        echo "  WARNING: no disk-pressure node found; skipping constrained FS."
+        return 0
+    fi
+
+    local container_runtime="podman"
+    if ! command -v podman &>/dev/null; then
+        container_runtime="docker"
+    fi
+
+    local already_mounted
+    already_mounted=$("${container_runtime}" exec "${node_name}" \
+      mount 2>/dev/null | grep '/var/lib/kubelet.*loop' || true)
+    if [ -n "$already_mounted" ]; then
+        echo "  Constrained filesystem already mounted on ${node_name}."
+        return 0
+    fi
+
+    echo "  Creating ${CONSTRAINED_FS_SIZE_MB}MB constrained filesystem on ${node_name}..."
+    "${container_runtime}" exec "${node_name}" bash -c "
+        systemctl stop kubelet
+        cp -a /var/lib/kubelet /tmp/kubelet-backup
+        truncate -s ${CONSTRAINED_FS_SIZE_MB}M /tmp/nodefs-constrained.img
+        mkfs.ext4 -F /tmp/nodefs-constrained.img >/dev/null 2>&1
+        mount -o loop /tmp/nodefs-constrained.img /var/lib/kubelet
+        cp -a /tmp/kubelet-backup/. /var/lib/kubelet/ 2>/dev/null || true
+        rm -rf /tmp/kubelet-backup
+        systemctl start kubelet
+    "
+
+    echo "  Waiting for node ${node_name} to become Ready..."
+    local ready=false
+    for i in $(seq 1 60); do
+        local status
+        status=$(kubectl get node "${node_name}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
+        if [ "$status" = "True" ]; then
+            ready=true
+            break
+        fi
+        sleep 2
+    done
+    if [ "$ready" = "true" ]; then
+        echo "  Node ${node_name} is Ready with ${CONSTRAINED_FS_SIZE_MB}MB constrained filesystem."
+    else
+        echo "  WARNING: Node ${node_name} not Ready after 120s. Continuing anyway."
+    fi
+}
+echo "==> Step 0b: Setting up constrained filesystem on worker node..."
+_setup_constrained_nodefs
+echo ""
+
 # Step 1: Push deployment YAML to Gitea repo
 echo "==> Step 1: Pushing deployment manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
@@ -819,8 +885,9 @@ TOTAL_MB=$(( TOTAL_BYTES / 1048576 ))
 THRESHOLD_MB=$(( TOTAL_MB * 15 / 100 ))  # kubelet default: 15%
 USABLE_MB=$(( AVAIL_MB - THRESHOLD_MB ))
 
-if [ "$USABLE_MB" -lt 2048 ]; then
-    echo "ERROR: Only ${USABLE_MB} MB usable on ${NODE} (need >= 2048 MB). Free disk first."
+MIN_USABLE_MB="${MIN_USABLE_MB:-50}"
+if [ "$USABLE_MB" -lt "$MIN_USABLE_MB" ]; then
+    echo "ERROR: Only ${USABLE_MB} MB usable on ${NODE} (need >= ${MIN_USABLE_MB} MB). Free disk first."
     exit 1
 fi
 
@@ -841,8 +908,13 @@ RATE_MB_S=$(awk "BEGIN {
     } else {
         r = r_slow  # Case B: slower but safe
     }
-    if (r < 5) r = 5
-    if (r > 60) r = 60   # cap to avoid overwhelming PG I/O
+    if (usable < 1024) {
+        if (r < 0.1) r = 0.1
+        if (r > 5) r = 5
+    } else {
+        if (r < 5) r = 5
+        if (r > 60) r = 60
+    }
     printf \"%.1f\", r
 }")
 

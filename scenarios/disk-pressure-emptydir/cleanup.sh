@@ -50,6 +50,27 @@ while kubectl get ns "${NAMESPACE}" &>/dev/null; do
   sleep 2
 done
 
+# On Kind, unmount the constrained filesystem from the worker node
+if [ "${PLATFORM:-kind}" != "ocp" ]; then
+    for node in $(kubectl get nodes -l scenario=disk-pressure \
+      -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
+        local_runtime="podman"
+        if ! command -v podman &>/dev/null; then local_runtime="docker"; fi
+        if "${local_runtime}" exec "${node}" mount 2>/dev/null | grep -q '/var/lib/kubelet.*loop'; then
+            echo "  Unmounting constrained filesystem on ${node}..."
+            "${local_runtime}" exec "${node}" bash -c "
+                systemctl stop kubelet
+                cp -a /var/lib/kubelet /tmp/kubelet-restore
+                umount /var/lib/kubelet
+                rm -f /tmp/nodefs-constrained.img
+                cp -a /tmp/kubelet-restore/. /var/lib/kubelet/ 2>/dev/null || true
+                rm -rf /tmp/kubelet-restore
+                systemctl start kubelet
+            " 2>/dev/null || echo "  WARNING: could not unmount constrained FS on ${node}"
+        fi
+    done
+fi
+
 # Remove scenario label/taint and Kubernaut labels from tagged nodes
 for node in $(kubectl get nodes -l scenario=disk-pressure \
   -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
