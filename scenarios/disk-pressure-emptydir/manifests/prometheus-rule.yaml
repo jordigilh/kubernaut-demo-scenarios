@@ -23,7 +23,7 @@ spec:
             ) < 0
           for: 1m
           labels:
-            severity: warning
+            severity: high
             namespace: demo-diskpressure
             node: '{{ $labels.instance }}'
           annotations:

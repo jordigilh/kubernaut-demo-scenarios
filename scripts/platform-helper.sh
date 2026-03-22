@@ -106,11 +106,14 @@ seed_action_types_and_workflows() {
         while IFS= read -r -d '' yaml_file; do
             local basename="${yaml_file##*/}"
 
-            # Skip Ansible-engine workflows (require AWX infrastructure)
+            # Skip Ansible-engine workflows when AWX/AAP is not installed
             if grep -q 'engine: ansible' "$yaml_file"; then
-                echo "    SKIP ${basename} (engine: ansible — requires AWX)"
-                skipped=$((skipped + 1))
-                continue
+                if ! kubectl get deployment -A -l app.kubernetes.io/managed-by=awx-operator --no-headers 2>/dev/null | grep -q . && \
+                   ! kubectl get automationcontroller -A --no-headers 2>/dev/null | grep -q .; then
+                    echo "    SKIP ${basename} (engine: ansible — no AWX/AAP found)"
+                    skipped=$((skipped + 1))
+                    continue
+                fi
             fi
 
             # Check secret dependencies declared in the workflow

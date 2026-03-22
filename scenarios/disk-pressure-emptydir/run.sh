@@ -289,6 +289,7 @@ _ensure_scenario_node() {
     fi
     local target
     target=$(kubectl get nodes --selector='!node-role.kubernetes.io/control-plane' \
+      --field-selector=spec.unschedulable!=true \
       -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
     if [ -z "$target" ]; then
         echo "  WARNING: no schedulable worker node found; pods may stay Pending."
@@ -479,10 +480,10 @@ spec:
           value: "${PG_DATA_VALUE}"
         resources:
           requests:
-            memory: "256Mi"
+            memory: "512Mi"
             cpu: "100m"
           limits:
-            memory: "512Mi"
+            memory: "2Gi"
             cpu: "500m"
         volumeMounts:
         - name: data
@@ -770,6 +771,20 @@ rm -rf "${WORK_DIR}"
 echo "==> Step 1b: Ensuring gitea-repo-creds secret..."
 _ensure_gitea_repo_creds
 
+# Step 1c: Register the disk-pressure-emptydir workflow if not already present.
+# The Helm seed job and require_demo_ready() may have skipped it due to missing
+# secrets or AWX detection at install time.
+_WF_YAML="${SCRIPT_DIR}/../../deploy/remediation-workflows/disk-pressure-emptydir/disk-pressure-emptydir.yaml"
+if [ -f "$_WF_YAML" ]; then
+    _WF_NAME=$(grep -m1 'name:' "$_WF_YAML" | awk '{print $2}')
+    if ! kubectl get remediationworkflow "$_WF_NAME" -n "${PLATFORM_NS}" &>/dev/null; then
+        echo "==> Step 1c: Registering disk-pressure-emptydir workflow..."
+        kubectl apply -n "${PLATFORM_NS}" -f "$_WF_YAML" 2>&1 | sed 's/^/  /'
+    else
+        echo "==> Step 1c: Workflow ${_WF_NAME} already registered."
+    fi
+fi
+
 # Step 2: Apply all manifests (namespace, Prometheus rule, ArgoCD Application)
 echo "==> Step 2: Applying manifests (namespace, Prometheus rule, ArgoCD Application)..."
 
@@ -787,9 +802,13 @@ kubectl apply -k "${MANIFEST_DIR}"
 # mountpoint="/") which don't match OCP nodes or the constrained loop FS.
 _SCENARIO_NODE=$(kubectl get nodes -l scenario=disk-pressure \
   -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-_NODE_IP=$(kubectl get node "$_SCENARIO_NODE" \
-  -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null)
-_INSTANCE_RE="${_NODE_IP}:.*"
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    _INSTANCE_RE="${_SCENARIO_NODE}"
+else
+    _NODE_IP=$(kubectl get node "$_SCENARIO_NODE" \
+      -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null)
+    _INSTANCE_RE="${_NODE_IP}:.*"
+fi
 if [ "$CONSTRAINED_FS_MOUNTED" = "true" ]; then
     _MOUNTPOINT="/var/lib/kubelet"
 elif [ "${PLATFORM:-kind}" = "ocp" ]; then
@@ -973,8 +992,8 @@ RATE_MB_S=$(awk "BEGIN {
         if (r < 0.1) r = 0.1
         if (r > 5) r = 5
     } else if (usable < 10240) {
-        if (r < 3) r = 3
-        if (r > 10) r = 10
+        if (r < 1.5) r = 1.5
+        if (r > 5) r = 5
     } else {
         if (r < 5) r = 5
         if (r > 60) r = 60
@@ -983,7 +1002,7 @@ RATE_MB_S=$(awk "BEGIN {
 }")
 
 SLEEP_MS=50
-BATCH_SIZE=$(awk "BEGIN { v=int(${RATE_MB_S}*${SLEEP_MS}/1000*1024*${PG_AMP}); if(v<100)v=100; print v }")
+BATCH_SIZE=$(awk "BEGIN { v=int(${RATE_MB_S}*${SLEEP_MS}/1000*1024/${PG_AMP}); if(v<10)v=10; print v }")
 ITERATIONS=$(awk "BEGIN { print int(${USABLE_MB}*1024/${BATCH_SIZE})+1000 }")
 
 # Estimate timing (minutes)
