@@ -232,7 +232,7 @@ Every step is idempotent -- you can safely re-run the script if it fails partway
 |------|---------|
 | `--create-cluster` | Delete and recreate the Kind cluster from scratch |
 | `--skip-infra` | Skip optional infrastructure (cert-manager, Istio, Gitea, ArgoCD) |
-| `--with-awx` | Install AWX (required for Ansible-engine scenarios: `disk-pressure-emptydir`, `memory-limits-gitops-ansible`) |
+| `--with-awx` | Install AWX (required for OCP-only Ansible-engine scenarios: `disk-pressure-emptydir`, `memory-limits-gitops-ansible`) |
 | `--kind-config PATH` | Custom Kind cluster config (default: `scenarios/kind-config-multinode.yaml`) |
 | `--chart-version VER` | Pin Helm chart version (e.g. `1.1.0-rc1`); required for pre-release tags |
 

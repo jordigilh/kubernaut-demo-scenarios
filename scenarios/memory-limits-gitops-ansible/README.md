@@ -1,6 +1,9 @@
 # Scenario #312: Memory Limits GitOps via Ansible/AWX
 
 > **Status: Unvalidated** -- This scenario has scaffolding but has not been tested end-to-end on any platform. See the [Scenario Catalog](../../docs/scenarios.md#unvalidated) for details.
+>
+> **Environment: OCP only.** Requires AWX/AAP for Ansible playbook execution and
+> ArgoCD with Gitea. Not supported on Kind.
 
 ## Overview
 
