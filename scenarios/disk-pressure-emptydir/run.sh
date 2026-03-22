@@ -44,7 +44,7 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
 # shellcheck source=../../scripts/monitoring-helper.sh
 source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
-require_infra awx
+require_infra awx-engine
 require_infra gitea
 require_infra argocd
 

@@ -54,6 +54,19 @@ require_infra() {
             kubectl get automationcontroller -A --no-headers 2>/dev/null | grep -q . && return 0
             echo "ERROR: AWX/AAP is not installed. Run: bash scripts/awx-helper.sh"
             exit 1 ;;
+        awx-engine)
+            require_infra awx
+            if ! kubectl get configmap workflowexecution-config -n "${PLATFORM_NS:-kubernaut-system}" \
+                -o jsonpath='{.data.workflowexecution\.yaml}' 2>/dev/null | grep -q 'ansible'; then
+                echo "ERROR: The WorkflowExecution controller does not have the ansible engine configured."
+                echo "  AWX/AAP is installed but the Helm chart was not deployed with ansible engine support."
+                echo ""
+                echo "  The WE ConfigMap (workflowexecution-config) needs an engines.ansible section"
+                echo "  with AWX connection details. Upgrade the Helm release with the appropriate"
+                echo "  workflowExecution engine values for your chart version."
+                exit 1
+            fi
+            return 0 ;;
         *)
             echo "ERROR: Unknown infrastructure component: ${component}"
             exit 1 ;;
