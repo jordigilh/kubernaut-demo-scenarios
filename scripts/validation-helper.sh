@@ -100,12 +100,12 @@ fi
 
 _find_rr_name() {
     local target_ns="$1"
-    # Find the most recent RR whose spec.targetResource references the target namespace.
-    # The { grep ... || true; } wrapper prevents pipefail from aborting the script when
-    # no RR exists yet (grep exits 1 on no match).
+    # Find the most recent RR whose signalLabels.namespace exactly matches the
+    # target namespace.  Uses awk instead of grep to avoid substring collisions
+    # (e.g. "demo-crashloop" matching "demo-crashloop-helm") — #148.
     kubectl get remediationrequests -n "$PLATFORM_NS" \
         -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
-        | { grep "$target_ns" || true; } | tail -1 | cut -f1
+        | awk -F'\t' -v ns="$target_ns" '$2 == ns { print $1 }' | tail -1
 }
 
 get_rr_phase() {
@@ -311,15 +311,11 @@ show_ai_analysis() {
 
     local rr_name aa_name
     rr_name=$(_find_rr_name "$target_ns")
-    if [ -n "$rr_name" ]; then
-        aa_name="ai-${rr_name}"
-    else
-        aa_name=$(kubectl get aianalyses -n "$PLATFORM_NS" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-    fi
-    if [ -z "$aa_name" ]; then
-        log_info "(no AIAnalysis found)"
+    if [ -z "$rr_name" ]; then
+        log_info "(no AIAnalysis found — RR not resolved for ${target_ns})"
         return
     fi
+    aa_name="ai-${rr_name}"
 
     local ns="$PLATFORM_NS"
     local root_cause severity affected_kind affected_name affected_ns
@@ -370,15 +366,11 @@ show_wfe_progress() {
 
     local rr_name wfe_name phase
     rr_name=$(_find_rr_name "$target_ns")
-    if [ -n "$rr_name" ]; then
-        wfe_name="we-${rr_name}"
-    else
-        wfe_name=$(kubectl get workflowexecutions -n "$PLATFORM_NS" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-    fi
-    if [ -z "$wfe_name" ]; then
-        log_info "(no WorkflowExecution found)"
+    if [ -z "$rr_name" ]; then
+        log_info "(no WorkflowExecution found — RR not resolved for ${target_ns})"
         return
     fi
+    wfe_name="we-${rr_name}"
 
     phase=$(kubectl get workflowexecutions "$wfe_name" -n "$PLATFORM_NS" -o jsonpath='{.status.phase}' 2>/dev/null)
     local completed total duration
@@ -403,15 +395,11 @@ show_effectiveness() {
 
     local rr_name ea_name
     rr_name=$(_find_rr_name "$target_ns")
-    if [ -n "$rr_name" ]; then
-        ea_name="ea-${rr_name}"
-    else
-        ea_name=$(kubectl get effectivenessassessments -n "$PLATFORM_NS" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-    fi
-    if [ -z "$ea_name" ]; then
-        log_info "(no EffectivenessAssessment found)"
+    if [ -z "$rr_name" ]; then
+        log_info "(no EffectivenessAssessment found — RR not resolved for ${target_ns})"
         return
     fi
+    ea_name="ea-${rr_name}"
 
     local phase reason message alert_score health_score metrics_score
     phase=$(kubectl get effectivenessassessments "$ea_name" -n "$PLATFORM_NS" -o jsonpath='{.status.phase}' 2>/dev/null)
@@ -601,8 +589,10 @@ poll_pipeline() {
                     fi
                     show_approval_notification "$target_ns"
                     if [ "$approve_mode" != "--auto-approve" ]; then
+                        local _hint_rr
+                        _hint_rr=$(_find_rr_name "$target_ns")
                         log_warn "Awaiting manual approval. Approve with:"
-                        log_info "  kubectl patch rar \$(kubectl get rar -n $PLATFORM_NS -o name | head -1) -n $PLATFORM_NS --type=merge --subresource=status -p '{\"status\":{\"decision\":\"Approved\"}}'"
+                        log_info "  kubectl patch rar rar-${_hint_rr} -n $PLATFORM_NS --type=merge --subresource=status -p '{\"status\":{\"decision\":\"Approved\"}}'"
                     fi
                     ;;
                 Executing)
