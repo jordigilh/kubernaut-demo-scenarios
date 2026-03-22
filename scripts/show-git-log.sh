@@ -7,12 +7,13 @@ LIMIT="${1:-5}"
 REPO="kubernaut/demo-gitops-repo"
 GITEA_NS="gitea"
 
-kubectl port-forward -n "${GITEA_NS}" svc/gitea-http 3000:3000 &>/dev/null &
+GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+kubectl port-forward -n "${GITEA_NS}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
 PF_PID=$!
 trap 'kill ${PF_PID} 2>/dev/null || true' EXIT
 sleep 2
 
-COMMITS=$(curl -sf "http://localhost:3000/api/v1/repos/${REPO}/commits?limit=${LIMIT}" 2>/dev/null || echo "[]")
+COMMITS=$(curl -sf "http://localhost:${GITEA_LOCAL_PORT}/api/v1/repos/${REPO}/commits?limit=${LIMIT}" 2>/dev/null || echo "[]")
 
 if ! command -v jq &>/dev/null || [ "$COMMITS" = "[]" ]; then
   echo "(no commits or Gitea unavailable)"

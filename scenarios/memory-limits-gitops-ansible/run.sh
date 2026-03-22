@@ -56,18 +56,19 @@ echo ""
 # Step 1: Push deployment YAML to Gitea repo
 echo "==> Step 1: Pushing deployment manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
-kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
+GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
 sleep 3
 
 # Create repo if it doesn't exist
-curl -s -X POST "http://localhost:3000/api/v1/user/repos" \
+curl -s -X POST "http://localhost:${GITEA_LOCAL_PORT}/api/v1/user/repos" \
   -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"${REPO_NAME}\", \"auto_init\": true}" -o /dev/null 2>/dev/null || true
 
 cd "${WORK_DIR}"
-git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:3000/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo 2>/dev/null
+git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo 2>/dev/null
 cd repo
 git config user.email "kubernaut@kubernaut.ai"
 git config user.name "Kubernaut Setup"

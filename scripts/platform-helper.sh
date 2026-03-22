@@ -366,3 +366,80 @@ _check_llm_credentials() {
         echo ""
     fi
 }
+
+# ── Prometheus toolset management ────────────────────────────────────────────
+# Enable/disable the Prometheus toolset in the HolmesGPT SDK ConfigMap.
+# Works on both Kind and OCP by patching the ConfigMap directly instead of
+# going through `helm upgrade` (which requires knowing the exact chart
+# version and values schema). See: kubernaut-demo-scenarios#133.
+
+_sdk_configmap_name() {
+    kubectl get configmap -n "${PLATFORM_NS}" -o name 2>/dev/null \
+      | grep -o 'holmesgpt-sdk-config[^ ]*' | head -1 || true
+}
+
+enable_prometheus_toolset() {
+    local cm_name
+    cm_name=$(_sdk_configmap_name)
+    if [ -z "$cm_name" ]; then
+        echo "  WARNING: HolmesGPT SDK ConfigMap not found; cannot enable Prometheus toolset."
+        echo "  Enable manually in ~/.kubernaut/sdk-config.yaml under toolsets.prometheus/metrics."
+        return 0
+    fi
+
+    local current
+    current=$(kubectl get "configmap/${cm_name}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.data.sdk-config\.yaml}' 2>/dev/null || true)
+
+    if echo "$current" | grep -q 'prometheus/metrics:' 2>/dev/null; then
+        if echo "$current" | grep -A1 'prometheus/metrics:' | grep -q 'enabled: true'; then
+            echo "  Prometheus toolset already enabled."
+            return 0
+        fi
+        current=$(echo "$current" | sed 's/enabled: false/enabled: true/')
+    else
+        local prom_url="http://kube-prometheus-stack-prometheus.monitoring.svc:9090"
+        if [ "${PLATFORM:-kind}" = "ocp" ]; then
+            prom_url="https://thanos-querier.openshift-monitoring.svc:9091"
+        fi
+        current="${current}
+toolsets:
+  prometheus/metrics:
+    enabled: true
+    config:
+      prometheus_url: \"${prom_url}\""
+    fi
+
+    kubectl patch "configmap/${cm_name}" -n "${PLATFORM_NS}" --type merge \
+      -p "{\"data\":{\"sdk-config.yaml\":$(echo "$current" | jq -Rs .)}}" >/dev/null 2>&1
+    kubectl rollout restart deployment/holmesgpt-api -n "${PLATFORM_NS}" >/dev/null 2>&1
+    kubectl rollout status deployment/holmesgpt-api -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
+    echo "  Prometheus toolset enabled via SDK ConfigMap."
+}
+
+disable_prometheus_toolset() {
+    local cm_name
+    cm_name=$(_sdk_configmap_name)
+    if [ -z "$cm_name" ]; then
+        return 0
+    fi
+
+    local current
+    current=$(kubectl get "configmap/${cm_name}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.data.sdk-config\.yaml}' 2>/dev/null || true)
+
+    if ! echo "$current" | grep -q 'prometheus/metrics:' 2>/dev/null; then
+        return 0
+    fi
+
+    if echo "$current" | grep -A1 'prometheus/metrics:' | grep -q 'enabled: false'; then
+        return 0
+    fi
+
+    current=$(echo "$current" | sed 's/enabled: true/enabled: false/')
+    kubectl patch "configmap/${cm_name}" -n "${PLATFORM_NS}" --type merge \
+      -p "{\"data\":{\"sdk-config.yaml\":$(echo "$current" | jq -Rs .)}}" >/dev/null 2>&1
+    kubectl rollout restart deployment/holmesgpt-api -n "${PLATFORM_NS}" >/dev/null 2>&1
+    kubectl rollout status deployment/holmesgpt-api -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
+    echo "  Prometheus toolset disabled via SDK ConfigMap."
+}

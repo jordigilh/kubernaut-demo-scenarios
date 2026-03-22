@@ -274,10 +274,7 @@ _check_prerequisites
 
 # Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
 echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
-helm upgrade kubernaut "${CHART_REF}" \
-  -n "${PLATFORM_NS}" --reuse-values \
-  --set holmesgptApi.prometheus.enabled=true \
-  --wait --timeout 3m
+enable_prometheus_toolset
 echo ""
 
 # Step 0: Ensure a worker node has the scenario label and taint.
@@ -305,17 +302,18 @@ _ensure_scenario_node
 # Step 1: Push deployment YAML to Gitea repo
 echo "==> Step 1: Pushing deployment manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
-kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
+GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
 sleep 3
 
-curl -s -X POST "http://localhost:3000/api/v1/user/repos" \
+curl -s -X POST "http://localhost:${GITEA_LOCAL_PORT}/api/v1/user/repos" \
   -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"${REPO_NAME}\", \"auto_init\": true}" -o /dev/null 2>/dev/null || true
 
 cd "${WORK_DIR}"
-git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:3000/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo 2>/dev/null
+git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo 2>/dev/null
 cd repo
 git config user.email "kubernaut@kubernaut.ai"
 git config user.name "Kubernaut Setup"

@@ -64,18 +64,19 @@ kubectl patch configmap argocd-cm -n argocd --type merge \
 # Step 3: Create Gitea repo with cert-manager manifests
 echo "==> Step 4: Pushing cert-manager manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
-kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
+GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
 sleep 3
 
 # Create repo in Gitea
-curl -s -X POST "http://localhost:3000/api/v1/user/repos" \
+curl -s -X POST "http://localhost:${GITEA_LOCAL_PORT}/api/v1/user/repos" \
   -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"${REPO_NAME}\", \"auto_init\": true}" -o /dev/null || true
 
 cd "${WORK_DIR}"
-git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:3000/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
+git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
 cd repo
 git config user.email "kubernaut@kubernaut.ai"
 git config user.name "Kubernaut Setup"
@@ -234,12 +235,13 @@ run_inject() {
 # Step 8: Inject failure via git push
 echo "==> Step 8: Injecting failure (pushing broken ClusterIssuer via git)..."
 WORK_DIR=$(mktemp -d)
-kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
+GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
 sleep 3
 
 cd "${WORK_DIR}"
-git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:3000/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
+git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
 cd repo
 git config user.email "bad-actor@example.com"
 git config user.name "Bad Deploy"

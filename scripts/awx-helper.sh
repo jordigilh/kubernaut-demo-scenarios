@@ -215,7 +215,7 @@ spec:
       memory: 256Mi
     limits:
       cpu: "1"
-      memory: 1Gi
+      memory: 2Gi
   task_resource_requirements:
     requests:
       cpu: 100m
