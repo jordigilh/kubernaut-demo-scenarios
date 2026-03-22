@@ -1,4 +1,4 @@
-# OCP-specific value overrides for the Kubernaut Helm chart (v1.1.0-rc3+).
+# OCP-specific value overrides for the Kubernaut Helm chart (v1.1.0-rc4+).
 # No NodePort, no nodeSelector (OCP schedules to worker nodes).
 # cert-manager TLS mode (OCP has cert-manager installed).
 tls:
@@ -37,7 +37,6 @@ holmesgptApi:
   prometheus:
     enabled: false
     url: "https://thanos-querier.openshift-monitoring.svc:9091"
-    tlsCaFile: "/etc/ssl/hapi/service-ca.crt"
     ocpMonitoringRbac: true
 
 # PostgreSQL: use the Red Hat RHEL10 image for OCP (restricted-v2 SCC compatible).
