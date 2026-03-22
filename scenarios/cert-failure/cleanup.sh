@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "==> Cleaning up cert-manager Certificate Failure demo..."
 
+kubectl delete -f "${SCRIPT_DIR}/manifests/servicemonitor.yaml" --ignore-not-found
 kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 kubectl delete -f "${SCRIPT_DIR}/manifests/certificate.yaml" --ignore-not-found
 kubectl delete -f "${SCRIPT_DIR}/manifests/deployment.yaml" --ignore-not-found

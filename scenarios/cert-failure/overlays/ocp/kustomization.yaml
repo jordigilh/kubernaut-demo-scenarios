@@ -39,3 +39,11 @@ patches:
     patch: |
       - op: remove
         path: /metadata/labels/release
+  # Category C: ServiceMonitor - remove release label for OCP
+  # (OCP user-workload monitoring selects all ServiceMonitors regardless of labels)
+  - target:
+      kind: ServiceMonitor
+      name: kubernaut-cert-manager-demo
+    patch: |
+      - op: remove
+        path: /metadata/labels/release

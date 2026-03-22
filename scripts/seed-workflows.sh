@@ -41,7 +41,7 @@ while IFS= read -r -d '' yaml_file; do
 
     # Skip Ansible-engine workflows unless AWX is available
     if grep -q 'engine: ansible' "$yaml_file"; then
-        if ! kubectl get deployment -A -l 'app.kubernetes.io/name=awx' --no-headers 2>/dev/null | grep -q . && \
+        if ! kubectl get deployment -A -l 'app.kubernetes.io/managed-by=awx-operator' --no-headers 2>/dev/null | grep -q . && \
            ! kubectl get automationcontroller -A --no-headers 2>/dev/null | grep -q .; then
             echo "  SKIP ${basename} (engine: ansible — no AWX/AAP found)"
             skipped=$((skipped + 1))
@@ -49,10 +49,14 @@ while IFS= read -r -d '' yaml_file; do
         fi
     fi
 
-    # Check secret dependencies declared in the workflow
+    # Check secret dependencies declared in the workflow.
+    # WE jobs run in kubernaut-workflows, so check both the platform namespace
+    # and the workflow execution namespace (DD-WE-006).
+    WE_NAMESPACE="${WE_NAMESPACE:-kubernaut-workflows}"
     unmet=""
     while IFS= read -r secret_name; do
-        if ! kubectl get secret "$secret_name" -n "${NAMESPACE}" &>/dev/null; then
+        if ! kubectl get secret "$secret_name" -n "${NAMESPACE}" &>/dev/null && \
+           ! kubectl get secret "$secret_name" -n "${WE_NAMESPACE}" &>/dev/null; then
             unmet="${secret_name}"
             break
         fi
@@ -60,7 +64,7 @@ while IFS= read -r -d '' yaml_file; do
               | grep -- '- name:' | awk '{print $NF}')
 
     if [ -n "$unmet" ]; then
-        echo "  SKIP ${basename} (secret \"${unmet}\" not found in ${NAMESPACE})"
+        echo "  SKIP ${basename} (secret \"${unmet}\" not found in ${NAMESPACE} or ${WE_NAMESPACE})"
         skipped=$((skipped + 1))
         continue
     fi

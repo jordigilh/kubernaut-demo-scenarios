@@ -108,10 +108,11 @@ if [ "$PLATFORM" = "ocp" ]; then
 fi
 
 if [ -z "${GITEA_API_URL}" ]; then
-    kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
+    GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+    kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
     PF_PID=$!
     sleep 3
-    GITEA_API_URL="http://localhost:3000"
+    GITEA_API_URL="http://localhost:${GITEA_LOCAL_PORT}"
 fi
 
 # ── Create repository ────────────────────────────────────────────────────────
@@ -267,7 +268,7 @@ git commit -m "Initial deployment: nginx web-frontend with healthy config"
 
 # Push via port-forward or Route
 if [ -n "${PF_PID}" ]; then
-    GIT_PUSH_URL="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:3000/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
+    GIT_PUSH_URL="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
 else
     GIT_PUSH_URL="https://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@${ROUTE_HOST}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
     git config http.sslVerify false

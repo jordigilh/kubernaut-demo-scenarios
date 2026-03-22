@@ -7,3 +7,4 @@ resources:
   - clusterissuer.yaml
   - deployment.yaml
   - prometheus-rule.yaml
+  - servicemonitor.yaml

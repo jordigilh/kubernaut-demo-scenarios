@@ -74,12 +74,13 @@ run_inject() {
 # Step 6: Inject failure -- push bad ConfigMap to Gitea
 echo "==> Step 6: Injecting failure (bad ConfigMap via Git commit)..."
 WORK_DIR=$(mktemp -d)
-kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
+GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
 sleep 3
 
 cd "${WORK_DIR}"
-git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:3000/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
+git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
 cd repo
 
 # Break the ConfigMap: inject an invalid nginx directive
