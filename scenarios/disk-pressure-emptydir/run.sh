@@ -303,14 +303,11 @@ _ensure_scenario_node
 # kubelet data dir so that nodefs.available reports against a small (fixed-size)
 # filesystem instead of the host's potentially huge disk.
 # This makes the scenario work on any host regardless of disk size.
-# On OCP, real worker nodes have their own disks; skip this step.
+# Mount a constrained loop filesystem on the worker node's kubelet data dir
+# so nodefs.available reports against a small (fixed-size) filesystem. This
+# makes the scenario deterministic regardless of the host/node disk size.
 CONSTRAINED_FS_SIZE_MB="${CONSTRAINED_FS_SIZE_MB:-512}"
 _setup_constrained_nodefs() {
-    if [ "${PLATFORM:-kind}" = "ocp" ]; then
-        echo "  OCP: using worker node's native filesystem."
-        return 0
-    fi
-
     local node_name
     node_name=$(kubectl get nodes -l scenario=disk-pressure \
       -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
@@ -319,21 +316,13 @@ _setup_constrained_nodefs() {
         return 0
     fi
 
-    local container_runtime="podman"
-    if ! command -v podman &>/dev/null; then
-        container_runtime="docker"
-    fi
-
-    local already_mounted
-    already_mounted=$("${container_runtime}" exec "${node_name}" \
-      mount 2>/dev/null | grep '/var/lib/kubelet.*loop' || true)
-    if [ -n "$already_mounted" ]; then
-        echo "  Constrained filesystem already mounted on ${node_name}."
-        return 0
-    fi
-
-    echo "  Creating ${CONSTRAINED_FS_SIZE_MB}MB constrained filesystem on ${node_name}..."
-    "${container_runtime}" exec "${node_name}" bash -c "
+    # Build the shell command to run on the host.
+    local host_cmds
+    host_cmds="
+        if mount | grep -q '/var/lib/kubelet.*loop'; then
+            echo 'ALREADY_MOUNTED'
+            exit 0
+        fi
         systemctl stop kubelet
         cp -a /var/lib/kubelet /tmp/kubelet-backup
         truncate -s ${CONSTRAINED_FS_SIZE_MB}M /tmp/nodefs-constrained.img
@@ -344,12 +333,38 @@ _setup_constrained_nodefs() {
         systemctl start kubelet
     "
 
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        local already
+        already=$(oc debug "node/${node_name}" -- nsenter -a -t 1 bash -c \
+          "mount | grep '/var/lib/kubelet.*loop'" 2>/dev/null || true)
+        if [ -n "$already" ]; then
+            echo "  Constrained filesystem already mounted on ${node_name}."
+            return 0
+        fi
+        echo "  Creating ${CONSTRAINED_FS_SIZE_MB}MB constrained filesystem on ${node_name} (via oc debug)..."
+        oc debug "node/${node_name}" -- nsenter -a -t 1 bash -c "$host_cmds"
+    else
+        local container_runtime="podman"
+        if ! command -v podman &>/dev/null; then
+            container_runtime="docker"
+        fi
+        local already
+        already=$("${container_runtime}" exec "${node_name}" \
+          mount 2>/dev/null | grep '/var/lib/kubelet.*loop' || true)
+        if [ -n "$already" ]; then
+            echo "  Constrained filesystem already mounted on ${node_name}."
+            return 0
+        fi
+        echo "  Creating ${CONSTRAINED_FS_SIZE_MB}MB constrained filesystem on ${node_name}..."
+        "${container_runtime}" exec "${node_name}" bash -c "$host_cmds"
+    fi
+
     echo "  Waiting for node ${node_name} to become Ready..."
     local ready=false
     for i in $(seq 1 60); do
-        local status
-        status=$(kubectl get node "${node_name}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
-        if [ "$status" = "True" ]; then
+        local node_status
+        node_status=$(kubectl get node "${node_name}" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
+        if [ "$node_status" = "True" ]; then
             ready=true
             break
         fi
