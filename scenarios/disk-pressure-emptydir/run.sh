@@ -277,9 +277,11 @@ echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
 enable_prometheus_toolset
 echo ""
 
-# Step 0: Ensure a worker node has the scenario label and taint.
+# Step 0: Ensure a worker node has the scenario label.
 # On Kind, kind-config-diskpressure.yaml bakes the label at cluster creation.
 # On OCP, we pick the first schedulable worker and label it.
+# NOTE: the NoSchedule taint is applied AFTER the constrained FS setup (Step 0c)
+# so that oc debug pods can still schedule on the node during setup.
 _ensure_scenario_node() {
     if kubectl get nodes -l scenario=disk-pressure -o name 2>/dev/null | grep -q .; then
         echo "  Node with scenario=disk-pressure already exists."
@@ -292,9 +294,8 @@ _ensure_scenario_node() {
         echo "  WARNING: no schedulable worker node found; pods may stay Pending."
         return 0
     fi
-    echo "  Labeling and tainting node ${target} for disk-pressure scenario..."
+    echo "  Labeling node ${target} for disk-pressure scenario..."
     kubectl label node "$target" scenario=disk-pressure --overwrite
-    kubectl taint node "$target" scenario=disk-pressure:NoSchedule --overwrite 2>/dev/null || true
 }
 echo "==> Step 0: Ensuring a worker node is labeled for this scenario..."
 _ensure_scenario_node
@@ -306,7 +307,8 @@ _ensure_scenario_node
 # Mount a constrained loop filesystem on the worker node's kubelet data dir
 # so nodefs.available reports against a small (fixed-size) filesystem. This
 # makes the scenario deterministic regardless of the host/node disk size.
-CONSTRAINED_FS_SIZE_MB="${CONSTRAINED_FS_SIZE_MB:-512}"
+CONSTRAINED_FS_SIZE_MB="${CONSTRAINED_FS_SIZE_MB:-5120}"
+CONSTRAINED_FS_MOUNTED=false
 _setup_constrained_nodefs() {
     local node_name
     node_name=$(kubectl get nodes -l scenario=disk-pressure \
@@ -335,14 +337,15 @@ _setup_constrained_nodefs() {
 
     if [ "${PLATFORM:-kind}" = "ocp" ]; then
         local already
-        already=$(oc debug "node/${node_name}" -- nsenter -a -t 1 bash -c \
+        already=$(oc debug "node/${node_name}" -- chroot /host bash -c \
           "mount | grep '/var/lib/kubelet.*loop'" 2>/dev/null || true)
         if [ -n "$already" ]; then
             echo "  Constrained filesystem already mounted on ${node_name}."
+            CONSTRAINED_FS_MOUNTED=true
             return 0
         fi
         echo "  Creating ${CONSTRAINED_FS_SIZE_MB}MB constrained filesystem on ${node_name} (via oc debug)..."
-        oc debug "node/${node_name}" -- nsenter -a -t 1 bash -c "$host_cmds"
+        oc debug "node/${node_name}" -- nsenter --mount --pid --target 1 bash -c "$host_cmds"
     else
         local container_runtime="podman"
         if ! command -v podman &>/dev/null; then
@@ -353,6 +356,7 @@ _setup_constrained_nodefs() {
           mount 2>/dev/null | grep '/var/lib/kubelet.*loop' || true)
         if [ -n "$already" ]; then
             echo "  Constrained filesystem already mounted on ${node_name}."
+            CONSTRAINED_FS_MOUNTED=true
             return 0
         fi
         echo "  Creating ${CONSTRAINED_FS_SIZE_MB}MB constrained filesystem on ${node_name}..."
@@ -372,12 +376,25 @@ _setup_constrained_nodefs() {
     done
     if [ "$ready" = "true" ]; then
         echo "  Node ${node_name} is Ready with ${CONSTRAINED_FS_SIZE_MB}MB constrained filesystem."
+        CONSTRAINED_FS_MOUNTED=true
     else
         echo "  WARNING: Node ${node_name} not Ready after 120s. Continuing anyway."
+        CONSTRAINED_FS_MOUNTED=true
     fi
 }
 echo "==> Step 0b: Setting up constrained filesystem on worker node..."
 _setup_constrained_nodefs
+
+# Step 0c: Apply the NoSchedule taint AFTER constrained FS is ready.
+# This must happen after Step 0b because oc debug pods need to schedule
+# on the node to set up the loop mount.
+echo "==> Step 0c: Applying NoSchedule taint to scenario node..."
+_scenario_node=$(kubectl get nodes -l scenario=disk-pressure \
+  -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+if [ -n "$_scenario_node" ]; then
+    kubectl taint node "$_scenario_node" scenario=disk-pressure:NoSchedule --overwrite 2>/dev/null || true
+    echo "  Tainted ${_scenario_node} with scenario=disk-pressure:NoSchedule"
+fi
 echo ""
 
 # Step 1: Push deployment YAML to Gitea repo
@@ -765,6 +782,35 @@ _ensure_alertmanager_rbac
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
+# Patch PrometheusRule with correct instance and mountpoint for the target
+# environment. The static manifest uses Kind defaults (instance=~"stress-worker.*",
+# mountpoint="/") which don't match OCP nodes or the constrained loop FS.
+_SCENARIO_NODE=$(kubectl get nodes -l scenario=disk-pressure \
+  -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+_NODE_IP=$(kubectl get node "$_SCENARIO_NODE" \
+  -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}' 2>/dev/null)
+_INSTANCE_RE="${_NODE_IP}:.*"
+if [ "$CONSTRAINED_FS_MOUNTED" = "true" ]; then
+    _MOUNTPOINT="/var/lib/kubelet"
+elif [ "${PLATFORM:-kind}" = "ocp" ]; then
+    _MOUNTPOINT="/var"
+else
+    _MOUNTPOINT="/"
+fi
+_EXPR="predict_linear(node_filesystem_avail_bytes{mountpoint=\"${_MOUNTPOINT}\", instance=~\"${_INSTANCE_RE}\"}[3m], 1200) < 0"
+echo "  Patching PrometheusRule: mountpoint=${_MOUNTPOINT}, instance=~${_INSTANCE_RE}"
+kubectl get prometheusrule demo-diskpressure-rules -n "${NAMESPACE}" -o json \
+  | python3 -c "
+import json, sys
+rule = json.load(sys.stdin)
+for g in rule['spec']['groups']:
+    for r in g['rules']:
+        if r.get('alert') == 'PredictedDiskPressure':
+            r['expr'] = '''${_EXPR}'''
+json.dump(rule, sys.stdout)
+" | kubectl apply -f - 2>/dev/null
+echo "  PrometheusRule patched."
+
 # Speed up ArgoCD polling for demo
 ARGOCD_NS=$(get_argocd_namespace)
 kubectl patch configmap argocd-cm -n "${ARGOCD_NS}" --type merge \
@@ -886,7 +932,7 @@ echo "==> Target node: ${NODE}"
 #
 # We prefer Case A (faster) and fall back to Case B.
 
-DF_LINE=$(kubectl exec -n "${NAMESPACE}" "${POD}" -- df -B1 / 2>/dev/null | tail -1)
+DF_LINE=$(kubectl exec -n "${NAMESPACE}" "${POD}" -- df -B1 "${PG_DATA_MOUNT}" 2>/dev/null | tail -1)
 TOTAL_BYTES=$(echo "$DF_LINE" | awk '{print $2}')
 AVAIL_BYTES=$(echo "$DF_LINE" | awk '{print $4}')
 
@@ -926,6 +972,9 @@ RATE_MB_S=$(awk "BEGIN {
     if (usable < 1024) {
         if (r < 0.1) r = 0.1
         if (r > 5) r = 5
+    } else if (usable < 10240) {
+        if (r < 3) r = 3
+        if (r > 10) r = 10
     } else {
         if (r < 5) r = 5
         if (r > 60) r = 60

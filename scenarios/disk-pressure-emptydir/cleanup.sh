@@ -63,10 +63,11 @@ _unmount_cmds='
 for node in $(kubectl get nodes -l scenario=disk-pressure \
   -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
     if [ "${PLATFORM:-kind}" = "ocp" ]; then
-        if oc debug "node/${node}" -- nsenter -a -t 1 bash -c \
+        if oc debug "node/${node}" -- chroot /host bash -c \
           "mount | grep '/var/lib/kubelet.*loop'" &>/dev/null; then
             echo "  Unmounting constrained filesystem on ${node} (via oc debug)..."
-            oc debug "node/${node}" -- nsenter -a -t 1 bash -c "$_unmount_cmds" 2>/dev/null \
+            oc debug "node/${node}" -- nsenter --mount --pid --target 1 \
+              bash -c "$_unmount_cmds" 2>/dev/null \
               || echo "  WARNING: could not unmount constrained FS on ${node}"
         fi
     else
