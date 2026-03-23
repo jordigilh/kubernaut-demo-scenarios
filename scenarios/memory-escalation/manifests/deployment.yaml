@@ -22,10 +22,10 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
         - |
-          echo "ml-worker: simulating memory leak (8Mi every 2s)"
+          echo "ml-worker: simulating memory leak (8Mi every 1s)"
           while true; do
             dd if=/dev/urandom of=/dev/shm/leak bs=8M count=1 oflag=append conv=notrunc 2>/dev/null
-            sleep 2
+            sleep 1
           done
         volumeMounts:
         - name: shm
