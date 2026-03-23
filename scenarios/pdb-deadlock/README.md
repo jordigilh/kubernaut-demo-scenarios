@@ -55,6 +55,31 @@ single-node validation as a future expansion.
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `relax-pdb-v1` registered in DataStorage |
 
+### Kind-specific prerequisites
+
+This scenario drains a worker node and expects pods (including WFE jobs) to
+reschedule to the control-plane. `setup-demo-cluster.sh` handles both of
+these automatically, but if you created the cluster manually:
+
+1. **Control-plane `kubernaut.ai/managed=true` label** — the deployment
+   uses `nodeSelector: kubernaut.ai/managed=true`. Without this label on the
+   control-plane, evicted pods stay Pending after the worker is drained.
+
+   ```bash
+   kubectl label node <control-plane-node> kubernaut.ai/managed=true
+   ```
+
+2. **Control-plane NoSchedule taint removed** — the default taint
+   `node-role.kubernetes.io/control-plane:NoSchedule` prevents both
+   workload pods and WFE jobs from scheduling on the control-plane.
+
+   ```bash
+   kubectl taint nodes <control-plane-node> node-role.kubernetes.io/control-plane:NoSchedule-
+   ```
+
+> **Note:** kubernaut#498 tracks adding control-plane tolerations to WFE
+> jobs so that taint removal is no longer required.
+
 ## Automated Run
 
 ```bash

@@ -4,6 +4,13 @@
 
 This guide covers the full setup process for running Kubernaut demo scenarios. If you just want to get started quickly, see the [Quick Start](../README.md#quick-start) in the README.
 
+There are two deployment paths:
+
+- **Option A** -- Run `setup-demo-cluster.sh` to create a new Kind cluster with everything pre-configured (recommended for first-time users).
+- **Option B** -- Bring your own cluster (existing Kind or OpenShift) and install the platform manually via Helm.
+
+This guide covers both. Steps marked "(Option B only)" can be skipped if you use the bootstrap script.
+
 ## Prerequisites
 
 | Tool | Version | Purpose |
@@ -14,6 +21,27 @@ This guide covers the full setup process for running Kubernaut demo scenarios. I
 | [Podman](https://podman.io/) (recommended) or Docker | recent | Container runtime for Kind (tested with Podman) |
 
 **Memory:** ~9GB available for the Kind cluster.
+
+### Installing tools
+
+**macOS (Homebrew):**
+```bash
+brew install kind kubectl helm podman
+```
+
+**Linux:**
+```bash
+# Kind
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
+
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+# Helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+```
 
 ### OCP prerequisites
 
@@ -42,25 +70,6 @@ This creates a `selfsigned-issuer` ClusterIssuer used by the chart's TLS configu
 | AWX/AAP | disk-pressure-emptydir, memory-limits-gitops-ansible | `awx-helper.sh` (AAP: `aap-helper.sh` + license) |
 
 > **Note:** OCP provides Prometheus, AlertManager, and metrics-server via the built-in cluster monitoring stack. These do not need separate installation.
-
-**macOS (Homebrew):**
-```bash
-brew install kind kubectl helm podman
-```
-
-**Linux:**
-```bash
-# Kind
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
-chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
-
-# kubectl
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-
-# Helm
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-```
 
 ## Clone the Repository
 
@@ -226,6 +235,23 @@ This takes ~10 minutes on first run and performs the following steps:
 
 Every step is idempotent -- you can safely re-run the script if it fails partway through.
 
+### Kind Node Topology for Node-Drain Scenarios
+
+Scenarios that cordon or drain worker nodes (`pdb-deadlock`, `pending-taint`, `node-notready`) need pods to reschedule to the control-plane node. `setup-demo-cluster.sh` handles this automatically, but the two requirements are worth understanding:
+
+1. **Control-plane label** — `kind-config-multinode.yaml` labels the control-plane with `kubernaut.ai/managed=true` so it satisfies the `nodeSelector` used by workload deployments. Without this label, evicted pods stay Pending after a drain.
+
+2. **Control-plane taint** — Kind applies `node-role.kubernetes.io/control-plane:NoSchedule` to the control-plane by default. The bootstrap removes this taint at cluster creation time. Without this, neither workload pods nor WorkflowExecution jobs can schedule on the control-plane.
+
+If you create a cluster manually (without the bootstrap script), apply both:
+
+```bash
+kubectl label node <control-plane-node> kubernaut.ai/managed=true
+kubectl taint nodes <control-plane-node> node-role.kubernetes.io/control-plane:NoSchedule-
+```
+
+> **Note:** kubernaut#498 tracks adding control-plane tolerations to WFE jobs so that taint removal is no longer required for remediation jobs.
+
 ### Flags
 
 | Flag | Purpose |
@@ -360,7 +386,6 @@ scripts/
   setup-demo-cluster.sh            # Bootstrap orchestrator (Kind + monitoring + platform + catalog)
   platform-helper.sh               # Platform detection (Kind vs OCP), kustomize overlay selection
   monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
-  gitops-helper.sh                 # Gitea→ArgoCD webhook setup (shared by GitOps scenarios)
   kind-helper.sh                   # Kind cluster lifecycle
   awx-helper.sh                   # AWX deployment (Kind + OCP, recommended)
   aap-helper.sh                   # AAP deployment (OCP only, requires Red Hat subscription)
