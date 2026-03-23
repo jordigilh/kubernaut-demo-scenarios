@@ -538,6 +538,16 @@ EOFK8S
         --dry-run=client -o yaml | kubectl apply -f -
     echo "    Token Secret created (${AWX_TOKEN_SECRET_NAME})."
 
+    # Grant the WE controller SA permission to read the token secret (#149)
+    kubectl create role "${AWX_TOKEN_SECRET_NAME}-reader" \
+        --verb=get --resource=secrets --resource-name="${AWX_TOKEN_SECRET_NAME}" \
+        -n "${AWX_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+    kubectl create rolebinding "${AWX_TOKEN_SECRET_NAME}-reader" \
+        --role="${AWX_TOKEN_SECRET_NAME}-reader" \
+        --serviceaccount="${AWX_NAMESPACE}:workflowexecution-controller" \
+        -n "${AWX_NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+    echo "    RBAC granted for WE controller to read token secret."
+
     if [ -n "$awx_pf_pid" ]; then
         kill "$awx_pf_pid" 2>/dev/null || true
         wait "$awx_pf_pid" 2>/dev/null || true

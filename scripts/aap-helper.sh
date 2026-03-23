@@ -476,6 +476,16 @@ EOFK8S
         --dry-run=client -o yaml | kubectl apply -f -
     echo "    Token Secret created (aap-api-token in ${KUBERNAUT_NS})."
 
+    # Grant the WE controller SA permission to read the token secret (#149)
+    kubectl create role aap-api-token-reader \
+        --verb=get --resource=secrets --resource-name=aap-api-token \
+        -n "${KUBERNAUT_NS}" --dry-run=client -o yaml | kubectl apply -f -
+    kubectl create rolebinding aap-api-token-reader \
+        --role=aap-api-token-reader \
+        --serviceaccount="${KUBERNAUT_NS}:workflowexecution-controller" \
+        -n "${KUBERNAUT_NS}" --dry-run=client -o yaml | kubectl apply -f -
+    echo "    RBAC granted for WE controller to read token secret."
+
     kill "${PF_PID}" 2>/dev/null || true
     echo ""
     echo "  AAP configuration complete."
