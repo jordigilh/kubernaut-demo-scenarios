@@ -26,6 +26,7 @@ spec:
   execution:
     engine: ansible
     bundle: https://github.com/jordigilh/kubernaut-test-playbooks.git
+    bundleDigest: "ecedfc88b6e3b9f0f3d4e53b10a70f02b7b3b5bb"
     engineConfig:
       playbookPath: "playbooks/gitops-update-memory-limits.yml"
       jobTemplateName: "kubernaut-gitops-update-memory"

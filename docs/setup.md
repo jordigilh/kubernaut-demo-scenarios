@@ -236,6 +236,32 @@ Every step is idempotent -- you can safely re-run the script if it fails partway
 | `--kind-config PATH` | Custom Kind cluster config (default: `scenarios/kind-config-multinode.yaml`) |
 | `--chart-version VER` | Pin Helm chart version (e.g. `1.1.0-rc1`); required for pre-release tags |
 
+### AWX/AAP Ansible Engine Configuration
+
+When using `--with-awx` or configuring AAP manually (`aap-helper.sh --configure-only`),
+the helper scripts automatically:
+
+1. Create an API token and store it as a Kubernetes Secret (`awx-api-token` or `aap-api-token`)
+2. Patch the `workflowexecution-config` ConfigMap with the `ansible:` engine block
+3. **Grant RBAC** for the WE controller ServiceAccount to read the token secret
+4. Restart the WE controller to pick up the new configuration
+
+> **Important:** The WE controller reads the token secret at startup to register the
+> ansible executor. Without the RBAC grant (Role + RoleBinding), the ansible engine
+> is silently skipped and WorkflowExecutions with `engine: ansible` fail with
+> `unsupported execution engine`. If you configure the ansible engine manually
+> (without the helper scripts), ensure you create the RBAC:
+>
+> ```bash
+> kubectl create role <secret-name>-reader \
+>   --verb=get --resource=secrets --resource-name=<secret-name> \
+>   -n kubernaut-system
+> kubectl create rolebinding <secret-name>-reader \
+>   --role=<secret-name>-reader \
+>   --serviceaccount=kubernaut-system:workflowexecution-controller \
+>   -n kubernaut-system
+> ```
+
 ### Apply LLM Credentials
 
 Once the bootstrap completes and pods are running, apply your LLM credentials Secret (see the provider-specific instructions above):

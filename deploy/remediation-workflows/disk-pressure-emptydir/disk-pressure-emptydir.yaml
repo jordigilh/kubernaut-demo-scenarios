@@ -24,7 +24,7 @@ spec:
   execution:
     engine: ansible
     bundle: https://github.com/jordigilh/kubernaut-test-playbooks.git
-    bundleDigest: "5d25d5c3694183d654f55e927338c7210d4a1712"
+    bundleDigest: "ecedfc88b6e3b9f0f3d4e53b10a70f02b7b3b5bb"
     engineConfig:
       playbookPath: "playbooks/gitops-migrate-emptydir-to-pvc.yml"
       jobTemplateName: "kubernaut-migrate-emptydir-to-pvc"
