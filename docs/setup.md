@@ -4,6 +4,13 @@
 
 This guide covers the full setup process for running Kubernaut demo scenarios. If you just want to get started quickly, see the [Quick Start](../README.md#quick-start) in the README.
 
+There are two deployment paths:
+
+- **Option A** -- Run `setup-demo-cluster.sh` to create a new Kind cluster with everything pre-configured (recommended for first-time users).
+- **Option B** -- Bring your own cluster (existing Kind or OpenShift) and install the platform manually via Helm.
+
+This guide covers both. Steps marked "(Option B only)" can be skipped if you use the bootstrap script.
+
 ## Prerequisites
 
 | Tool | Version | Purpose |
@@ -14,6 +21,27 @@ This guide covers the full setup process for running Kubernaut demo scenarios. I
 | [Podman](https://podman.io/) (recommended) or Docker | recent | Container runtime for Kind (tested with Podman) |
 
 **Memory:** ~9GB available for the Kind cluster.
+
+### Installing tools
+
+**macOS (Homebrew):**
+```bash
+brew install kind kubectl helm podman
+```
+
+**Linux:**
+```bash
+# Kind
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
+chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
+
+# kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+# Helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+```
 
 ### OCP prerequisites
 
@@ -42,25 +70,6 @@ This creates a `selfsigned-issuer` ClusterIssuer used by the chart's TLS configu
 | AWX/AAP | disk-pressure-emptydir, memory-limits-gitops-ansible | `awx-helper.sh` (AAP: `aap-helper.sh` + license) |
 
 > **Note:** OCP provides Prometheus, AlertManager, and metrics-server via the built-in cluster monitoring stack. These do not need separate installation.
-
-**macOS (Homebrew):**
-```bash
-brew install kind kubectl helm podman
-```
-
-**Linux:**
-```bash
-# Kind
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/latest/kind-linux-amd64
-chmod +x ./kind && sudo mv ./kind /usr/local/bin/kind
-
-# kubectl
-curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-
-# Helm
-curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-```
 
 ## Clone the Repository
 
@@ -377,7 +386,6 @@ scripts/
   setup-demo-cluster.sh            # Bootstrap orchestrator (Kind + monitoring + platform + catalog)
   platform-helper.sh               # Platform detection (Kind vs OCP), kustomize overlay selection
   monitoring-helper.sh             # kube-prometheus-stack, cert-manager, Istio, etc.
-  gitops-helper.sh                 # Gitea→ArgoCD webhook setup (shared by GitOps scenarios)
   kind-helper.sh                   # Kind cluster lifecycle
   awx-helper.sh                   # AWX deployment (Kind + OCP, recommended)
   aap-helper.sh                   # AAP deployment (OCP only, requires Red Hat subscription)

@@ -1,0 +1,32 @@
+# AlertManager configuration for OCP (openshift-monitoring).
+# Routes alerts from demo-* namespaces and cluster-scoped alerts
+# (e.g. KubeNodeNotReady) to the Kubernaut Gateway webhook.
+#
+# Apply:
+#   kubectl -n openshift-monitoring create secret generic alertmanager-main \
+#       --from-file=alertmanager.yaml=helm/ocp-alertmanager-config.yaml \
+#       --dry-run=client -o yaml | kubectl apply -f -
+global:
+  resolve_timeout: 1m
+
+route:
+  receiver: default
+  group_wait: 5s
+  group_interval: 5s
+  repeat_interval: 1m
+  routes:
+    - match_re:
+        namespace: "demo-.*"
+      receiver: gateway-webhook
+      continue: false
+    - match:
+        alertname: KubeNodeNotReady
+      receiver: gateway-webhook
+      continue: false
+
+receivers:
+  - name: default
+  - name: gateway-webhook
+    webhook_configs:
+      - url: "http://gateway-service.kubernaut-system.svc.cluster.local:8080/api/v1/signals/prometheus"
+        send_resolved: false
