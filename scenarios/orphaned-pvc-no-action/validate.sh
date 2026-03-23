@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Validate orphaned-pvc-no-action scenario (#60, #122) pipeline outcome.
 #
-# Both Path A (NoActionRequired) and Path B (AwaitingApproval) are valid.
-# The validate determines which path the LLM took and asserts accordingly.
+# Three valid paths (LLM is non-deterministic):
+#   A) LLM says not actionable       → NoActionRequired, PVCs remain
+#   B) LLM selects CleanupPVC + warns → has_warnings Rego → AwaitingApproval
+#   C) LLM selects CleanupPVC        → executes cleanup   → Remediated, PVCs gone
 #
 # Called by run-scenario.sh or standalone:
 #   ./scenarios/orphaned-pvc-no-action/validate.sh [--auto-approve] [--no-color]
@@ -41,27 +43,41 @@ assert_eq "$sp_phase" "Completed" "SP phase"
 aa_phase=$(get_aa_phase "${NAMESPACE}")
 assert_eq "$aa_phase" "Completed" "AA phase"
 
-pvc_count=$(kubectl get pvc -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
-assert_eq "$pvc_count" "5" "Orphaned PVCs still present (not cleaned)"
+assert_eq "$rr_phase" "Completed" "RR phase"
 
 if [ "${aa_actionable:-false}" = "false" ]; then
     # Path A: LLM determined no action needed
-    log_phase "Path A detected: LLM said not actionable"
+    log_phase "Path A detected: LLM said not actionable → NoActionRequired"
 
-    assert_eq "$rr_phase" "Completed" "RR phase"
     assert_eq "$rr_outcome" "NoActionRequired" "RR outcome"
+
+    pvc_count=$(kubectl get pvc -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    assert_eq "$pvc_count" "5" "Orphaned PVCs still present (no-action path)"
 
     wfe_phase=$(get_wfe_phase "${NAMESPACE}")
     assert_eq "$wfe_phase" "" "WFE should not exist"
 
     ea_phase=$(get_ea_phase "${NAMESPACE}")
     assert_eq "$ea_phase" "" "EA should not exist"
+
+elif [ "$rr_outcome" = "Remediated" ]; then
+    # Path C: LLM selected CleanupPVC without warnings, workflow executed
+    log_phase "Path C detected: LLM selected CleanupPVC → Remediated"
+
+    pvc_count=$(kubectl get pvc -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+    assert_eq "$pvc_count" "0" "Orphaned PVCs cleaned by workflow"
+
+    wfe_phase=$(get_wfe_phase "${NAMESPACE}")
+    assert_eq "$wfe_phase" "Completed" "WFE phase"
+
+    ea_phase=$(get_ea_phase "${NAMESPACE}")
+    assert_eq "$ea_phase" "Completed" "EA phase"
+
 else
     # Path B: LLM selected workflow but warned — has_warnings Rego fires
-    log_phase "Path B detected: LLM selected workflow with warnings"
+    log_phase "Path B detected: LLM selected workflow with warnings → AwaitingApproval"
 
-    assert_in "$rr_phase" "RR phase" "AwaitingApproval" "Completed"
-    assert_in "$rr_outcome" "RR outcome" "" "NoActionRequired" "Completed" "Remediated"
+    assert_in "$rr_outcome" "RR outcome" "" "NoActionRequired" "Remediated"
 
     approval_reason=$(kubectl get aianalyses "ai-$(get_rr_name "${NAMESPACE}")" \
       -n "${PLATFORM_NS}" -o jsonpath='{.status.approvalReason}' 2>/dev/null || echo "")
