@@ -95,7 +95,7 @@ cp helm/sdk-config.yaml.example ~/.kubernaut/sdk-config.yaml
 Edit `~/.kubernaut/sdk-config.yaml`:
 ```yaml
 llm:
-  provider: "vertexai"
+  provider: "vertex_ai"
   model: "claude-sonnet-4"
   gcp_project_id: "your-gcp-project-id"
   gcp_region: "us-east5"
