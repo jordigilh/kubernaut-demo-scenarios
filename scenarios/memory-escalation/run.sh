@@ -51,7 +51,7 @@ kubectl apply -k "${MANIFEST_DIR}"
 
 # Step 2: Let the container run and get OOMKilled
 echo "==> Step 2: Waiting for initial OOMKill (~1-2 min)..."
-echo "  The ml-worker allocates 8Mi every 2s. With 64Mi limit, OOMKill in ~16s."
+echo "  The ml-worker allocates 8Mi every 1s. With 64Mi limit, OOMKill in ~8s."
 echo "  After OOMKill, Prometheus detects ContainerOOMKilling alert."
 echo ""
 

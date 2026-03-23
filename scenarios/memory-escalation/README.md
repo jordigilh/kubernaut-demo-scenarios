@@ -3,7 +3,7 @@
 ## Overview
 
 Demonstrates Kubernaut's **diminishing returns detection**. An `ml-worker` container
-allocates 8 Mi every 2 seconds to a memory-backed emptyDir, causing repeated OOMKills.
+allocates 8 Mi every second to a memory-backed emptyDir, causing repeated OOMKills.
 The first cycle successfully increases the memory limit, but the OOMKill recurs because
 the root cause is unbounded allocation, not insufficient limits. On the second occurrence,
 the platform recognises the pattern and escalates to human review instead of repeatedly
@@ -55,7 +55,7 @@ kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} > 0
   → AlertManager webhook → Gateway → RemediationRequest
   → Signal Processing
   → AI Analysis (HAPI + Claude Sonnet 4 on Vertex AI)
-    → Root cause: memory limit too low for workload (64 Mi, consumes 8 Mi/2s)
+    → Root cause: memory limit too low for workload (64 Mi, consumes 8 Mi/s)
     → Contributing factors: memory-backed emptyDir, predictable growth
     → Selects IncreaseMemoryLimits (confidence 0.95, factor 2x)
     → Approval: required (production environment, critical severity)
@@ -108,7 +108,7 @@ kubectl apply -k scenarios/memory-escalation/manifests/
 ```
 
 This creates:
-- A single-replica `ml-worker` Deployment (busybox) that writes 8 Mi every 2 s to
+- A single-replica `ml-worker` Deployment (busybox) that writes 8 Mi every second to
   a memory-backed emptyDir at `/dev/shm`
 - Memory limits: 32 Mi request / 64 Mi limit
 - A `PrometheusRule` that fires `ContainerOOMKilling` when
@@ -116,7 +116,7 @@ This creates:
 
 ### 2. Observe initial OOMKill
 
-The container hits 64 Mi in approximately 16 seconds and is OOM-killed:
+The container hits 64 Mi in approximately 8 seconds and is OOM-killed:
 
 ```bash
 kubectl get pods -n demo-memory-escalation
@@ -134,7 +134,7 @@ kubectl get rr,sp,aa,we,ea -n kubernaut-system
 
 The LLM will:
 1. Investigate the OOMKilled container and read events
-2. Identify that the 64 Mi limit is too low for the 8 Mi/2 s allocation rate
+2. Identify that the 64 Mi limit is too low for the 8 Mi/s allocation rate
 3. Select `IncreaseMemoryLimits` with `MEMORY_INCREASE_FACTOR=2` (64 Mi → 128 Mi)
 4. Request human approval (critical severity in production environment)
 
@@ -157,7 +157,7 @@ kubectl get deployment ml-worker -n demo-memory-escalation \
 # 128Mi
 
 kubectl get pods -n demo-memory-escalation
-# Running briefly, then OOMKilled again (~32s with 128Mi)
+# Running briefly, then OOMKilled again (~16s with 128Mi)
 ```
 
 The EA evaluates effectiveness and records `healthScore: 0` — the OOMKill recurred,
@@ -208,7 +208,7 @@ for human investigation of the underlying memory leak.
 | Event | Wall clock | Delta |
 |-------|-----------|-------|
 | Deploy | T+0:00 | — |
-| First OOMKill | T+0:16 | 16 s (64 Mi ÷ 8 Mi/2 s) |
+| First OOMKill | T+0:08 | 8 s (64 Mi ÷ 8 Mi/s) |
 | ContainerOOMKilling alert fires | T+1:38 | 30 s `for:` + scrape latency |
 | Cycle 1: RR created | T+1:41 | 3 s after alert |
 | Cycle 1: AA completes | T+3:06 | 1 min 31 s investigation |
@@ -216,7 +216,7 @@ for human investigation of the underlying memory leak.
 | Cycle 1: Approved (manual) | T+4:26 | — |
 | Cycle 1: WFE completes (64→128 Mi) | T+4:46 | 20 s job execution |
 | Cycle 1: EA completes (healthScore=0) | T+5:26 | 60 s check window |
-| Cycle 2: OOMKill recurs at 128 Mi | T+5:58 | 32 s (128 Mi ÷ 8 Mi/2 s) |
+| Cycle 2: OOMKill recurs at 128 Mi | T+5:42 | 16 s (128 Mi ÷ 8 Mi/s) |
 | Cycle 2: RR created | T+6:00 | — |
 | Cycle 2: AA fails (no workflows) | T+7:31 | 91 s investigation |
 | Cycle 2: ManualReviewRequired | T+7:31 | Immediate escalation |
@@ -229,11 +229,11 @@ Feature: Diminishing returns detection and escalation
 
   Scenario: Repeated OOMKill triggers escalation after ineffective remediation
     Given a deployment "ml-worker" in namespace "demo-memory-escalation"
-      And the container allocates 8 Mi every 2 s to a memory-backed emptyDir
+      And the container allocates 8 Mi every second to a memory-backed emptyDir
       And the container has a 64 Mi memory limit
       And the "increase-memory-limits-v1" workflow is registered
 
-    When the container is OOMKilled (64 Mi exceeded in ~16 s)
+    When the container is OOMKilled (64 Mi exceeded in ~8 s)
       And the ContainerOOMKilling alert fires (for: 30s)
 
     Then Cycle 1 begins:
@@ -244,7 +244,7 @@ Feature: Diminishing returns detection and escalation
       And after approval, WFE doubles the memory limit (64 Mi → 128 Mi)
       And EA evaluates healthScore=0 (OOMKill recurred — ineffective)
 
-    When the container is OOMKilled again (128 Mi exceeded in ~32 s)
+    When the container is OOMKilled again (128 Mi exceeded in ~16 s)
       And a new ContainerOOMKilling alert fires
 
     Then escalation occurs via one of two paths:
@@ -264,7 +264,7 @@ Feature: Diminishing returns detection and escalation
 
 ## Acceptance Criteria
 
-- [ ] ml-worker gets OOMKilled at 64 Mi within ~16 s
+- [ ] ml-worker gets OOMKilled at 64 Mi within ~8 s
 - [ ] ContainerOOMKilling alert fires (for: 30s)
 - [ ] Cycle 1: LLM selects IncreaseMemoryLimits with factor 2x
 - [ ] Cycle 1: Confidence >= 0.95
