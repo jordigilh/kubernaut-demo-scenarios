@@ -7,18 +7,20 @@ alert. The `cleanup-pvc-v1` workflow **is present** in the catalog — this scen
 deliberately tests the LLM's judgment when a technically matching workflow exists but
 the situation may not warrant automated intervention.
 
-The LLM's behavior is non-deterministic, yielding two valid outcomes:
+The LLM's behavior is non-deterministic, yielding three valid outcomes:
 
 | Path | LLM Decision | Warnings | Outcome |
 |------|-------------|----------|---------|
 | **A** | No workflow selected (`actionable: false`) | None | `NoActionRequired` — auto-completes |
-| **B** | Selects `CleanupPVC` + warns "Alert not actionable — no remediation warranted" | `["Alert not actionable — no remediation warranted"]` | `AwaitingApproval` — human review gate |
+| **B** | Selects `CleanupPVC` + warns "no remediation warranted" | `["Alert not actionable — no remediation warranted"]` | `AwaitingApproval` — human review gate |
+| **C** | Selects `CleanupPVC`, no warnings | None | `Remediated` — PVCs cleaned up |
 
-Both paths are correct. Path A reflects pure LLM confidence that no action is needed.
-Path B shows the LLM hedging — it identifies a matching workflow but raises a warning
-that the situation is benign housekeeping. The warning-aware Rego policy
-(`has_warnings`) catches this and forces human review, even in non-production
-environments.
+All three paths are correct. Path A reflects pure LLM confidence that no action is
+needed. Path B shows the LLM hedging — it identifies a matching workflow but raises a
+warning that the situation is benign housekeeping; the warning-aware Rego policy
+(`has_warnings`) catches this and forces human review. Path C shows the LLM confidently
+selecting the cleanup workflow — orphaned PVCs from completed batch jobs are a valid
+cleanup target, and the LLM proceeds without hesitation.
 
 **Signal**: `KubePersistentVolumeClaimOrphaned` — >3 bound PVCs in namespace for >3 min
 **Severity**: `warning` / root cause severity `low`
@@ -31,6 +33,7 @@ Batch jobs complete → PVCs remain (orphaned) → kube-state-metrics
 → Gateway webhook → RR created → SP → AA (HAPI/LLM)
 → Path A: NoActionRequired (auto-complete)
 → Path B: CleanupPVC selected + warning → Rego llm_warns_no_remediation → AwaitingApproval
+→ Path C: CleanupPVC selected, no warnings → WFE → Remediated
 ```
 
 ## Warning-Aware Rego Policy
@@ -140,6 +143,7 @@ kubectl get rr -n kubernaut-system -w
 
 # Path A: RR → Completed (NoActionRequired)
 # Path B: RR → AwaitingApproval → reject/approve via RAR patch
+# Path C: RR → Completed (Remediated) — PVCs cleaned up
 ```
 
 ## Cleanup
@@ -203,14 +207,23 @@ Feature: Orphaned PVC — LLM judgment with available workflow
       And RR transitions to AwaitingApproval
       And a RemediationApprovalRequest is created
       And all 5 orphaned PVCs remain in the namespace (pending human decision)
+
+  Scenario: Path C — LLM selects workflow without warnings (automated cleanup)
+    When 5 orphaned PVCs from simulated completed batch jobs are created
+      And the KubePersistentVolumeClaimOrphaned alert fires (>3 bound PVCs for 3 min)
+    Then the alert flows through Gateway → SP → AA (HAPI)
+      And the LLM selects CleanupPVC with no warnings
+      And a WorkflowExecution is created and completes
+      And RO marks the RR as Completed with outcome Remediated
+      And the 5 orphaned PVCs are deleted by the cleanup workflow
 ```
 
 ## Acceptance Criteria
 
 - [ ] 5 orphaned PVCs are created and bound successfully
 - [ ] Alert fires after 3 minutes
-- [ ] Path A: RR reaches `Completed` with outcome `NoActionRequired`, no WFE
+- [ ] Path A: RR reaches `Completed` with outcome `NoActionRequired`, no WFE, PVCs remain
 - [ ] Path B: RR reaches `AwaitingApproval`, reason mentions "no remediation warranted"
 - [ ] Path B: `approvalReason` is "LLM warning: no remediation warranted", not "Production environment"
-- [ ] Orphaned PVCs remain untouched regardless of path
-- [ ] Both paths are valid — scenario passes if either outcome is observed
+- [ ] Path C: RR reaches `Completed` with outcome `Remediated`, WFE completes, PVCs deleted
+- [ ] All three paths are valid — scenario passes if any outcome is observed

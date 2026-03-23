@@ -6,9 +6,10 @@
 # genuine LLM judgment when a matching workflow exists but the situation may
 # not warrant intervention.
 #
-# Two valid paths:
+# Three valid paths (LLM is non-deterministic):
 #   A) LLM says actionable=false         → NoActionRequired (auto-completes)
 #   B) LLM selects CleanupPVC + warns    → has_warnings Rego → AwaitingApproval
+#   C) LLM selects CleanupPVC, no warns  → executes cleanup  → Remediated
 #
 # In staging, the DEFAULT policy would auto-approve Path B. The custom
 # warning-aware policy catches it and forces human review.
@@ -62,7 +63,6 @@ echo ""
 echo "==> Step 2: Deploying scenario resources..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
-ensure_ocp_namespace_monitoring "${NAMESPACE}"
 
 # Step 3: Wait for healthy deployment
 echo "==> Step 3: Waiting for data-processor to be ready..."
@@ -79,10 +79,11 @@ echo ""
 
 echo "==> Step 5: Fault injected. Waiting for KubePersistentVolumeClaimOrphaned alert (~3 min)."
 echo ""
-echo "  Expected outcomes (both are valid — LLM is non-deterministic):"
+echo "  Expected outcomes (all are valid — LLM is non-deterministic):"
 echo "    Path A: LLM says not actionable   → NoActionRequired (auto-complete)"
 echo "    Path B: LLM selects CleanupPVC    → llm_warns_no_remediation Rego → AwaitingApproval"
 echo "            (approval reason: 'LLM warning: no remediation warranted')"
+echo "    Path C: LLM selects CleanupPVC    → executes cleanup → Remediated (PVCs deleted)"
 echo ""
 
 # Validate pipeline
