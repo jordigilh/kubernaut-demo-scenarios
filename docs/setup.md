@@ -226,6 +226,23 @@ This takes ~10 minutes on first run and performs the following steps:
 
 Every step is idempotent -- you can safely re-run the script if it fails partway through.
 
+### Kind Node Topology for Node-Drain Scenarios
+
+Scenarios that cordon or drain worker nodes (`pdb-deadlock`, `pending-taint`, `node-notready`) need pods to reschedule to the control-plane node. `setup-demo-cluster.sh` handles this automatically, but the two requirements are worth understanding:
+
+1. **Control-plane label** — `kind-config-multinode.yaml` labels the control-plane with `kubernaut.ai/managed=true` so it satisfies the `nodeSelector` used by workload deployments. Without this label, evicted pods stay Pending after a drain.
+
+2. **Control-plane taint** — Kind applies `node-role.kubernetes.io/control-plane:NoSchedule` to the control-plane by default. The bootstrap removes this taint at cluster creation time. Without this, neither workload pods nor WorkflowExecution jobs can schedule on the control-plane.
+
+If you create a cluster manually (without the bootstrap script), apply both:
+
+```bash
+kubectl label node <control-plane-node> kubernaut.ai/managed=true
+kubectl taint nodes <control-plane-node> node-role.kubernetes.io/control-plane:NoSchedule-
+```
+
+> **Note:** kubernaut#498 tracks adding control-plane tolerations to WFE jobs so that taint removal is no longer required for remediation jobs.
+
 ### Flags
 
 | Flag | Purpose |

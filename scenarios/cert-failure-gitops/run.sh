@@ -287,16 +287,9 @@ for i in $(seq 1 90); do
   sleep 5
 done
 
-# Delete the original CA secret so cert-manager cannot re-issue even with a
-# cached signing key (race between issuer reconciler and certificate issuer).
-echo "  Deleting original CA secret to prevent re-issuance..."
-kubectl delete secret demo-ca-key-pair -n cert-manager --ignore-not-found
-
-# Restart cert-manager to flush the in-memory CA signing key cache.
-echo "  Restarting cert-manager to clear cached signing key..."
-kubectl rollout restart deployment cert-manager -n cert-manager
-kubectl rollout status deployment cert-manager -n cert-manager --timeout=60s
-
+# Wait for ClusterIssuer to report Ready=False (the broken reference to
+# nonexistent-ca-secret is sufficient — no need to delete the real CA secret,
+# which would prevent the git revert path from fully restoring the Certificate).
 echo "  Waiting for ClusterIssuer to report Ready=False..."
 for i in $(seq 1 30); do
   READY=$(kubectl get clusterissuer demo-selfsigned-ca-gitops \
@@ -308,7 +301,9 @@ for i in $(seq 1 30); do
   sleep 5
 done
 
-# Now delete the TLS secret to force re-issuance against the broken issuer
+# Delete the TLS secret to force re-issuance against the broken issuer.
+# The CA secret (demo-ca-key-pair) is intentionally left intact so that the
+# git revert path can fully restore certificate issuance.
 kubectl delete secret demo-app-tls -n "${NAMESPACE}" --ignore-not-found
 echo "  TLS secret deleted — cert-manager will fail to re-issue."
 

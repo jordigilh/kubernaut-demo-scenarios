@@ -48,6 +48,16 @@ _create_cluster() {
     local config_path="$1"
     kind create cluster --name "${CLUSTER_NAME}" --config "${config_path}"
     _export_kubeconfig
+
+    # Node-drain scenarios (pdb-deadlock, pending-taint, node-notready) need
+    # pods to reschedule to the control-plane after a worker is cordoned.
+    # Remove the default NoSchedule taint so workloads can land there.
+    local cp_node
+    cp_node=$(kubectl get nodes -l node-role.kubernetes.io/control-plane --no-headers -o custom-columns=NAME:.metadata.name 2>/dev/null | head -1)
+    if [ -n "$cp_node" ]; then
+        kubectl taint nodes "$cp_node" node-role.kubernetes.io/control-plane:NoSchedule- 2>/dev/null || true
+    fi
+
     echo "  Cluster created. Kubeconfig: ${DEMO_KUBECONFIG}"
 }
 
