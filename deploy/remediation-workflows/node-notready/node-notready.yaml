@@ -24,6 +24,10 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/cordon-drain-job@sha256:95a1f8110f4d2d7dcb508b110827726cd494748c2a86051789b7d95df86117ff
   parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: false
+      description: "Namespace with affected workloads on the NotReady node"
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true

@@ -24,6 +24,10 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/remove-taint-job@sha256:41bc1d940476734367a2e070517dddadcdaadfd5e67efd4696bc567ac3786ca9
   parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: false
+      description: "Namespace with affected pending pods (used for verification)"
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true

@@ -235,6 +235,84 @@ wait_for_rr() {
     return 1
 }
 
+# Wait until all alerts for a namespace have cleared from AlertManager.
+# Useful before re-running a scenario to avoid stale alerts causing the
+# Gateway to drop signals with "Owner resolution failed" (#193).
+# Args: $1=namespace $2=timeout_seconds (default 300)
+wait_for_alerts_cleared() {
+    local namespace="$1"
+    local timeout="${2:-300}"
+    local am_pod="${ALERTMANAGER_POD}"
+    local elapsed=0
+    local interval=10
+
+    local count
+    count=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
+        amtool alert query "namespace=${namespace}" \
+        --alertmanager.url=http://localhost:9093 \
+        --output=json 2>/dev/null \
+        | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+
+    if [ "$count" = "0" ] || [ -z "$count" ]; then
+        return 0
+    fi
+
+    log_phase "Waiting for ${count} stale alert(s) in namespace ${namespace} to clear (timeout: ${timeout}s)..."
+
+    while [ "$elapsed" -lt "$timeout" ]; do
+        count=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
+            amtool alert query "namespace=${namespace}" \
+            --alertmanager.url=http://localhost:9093 \
+            --output=json 2>/dev/null \
+            | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+
+        if [ "$count" = "0" ] || [ -z "$count" ]; then
+            log_success "All alerts cleared for namespace ${namespace}"
+            return 0
+        fi
+
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
+    done
+
+    log_warn "Timed out waiting for alerts to clear in ${namespace} after ${timeout}s (${count} remaining)"
+    return 1
+}
+
+# Pre-run cleanup: delete a demo namespace and wait for its stale alerts
+# to drain from AlertManager before starting a new scenario run.
+# Prevents the Gateway from dropping signals for recreated resources (#193).
+# Args: $1=namespace $2=alert_drain_timeout (default 180)
+ensure_clean_slate() {
+    local namespace="$1"
+    local timeout="${2:-180}"
+
+    if kubectl get namespace "$namespace" &>/dev/null; then
+        log_phase "Cleaning up existing namespace ${namespace}..."
+        kubectl delete namespace "$namespace" --wait=true --timeout=60s 2>/dev/null || true
+
+        log_phase "Waiting for namespace ${namespace} to be fully removed..."
+        local ns_elapsed=0
+        while kubectl get namespace "$namespace" &>/dev/null && [ "$ns_elapsed" -lt 90 ]; do
+            sleep 5
+            ns_elapsed=$((ns_elapsed + 5))
+        done
+
+        wait_for_alerts_cleared "$namespace" "$timeout" || true
+    fi
+
+    local rr_names
+    rr_names=$(kubectl get remediationrequests -n "$PLATFORM_NS" \
+        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
+        | awk -F'\t' -v ns="$namespace" '$2 == ns { print $1 }')
+    if [ -n "$rr_names" ]; then
+        log_phase "Deleting stale RRs for namespace ${namespace}..."
+        echo "$rr_names" | while IFS= read -r rr; do
+            kubectl delete remediationrequest "$rr" -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
+        done
+    fi
+}
+
 # Wait for RR to reach a specific phase (or terminal).
 # Args: $1=namespace $2=target_phase $3=timeout (default 600)
 wait_for_rr_phase() {

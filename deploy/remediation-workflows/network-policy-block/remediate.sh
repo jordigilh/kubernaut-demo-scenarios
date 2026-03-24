@@ -10,8 +10,8 @@ POLICIES=$(kubectl get networkpolicies -n "${TARGET_RESOURCE_NAMESPACE}" -o json
 POLICY_COUNT=$(echo "${POLICIES}" | grep -c '"name"' || echo "0")
 echo "Found ${POLICY_COUNT} NetworkPolicies"
 
-if [ -n "${TARGET_RESOURCE_NAME:-}" ]; then
-  OFFENDING_POLICY="${TARGET_RESOURCE_NAME}"
+if [ -n "${POLICY_NAME:-}" ]; then
+  OFFENDING_POLICY="${POLICY_NAME}"
   echo "Target policy specified: ${OFFENDING_POLICY}"
 else
   OFFENDING_POLICY=$(kubectl get networkpolicies -n "${TARGET_RESOURCE_NAMESPACE}" \

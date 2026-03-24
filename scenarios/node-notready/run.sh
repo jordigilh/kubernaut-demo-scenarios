@@ -46,7 +46,7 @@ kubectl get pods -n "${NAMESPACE}" -o wide
 echo ""
 
 # Step 3: Label the target node so the Gateway accepts NodeNotReady signals
-WORKER_NODE=$(kubectl get nodes -l kubernaut.ai/managed=true -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+WORKER_NODE=$(kubectl get nodes -l 'kubernaut.ai/managed=true,!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 if [ -n "$WORKER_NODE" ]; then
     echo "==> Step 3: Labeling target node ${WORKER_NODE} for signal acceptance..."
     kubectl label node "$WORKER_NODE" \
