@@ -5,7 +5,7 @@ metadata:
 spec:
   # Relax PDB Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #124 -- PDB deadlock -> temporarily relax PDB
-  version: "1.0.4"
+  version: "1.0.5"
   description:
     what: "Temporarily relaxes a PodDisruptionBudget by reducing minAvailable to allow voluntary disruptions to proceed"
     whenToUse: "When a PDB is blocking rolling updates or node drains because minAvailable equals the replica count, leaving zero allowed disruptions"
@@ -25,7 +25,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:dcea059500e57437ad00a65aceff1109955d4bfa313857d713e7206de20423dd
+    bundle: quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:36364cd5ef23b4534e747c8d09a80b00b30f307155afad98f54f9ec24c8864c0
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
