@@ -25,7 +25,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/patch-hpa-job@sha256:d5543ff435e96e211501a0e8077bc03e98efd67128b518aeea071e7d23a5c251
+    bundle: quay.io/kubernaut-cicd/test-workflows/patch-hpa-job@sha256:ac21c388672bed9db8d64a5ac201f0c362ff222487e027b6fddb352f2289f956
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

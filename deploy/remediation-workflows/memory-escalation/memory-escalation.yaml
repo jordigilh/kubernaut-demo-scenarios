@@ -22,7 +22,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/increase-memory-limits-job@sha256:e0ec0b95eb8b88b6c7092f0c23e79797b08638ebdef3d6cedf4f09bcde98ecac
+    bundle: quay.io/kubernaut-cicd/test-workflows/increase-memory-limits-job@sha256:a63eb7115fe848ab1ed03d60d9e538dbcae5ab3e93386b5001c348b6ee9d900b
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
