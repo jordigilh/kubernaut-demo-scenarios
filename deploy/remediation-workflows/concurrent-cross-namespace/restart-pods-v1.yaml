@@ -3,7 +3,7 @@ kind: RemediationWorkflow
 metadata:
   name: restart-pods-v1
 spec:
-  version: "1.0.7"
+  version: "1.0.8"
   description:
     what: "Performs a rolling restart of a deployment to recover from CrashLoopBackOff by resetting pod state without changing the deployment revision"
     whenToUse: "When a deployment enters CrashLoopBackOff and the signal carries risk_tolerance=high. This simpler restart approach prioritizes recovery speed over revision safety -- it resets pod state without rolling back to a previous revision. Best for teams that accept the risk of the current configuration and want the fastest path to recovery."
@@ -23,7 +23,7 @@ spec:
 
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:78f9780279d67c7994f4616395614fb43bd6002a13345ecdba9af748344c4534
+    bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:f2d8ebc1cf2c66e9336bf42bc2ae59862290f3c35733d8838f7660cd1e87f0aa
 
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
