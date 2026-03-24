@@ -25,7 +25,7 @@ CPU stress → HPA scales to maxReplicas (3) → can't scale further
     → Root cause: maxReplicas ceiling too low, CPU at 200% of target
     → Contributing factors: HPA limit too low, utilization 4x target, no headroom
     → Selected: PatchHPA (confidence 0.95)
-    → Parameters: NEW_MAX_REPLICAS=5, TARGET_HPA=api-frontend
+    → Parameters: NEW_MAX_REPLICAS=5, TARGET_RESOURCE_NAME=api-frontend, TARGET_RESOURCE_KIND=HorizontalPodAutoscaler
     → Approval: not required (auto-approved by policy)
   → WorkflowExecution: kubectl patch hpa api-frontend --maxReplicas=5
   → HPA scales to 5 replicas → CPU drops to normal

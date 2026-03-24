@@ -2,7 +2,7 @@
 set -e
 
 echo "=== Phase 1: Validate ==="
-CURRENT_REV=$(kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" \
+CURRENT_REV=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}')
 echo "Current deployment revision: $CURRENT_REV"
 
@@ -11,31 +11,31 @@ if [ -z "$CURRENT_REV" ] || [ "$CURRENT_REV" -le 1 ] 2>/dev/null; then
   exit 1
 fi
 
-CM_REF=$(kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" \
+CM_REF=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.template.spec.volumes[0].configMap.name}')
 echo "Current ConfigMap reference: $CM_REF"
 echo "Deployment has rollback target. Proceeding."
 
 echo "=== Phase 2: Action ==="
-echo "Rolling back deployment/$TARGET_DEPLOYMENT to previous revision..."
-kubectl rollout undo "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE"
+echo "Rolling back deployment/$TARGET_RESOURCE_NAME to previous revision..."
+kubectl rollout undo "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE"
 
 echo "Waiting for rollout to complete..."
-kubectl rollout status "deployment/$TARGET_DEPLOYMENT" \
-  -n "$TARGET_NAMESPACE" --timeout=120s
+kubectl rollout status "deployment/$TARGET_RESOURCE_NAME" \
+  -n "$TARGET_RESOURCE_NAMESPACE" --timeout=120s
 
 echo "=== Phase 3: Verify ==="
-NEW_REV=$(kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" \
+NEW_REV=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}')
 echo "New deployment revision: $NEW_REV"
 
-NEW_CM_REF=$(kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" \
+NEW_CM_REF=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.template.spec.volumes[0].configMap.name}')
 echo "ConfigMap reference after rollback: $NEW_CM_REF"
 
-READY=$(kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" \
+READY=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.readyReplicas}')
-DESIRED=$(kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" \
+DESIRED=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.replicas}')
 echo "Replicas: $READY/$DESIRED ready"
 

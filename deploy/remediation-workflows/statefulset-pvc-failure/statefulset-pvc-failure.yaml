@@ -27,14 +27,18 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/fix-statefulset-pvc-job@sha256:9a4a42cbaa0b26149db0950f9a49ca39e2c859c793f7e8645288434189ce5741
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the StatefulSet"
-    - name: TARGET_STATEFULSET
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the StatefulSet"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., StatefulSet)"
     - name: TARGET_PVC
       type: string
       required: false

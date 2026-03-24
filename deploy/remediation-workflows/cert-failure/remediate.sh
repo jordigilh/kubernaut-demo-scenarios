@@ -1,28 +1,28 @@
 #!/bin/sh
 set -e
 
-: "${TARGET_CERTIFICATE:?TARGET_CERTIFICATE is required}"
-: "${TARGET_NAMESPACE:?TARGET_NAMESPACE is required}"
+: "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
+: "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
 : "${ISSUER_NAME:?ISSUER_NAME is required}"
 : "${CA_SECRET_NAME:?CA_SECRET_NAME is required}"
 
 echo "=== Phase 1: Validate ==="
-echo "Checking Certificate ${TARGET_CERTIFICATE} in ${TARGET_NAMESPACE}..."
+echo "Checking Certificate ${TARGET_RESOURCE_NAME} in ${TARGET_RESOURCE_NAMESPACE}..."
 
-ACTUAL_CERT="${TARGET_CERTIFICATE}"
-CERT_READY=$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_NAMESPACE}" \
+ACTUAL_CERT="${TARGET_RESOURCE_NAME}"
+CERT_READY=$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
 
 if [ "${CERT_READY}" = "Unknown" ]; then
   echo "Certificate '${ACTUAL_CERT}' not found. Searching by secretName..."
-  ACTUAL_CERT=$(kubectl get certificates -n "${TARGET_NAMESPACE}" \
-    -o jsonpath="{range .items[?(@.spec.secretName==\"${TARGET_CERTIFICATE}\")]}{.metadata.name}{end}" 2>/dev/null || echo "")
+  ACTUAL_CERT=$(kubectl get certificates -n "${TARGET_RESOURCE_NAMESPACE}" \
+    -o jsonpath="{range .items[?(@.spec.secretName==\"${TARGET_RESOURCE_NAME}\")]}{.metadata.name}{end}" 2>/dev/null || echo "")
   if [ -n "${ACTUAL_CERT}" ]; then
-    echo "Resolved Certificate: ${ACTUAL_CERT} (from secretName=${TARGET_CERTIFICATE})"
-    CERT_READY=$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_NAMESPACE}" \
+    echo "Resolved Certificate: ${ACTUAL_CERT} (from secretName=${TARGET_RESOURCE_NAME})"
+    CERT_READY=$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_RESOURCE_NAMESPACE}" \
       -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
   else
-    echo "ERROR: No Certificate found with name or secretName '${TARGET_CERTIFICATE}' in ${TARGET_NAMESPACE}"
+    echo "ERROR: No Certificate found with name or secretName '${TARGET_RESOURCE_NAME}' in ${TARGET_RESOURCE_NAMESPACE}"
     exit 1
   fi
 fi
@@ -34,7 +34,7 @@ if [ "${CERT_READY}" = "True" ]; then
   exit 0
 fi
 
-CERT_MESSAGE=$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_NAMESPACE}" \
+CERT_MESSAGE=$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].message}' 2>/dev/null || echo "unknown")
 echo "Certificate message: ${CERT_MESSAGE}"
 
@@ -70,15 +70,15 @@ kubectl create secret tls "${CA_SECRET_NAME}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 echo "Triggering certificate re-issuance..."
-kubectl delete secret "$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_NAMESPACE}" \
-  -o jsonpath='{.spec.secretName}')" -n "${TARGET_NAMESPACE}" --ignore-not-found
+kubectl delete secret "$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_RESOURCE_NAMESPACE}" \
+  -o jsonpath='{.spec.secretName}')" -n "${TARGET_RESOURCE_NAMESPACE}" --ignore-not-found
 
 sleep 5
 
 echo "=== Phase 3: Verify ==="
 echo "Waiting for Certificate to become Ready (up to 60s)..."
 for i in $(seq 1 12); do
-  CERT_READY=$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_NAMESPACE}" \
+  CERT_READY=$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_RESOURCE_NAMESPACE}" \
     -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
   if [ "${CERT_READY}" = "True" ]; then
     break

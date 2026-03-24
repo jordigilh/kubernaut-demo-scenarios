@@ -2,11 +2,11 @@
 set -e
 
 echo "=== Phase 1: Validate ==="
-echo "Checking HPA $TARGET_HPA status..."
+echo "Checking HPA $TARGET_RESOURCE_NAME status..."
 
-CURRENT_MAX=$(kubectl get hpa "$TARGET_HPA" -n "$TARGET_NAMESPACE" \
+CURRENT_MAX=$(kubectl get hpa "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.maxReplicas}')
-CURRENT_REPLICAS=$(kubectl get hpa "$TARGET_HPA" -n "$TARGET_NAMESPACE" \
+CURRENT_REPLICAS=$(kubectl get hpa "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.currentReplicas}')
 echo "Current maxReplicas: $CURRENT_MAX"
 echo "Current replicas: $CURRENT_REPLICAS"
@@ -26,27 +26,27 @@ fi
 echo "Validated: will raise maxReplicas from $CURRENT_MAX to $TARGET_MAX"
 
 echo "=== Phase 2: Action ==="
-echo "Patching HPA $TARGET_HPA maxReplicas to $TARGET_MAX..."
-kubectl patch hpa "$TARGET_HPA" -n "$TARGET_NAMESPACE" \
+echo "Patching HPA $TARGET_RESOURCE_NAME maxReplicas to $TARGET_MAX..."
+kubectl patch hpa "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   --type=merge -p "{\"spec\":{\"maxReplicas\":$TARGET_MAX}}"
 
 echo "Waiting for HPA to scale (30s)..."
 sleep 30
 
 echo "=== Phase 3: Verify ==="
-NEW_MAX=$(kubectl get hpa "$TARGET_HPA" -n "$TARGET_NAMESPACE" \
+NEW_MAX=$(kubectl get hpa "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.maxReplicas}')
-NEW_REPLICAS=$(kubectl get hpa "$TARGET_HPA" -n "$TARGET_NAMESPACE" \
+NEW_REPLICAS=$(kubectl get hpa "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.currentReplicas}')
-DESIRED=$(kubectl get hpa "$TARGET_HPA" -n "$TARGET_NAMESPACE" \
+DESIRED=$(kubectl get hpa "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.desiredReplicas}')
 echo "New maxReplicas: $NEW_MAX"
 echo "Current replicas: $NEW_REPLICAS"
 echo "Desired replicas: $DESIRED"
 
-TARGET_DEPLOY=$(kubectl get hpa "$TARGET_HPA" -n "$TARGET_NAMESPACE" \
+TARGET_DEPLOY=$(kubectl get hpa "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.scaleTargetRef.name}')
-READY=$(kubectl get "deployment/$TARGET_DEPLOY" -n "$TARGET_NAMESPACE" \
+READY=$(kubectl get "deployment/$TARGET_DEPLOY" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.readyReplicas}')
 echo "Deployment ready replicas: $READY"
 

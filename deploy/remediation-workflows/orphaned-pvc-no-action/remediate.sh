@@ -4,10 +4,10 @@ set -e
 SELECTOR="${LABEL_SELECTOR:-batch-run=completed}"
 
 echo "=== Phase 1: Validate ==="
-echo "Scanning for orphaned PVCs in namespace $TARGET_NAMESPACE..."
+echo "Scanning for orphaned PVCs in namespace $TARGET_RESOURCE_NAMESPACE..."
 echo "Label selector: $SELECTOR"
 
-PVCS=$(kubectl get pvc -n "$TARGET_NAMESPACE" -l "$SELECTOR" -o name 2>/dev/null)
+PVCS=$(kubectl get pvc -n "$TARGET_RESOURCE_NAMESPACE" -l "$SELECTOR" -o name 2>/dev/null)
 PVC_COUNT=$(echo "$PVCS" | grep -c "persistentvolumeclaim" || echo "0")
 echo "Found $PVC_COUNT PVCs matching selector."
 
@@ -23,7 +23,7 @@ echo "$PVCS"
 MOUNTED=0
 for pvc in $PVCS; do
   PVC_NAME=$(echo "$pvc" | sed 's|persistentvolumeclaim/||')
-  POD_USING=$(kubectl get pods -n "$TARGET_NAMESPACE" \
+  POD_USING=$(kubectl get pods -n "$TARGET_RESOURCE_NAMESPACE" \
     -o jsonpath="{.items[?(@.spec.volumes[*].persistentVolumeClaim.claimName=='$PVC_NAME')].metadata.name}" 2>/dev/null || echo "")
   if [ -n "$POD_USING" ]; then
     echo "WARNING: PVC $PVC_NAME is mounted by pod $POD_USING -- skipping"
@@ -39,17 +39,17 @@ echo "Deleting $DELETABLE orphaned PVCs..."
 DELETED=0
 for pvc in $PVCS; do
   PVC_NAME=$(echo "$pvc" | sed 's|persistentvolumeclaim/||')
-  POD_USING=$(kubectl get pods -n "$TARGET_NAMESPACE" \
+  POD_USING=$(kubectl get pods -n "$TARGET_RESOURCE_NAMESPACE" \
     -o jsonpath="{.items[?(@.spec.volumes[*].persistentVolumeClaim.claimName=='$PVC_NAME')].metadata.name}" 2>/dev/null || echo "")
   if [ -z "$POD_USING" ]; then
-    kubectl delete pvc "$PVC_NAME" -n "$TARGET_NAMESPACE"
+    kubectl delete pvc "$PVC_NAME" -n "$TARGET_RESOURCE_NAMESPACE"
     DELETED=$((DELETED + 1))
     echo "  Deleted: $PVC_NAME"
   fi
 done
 
 echo "=== Phase 3: Verify ==="
-REMAINING=$(kubectl get pvc -n "$TARGET_NAMESPACE" -l "$SELECTOR" -o name 2>/dev/null | grep -c "persistentvolumeclaim" || echo "0")
+REMAINING=$(kubectl get pvc -n "$TARGET_RESOURCE_NAMESPACE" -l "$SELECTOR" -o name 2>/dev/null | grep -c "persistentvolumeclaim" || echo "0")
 echo "Remaining PVCs with selector '$SELECTOR': $REMAINING"
 
 echo "=== SUCCESS: Deleted $DELETED orphaned PVCs, $REMAINING remaining ==="

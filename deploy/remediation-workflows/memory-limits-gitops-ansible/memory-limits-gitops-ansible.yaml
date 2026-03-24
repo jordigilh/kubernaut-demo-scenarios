@@ -36,14 +36,18 @@ spec:
       - name: gitea-repo-creds
 
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the affected deployment"
-    - name: TARGET_DEPLOYMENT
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the deployment to update"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., Deployment)"
     - name: NEW_MEMORY_LIMIT
       type: string
       required: true

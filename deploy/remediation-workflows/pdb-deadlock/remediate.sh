@@ -2,15 +2,15 @@
 set -e
 
 echo "=== Phase 1: Validate ==="
-echo "Checking PDB $TARGET_PDB status..."
+echo "Checking PDB $TARGET_RESOURCE_NAME status..."
 
-MIN_AVAILABLE=$(kubectl get pdb "$TARGET_PDB" -n "$TARGET_NAMESPACE" \
+MIN_AVAILABLE=$(kubectl get pdb "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.minAvailable}')
-ALLOWED=$(kubectl get pdb "$TARGET_PDB" -n "$TARGET_NAMESPACE" \
+ALLOWED=$(kubectl get pdb "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.disruptionsAllowed}')
-CURRENT_HEALTHY=$(kubectl get pdb "$TARGET_PDB" -n "$TARGET_NAMESPACE" \
+CURRENT_HEALTHY=$(kubectl get pdb "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.currentHealthy}')
-EXPECTED=$(kubectl get pdb "$TARGET_PDB" -n "$TARGET_NAMESPACE" \
+EXPECTED=$(kubectl get pdb "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.expectedPods}')
 echo "Current minAvailable: $MIN_AVAILABLE"
 echo "Disruptions allowed: $ALLOWED"
@@ -28,19 +28,19 @@ fi
 echo "Validated: will reduce minAvailable from $MIN_AVAILABLE to $NEW_MIN"
 
 echo "=== Phase 2: Action ==="
-echo "Patching PDB $TARGET_PDB minAvailable to $NEW_MIN..."
-kubectl patch pdb "$TARGET_PDB" -n "$TARGET_NAMESPACE" \
+echo "Patching PDB $TARGET_RESOURCE_NAME minAvailable to $NEW_MIN..."
+kubectl patch pdb "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   --type=merge -p "{\"spec\":{\"minAvailable\":$NEW_MIN}}"
 
 echo "Waiting for disruption budget to update (10s)..."
 sleep 10
 
 echo "=== Phase 3: Verify ==="
-NEW_MIN_AVAILABLE=$(kubectl get pdb "$TARGET_PDB" -n "$TARGET_NAMESPACE" \
+NEW_MIN_AVAILABLE=$(kubectl get pdb "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.minAvailable}')
-NEW_ALLOWED=$(kubectl get pdb "$TARGET_PDB" -n "$TARGET_NAMESPACE" \
+NEW_ALLOWED=$(kubectl get pdb "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.disruptionsAllowed}')
-NEW_HEALTHY=$(kubectl get pdb "$TARGET_PDB" -n "$TARGET_NAMESPACE" \
+NEW_HEALTHY=$(kubectl get pdb "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.currentHealthy}')
 echo "New minAvailable: $NEW_MIN_AVAILABLE"
 echo "New disruptions allowed: $NEW_ALLOWED"
