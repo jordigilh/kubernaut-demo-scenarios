@@ -2,7 +2,6 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - namespace.yaml
-  - deny-all-netpol.yaml
   - deployment.yaml
   - networkpolicy-allow.yaml
   - prometheus-rule.yaml
