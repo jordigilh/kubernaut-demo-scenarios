@@ -22,7 +22,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:af7bc19c255bb02e8e38263df5ef7e114ec31642e2aba9a9792bd4d5235170ca
+    bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:1525711fda149f3749161c383b953ed86d48ccf7844df1a6ba88ffcc7a963065
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
