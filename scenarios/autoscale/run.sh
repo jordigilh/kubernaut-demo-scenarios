@@ -29,6 +29,8 @@ require_demo_ready
 # shellcheck source=../../scripts/monitoring-helper.sh
 source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
 require_infra metrics-server
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 cleanup_provisioner() {
   if [ -n "$PROVISIONER_PID" ]; then
@@ -42,6 +44,9 @@ echo "============================================="
 echo " Cluster Autoscaling Demo (#126)"
 echo "============================================="
 echo ""
+
+# Step 0: Clean up stale alerts/RRs from any previous run (#193)
+ensure_clean_slate "${NAMESPACE}"
 
 # Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
 echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."

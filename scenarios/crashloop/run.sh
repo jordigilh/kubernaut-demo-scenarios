@@ -25,11 +25,16 @@ done
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 echo "============================================="
 echo " CrashLoopBackOff Remediation Demo (#120)"
 echo "============================================="
 echo ""
+
+# Step 0: Clean up stale alerts/RRs from any previous run (#193)
+ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Deploy scenario resources
 echo "==> Step 1: Deploying scenario resources..."

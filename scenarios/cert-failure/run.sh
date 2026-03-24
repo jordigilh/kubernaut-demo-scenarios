@@ -28,11 +28,16 @@ require_demo_ready
 # shellcheck source=../../scripts/monitoring-helper.sh
 source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
 require_infra cert-manager
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 echo "============================================="
 echo " cert-manager Certificate Failure Demo (#133)"
 echo "============================================="
 echo ""
+
+# Step 0: Clean up stale alerts/RRs from any previous run (#193)
+ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Generate a self-signed CA and create the CA Secret
 echo "==> Step 1: Generating self-signed CA key pair..."
