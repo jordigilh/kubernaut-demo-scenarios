@@ -33,9 +33,13 @@ spec:
       description: "Namespace of the affected workload"
     - name: TARGET_RESOURCE_NAME
       type: string
-      required: false
-      description: "Name of the offending NetworkPolicy (auto-detected if not provided)"
+      required: true
+      description: "Name of the affected Deployment whose health checks are failing"
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the Kubernetes resource (e.g., NetworkPolicy)"
+      description: "Kind of the affected Kubernetes resource (e.g., Deployment)"
+    - name: POLICY_NAME
+      type: string
+      required: false
+      description: "Name of the offending NetworkPolicy to remove (auto-detected via label if not provided)"

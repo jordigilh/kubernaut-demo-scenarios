@@ -1,28 +1,29 @@
 #!/bin/sh
 set -e
 
+: "${CERTIFICATE_NAME:?CERTIFICATE_NAME is required}"
 : "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
 : "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
 : "${ISSUER_NAME:?ISSUER_NAME is required}"
 : "${CA_SECRET_NAME:?CA_SECRET_NAME is required}"
 
 echo "=== Phase 1: Validate ==="
-echo "Checking Certificate ${TARGET_RESOURCE_NAME} in ${TARGET_RESOURCE_NAMESPACE}..."
+echo "Checking Certificate ${CERTIFICATE_NAME} in ${TARGET_RESOURCE_NAMESPACE}..."
 
-ACTUAL_CERT="${TARGET_RESOURCE_NAME}"
+ACTUAL_CERT="${CERTIFICATE_NAME}"
 CERT_READY=$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
 
 if [ "${CERT_READY}" = "Unknown" ]; then
   echo "Certificate '${ACTUAL_CERT}' not found. Searching by secretName..."
   ACTUAL_CERT=$(kubectl get certificates -n "${TARGET_RESOURCE_NAMESPACE}" \
-    -o jsonpath="{range .items[?(@.spec.secretName==\"${TARGET_RESOURCE_NAME}\")]}{.metadata.name}{end}" 2>/dev/null || echo "")
+    -o jsonpath="{range .items[?(@.spec.secretName==\"${CERTIFICATE_NAME}\")]}{.metadata.name}{end}" 2>/dev/null || echo "")
   if [ -n "${ACTUAL_CERT}" ]; then
-    echo "Resolved Certificate: ${ACTUAL_CERT} (from secretName=${TARGET_RESOURCE_NAME})"
+    echo "Resolved Certificate: ${ACTUAL_CERT} (from secretName=${CERTIFICATE_NAME})"
     CERT_READY=$(kubectl get certificate "${ACTUAL_CERT}" -n "${TARGET_RESOURCE_NAMESPACE}" \
       -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
   else
-    echo "ERROR: No Certificate found with name or secretName '${TARGET_RESOURCE_NAME}' in ${TARGET_RESOURCE_NAMESPACE}"
+    echo "ERROR: No Certificate found with name or secretName '${CERTIFICATE_NAME}' in ${TARGET_RESOURCE_NAMESPACE}"
     exit 1
   fi
 fi

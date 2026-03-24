@@ -27,15 +27,19 @@ spec:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
-      description: "Namespace of the affected Certificate"
+      description: "Namespace of the affected workload and Certificate"
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true
-      description: "Name of the Certificate to fix"
+      description: "Name of the affected Kubernetes resource (e.g., the Deployment)"
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the Kubernetes resource (e.g., Certificate)"
+      description: "Kind of the affected Kubernetes resource (e.g., Deployment)"
+    - name: CERTIFICATE_NAME
+      type: string
+      required: true
+      description: "Name of the cert-manager Certificate to fix"
     - name: ISSUER_NAME
       type: string
       required: true
