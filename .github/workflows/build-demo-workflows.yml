@@ -153,5 +153,5 @@ jobs:
             --base main \
             --head "$BRANCH"
 
-          gh pr merge "$BRANCH" --auto --merge --delete-branch
+          gh pr merge "$BRANCH" --auto --squash --delete-branch
           echo "Created and auto-merge enabled for PR on branch ${BRANCH}."
