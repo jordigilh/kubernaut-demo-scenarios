@@ -7,7 +7,7 @@ LIMIT="${1:-5}"
 REPO="kubernaut/demo-gitops-repo"
 GITEA_NS="gitea"
 
-GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3031}"
 kubectl port-forward -n "${GITEA_NS}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
 PF_PID=$!
 trap 'kill ${PF_PID} 2>/dev/null || true' EXIT

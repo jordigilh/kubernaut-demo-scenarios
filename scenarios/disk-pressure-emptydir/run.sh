@@ -401,7 +401,7 @@ echo ""
 # Step 1: Push deployment YAML to Gitea repo
 echo "==> Step 1: Pushing deployment manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
-GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
 sleep 3

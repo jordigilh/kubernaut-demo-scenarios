@@ -108,7 +108,8 @@ if [ "$PLATFORM" = "ocp" ]; then
 fi
 
 if [ -z "${GITEA_API_URL}" ]; then
-    GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+    GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3031}"
+    kill_stale_gitea_pf 2>/dev/null || true
     kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
     PF_PID=$!
     sleep 3

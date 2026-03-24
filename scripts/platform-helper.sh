@@ -46,6 +46,30 @@ detect_platform() {
 PLATFORM="${PLATFORM:-$(detect_platform)}"
 export PLATFORM
 
+# ── Gitea port allocation ────────────────────────────────────────────────────
+# Platform-aware local port for Gitea port-forward. Different defaults for Kind
+# and OCP avoid conflicts when both clusters share the same host (e.g., helios08).
+if [ -z "${GITEA_LOCAL_PORT:-}" ]; then
+    if [ "$PLATFORM" = "ocp" ]; then
+        GITEA_LOCAL_PORT=3032
+    else
+        GITEA_LOCAL_PORT=3031
+    fi
+fi
+export GITEA_LOCAL_PORT
+
+# Kill any orphaned Gitea port-forward on $GITEA_LOCAL_PORT from a previous
+# script run that failed before cleanup.
+kill_stale_gitea_pf() {
+    local pids
+    pids=$(pgrep -f "port-forward.*svc/gitea-http.*${GITEA_LOCAL_PORT}:3000" 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        echo "  Killing stale Gitea port-forward on port ${GITEA_LOCAL_PORT} (PIDs: ${pids})"
+        kill $pids 2>/dev/null || true
+        sleep 1
+    fi
+}
+
 # Returns the kustomize directory to use for kubectl apply -k.
 # Uses the OCP overlay when available and PLATFORM=ocp, otherwise the base manifests.
 get_manifest_dir() {
