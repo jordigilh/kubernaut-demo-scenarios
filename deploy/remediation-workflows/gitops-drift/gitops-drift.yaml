@@ -27,7 +27,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:3f0ad819fb984bb700114e4e4651bef3ed57de1a9111ceb86746659cba5a41ee
+    bundle: quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:d048e69c336d45045994f4ece3369b9ab5992640c16dbcc5d76a548672b6aea2
 
   dependencies:
     secrets:
