@@ -24,11 +24,15 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:af7bc19c255bb02e8e38263df5ef7e114ec31642e2aba9a9792bd4d5235170ca
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the affected deployment"
-    - name: TARGET_DEPLOYMENT
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the deployment to restart"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., Deployment)"

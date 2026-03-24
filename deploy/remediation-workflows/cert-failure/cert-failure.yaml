@@ -24,14 +24,18 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:b50f19a199da235983787b05ef5f88b03218f57849afa1f73276365c9bac55cc
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the affected Certificate"
-    - name: TARGET_CERTIFICATE
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the Certificate to fix"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., Certificate)"
     - name: ISSUER_NAME
       type: string
       required: true

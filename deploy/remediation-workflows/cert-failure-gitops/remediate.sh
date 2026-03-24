@@ -6,11 +6,11 @@
 # kubernaut-workflows and mounted at /run/kubernaut/secrets/gitea-repo-creds/.
 #
 # GIT_REPO_URL and GIT_BRANCH are discovered from the ArgoCD Application that
-# targets TARGET_NAMESPACE, not provided by the LLM.
+# targets TARGET_RESOURCE_NAMESPACE, not provided by the LLM.
 set -e
 
 : "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
-: "${TARGET_NAMESPACE:?TARGET_NAMESPACE is required}"
+: "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
 
 SECRET_DIR="/run/kubernaut/secrets/gitea-repo-creds"
 if [ ! -d "${SECRET_DIR}" ]; then
@@ -24,27 +24,27 @@ echo "=== Phase 0: Discover ArgoCD Application ==="
 ARGO_APP_JSON=$(kubectl get applications.argoproj.io -n argocd -o json)
 
 GIT_REPO_URL=$(echo "${ARGO_APP_JSON}" | jq -r \
-  --arg ns "${TARGET_NAMESPACE}" \
+  --arg ns "${TARGET_RESOURCE_NAMESPACE}" \
   '.items[] | select(.spec.destination.namespace == $ns) | .spec.source.repoURL' \
   | head -1)
 
 GIT_BRANCH_RAW=$(echo "${ARGO_APP_JSON}" | jq -r \
-  --arg ns "${TARGET_NAMESPACE}" \
+  --arg ns "${TARGET_RESOURCE_NAMESPACE}" \
   '.items[] | select(.spec.destination.namespace == $ns) | .spec.source.targetRevision' \
   | head -1)
 GIT_BRANCH="${GIT_BRANCH_RAW}"
 [ "${GIT_BRANCH}" = "HEAD" ] || [ -z "${GIT_BRANCH}" ] && GIT_BRANCH="main"
 
 if [ -z "${GIT_REPO_URL}" ] || [ "${GIT_REPO_URL}" = "null" ]; then
-  echo "ERROR: No ArgoCD Application found targeting namespace ${TARGET_NAMESPACE}"
+  echo "ERROR: No ArgoCD Application found targeting namespace ${TARGET_RESOURCE_NAMESPACE}"
   exit 1
 fi
 echo "Discovered from ArgoCD: repoURL=${GIT_REPO_URL} branch=${GIT_BRANCH}"
 
 echo "=== Phase 1: Validate ==="
-echo "Checking Certificate ${TARGET_RESOURCE_NAME} in ${TARGET_NAMESPACE}..."
+echo "Checking Certificate ${TARGET_RESOURCE_NAME} in ${TARGET_RESOURCE_NAMESPACE}..."
 
-CERT_READY=$(kubectl get certificate "${TARGET_RESOURCE_NAME}" -n "${TARGET_NAMESPACE}" \
+CERT_READY=$(kubectl get certificate "${TARGET_RESOURCE_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "Unknown")
 echo "Certificate Ready status: ${CERT_READY}"
 

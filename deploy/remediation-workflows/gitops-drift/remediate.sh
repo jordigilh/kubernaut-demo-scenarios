@@ -9,15 +9,15 @@
 # in kubernaut-workflows and mounted at /run/kubernaut/secrets/gitea-repo-creds/.
 #
 # GIT_REPO_URL and GIT_BRANCH are discovered from the ArgoCD Application that
-# targets TARGET_NAMESPACE, not provided by the LLM.
+# targets TARGET_RESOURCE_NAMESPACE, not provided by the LLM.
 #
 # Parameters (env vars):
-#   TARGET_NAMESPACE      - Namespace of the affected workload
+#   TARGET_RESOURCE_NAMESPACE      - Namespace of the affected workload
 #   TARGET_RESOURCE_NAME  - Name of the affected resource
 #
 set -e
 
-: "${TARGET_NAMESPACE:?TARGET_NAMESPACE is required}"
+: "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
 : "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
 
 WORK_DIR="/tmp/gitops-revert"
@@ -34,33 +34,33 @@ echo "=== Phase 0: Discover ArgoCD Application ==="
 ARGO_APP_JSON=$(kubectl get applications.argoproj.io --all-namespaces -o json)
 
 GIT_REPO_URL=$(echo "${ARGO_APP_JSON}" | jq -r \
-  --arg ns "${TARGET_NAMESPACE}" \
+  --arg ns "${TARGET_RESOURCE_NAMESPACE}" \
   '.items[] | select(.spec.destination.namespace == $ns) | .spec.source.repoURL' \
   | head -1)
 
 GIT_BRANCH_RAW=$(echo "${ARGO_APP_JSON}" | jq -r \
-  --arg ns "${TARGET_NAMESPACE}" \
+  --arg ns "${TARGET_RESOURCE_NAMESPACE}" \
   '.items[] | select(.spec.destination.namespace == $ns) | .spec.source.targetRevision' \
   | head -1)
 GIT_BRANCH="${GIT_BRANCH_RAW}"
 [ "${GIT_BRANCH}" = "HEAD" ] || [ -z "${GIT_BRANCH}" ] && GIT_BRANCH="main"
 
 if [ -z "${GIT_REPO_URL}" ] || [ "${GIT_REPO_URL}" = "null" ]; then
-  echo "ERROR: No ArgoCD Application found targeting namespace ${TARGET_NAMESPACE}"
+  echo "ERROR: No ArgoCD Application found targeting namespace ${TARGET_RESOURCE_NAMESPACE}"
   exit 1
 fi
 echo "Discovered from ArgoCD: repoURL=${GIT_REPO_URL} branch=${GIT_BRANCH}"
 
 echo "=== Phase 1: Validate ==="
-echo "Checking for crashing pods in namespace ${TARGET_NAMESPACE}..."
+echo "Checking for crashing pods in namespace ${TARGET_RESOURCE_NAMESPACE}..."
 
-CRASH_PODS=$(kubectl get pods -n "${TARGET_NAMESPACE}" \
+CRASH_PODS=$(kubectl get pods -n "${TARGET_RESOURCE_NAMESPACE}" \
   --field-selector=status.phase!=Running,status.phase!=Succeeded \
   -o name 2>/dev/null | wc -l | tr -d ' ')
 
 if [ "${CRASH_PODS}" -eq 0 ]; then
   echo "No crashing pods found. Verifying restart count..."
-  RESTARTING=$(kubectl get pods -n "${TARGET_NAMESPACE}" \
+  RESTARTING=$(kubectl get pods -n "${TARGET_RESOURCE_NAMESPACE}" \
     -o jsonpath='{range .items[*]}{.status.containerStatuses[*].restartCount}{"\n"}{end}' 2>/dev/null \
     | awk '{s+=$1} END {print s+0}')
   if [ "${RESTARTING}" -eq 0 ]; then
@@ -70,7 +70,7 @@ if [ "${CRASH_PODS}" -eq 0 ]; then
   echo "Found pods with restarts: ${RESTARTING} total restarts"
 fi
 
-echo "Validated: workload in ${TARGET_NAMESPACE} has issues"
+echo "Validated: workload in ${TARGET_RESOURCE_NAMESPACE} has issues"
 
 echo "=== Phase 2: Action ==="
 AUTH_URL=$(echo "${GIT_REPO_URL}" | sed "s|://|://${GIT_USERNAME}:${GIT_PASSWORD}@|")

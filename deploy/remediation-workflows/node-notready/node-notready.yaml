@@ -24,7 +24,11 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/cordon-drain-job@sha256:8f4d4f1e9787cee545b4bdece208a38077195b77cad5880a5b121baed62b2575
   parameters:
-    - name: TARGET_NODE
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the NotReady node to cordon and drain"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., Node)"

@@ -27,11 +27,15 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:d53fc05c77f988474aa1642a654ed1fd6fcecb219a9d1847f05577d545ba49f2
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the PDB"
-    - name: TARGET_PDB
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the PDB to relax"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., PodDisruptionBudget)"

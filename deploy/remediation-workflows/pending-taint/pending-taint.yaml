@@ -24,10 +24,14 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/remove-taint-job@sha256:c705e75fa589b826eb457d00fe7585db8ba043707a2a8657503fcf4015205ecc
   parameters:
-    - name: TARGET_NODE
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the node with the taint to remove"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., Node)"
     - name: TAINT_KEY
       type: string
       required: true

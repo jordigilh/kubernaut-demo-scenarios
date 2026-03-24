@@ -27,11 +27,15 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:c06c6c8b13df717a94139a740eff531e3a9ee4c9ece95918cedcd9cb46ba0378
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the affected workload"
-    - name: TARGET_POLICY
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: false
       description: "Name of the offending NetworkPolicy (auto-detected if not provided)"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., NetworkPolicy)"

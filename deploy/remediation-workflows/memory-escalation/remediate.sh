@@ -2,20 +2,20 @@
 set -e
 
 echo "=== Phase 1: Validate ==="
-echo "Checking deployment/$TARGET_DEPLOYMENT in namespace $TARGET_NAMESPACE..."
+echo "Checking deployment/$TARGET_RESOURCE_NAME in namespace $TARGET_RESOURCE_NAMESPACE..."
 
 # Check deployment exists
-if ! kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" >/dev/null 2>&1; then
-  echo "ERROR: Deployment $TARGET_DEPLOYMENT not found in namespace $TARGET_NAMESPACE"
+if ! kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" >/dev/null 2>&1; then
+  echo "ERROR: Deployment $TARGET_RESOURCE_NAME not found in namespace $TARGET_RESOURCE_NAMESPACE"
   exit 1
 fi
 
 # Get current memory limit from first container
-CURRENT_MEM=$(kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" \
+CURRENT_MEM=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.template.spec.containers[0].resources.limits.memory}')
 
 if [ -z "$CURRENT_MEM" ]; then
-  echo "ERROR: No memory limit set on first container of deployment/$TARGET_DEPLOYMENT"
+  echo "ERROR: No memory limit set on first container of deployment/$TARGET_RESOURCE_NAME"
   exit 1
 fi
 
@@ -44,21 +44,21 @@ echo "Target memory limit:  $NEW_LIMIT (factor: $FACTOR)"
 echo "Validated: deployment exists and memory limit is set."
 
 echo "=== Phase 2: Action ==="
-echo "Patching deployment/$TARGET_DEPLOYMENT memory limits and requests to $NEW_LIMIT..."
+echo "Patching deployment/$TARGET_RESOURCE_NAME memory limits and requests to $NEW_LIMIT..."
 
-kubectl patch "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" --type=json -p \
+kubectl patch "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" --type=json -p \
   "[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/resources/limits/memory\",\"value\":\"${NEW_LIMIT}\"},{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/resources/requests/memory\",\"value\":\"${NEW_LIMIT}\"}]"
 
 echo "Waiting for rollout to complete..."
-kubectl rollout status "deployment/$TARGET_DEPLOYMENT" \
-  -n "$TARGET_NAMESPACE" --timeout=120s
+kubectl rollout status "deployment/$TARGET_RESOURCE_NAME" \
+  -n "$TARGET_RESOURCE_NAMESPACE" --timeout=120s
 
 echo "=== Phase 3: Verify ==="
-VERIFIED_LIMIT=$(kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" \
+VERIFIED_LIMIT=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.template.spec.containers[0].resources.limits.memory}')
-READY=$(kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" \
+READY=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.status.readyReplicas}')
-DESIRED=$(kubectl get "deployment/$TARGET_DEPLOYMENT" -n "$TARGET_NAMESPACE" \
+DESIRED=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.spec.replicas}')
 
 echo "New memory limit: $VERIFIED_LIMIT"

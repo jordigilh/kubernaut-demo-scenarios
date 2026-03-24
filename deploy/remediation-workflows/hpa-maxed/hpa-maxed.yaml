@@ -27,14 +27,18 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/patch-hpa-job@sha256:0c34fe45993035e04a44c38e2e16bc151485e241e1d0a2bed2a8c38119fbe80d
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the HPA"
-    - name: TARGET_HPA
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the HPA to patch"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., HorizontalPodAutoscaler)"
     - name: NEW_MAX_REPLICAS
       type: integer
       required: false

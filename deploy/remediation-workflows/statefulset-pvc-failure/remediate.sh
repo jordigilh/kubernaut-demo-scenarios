@@ -1,15 +1,15 @@
 #!/bin/sh
 set -e
 
-: "${TARGET_STATEFULSET:?TARGET_STATEFULSET is required}"
-: "${TARGET_NAMESPACE:?TARGET_NAMESPACE is required}"
+: "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
+: "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
 
 echo "=== Phase 1: Validate ==="
-echo "Checking StatefulSet ${TARGET_STATEFULSET} in ${TARGET_NAMESPACE}..."
+echo "Checking StatefulSet ${TARGET_RESOURCE_NAME} in ${TARGET_RESOURCE_NAMESPACE}..."
 
-READY=$(kubectl get statefulset "${TARGET_STATEFULSET}" -n "${TARGET_NAMESPACE}" \
+READY=$(kubectl get statefulset "${TARGET_RESOURCE_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
-DESIRED=$(kubectl get statefulset "${TARGET_STATEFULSET}" -n "${TARGET_NAMESPACE}" \
+DESIRED=$(kubectl get statefulset "${TARGET_RESOURCE_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.spec.replicas}')
 echo "Replicas: ${READY}/${DESIRED} ready"
 
@@ -18,20 +18,20 @@ if [ "${READY}" = "${DESIRED}" ]; then
   exit 0
 fi
 
-STORAGE_CLASS=$(kubectl get statefulset "${TARGET_STATEFULSET}" -n "${TARGET_NAMESPACE}" \
+STORAGE_CLASS=$(kubectl get statefulset "${TARGET_RESOURCE_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.spec.volumeClaimTemplates[0].spec.storageClassName}' 2>/dev/null || echo "")
-STORAGE_SIZE=$(kubectl get statefulset "${TARGET_STATEFULSET}" -n "${TARGET_NAMESPACE}" \
+STORAGE_SIZE=$(kubectl get statefulset "${TARGET_RESOURCE_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.spec.volumeClaimTemplates[0].spec.resources.requests.storage}')
-VCT_NAME=$(kubectl get statefulset "${TARGET_STATEFULSET}" -n "${TARGET_NAMESPACE}" \
+VCT_NAME=$(kubectl get statefulset "${TARGET_RESOURCE_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.spec.volumeClaimTemplates[0].metadata.name}')
 echo "VolumeClaimTemplate: name=${VCT_NAME}, size=${STORAGE_SIZE}, storageClass=${STORAGE_CLASS:-default}"
 
-PENDING_PODS=$(kubectl get pods -n "${TARGET_NAMESPACE}" -l "app=${TARGET_STATEFULSET}" \
+PENDING_PODS=$(kubectl get pods -n "${TARGET_RESOURCE_NAMESPACE}" -l "app=${TARGET_RESOURCE_NAME}" \
   --field-selector=status.phase=Pending -o name 2>/dev/null || echo "")
 
 if [ -z "${PENDING_PODS}" ]; then
   echo "No Pending pods found. Issue may be different than expected."
-  PENDING_PODS=$(kubectl get pods -n "${TARGET_NAMESPACE}" -l "app=${TARGET_STATEFULSET}" \
+  PENDING_PODS=$(kubectl get pods -n "${TARGET_RESOURCE_NAMESPACE}" -l "app=${TARGET_RESOURCE_NAME}" \
     --field-selector=status.phase!=Running -o name 2>/dev/null || echo "none")
 fi
 echo "Stuck pods: ${PENDING_PODS}"
@@ -41,8 +41,8 @@ if [ -n "${TARGET_PVC:-}" ]; then
 else
   MISSING_PVC=""
   for i in $(seq 0 $((DESIRED - 1))); do
-    PVC_NAME="${VCT_NAME}-${TARGET_STATEFULSET}-${i}"
-    if ! kubectl get pvc "${PVC_NAME}" -n "${TARGET_NAMESPACE}" >/dev/null 2>&1; then
+    PVC_NAME="${VCT_NAME}-${TARGET_RESOURCE_NAME}-${i}"
+    if ! kubectl get pvc "${PVC_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" >/dev/null 2>&1; then
       MISSING_PVC="${PVC_NAME}"
       break
     fi
@@ -58,7 +58,7 @@ echo "Validated: StatefulSet has missing PVC causing stuck pod."
 
 echo "=== Phase 2: Action ==="
 
-EXISTING_PHASE=$(kubectl get pvc "${MISSING_PVC}" -n "${TARGET_NAMESPACE}" \
+EXISTING_PHASE=$(kubectl get pvc "${MISSING_PVC}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 
 if [ -n "${EXISTING_PHASE}" ] && [ "${EXISTING_PHASE}" = "Bound" ]; then
@@ -66,10 +66,10 @@ if [ -n "${EXISTING_PHASE}" ] && [ "${EXISTING_PHASE}" = "Bound" ]; then
   echo "Skipping PVC creation. Ensuring pod is rescheduled..."
 elif [ -n "${EXISTING_PHASE}" ]; then
   echo "PVC ${MISSING_PVC} exists but is ${EXISTING_PHASE} (not Bound). Deleting..."
-  kubectl delete pvc "${MISSING_PVC}" -n "${TARGET_NAMESPACE}" --wait=false 2>/dev/null || true
+  kubectl delete pvc "${MISSING_PVC}" -n "${TARGET_RESOURCE_NAMESPACE}" --wait=false 2>/dev/null || true
   sleep 3
 
-  RECHECK_PHASE=$(kubectl get pvc "${MISSING_PVC}" -n "${TARGET_NAMESPACE}" \
+  RECHECK_PHASE=$(kubectl get pvc "${MISSING_PVC}" -n "${TARGET_RESOURCE_NAMESPACE}" \
     -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
   if [ "${RECHECK_PHASE}" = "Bound" ]; then
     echo "PVC was auto-recreated and bound by StatefulSet controller."
@@ -81,9 +81,9 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: ${MISSING_PVC}
-  namespace: ${TARGET_NAMESPACE}
+  namespace: ${TARGET_RESOURCE_NAMESPACE}
   labels:
-    app: ${TARGET_STATEFULSET}
+    app: ${TARGET_RESOURCE_NAME}
 spec:
   accessModes:
   - ReadWriteOnce
@@ -105,9 +105,9 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: ${MISSING_PVC}
-  namespace: ${TARGET_NAMESPACE}
+  namespace: ${TARGET_RESOURCE_NAMESPACE}
   labels:
-    app: ${TARGET_STATEFULSET}
+    app: ${TARGET_RESOURCE_NAME}
 spec:
   accessModes:
   - ReadWriteOnce
@@ -124,18 +124,18 @@ fi
 
 echo "Deleting stuck pod to trigger reschedule..."
 POD_INDEX=$(echo "${MISSING_PVC}" | grep -o '[0-9]*$')
-STUCK_POD="${TARGET_STATEFULSET}-${POD_INDEX}"
-kubectl delete pod "${STUCK_POD}" -n "${TARGET_NAMESPACE}" --ignore-not-found --grace-period=0
+STUCK_POD="${TARGET_RESOURCE_NAME}-${POD_INDEX}"
+kubectl delete pod "${STUCK_POD}" -n "${TARGET_RESOURCE_NAMESPACE}" --ignore-not-found --grace-period=0
 
 echo "Waiting for StatefulSet to reconcile (30s)..."
 sleep 30
 
 echo "=== Phase 3: Verify ==="
-NEW_READY=$(kubectl get statefulset "${TARGET_STATEFULSET}" -n "${TARGET_NAMESPACE}" \
+NEW_READY=$(kubectl get statefulset "${TARGET_RESOURCE_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
 echo "Replicas: ${NEW_READY}/${DESIRED} ready"
 
-PVC_STATUS=$(kubectl get pvc "${MISSING_PVC}" -n "${TARGET_NAMESPACE}" \
+PVC_STATUS=$(kubectl get pvc "${MISSING_PVC}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
 echo "PVC ${MISSING_PVC} status: ${PVC_STATUS}"
 

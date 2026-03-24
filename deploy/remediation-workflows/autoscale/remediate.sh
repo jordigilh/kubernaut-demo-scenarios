@@ -5,7 +5,7 @@ CLUSTER_NAME="${CLUSTER_NAME:-kubernaut-demo}"
 NODE_IMAGE="${NODE_IMAGE:-docker.io/kindest/node@sha256:7416a61b42b1662ca6ca89f02028ac133a309a2a30ba309614e8ec94d976dc5a}"
 
 echo "=== Phase 1: Validate ==="
-PENDING=$(kubectl get pods -n "$TARGET_NAMESPACE" -l "app=$TARGET_APP" \
+PENDING=$(kubectl get pods -n "$TARGET_RESOURCE_NAMESPACE" -l "app=$TARGET_RESOURCE_NAME" \
   --field-selector=status.phase=Pending -o name 2>/dev/null | wc -l | tr -d ' ')
 echo "Pending pods: $PENDING"
 if [ "$PENDING" -eq 0 ]; then
@@ -51,10 +51,10 @@ if [ "$STATUS" != "fulfilled" ]; then
 fi
 
 echo "Waiting for pods to become Ready..."
-kubectl wait --for=condition=Ready pod -l "app=$TARGET_APP" \
-  -n "$TARGET_NAMESPACE" --timeout=120s
+kubectl wait --for=condition=Ready pod -l "app=$TARGET_RESOURCE_NAME" \
+  -n "$TARGET_RESOURCE_NAMESPACE" --timeout=120s
 
-RUNNING=$(kubectl get pods -n "$TARGET_NAMESPACE" -l "app=$TARGET_APP" \
+RUNNING=$(kubectl get pods -n "$TARGET_RESOURCE_NAMESPACE" -l "app=$TARGET_RESOURCE_NAME" \
   --field-selector=status.phase=Running -o name | wc -l | tr -d ' ')
 echo "Running pods: $RUNNING"
 echo "=== SUCCESS: Cluster scaled, pods scheduled ==="

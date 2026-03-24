@@ -1,17 +1,17 @@
 #!/bin/sh
 set -e
 
-: "${TARGET_NAMESPACE:?TARGET_NAMESPACE is required}"
-: "${TARGET_POLICY:?TARGET_POLICY is required}"
+: "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
+: "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
 
 echo "=== Phase 1: Validate ==="
-echo "Checking Istio AuthorizationPolicies in namespace ${TARGET_NAMESPACE}..."
+echo "Checking Istio AuthorizationPolicies in namespace ${TARGET_RESOURCE_NAMESPACE}..."
 
 POLICIES=$(kubectl get authorizationpolicies.security.istio.io \
-  -n "${TARGET_NAMESPACE}" -o name 2>/dev/null || echo "")
+  -n "${TARGET_RESOURCE_NAMESPACE}" -o name 2>/dev/null || echo "")
 
 if [ -z "${POLICIES}" ]; then
-  echo "No AuthorizationPolicies found in ${TARGET_NAMESPACE}."
+  echo "No AuthorizationPolicies found in ${TARGET_RESOURCE_NAMESPACE}."
   echo "ERROR: Expected to find a blocking policy but found none."
   exit 1
 fi
@@ -19,15 +19,15 @@ fi
 echo "Found AuthorizationPolicies:"
 echo "${POLICIES}"
 
-POLICY_NAME="${TARGET_POLICY}"
+POLICY_NAME="${TARGET_RESOURCE_NAME}"
 if ! echo "${POLICIES}" | grep -q "/${POLICY_NAME}$"; then
-  echo "WARNING: TARGET_POLICY '${POLICY_NAME}' not found among existing policies."
+  echo "WARNING: TARGET_RESOURCE_NAME '${POLICY_NAME}' not found among existing policies."
   echo "Falling back to removing all DENY AuthorizationPolicies in the namespace."
   POLICY_NAME=""
 fi
 
 echo "Checking pods status..."
-NOT_READY=$(kubectl get pods -n "${TARGET_NAMESPACE}" \
+NOT_READY=$(kubectl get pods -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{range .items[*]}{.metadata.name}{" ready="}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' 2>/dev/null | grep -c "ready=False" || echo "0")
 echo "Pods not ready: ${NOT_READY}"
 
@@ -37,11 +37,11 @@ echo "=== Phase 2: Action ==="
 if [ -n "${POLICY_NAME}" ]; then
   echo "Removing AuthorizationPolicy '${POLICY_NAME}'..."
   kubectl delete authorizationpolicy.security.istio.io "${POLICY_NAME}" \
-    -n "${TARGET_NAMESPACE}"
+    -n "${TARGET_RESOURCE_NAMESPACE}"
 else
-  echo "Removing all AuthorizationPolicies in ${TARGET_NAMESPACE}..."
+  echo "Removing all AuthorizationPolicies in ${TARGET_RESOURCE_NAMESPACE}..."
   kubectl delete authorizationpolicies.security.istio.io --all \
-    -n "${TARGET_NAMESPACE}" --ignore-not-found
+    -n "${TARGET_RESOURCE_NAMESPACE}" --ignore-not-found
 fi
 
 echo "Waiting for pods to stabilize (15s)..."
@@ -49,12 +49,12 @@ sleep 15
 
 echo "=== Phase 3: Verify ==="
 REMAINING=$(kubectl get authorizationpolicies.security.istio.io \
-  -n "${TARGET_NAMESPACE}" -o name 2>/dev/null || echo "")
+  -n "${TARGET_RESOURCE_NAMESPACE}" -o name 2>/dev/null || echo "")
 echo "Remaining AuthorizationPolicies: ${REMAINING:-<none>}"
 
-READY_PODS=$(kubectl get pods -n "${TARGET_NAMESPACE}" \
+READY_PODS=$(kubectl get pods -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{range .items[*]}{.status.conditions[?(@.type=="Ready")].status}{"\n"}{end}' 2>/dev/null | grep -c "True" || echo "0")
-TOTAL_PODS=$(kubectl get pods -n "${TARGET_NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+TOTAL_PODS=$(kubectl get pods -n "${TARGET_RESOURCE_NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
 echo "Pods ready: ${READY_PODS}/${TOTAL_PODS}"
 
 if [ "${READY_PODS}" -gt 0 ] && [ -z "${REMAINING}" ]; then

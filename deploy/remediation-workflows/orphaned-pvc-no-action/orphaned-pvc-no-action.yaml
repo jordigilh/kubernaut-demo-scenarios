@@ -24,10 +24,14 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/cleanup-pvc-job@sha256:1392817a877be025bf2f15048dc7245cd4a74304dcd4e41770dc9a50eeaceb1b
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace containing the orphaned PVCs"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., PersistentVolumeClaim)"
     - name: LABEL_SELECTOR
       type: string
       required: false

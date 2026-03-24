@@ -27,11 +27,15 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/fix-authz-policy-job@sha256:27bd78a2a9f5069c8ab311ca84c1d81e38fca9c1bdec28eae8107fd118bcdf5a
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the affected workload"
-    - name: TARGET_POLICY
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the AuthorizationPolicy to remove"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., AuthorizationPolicy)"

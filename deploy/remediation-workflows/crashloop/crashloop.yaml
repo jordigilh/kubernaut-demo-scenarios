@@ -24,11 +24,15 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:2907a6acb35d4a3bdb16166e367fd9bd7c60877531e729c6cdb63e39b5edb901
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the affected deployment"
-    - name: TARGET_DEPLOYMENT
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the deployment to roll back"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., Deployment)"

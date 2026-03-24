@@ -24,14 +24,18 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/increase-memory-limits-job@sha256:b88aa1517382ae71ff395678ff327b3d8176d0e6be8d61c681eeafebcf24ea71
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the affected deployment"
-    - name: TARGET_DEPLOYMENT
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the deployment to patch"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., Deployment)"
     - name: MEMORY_INCREASE_FACTOR
       type: string
       required: false

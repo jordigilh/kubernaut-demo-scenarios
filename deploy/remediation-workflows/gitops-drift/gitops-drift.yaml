@@ -34,7 +34,7 @@ spec:
       - name: gitea-repo-creds
 
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the affected workload"
@@ -42,3 +42,7 @@ spec:
       type: string
       required: true
       description: "Name of the affected resource (for verification)"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., Deployment)"

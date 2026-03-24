@@ -24,14 +24,18 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/provision-node-job@sha256:df47d1d490e6b3f398afb6e4fec4a46ca49fafabbc69c775498f3332df28d88b
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace with pending pods"
-    - name: TARGET_APP
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Label selector value for the app with pending pods"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., Deployment)"
     - name: CLUSTER_NAME
       type: string
       required: true

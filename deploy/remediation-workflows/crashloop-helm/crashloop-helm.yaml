@@ -27,11 +27,15 @@ spec:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:b268621d2e4154e799f816007943a8c2983a827476d3b917d2cd8ca4903cd9d9
   parameters:
-    - name: TARGET_NAMESPACE
+    - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
       description: "Namespace of the Helm release"
-    - name: RELEASE_NAME
+    - name: TARGET_RESOURCE_NAME
       type: string
       required: true
       description: "Name of the Helm release to roll back"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Kind of the Kubernetes resource (e.g., Deployment)"
