@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   name: demo-memory-gitops-ansible
   labels:
+    kubernaut.ai/managed: "true"
     kubernaut.ai/environment: production
     kubernaut.ai/business-unit: platform
     kubernaut.ai/service-owner: platform-team

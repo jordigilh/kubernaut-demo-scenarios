@@ -47,6 +47,7 @@ kind: Namespace
 metadata:
   name: demo-crashloop-helm
   labels:
+    kubernaut.ai/managed: "true"
     kubernaut.ai/environment: production
     kubernaut.ai/business-unit: engineering
     kubernaut.ai/service-owner: backend-team
