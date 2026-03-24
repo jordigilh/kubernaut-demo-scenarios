@@ -3,7 +3,7 @@ kind: RemediationWorkflow
 metadata:
   name: crashloop-rollback-risk-v1
 spec:
-  version: "1.0.4"
+  version: "1.0.5"
   description:
     what: "Rolls back a deployment to its previous healthy revision to recover from CrashLoopBackOff caused by a bad configuration or image change"
     whenToUse: "When a deployment enters CrashLoopBackOff and the signal carries risk_tolerance=low. This full rollback approach prioritizes safety over speed -- it reverts to a known-good revision rather than attempting a restart with the current (potentially broken) configuration. Best for teams that require guaranteed recovery with minimal risk."
@@ -23,7 +23,7 @@ spec:
 
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:952950776ae7451ddac0b35843d63675e4c24012a819b25948dbedc84e1313b6
+    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:31de09335d904057a8e3f0e17884e94232d3f288bb874521e071c4e70d9769c9
 
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE

@@ -5,7 +5,7 @@ metadata:
 spec:
   # Cordon + Drain Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #127 -- Node NotReady -> cordon and drain
-  version: "1.0.4"
+  version: "1.0.5"
   description:
     what: "Cordons a NotReady node to prevent new scheduling and drains existing workloads to healthy nodes"
     whenToUse: "When a node has been in NotReady state for an extended period, indicating a persistent hardware or OS-level failure"
@@ -22,7 +22,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/cordon-drain-job@sha256:1e9f32a68d9dd08bf03a48fb83e5364da12cccdec87e9c4047bdcf207144cf70
+    bundle: quay.io/kubernaut-cicd/test-workflows/cordon-drain-job@sha256:b5e28b41b9e9caffbda6049d7c8d001ec5de314ae9412a75555ae5f976205aaa
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
