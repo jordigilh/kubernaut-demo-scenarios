@@ -5,7 +5,7 @@ metadata:
 spec:
   # Fix Certificate (GitOps) Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #134 -- GitOps-managed Certificate failure -> git revert
-  version: "1.0.5"
+  version: "1.0.6"
   description:
     what: "Reverts a bad Git commit that broke a cert-manager ClusterIssuer in a GitOps-managed environment"
     whenToUse: "When a GitOps-managed cert-manager Certificate is stuck NotReady because a recent Git commit changed the ClusterIssuer to reference a non-existent CA Secret"
@@ -25,7 +25,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-gitops-job@sha256:5dfcd68da590937b0e738639712dadeb81707af79817f8b77c95aa4fe5f2a617
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-gitops-job@sha256:938625f9f5b28eb9b54e39c4274b68aff428e9d8473f1fab75a0842adc8bd798
 
   dependencies:
     secrets:
