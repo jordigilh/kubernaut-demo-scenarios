@@ -308,7 +308,7 @@ _ensure_scenario_node
 # Mount a constrained loop filesystem on the worker node's kubelet data dir
 # so nodefs.available reports against a small (fixed-size) filesystem. This
 # makes the scenario deterministic regardless of the host/node disk size.
-CONSTRAINED_FS_SIZE_MB="${CONSTRAINED_FS_SIZE_MB:-5120}"
+CONSTRAINED_FS_SIZE_MB="${CONSTRAINED_FS_SIZE_MB:-10240}"
 CONSTRAINED_FS_MOUNTED=false
 _setup_constrained_nodefs() {
     local node_name
@@ -461,6 +461,9 @@ spec:
       - key: scenario
         value: disk-pressure
         effect: NoSchedule
+      - key: node.kubernetes.io/disk-pressure
+        operator: Exists
+        effect: NoSchedule
       containers:
       - name: postgres
         image: ${PG_IMAGE}
@@ -590,6 +593,9 @@ spec:
       - key: scenario
         value: disk-pressure
         effect: NoSchedule
+      - key: node.kubernetes.io/disk-pressure
+        operator: Exists
+        effect: NoSchedule
       initContainers:
       - name: cache-warmup
         image: busybox:1.36
@@ -648,6 +654,9 @@ spec:
       - key: scenario
         value: disk-pressure
         effect: NoSchedule
+      - key: node.kubernetes.io/disk-pressure
+        operator: Exists
+        effect: NoSchedule
       containers:
       - name: logger
         image: busybox:1.36
@@ -699,6 +708,9 @@ spec:
       tolerations:
       - key: scenario
         value: disk-pressure
+        effect: NoSchedule
+      - key: node.kubernetes.io/disk-pressure
+        operator: Exists
         effect: NoSchedule
       containers:
       - name: redis
