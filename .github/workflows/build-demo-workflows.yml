@@ -153,5 +153,8 @@ jobs:
             --base main \
             --head "$BRANCH"
 
+          GH_TOKEN="${{ secrets.GH_APPROVE_TOKEN }}" gh pr review "$BRANCH" --approve \
+            --body "Auto-approved: CI bundle digest bump"
+
           gh pr merge "$BRANCH" --auto --squash --delete-branch
-          echo "Created and auto-merge enabled for PR on branch ${BRANCH}."
+          echo "Created, approved, and auto-merge enabled for PR on branch ${BRANCH}."
