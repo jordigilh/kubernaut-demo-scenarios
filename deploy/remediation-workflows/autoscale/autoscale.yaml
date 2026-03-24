@@ -5,7 +5,7 @@ metadata:
 spec:
   # Node Provisioning Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #126 -- Cluster autoscaling (Kind + Podman)
-  version: "1.0.1"
+  version: "1.0.2"
   description:
     what: "Requests provisioning of a new Kubernetes node to increase cluster capacity when pods are stuck Pending"
     whenToUse: "When pods are Pending due to insufficient cluster-wide resources (CPU, memory) and no existing node has capacity"
@@ -22,7 +22,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/provision-node-job@sha256:df47d1d490e6b3f398afb6e4fec4a46ca49fafabbc69c775498f3332df28d88b
+    bundle: quay.io/kubernaut-cicd/test-workflows/provision-node-job@sha256:4347d76466600b4c92f0bb712b40dca84db78a0adeb906cf728789bc862fe99b
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
