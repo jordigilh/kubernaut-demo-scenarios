@@ -64,7 +64,7 @@ kubectl patch configmap argocd-cm -n argocd --type merge \
 # Step 3: Create Gitea repo with cert-manager manifests
 echo "==> Step 4: Pushing cert-manager manifests to Gitea..."
 WORK_DIR=$(mktemp -d)
-GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
 sleep 3
@@ -235,7 +235,7 @@ run_inject() {
 # Step 8: Inject failure via git push
 echo "==> Step 8: Injecting failure (pushing broken ClusterIssuer via git)..."
 WORK_DIR=$(mktemp -d)
-GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
 sleep 3

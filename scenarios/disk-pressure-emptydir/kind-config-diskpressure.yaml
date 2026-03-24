@@ -25,7 +25,7 @@ nodes:
     hostPort: 8088
     protocol: TCP
   - containerPort: 30300
-    hostPort: 3000
+    hostPort: 3300
     protocol: TCP
   kubeadmConfigPatches:
   - |

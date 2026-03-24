@@ -74,7 +74,7 @@ run_inject() {
 # Step 6: Inject failure -- push bad ConfigMap to Gitea
 echo "==> Step 6: Injecting failure (bad ConfigMap via Git commit)..."
 WORK_DIR=$(mktemp -d)
-GITEA_LOCAL_PORT="${GITEA_LOCAL_PORT:-3030}"
+kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
 sleep 3

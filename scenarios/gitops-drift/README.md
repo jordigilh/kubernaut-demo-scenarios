@@ -105,10 +105,10 @@ kubectl get pods -n demo-gitops
 
 ```bash
 # Port-forward to Gitea
-kubectl port-forward -n gitea svc/gitea-http 3000:3000 &
+kubectl port-forward -n gitea svc/gitea-http 3031:3000 &
 
 # Clone, break ConfigMap, push
-git clone http://kubernaut:kubernaut123@localhost:3000/kubernaut/demo-gitops-repo.git /tmp/gitops-break
+git clone http://kubernaut:kubernaut123@localhost:3031/kubernaut/demo-gitops-repo.git /tmp/gitops-break
 cd /tmp/gitops-break
 
 # Edit manifests/configmap.yaml -- add "invalid_directive_that_breaks_nginx on;" to the http block
