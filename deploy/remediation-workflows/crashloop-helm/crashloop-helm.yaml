@@ -30,12 +30,16 @@ spec:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
-      description: "Namespace of the Helm release"
+      description: "Namespace of the affected deployment"
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true
-      description: "Name of the Helm release to roll back"
+      description: "Name of the affected Kubernetes resource (e.g., the Deployment)"
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
       description: "Kind of the Kubernetes resource (e.g., Deployment)"
+    - name: RELEASE_NAME
+      type: string
+      required: true
+      description: "Name of the Helm release to roll back"
