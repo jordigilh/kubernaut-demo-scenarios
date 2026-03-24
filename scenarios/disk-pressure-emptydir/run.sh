@@ -48,6 +48,23 @@ require_infra awx-engine
 require_infra gitea
 require_infra argocd
 
+# Platform-specific PostgreSQL settings (top-level so both setup and inject see them)
+if [ "$PLATFORM" = "ocp" ]; then
+    PG_IMAGE="registry.redhat.io/rhel9/postgresql-16"
+    PG_ENV_USER="POSTGRESQL_USER"
+    PG_ENV_DB="POSTGRESQL_DATABASE"
+    PG_ENV_PASS="POSTGRESQL_PASSWORD"
+    PG_DATA_MOUNT="/var/lib/pgsql/data"
+    PG_DATA_VALUE="/var/lib/pgsql/data/userdata"
+else
+    PG_IMAGE="postgres:16-alpine"
+    PG_ENV_USER="POSTGRES_USER"
+    PG_ENV_DB="POSTGRES_DB"
+    PG_ENV_PASS="POSTGRES_PASSWORD"
+    PG_DATA_MOUNT="/var/lib/postgresql/data"
+    PG_DATA_VALUE="/var/lib/postgresql/data/pgdata"
+fi
+
 setup_gitea_argocd_webhook() {
     local repo_owner="$1" repo_name="$2"
     local argocd_ns gitea_pod argocd_svc_url webhook_secret existing_hooks
@@ -418,23 +435,6 @@ git config user.email "kubernaut@kubernaut.ai"
 git config user.name "Kubernaut Setup"
 
 mkdir -p disk-pressure-emptydir
-
-# Platform-specific PostgreSQL settings
-if [ "$PLATFORM" = "ocp" ]; then
-    PG_IMAGE="registry.redhat.io/rhel9/postgresql-16"
-    PG_ENV_USER="POSTGRESQL_USER"
-    PG_ENV_DB="POSTGRESQL_DATABASE"
-    PG_ENV_PASS="POSTGRESQL_PASSWORD"
-    PG_DATA_MOUNT="/var/lib/pgsql/data"
-    PG_DATA_VALUE="/var/lib/pgsql/data/userdata"
-else
-    PG_IMAGE="postgres:16-alpine"
-    PG_ENV_USER="POSTGRES_USER"
-    PG_ENV_DB="POSTGRES_DB"
-    PG_ENV_PASS="POSTGRES_PASSWORD"
-    PG_DATA_MOUNT="/var/lib/postgresql/data"
-    PG_DATA_VALUE="/var/lib/postgresql/data/pgdata"
-fi
 
 cat > disk-pressure-emptydir/deployment.yaml <<MANIFEST
 apiVersion: apps/v1
