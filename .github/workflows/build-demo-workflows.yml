@@ -1,10 +1,11 @@
 name: Build Demo Workflow Images
 
-# Builds multi-arch (amd64 + arm64) exec and schema images for all demo
-# scenarios and pushes them to quay.io/kubernaut-cicd/test-workflows.
+# Builds multi-arch (amd64 + arm64) exec images for all demo scenarios and
+# pushes them to quay.io/kubernaut-cicd/test-workflows.
 #
-# After pushing, any updated workflow CRDs in deploy/remediation-workflows/
-# are auto-committed back to the branch to keep the repo in sync.
+# Architecture builds run in parallel via a matrix strategy. Once all per-arch
+# images are pushed, a dependent job creates manifest lists, bumps workflow
+# spec.version, updates bundle digests, and opens a PR.
 #
 # Authority: kubernaut#350 (Multi-arch builds for demo workflow job images)
 
@@ -33,19 +34,41 @@ permissions:
   pull-requests: write
 
 jobs:
-  build-and-push:
-    name: Build & Push Workflow Images
+  # ------------------------------------------------------------------
+  # Compute the architecture matrix from workflow_dispatch inputs.
+  # On push events, defaults to ["amd64","arm64"].
+  # ------------------------------------------------------------------
+  prepare:
+    name: Prepare Build Matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-
-    # Skip runs triggered by the auto-commit from a previous run
     if: github.actor != 'github-actions[bot]'
+    outputs:
+      arch-matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - id: matrix
+        run: |
+          INPUT="${{ inputs.arch || 'amd64,arm64' }}"
+          echo "value=$(echo "$INPUT" | jq -Rc 'split(",")')" >> "$GITHUB_OUTPUT"
 
+  # ------------------------------------------------------------------
+  # Build and push per-arch images in parallel.
+  # Each matrix leg builds for exactly one architecture.
+  # ------------------------------------------------------------------
+  build-arch:
+    name: Build ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    needs: prepare
+    timeout-minutes: 45
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: ${{ fromJson(needs.prepare.outputs.arch-matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Install QEMU for multi-arch builds
+      - name: Install QEMU for cross-arch builds
+        if: matrix.arch != 'amd64'
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-user-static
@@ -55,8 +78,36 @@ jobs:
             echo "::warning::QEMU aarch64 not registered in binfmt_misc"
           fi
 
+      - name: Login to Quay.io
+        run: |
+          podman login -u "${{ secrets.QUAY_ROBOT_USERNAME }}" \
+                       -p "${{ secrets.QUAY_ROBOT_TOKEN }}" \
+                       quay.io
+
+      - name: Build and push ${{ matrix.arch }} images
+        run: |
+          ARGS=(--arch "${{ matrix.arch }}" --build-only)
+          if [ -n "${{ inputs.scenario }}" ]; then
+            ARGS+=(--scenario "${{ inputs.scenario }}")
+          fi
+          bash scripts/build-demo-workflows.sh "${ARGS[@]}"
+
+  # ------------------------------------------------------------------
+  # Once all per-arch images are pushed, create manifest lists, bump
+  # spec.version, update bundle digests, and open a PR.
+  # ------------------------------------------------------------------
+  create-manifests:
+    name: Create Manifests & Update CRDs
+    runs-on: ubuntu-latest
+    needs: build-arch
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
       - name: Install skopeo
         run: |
+          sudo apt-get update
           sudo apt-get install -y skopeo
           skopeo --version
 
@@ -66,9 +117,9 @@ jobs:
                        -p "${{ secrets.QUAY_ROBOT_TOKEN }}" \
                        quay.io
 
-      - name: Build and push workflow images
+      - name: Create manifests and update workflow CRDs
         run: |
-          ARGS=()
+          ARGS=(--manifest-only)
           if [ -n "${{ inputs.scenario }}" ]; then
             ARGS+=(--scenario "${{ inputs.scenario }}")
           fi
@@ -77,12 +128,12 @@ jobs:
           fi
           bash scripts/build-demo-workflows.sh "${ARGS[@]}"
 
-      - name: Create PR for updated bundle digests
+      - name: Create PR for updated versions and bundle digests
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if git diff --quiet -- 'deploy/remediation-workflows/'; then
-            echo "No digest changes to commit."
+            echo "No version/digest changes to commit."
             exit 0
           fi
 
@@ -93,12 +144,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git add deploy/remediation-workflows/
-          git commit -m "ci: update bundle digests for ${CHANGED} workflow(s)"
+          git commit -m "ci: bump versions and update bundle digests for ${CHANGED} workflow(s)"
           git push -u origin "$BRANCH"
 
           gh pr create \
-            --title "ci: update bundle digests for ${CHANGED} workflow(s)" \
-            --body "Auto-generated by CI after building workflow images. Updates image digests in ${CHANGED} workflow CRD(s)." \
+            --title "ci: bump versions and update bundle digests for ${CHANGED} workflow(s)" \
+            --body "Auto-generated by CI after building workflow images. Bumps spec.version and updates image digests in ${CHANGED} workflow CRD(s)." \
             --base main \
             --head "$BRANCH"
 

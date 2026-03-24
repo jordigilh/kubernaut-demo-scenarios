@@ -17,6 +17,8 @@
 #   ./build-demo-workflows.sh --local            # Build local-only (no push, current arch)
 #   ./build-demo-workflows.sh --scenario NAME    # Build a single scenario
 #   ./build-demo-workflows.sh --scenario crashloop --seed
+#   ./build-demo-workflows.sh --arch amd64 --build-only   # CI: build+push per-arch images only
+#   ./build-demo-workflows.sh --manifest-only              # CI: create manifests + update YAMLs
 #
 # Prerequisites:
 #   - podman login quay.io (for push)
@@ -33,6 +35,8 @@ VERSION_OVERRIDE=""
 LOCAL_ONLY=false
 SINGLE_SCENARIO=""
 SEED_AFTER=false
+BUILD_ONLY=false
+MANIFEST_ONLY=false
 ARCHITECTURES=(amd64 arm64)
 
 while [[ $# -gt 0 ]]; do
@@ -57,8 +61,16 @@ while [[ $# -gt 0 ]]; do
             SEED_AFTER=true
             shift
             ;;
+        --build-only)
+            BUILD_ONLY=true
+            shift
+            ;;
+        --manifest-only)
+            MANIFEST_ONLY=true
+            shift
+            ;;
         --help|-h)
-            echo "Usage: $0 [--local] [--arch ARCH[,ARCH]] [--scenario NAME] [--version TAG] [--seed]"
+            echo "Usage: $0 [--local] [--arch ARCH[,ARCH]] [--scenario NAME] [--version TAG] [--seed] [--build-only] [--manifest-only]"
             echo ""
             echo "Options:"
             echo "  --local            Build for current arch only (no push)"
@@ -66,6 +78,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --scenario NAME    Build a single scenario (e.g., crashloop)"
             echo "  --version TAG      Override version tag (default: derived from spec.version)"
             echo "  --seed             Register workflow(s) in DataStorage after push"
+            echo "  --build-only       Build and push per-arch images only (no manifest, no YAML updates)"
+            echo "  --manifest-only    Create manifests from already-pushed per-arch images, update YAMLs"
             exit 0
             ;;
         *)
@@ -75,12 +89,22 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if $BUILD_ONLY && $MANIFEST_ONLY; then
+    echo "ERROR: --build-only and --manifest-only are mutually exclusive"
+    exit 1
+fi
+
+PHASE="full"
+if $BUILD_ONLY; then PHASE="build-only"; fi
+if $MANIFEST_ONLY; then PHASE="manifest-only"; fi
+
 echo "============================================"
 echo "Building Demo Scenario Workflow Images"
 echo "============================================"
 echo "Registry: ${REGISTRY}"
 echo "Tag:      $(if [ -n "$VERSION_OVERRIDE" ]; then echo "${VERSION_OVERRIDE} (override)"; else echo 'v<spec.version> (immutable, per-workflow)'; fi)"
 echo "Mode:     $(if $LOCAL_ONLY; then echo 'LOCAL ONLY (current arch)'; else echo "PUSH (${ARCHITECTURES[*]})"; fi)"
+echo "Phase:    ${PHASE}"
 if [ -n "$SINGLE_SCENARIO" ]; then
     echo "Scenario: ${SINGLE_SCENARIO}"
 fi
@@ -90,23 +114,29 @@ echo ""
 # shellcheck source=workflow-mappings.sh
 source "${SCRIPT_DIR}/workflow-mappings.sh"
 
-# build_and_push builds images for each architecture in ARCHITECTURES, creates a
-# manifest list, pushes it, and prints the manifest list digest to stdout.
-# All podman build/push output goes to stderr so only the digest reaches stdout.
-#
-# Per-arch images are pushed individually first so that `podman manifest add`
+# build_and_push_per_arch builds and pushes per-arch images only.
+# Per-arch images are pushed individually so that a later manifest step
 # can resolve them from the registry. This avoids "manifest unknown" errors
 # with rootless podman on CI runners where local-storage lookups for
 # registry-prefixed tags fail silently.
 #
 # Args: $1=full_ref $2=dockerfile $3=context_dir
-build_and_push() {
+build_and_push_per_arch() {
     local ref="$1" dockerfile="$2" context="$3"
 
     for arch in "${ARCHITECTURES[@]}"; do
         podman build --platform "linux/${arch}" -t "${ref}-${arch}" -f "${dockerfile}" "${context}" >&2
         podman push "${ref}-${arch}" "docker://${ref}-${arch}" >&2
     done
+}
+
+# create_manifest_and_push assembles a manifest list from already-pushed
+# per-arch images, pushes it, and prints the manifest list digest to stdout.
+# All podman output goes to stderr so only the digest reaches stdout.
+#
+# Args: $1=full_ref
+create_manifest_and_push() {
+    local ref="$1"
 
     podman manifest rm "${ref}" &>/dev/null || true
     podman manifest create "${ref}" >/dev/null
@@ -129,6 +159,17 @@ build_and_push() {
 
     skopeo inspect --raw "docker://${ref}" 2>/dev/null | \
         python3 -c "import sys,hashlib; data=sys.stdin.buffer.read(); print('sha256:'+hashlib.sha256(data).hexdigest())"
+}
+
+# build_and_push builds per-arch images, creates a manifest list, pushes it,
+# and prints the manifest list digest to stdout. Convenience wrapper that
+# calls build_and_push_per_arch + create_manifest_and_push.
+#
+# Args: $1=full_ref $2=dockerfile $3=context_dir
+build_and_push() {
+    local ref="$1" dockerfile="$2" context="$3"
+    build_and_push_per_arch "$ref" "$dockerfile" "$context"
+    create_manifest_and_push "$ref"
 }
 
 # build_local builds for the current arch only and prints the image digest.
@@ -192,15 +233,15 @@ f = sys.argv[1]
 with open(f) as fh:
     content = fh.read()
 def _bump(m):
-    prefix, major, minor, patch = m.group(1), m.group(2), m.group(3), int(m.group(4))
-    return f'{prefix}{major}.{minor}.{patch + 1}'
-content, n = re.subn(r'(  version: )(\d+)\.(\d+)\.(\d+)', _bump, content, count=1)
+    prefix, major, minor, patch, quote = m.group(1), m.group(2), m.group(3), int(m.group(4)), m.group(5)
+    return f'{prefix}{major}.{minor}.{patch + 1}{quote}'
+content, n = re.subn(r'(  version: \"?)(\d+)\.(\d+)\.(\d+)(\"?)', _bump, content, count=1)
 if n == 0:
     print('WARNING: no spec.version found to bump', file=sys.stderr)
     sys.exit(0)
 with open(f, 'w') as fh:
     fh.write(content)
-m = re.search(r'version: (\S+)', content)
+m = re.search(r'version: \"?(\d+\.\d+\.\d+)', content)
 print(m.group(1) if m else 'unknown')
 " "${schema_file}"
 }
@@ -247,22 +288,34 @@ for entry in "${WORKFLOWS[@]}"; do
     EXEC_REF="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
     echo "==> ${IMAGE_NAME}:${IMAGE_TAG} (scenario: ${SCENARIO})"
 
-    # Step 1: Build and push execution image
-    echo "  [exec] Building ${EXEC_REF}..."
-    if $LOCAL_ONLY; then
+    if $MANIFEST_ONLY; then
+        # --manifest-only: create manifest from already-pushed per-arch images
+        echo "  [manifest] Creating manifest for ${EXEC_REF}..."
+        EXEC_DIGEST=$(create_manifest_and_push "${EXEC_REF}")
+        echo "  [manifest] Pushed. Digest: ${EXEC_DIGEST}"
+    elif $LOCAL_ONLY; then
+        echo "  [exec] Building ${EXEC_REF}..."
         EXEC_DIGEST=$(build_local "${EXEC_REF}" "${BUILD_DIR}/Dockerfile.exec" "${BUILD_DIR}")
         echo "  [exec] Built (local arch only)"
+    elif $BUILD_ONLY; then
+        # --build-only: build and push per-arch images, skip manifest
+        echo "  [exec] Building ${EXEC_REF} (per-arch only)..."
+        build_and_push_per_arch "${EXEC_REF}" "${BUILD_DIR}/Dockerfile.exec" "${BUILD_DIR}"
+        echo "  [exec] Pushed per-arch images"
+        EXEC_DIGEST=""
     else
+        # Full mode: build per-arch + create manifest
+        echo "  [exec] Building ${EXEC_REF}..."
         EXEC_DIGEST=$(build_and_push "${EXEC_REF}" "${BUILD_DIR}/Dockerfile.exec" "${BUILD_DIR}")
         echo "  [exec] Pushed. Digest: ${EXEC_DIGEST}"
     fi
 
-    # Step 2: Update workflow CRD with exec image digest
-    if [ -n "${EXEC_DIGEST}" ]; then
+    # Update workflow CRD with exec image digest (skip in --build-only)
+    if ! $BUILD_ONLY && [ -n "${EXEC_DIGEST}" ]; then
         BUILT_DIGESTS["${IMAGE_NAME}"]="${EXEC_DIGEST}"
         update_bundle_digest "${SCHEMA_FILE}" "${REGISTRY}/${IMAGE_NAME}" "${EXEC_DIGEST}"
         echo "  [digest] Updated execution.bundle in ${SCENARIO}.yaml"
-    else
+    elif ! $BUILD_ONLY && [ -z "${EXEC_DIGEST}" ]; then
         echo "  [digest] WARNING: Could not extract digest, schema not updated"
     fi
 
@@ -275,8 +328,9 @@ done
 # just-built image with a stale digest.  This covers workflows that reuse an
 # image owned by a different scenario (e.g. concurrent-cross-namespace/
 # restart-pods-v1 shares graceful-restart-job with memory-leak).
+# Skipped in --build-only mode (no digests to reconcile).
 # ---------------------------------------------------------------------------
-if [ "${#BUILT_DIGESTS[@]}" -gt 0 ]; then
+if ! $BUILD_ONLY && [ "${#BUILT_DIGESTS[@]}" -gt 0 ]; then
     reconcile_count=0
     while IFS= read -r -d '' yaml_file; do
         for img_name in "${!BUILT_DIGESTS[@]}"; do
