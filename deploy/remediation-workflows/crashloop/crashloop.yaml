@@ -5,7 +5,7 @@ metadata:
 spec:
   # Rollback Deployment Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #120 -- CrashLoopBackOff -> rollback to working config
-  version: "1.0.8"
+  version: "1.0.9"
   description:
     what: "Rolls back a deployment to its previous revision to recover from CrashLoopBackOff caused by a bad configuration change"
     whenToUse: "When a deployment enters CrashLoopBackOff immediately after a config or image change, and the previous revision was healthy"
@@ -22,7 +22,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:dfed30e8c4c392b6c312841823333fbd3029de09aba055620cf504728f2d3517
+    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:77a23aa8348c02b46efbb5bf059699e961e5065aa1a2a810fd765a016acd0587
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
