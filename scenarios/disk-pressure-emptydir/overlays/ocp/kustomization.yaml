@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
   - ../../manifests
 patches:
-  # Category A: Namespace label for OCP cluster monitoring
+  # Category A: Namespace labels for OCP cluster monitoring and ArgoCD RBAC
   - target:
       kind: Namespace
       name: demo-diskpressure
@@ -11,6 +11,9 @@ patches:
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
         value: "true"
+      - op: add
+        path: /metadata/labels/argocd.argoproj.io~1managed-by
+        value: openshift-gitops
   # Category B: PostgreSQL -- Red Hat image, env vars, and data paths
   - target:
       kind: Deployment
