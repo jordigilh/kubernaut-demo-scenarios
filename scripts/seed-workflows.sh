@@ -10,6 +10,7 @@
 # Usage:
 #   ./scripts/seed-workflows.sh
 #   ./scripts/seed-workflows.sh --scenario crashloop
+#   ./scripts/seed-workflows.sh --continue-on-error
 
 set -euo pipefail
 
@@ -17,16 +18,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKFLOWS_DIR="${SCRIPT_DIR}/../deploy/remediation-workflows"
 NAMESPACE="${PLATFORM_NS:-kubernaut-system}"
 SINGLE_SCENARIO=""
+CONTINUE_ON_ERROR=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --scenario) SINGLE_SCENARIO="$2"; shift 2 ;;
+        --continue-on-error) CONTINUE_ON_ERROR=true; shift ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
 applied=0
 skipped=0
+fail_count=0
+failed_names=()
 
 echo "==> Applying RemediationWorkflow CRDs from ${WORKFLOWS_DIR}"
 while IFS= read -r -d '' yaml_file; do
@@ -69,9 +74,28 @@ while IFS= read -r -d '' yaml_file; do
         continue
     fi
 
-    kubectl apply -n "$NAMESPACE" -f "$yaml_file" 2>&1 | sed 's/^/  /' || true
-    applied=$((applied + 1))
+    if kubectl apply -n "$NAMESPACE" -f "$yaml_file" 2>&1 | sed 's/^/  /'; then
+        applied=$((applied + 1))
+    else
+        fail_count=$((fail_count + 1))
+        failed_names+=("${basename}")
+        if [ "$CONTINUE_ON_ERROR" = false ]; then
+            echo ""
+            echo "ERROR: Failed to apply ${basename}. Use --continue-on-error to skip failures."
+            exit 1
+        fi
+    fi
 done < <(find "${WORKFLOWS_DIR}" -name '*.yaml' -print0)
 
-echo "==> Done. Applied ${applied} workflow(s), skipped ${skipped}."
+echo "==> Done. Applied ${applied} workflow(s), skipped ${skipped}, failed ${fail_count}."
+
+if [ "$fail_count" -gt 0 ]; then
+    echo "  Failed workflows:"
+    for name in "${failed_names[@]}"; do
+        echo "    - ${name}"
+    done
+fi
+
 echo "  Verify: kubectl get remediationworkflows -n ${NAMESPACE}"
+
+[ "$fail_count" -eq 0 ]
