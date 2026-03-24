@@ -5,7 +5,7 @@ metadata:
 spec:
   # Increase Memory Limits (GitOps) Workflow Schema - Ansible Backend
   # Scenario: #312 -- OOMKill on GitOps-managed deployment -> update limits via git commit
-  version: "1.0.1"
+  version: "1.0.2"
   description:
     what: "Increases the memory limits of a GitOps-managed deployment by updating the resource definition in the source Git repository and letting the GitOps controller reconcile the change"
     whenToUse: "When containers are being OOMKilled because the memory limit is too low, and the deployment is managed by a GitOps tool (ArgoCD or Flux). The new memory value must be higher than the current limit."
@@ -26,7 +26,7 @@ spec:
   execution:
     engine: ansible
     bundle: https://github.com/jordigilh/kubernaut-test-playbooks.git
-    bundleDigest: "ecedfc88b6e3b9f0f3d4e53b10a70f02b7b3b5bb"
+    bundleDigest: "f92b5126d44df07c19986a391651b6e4a874b0da"
     engineConfig:
       playbookPath: "playbooks/gitops-update-memory-limits.yml"
       jobTemplateName: "kubernaut-gitops-update-memory"
