@@ -5,7 +5,7 @@
 # Team Alpha (high risk tolerance) -> restart-pods-v1 (simpler, faster)
 # Team Beta  (low risk tolerance)  -> crashloop-rollback-v1 (safer, more thorough)
 #
-# This scenario also fixes the SP Rego custom labels policy bug (package name mismatch).
+# The risk_tolerance rules are injected into policy.rego at runtime (#216).
 #
 # Prerequisites:
 #   - Kind cluster with Kubernaut platform deployed
@@ -36,13 +36,26 @@ echo " Same Issue, Different Risk -> Different Workflows"
 echo "============================================="
 echo ""
 
-# Step 0: Add the risk-tolerance custom-labels Rego to the SP policy ConfigMap.
-# The ConfigMap already has policy.rego (unified classifier). We add
-# customlabels.rego as a SEPARATE key so OPA loads both packages without
-# overwriting the existing environment/severity/priority classifiers (#78).
-echo "==> Step 0: Adding risk-tolerance custom-labels policy to SP ConfigMap..."
+# Step 0: Inject risk-tolerance rules into the SP policy ConfigMap.
+# The SP controller only loads the policy.rego key, so we append the
+# risk_tolerance extraction rules directly into it (not a separate key).
+# We save the original content as an annotation so cleanup.sh can restore it.
+echo "==> Step 0: Injecting risk-tolerance rules into SP policy.rego..."
+
+ORIGINAL_POLICY=$(kubectl get configmap signalprocessing-policy -n kubernaut-system \
+  -o jsonpath='{.data.policy\.rego}')
+
+kubectl annotate configmap signalprocessing-policy -n kubernaut-system \
+  "kubernaut.ai/original-policy-rego=$(echo "${ORIGINAL_POLICY}" | base64)" --overwrite
+
+RISK_RULES=$(grep -v -E '^(package |import )' "${SCRIPT_DIR}/rego/risk-tolerance.rego")
+
+MERGED_POLICY="${ORIGINAL_POLICY}
+
+${RISK_RULES}"
+
 kubectl patch configmap signalprocessing-policy -n kubernaut-system --type=merge \
-  -p "{\"data\":{\"customlabels.rego\":$(cat "${SCRIPT_DIR}/rego/risk-tolerance.rego" | jq -Rs .)}}"
+  -p "{\"data\":{\"policy.rego\":$(echo "${MERGED_POLICY}" | jq -Rs .)}}"
 
 echo "  Restarting SignalProcessing controller to pick up policy change..."
 kubectl rollout restart deployment/signalprocessing-controller -n kubernaut-system

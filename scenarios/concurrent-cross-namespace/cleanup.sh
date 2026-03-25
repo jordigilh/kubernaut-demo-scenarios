@@ -20,8 +20,16 @@ for NS in demo-team-alpha demo-team-beta; do
   done
 done
 
-kubectl patch configmap signalprocessing-policy -n kubernaut-system --type=json \
-  -p '[{"op":"remove","path":"/data/customlabels.rego"}]' 2>/dev/null || true
+# Restore original policy.rego from annotation saved by run.sh
+ORIGINAL_B64=$(kubectl get configmap signalprocessing-policy -n kubernaut-system \
+  -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-policy-rego}' 2>/dev/null || echo "")
+if [ -n "${ORIGINAL_B64}" ]; then
+  ORIGINAL_POLICY=$(echo "${ORIGINAL_B64}" | base64 -d)
+  kubectl patch configmap signalprocessing-policy -n kubernaut-system --type=merge \
+    -p "{\"data\":{\"policy.rego\":$(echo "${ORIGINAL_POLICY}" | jq -Rs .)}}"
+  kubectl annotate configmap signalprocessing-policy -n kubernaut-system \
+    "kubernaut.ai/original-policy-rego-" 2>/dev/null || true
+fi
 kubectl rollout restart deployment/signalprocessing-controller -n kubernaut-system 2>/dev/null || true
 
 restart_alertmanager
