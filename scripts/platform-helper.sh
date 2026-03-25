@@ -149,7 +149,8 @@ seed_action_types_and_workflows() {
             fi
 
             # Check secret dependencies declared in the workflow.
-            # WE jobs run in kubernaut-workflows, so check both namespaces (DD-WE-006).
+            # WE jobs run in kubernaut-workflows, so check both the platform
+            # namespace and the workflow execution namespace (DD-WE-006).
             local we_ns="${WE_NAMESPACE:-kubernaut-workflows}"
             local unmet=""
             while IFS= read -r secret_name; do
@@ -429,23 +430,37 @@ enable_prometheus_toolset() {
     current=$(kubectl get "configmap/${cm_name}" -n "${PLATFORM_NS}" \
       -o jsonpath='{.data.sdk-config\.yaml}' 2>/dev/null || true)
 
+    local prom_url="http://kube-prometheus-stack-prometheus.monitoring.svc:9090"
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        prom_url="https://thanos-querier.openshift-monitoring.svc:9091"
+    fi
+
+    local needs_patch=false
     if echo "$current" | grep -q 'prometheus/metrics:' 2>/dev/null; then
-        if echo "$current" | grep -A1 'prometheus/metrics:' | grep -q 'enabled: true'; then
-            echo "  Prometheus toolset already enabled."
-            return 0
+        if ! echo "$current" | grep -A1 'prometheus/metrics:' | grep -q 'enabled: true'; then
+            current=$(echo "$current" | sed '/prometheus\/metrics:/{n;s/enabled: false/enabled: true/;}')
+            needs_patch=true
         fi
-        current=$(echo "$current" | sed '/prometheus\/metrics:/{n;s/enabled: false/enabled: true/;}')
+        # Ensure the URL matches the current platform (#211).
+        if ! echo "$current" | grep -qF "prometheus_url: \"${prom_url}\"" 2>/dev/null && \
+           ! echo "$current" | grep -qF "prometheus_url: '${prom_url}'" 2>/dev/null && \
+           ! echo "$current" | grep -qF "prometheus_url: ${prom_url}" 2>/dev/null; then
+            current=$(echo "$current" | sed "s|prometheus_url:.*|prometheus_url: \"${prom_url}\"|")
+            needs_patch=true
+        fi
     else
-        local prom_url="http://kube-prometheus-stack-prometheus.monitoring.svc:9090"
-        if [ "${PLATFORM:-kind}" = "ocp" ]; then
-            prom_url="https://thanos-querier.openshift-monitoring.svc:9091"
-        fi
         current="${current}
 toolsets:
   prometheus/metrics:
     enabled: true
     config:
       prometheus_url: \"${prom_url}\""
+        needs_patch=true
+    fi
+
+    if [ "$needs_patch" = false ]; then
+        echo "  Prometheus toolset already enabled."
+        return 0
     fi
 
     kubectl patch "configmap/${cm_name}" -n "${PLATFORM_NS}" --type merge \

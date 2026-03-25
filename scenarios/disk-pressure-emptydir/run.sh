@@ -318,14 +318,10 @@ _ensure_scenario_node() {
 echo "==> Step 0: Ensuring a worker node is labeled for this scenario..."
 _ensure_scenario_node
 
-# Step 0b: On Kind, mount a constrained loop filesystem on the worker node's
-# kubelet data dir so that nodefs.available reports against a small (fixed-size)
-# filesystem instead of the host's potentially huge disk.
-# This makes the scenario work on any host regardless of disk size.
 # Mount a constrained loop filesystem on the worker node's kubelet data dir
 # so nodefs.available reports against a small (fixed-size) filesystem. This
 # makes the scenario deterministic regardless of the host/node disk size.
-CONSTRAINED_FS_SIZE_MB="${CONSTRAINED_FS_SIZE_MB:-10240}"
+CONSTRAINED_FS_SIZE_MB="${CONSTRAINED_FS_SIZE_MB:-5120}"
 CONSTRAINED_FS_MOUNTED=false
 _setup_constrained_nodefs() {
     local node_name
