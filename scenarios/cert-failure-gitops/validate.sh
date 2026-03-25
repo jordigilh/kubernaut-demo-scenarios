@@ -46,9 +46,13 @@ assert_eq "$aa_phase" "Completed" "AA phase"
 rr_name=$(get_rr_name "${NAMESPACE}")
 aa_name="ai-${rr_name}"
 
-action_type=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.actionType}' 2>/dev/null || echo "")
-assert_in "$action_type" "AA selected workflow action type" "GitRevertCommit" "FixCertificate"
+workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+assert_neq "$workflow_id" "" "AA selected a workflow"
+
+bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+assert_contains "$bundle" "fix-certificate\\|git-revert" "AA selected correct workflow"
 
 confidence=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || echo "")

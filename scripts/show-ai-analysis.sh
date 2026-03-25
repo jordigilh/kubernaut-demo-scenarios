@@ -30,7 +30,7 @@ AFFECTED_NAME=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath=
 AFFECTED_NS=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.affectedResource.namespace}' 2>/dev/null)
 CONFIDENCE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null)
 WORKFLOW_ID=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null)
-ACTION_TYPE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.actionType}' 2>/dev/null)
+EXEC_BUNDLE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null)
 RATIONALE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.rationale}' 2>/dev/null)
 APPROVAL=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.approvalRequired}' 2>/dev/null)
 APPROVAL_REASON=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.approvalReason}' 2>/dev/null)
@@ -47,7 +47,7 @@ printf '\n'
 printf '  Selected Workflow\n'
 printf '  ─────────────────\n'
 printf '  ID:               %s\n' "${WORKFLOW_ID:-N/A}"
-printf '  Action:           %s\n' "${ACTION_TYPE:-N/A}"
+printf '  Bundle:           %s\n' "${EXEC_BUNDLE:-N/A}"
 printf '  Confidence:       %s\n' "${CONFIDENCE:-N/A}"
 printf '  Rationale:        %s\n' "${RATIONALE:-N/A}"
 printf '\n'
