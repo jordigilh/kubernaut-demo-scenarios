@@ -246,6 +246,21 @@ print(m.group(1) if m else 'unknown')
 " "${schema_file}"
 }
 
+# read_bundle_digest extracts the current @sha256:... digest from the
+# execution.bundle line for a given image in a workflow YAML.
+# Returns empty string if no digest is found (e.g. first build).
+# Args: $1=schema_file $2=registry/image_name  Output: sha256:... or ""
+read_bundle_digest() {
+    local schema_file="$1" image_ref="$2"
+    python3 -c "
+import re, sys
+f, ref = sys.argv[1], sys.argv[2]
+with open(f) as fh:
+    m = re.search(r'bundle:\s*' + re.escape(ref) + r'@(sha256:[a-f0-9]+)', fh.read())
+    print(m.group(1) if m else '')
+" "$schema_file" "$image_ref"
+}
+
 build_count=0
 skip_count=0
 declare -A BUILT_DIGESTS  # image-name -> digest for reconciliation pass
@@ -272,21 +287,22 @@ for entry in "${WORKFLOWS[@]}"; do
         exit 1
     fi
 
-    # Determine image tag: --version override, or bump spec.version for an
-    # immutable tag that won't orphan old digests (#139).
+    # Read the current digest so we can skip version bumps when nothing
+    # changed (#184).  The real version tag is determined AFTER comparing
+    # digests, so spec.version only bumps when the image actually changes.
+    OLD_DIGEST=$(read_bundle_digest "${SCHEMA_FILE}" "${REGISTRY}/${IMAGE_NAME}")
+    cur_ver=$(read_spec_version "${SCHEMA_FILE}")
+
     if [ -n "${VERSION_OVERRIDE}" ]; then
-        IMAGE_TAG="${VERSION_OVERRIDE}"
-    elif ! $LOCAL_ONLY; then
-        new_ver=$(bump_patch_version "${SCHEMA_FILE}")
-        IMAGE_TAG="v${new_ver}"
-        echo "  [version] Bumped spec.version -> ${new_ver}"
+        BUILD_TAG="${VERSION_OVERRIDE}"
+    elif $LOCAL_ONLY; then
+        BUILD_TAG="v${cur_ver:-0.0.0}"
     else
-        cur_ver=$(read_spec_version "${SCHEMA_FILE}")
-        IMAGE_TAG="v${cur_ver:-0.0.0}"
+        BUILD_TAG="v0.0.0-ci"
     fi
 
-    EXEC_REF="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
-    echo "==> ${IMAGE_NAME}:${IMAGE_TAG} (scenario: ${SCENARIO})"
+    EXEC_REF="${REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}"
+    echo "==> ${IMAGE_NAME}:${BUILD_TAG} (scenario: ${SCENARIO})"
 
     if $MANIFEST_ONLY; then
         # --manifest-only: create manifest from already-pushed per-arch images
@@ -310,8 +326,46 @@ for entry in "${WORKFLOWS[@]}"; do
         echo "  [exec] Pushed. Digest: ${EXEC_DIGEST}"
     fi
 
-    # Update workflow CRD with exec image digest (skip in --build-only)
+    # Compare digests and conditionally bump version + retag (#184).
+    # In --build-only mode there is no digest yet; version is determined
+    # later in the --manifest-only phase.
     if ! $BUILD_ONLY && [ -n "${EXEC_DIGEST}" ]; then
+        if [ "${EXEC_DIGEST}" = "${OLD_DIGEST}" ]; then
+            echo "  [skip] Digest unchanged for ${IMAGE_NAME}, skipping version bump"
+            build_count=$((build_count + 1))
+            echo ""
+            continue
+        fi
+
+        # Digest changed -- determine the real version tag
+        if [ -n "${VERSION_OVERRIDE}" ]; then
+            IMAGE_TAG="${VERSION_OVERRIDE}"
+        elif ! $LOCAL_ONLY; then
+            new_ver=$(bump_patch_version "${SCHEMA_FILE}")
+            IMAGE_TAG="v${new_ver}"
+            echo "  [version] Bumped spec.version -> ${new_ver}"
+        else
+            IMAGE_TAG="v${cur_ver:-0.0.0}"
+        fi
+
+        # Retag per-arch images from scratch tag to the real version tag
+        if [ "${BUILD_TAG}" != "${IMAGE_TAG}" ] && ! $LOCAL_ONLY; then
+            FINAL_REF="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+            if $MANIFEST_ONLY; then
+                for arch in "${ARCHITECTURES[@]}"; do
+                    skopeo copy "docker://${EXEC_REF}-${arch}" \
+                                "docker://${FINAL_REF}-${arch}" >/dev/null 2>&1
+                done
+            else
+                for arch in "${ARCHITECTURES[@]}"; do
+                    podman tag "${EXEC_REF}-${arch}" "${FINAL_REF}-${arch}"
+                    podman push "${FINAL_REF}-${arch}" "docker://${FINAL_REF}-${arch}" >&2
+                done
+            fi
+            EXEC_DIGEST=$(create_manifest_and_push "${FINAL_REF}")
+            echo "  [retag] Pushed ${IMAGE_NAME}:${IMAGE_TAG} (digest: ${EXEC_DIGEST})"
+        fi
+
         BUILT_DIGESTS["${IMAGE_NAME}"]="${EXEC_DIGEST}"
         update_bundle_digest "${SCHEMA_FILE}" "${REGISTRY}/${IMAGE_NAME}" "${EXEC_DIGEST}"
         echo "  [digest] Updated execution.bundle in ${SCENARIO}.yaml"
