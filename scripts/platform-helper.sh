@@ -149,7 +149,8 @@ seed_action_types_and_workflows() {
             fi
 
             # Check secret dependencies declared in the workflow.
-            # WE jobs run in kubernaut-workflows, so check both namespaces (DD-WE-006).
+            # WE jobs run in kubernaut-workflows, so check both the platform
+            # namespace and the workflow execution namespace (DD-WE-006).
             local we_ns="${WE_NAMESPACE:-kubernaut-workflows}"
             local unmet=""
             while IFS= read -r secret_name; do
