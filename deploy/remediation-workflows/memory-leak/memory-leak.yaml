@@ -5,7 +5,7 @@ metadata:
 spec:
   # Graceful Restart Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #129 -- Proactive memory exhaustion -> graceful restart
-  version: "1.0.7"
+  version: "1.0.8"
   description:
     what: "Performs a graceful rolling restart of a deployment to reset its runtime state and reclaim leaked memory"
     whenToUse: "When proactive analysis indicates a container is trending toward OOM based on memory growth rate, and a restart will reset the leak without data loss"
@@ -22,7 +22,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:f2d8ebc1cf2c66e9336bf42bc2ae59862290f3c35733d8838f7660cd1e87f0aa
+    bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:8b446cb094875e57d8648c97562fdf6d23b5fba637e0183026367955e0662024
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
