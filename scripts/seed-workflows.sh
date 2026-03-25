@@ -33,6 +33,24 @@ skipped=0
 fail_count=0
 failed_names=()
 
+# Pre-create gitea-repo-creds if Gitea is installed but the secret is missing.
+# Without this, workflows declaring a gitea-repo-creds dependency are skipped (#209).
+if kubectl get namespace gitea &>/dev/null; then
+    GITEA_USER="${GITEA_ADMIN_USER:-kubernaut}"
+    GITEA_PASS="${GITEA_ADMIN_PASS:-kubernaut123}"
+    for _ns in "${NAMESPACE}" "${WE_NAMESPACE:-kubernaut-workflows}"; do
+        if kubectl get namespace "$_ns" &>/dev/null && \
+           ! kubectl get secret gitea-repo-creds -n "$_ns" &>/dev/null; then
+            kubectl create secret generic gitea-repo-creds \
+              -n "$_ns" \
+              --from-literal=username="${GITEA_USER}" \
+              --from-literal=password="${GITEA_PASS}" \
+              --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
+            echo "  Pre-created gitea-repo-creds in ${_ns}"
+        fi
+    done
+fi
+
 echo "==> Applying RemediationWorkflow CRDs from ${WORKFLOWS_DIR}"
 while IFS= read -r -d '' yaml_file; do
     basename="${yaml_file##*/}"

@@ -78,6 +78,20 @@ while [ "$ESCALATION_ELAPSED" -lt "$ESCALATION_TIMEOUT" ]; do
         break
     fi
 
+    # Auto-approve intermediate RARs so subsequent cycles can progress
+    if [ "${APPROVE_MODE}" = "--auto-approve" ]; then
+        awaiting_rrs=$(kubectl get rr -n "${PLATFORM_NS}" \
+          -o jsonpath='{range .items[*]}{.metadata.name}={.status.overallPhase}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
+          | grep "=AwaitingApproval=${NAMESPACE}" | cut -d= -f1 || true)
+        for awaiting_rr in $awaiting_rrs; do
+            rar_decision=$(kubectl get remediationapprovalrequest "rar-${awaiting_rr}" \
+              -n "${PLATFORM_NS}" -o jsonpath='{.status.decision}' 2>/dev/null || true)
+            if [ "$rar_decision" != "Approved" ]; then
+                auto_approve_rar "$awaiting_rr" || true
+            fi
+        done
+    fi
+
     sleep 15
     ESCALATION_ELAPSED=$((ESCALATION_ELAPSED + 15))
     if [ $((ESCALATION_ELAPSED % 60)) -eq 0 ]; then
