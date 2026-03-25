@@ -216,7 +216,7 @@ read_spec_version() {
     python3 -c "
 import re, sys
 with open(sys.argv[1]) as fh:
-    m = re.search(r'  version: [\"'\'']?(\d+\.\d+\.\d+)', fh.read())
+    m = re.search(r'''  version: [\"']?(\d+\.\d+\.\d+)''', fh.read())
     print(m.group(1) if m else '')
 " "$schema_file"
 }
