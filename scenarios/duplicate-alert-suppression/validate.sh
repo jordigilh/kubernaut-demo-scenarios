@@ -52,9 +52,13 @@ assert_eq "$aa_phase" "Completed" "AA phase"
 rr_name=$(get_rr_name "${NAMESPACE}")
 aa_name="ai-${rr_name}"
 
-action_type=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.actionType}' 2>/dev/null || echo "")
-assert_eq "$action_type" "RollbackDeployment" "AA selected workflow"
+workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+assert_neq "$workflow_id" "" "AA selected a workflow"
+
+bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+assert_contains "$bundle" "crashloop-rollback-job" "AA selected correct workflow"
 
 wfe_phase=$(get_wfe_phase "${NAMESPACE}")
 assert_eq "$wfe_phase" "Completed" "WFE phase"

@@ -76,13 +76,13 @@ assert_neq "$alpha_workflow" "" "Alpha AA selected a workflow"
 assert_neq "$beta_workflow" "" "Beta AA selected a workflow"
 assert_neq "$alpha_workflow" "$beta_workflow" "Different workflows selected (risk-based)"
 
-alpha_action=$(kubectl get aianalyses "ai-${alpha_rr}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.actionType}' 2>/dev/null || echo "")
-beta_action=$(kubectl get aianalyses "ai-${beta_rr}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.actionType}' 2>/dev/null || echo "")
+alpha_bundle=$(kubectl get aianalyses "ai-${alpha_rr}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+beta_bundle=$(kubectl get aianalyses "ai-${beta_rr}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
 
-log_info "Alpha workflow: ${alpha_workflow} (${alpha_action})"
-log_info "Beta workflow:  ${beta_workflow} (${beta_action})"
+log_info "Alpha workflow: ${alpha_workflow} (${alpha_bundle##*/})"
+log_info "Beta workflow:  ${beta_workflow} (${beta_bundle##*/})"
 
 # Mixed approval mode assertions (issue #4):
 # Alpha (staging) should be auto-approved by Rego; Beta (production) should require manual approval.

@@ -38,9 +38,13 @@ assert_eq "$rr_outcome" "Remediated" "RR outcome"
 
 rr_name=$(get_rr_name "${NAMESPACE}")
 aa_name="ai-${rr_name}"
-action_type=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.actionType}' 2>/dev/null || echo "")
-assert_eq "$action_type" "MigrateEmptyDirToPVC" "AA selected action type"
+workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+assert_neq "$workflow_id" "" "AA selected a workflow"
+
+bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+assert_contains "$bundle" "migrate-emptydir-to-pvc" "AA selected correct workflow"
 
 # Verify the workflow execution used the ansible engine
 wfe_name=$(kubectl get wfe -n "${PLATFORM_NS}" \

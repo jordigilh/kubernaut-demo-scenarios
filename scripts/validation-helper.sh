@@ -397,7 +397,7 @@ show_ai_analysis() {
 
     local ns="$PLATFORM_NS"
     local root_cause severity affected_kind affected_name affected_ns
-    local confidence workflow_id action_type rationale approval approval_reason
+    local confidence workflow_id exec_bundle rationale approval approval_reason
 
     root_cause=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCause}' 2>/dev/null)
     severity=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.severity}' 2>/dev/null)
@@ -406,7 +406,7 @@ show_ai_analysis() {
     affected_ns=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.affectedResource.namespace}' 2>/dev/null)
     confidence=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null)
     workflow_id=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null)
-    action_type=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.actionType}' 2>/dev/null)
+    exec_bundle=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null)
     rationale=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.rationale}' 2>/dev/null)
     approval=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.approvalRequired}' 2>/dev/null)
     approval_reason=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.approvalReason}' 2>/dev/null)
@@ -419,7 +419,7 @@ show_ai_analysis() {
     if [ -n "$affected_kind" ]; then
         printf '           Target:        %s/%s (ns: %s)\n' "$affected_kind" "$affected_name" "$affected_ns"
     fi
-    printf '           Workflow:      %s (%s)\n' "${workflow_id:-N/A}" "${action_type:-N/A}"
+    printf '           Workflow:      %s (%s)\n' "${workflow_id:-N/A}" "${exec_bundle:-N/A}"
     printf '           Confidence:    %s\n' "${confidence:-N/A}"
     if [ -n "$rationale" ]; then
         # Wrap long rationale text
