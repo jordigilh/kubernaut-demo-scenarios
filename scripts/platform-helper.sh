@@ -148,10 +148,13 @@ seed_action_types_and_workflows() {
                 fi
             fi
 
-            # Check secret dependencies declared in the workflow
+            # Check secret dependencies declared in the workflow.
+            # WE jobs run in kubernaut-workflows, so check both namespaces (DD-WE-006).
+            local we_ns="${WE_NAMESPACE:-kubernaut-workflows}"
             local unmet=""
             while IFS= read -r secret_name; do
-                if ! kubectl get secret "$secret_name" -n "${ns}" &>/dev/null; then
+                if ! kubectl get secret "$secret_name" -n "${ns}" &>/dev/null && \
+                   ! kubectl get secret "$secret_name" -n "${we_ns}" &>/dev/null; then
                     unmet="${secret_name}"
                     break
                 fi
@@ -159,7 +162,7 @@ seed_action_types_and_workflows() {
                       | grep -- '- name:' | awk '{print $NF}')
 
             if [ -n "$unmet" ]; then
-                echo "    SKIP ${basename} (secret \"${unmet}\" not found in ${ns})"
+                echo "    SKIP ${basename} (secret \"${unmet}\" not found in ${ns} or ${we_ns})"
                 skipped=$((skipped + 1))
                 continue
             fi
