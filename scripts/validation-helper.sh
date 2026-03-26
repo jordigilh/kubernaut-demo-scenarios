@@ -399,17 +399,17 @@ show_ai_analysis() {
     local root_cause severity affected_kind affected_name affected_ns
     local confidence workflow_id exec_bundle rationale approval approval_reason
 
-    root_cause=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCause}' 2>/dev/null)
-    severity=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.severity}' 2>/dev/null)
-    affected_kind=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null)
-    affected_name=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null)
-    affected_ns=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.namespace}' 2>/dev/null)
-    confidence=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null)
-    workflow_id=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null)
-    exec_bundle=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null)
-    rationale=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.rationale}' 2>/dev/null)
-    approval=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.approvalRequired}' 2>/dev/null)
-    approval_reason=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.approvalReason}' 2>/dev/null)
+    root_cause=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCause}' 2>/dev/null || true)
+    severity=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.severity}' 2>/dev/null || true)
+    affected_kind=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || true)
+    affected_name=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || true)
+    affected_ns=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.namespace}' 2>/dev/null || true)
+    confidence=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || true)
+    workflow_id=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || true)
+    exec_bundle=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || true)
+    rationale=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.rationale}' 2>/dev/null || true)
+    approval=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.approvalRequired}' 2>/dev/null || true)
+    approval_reason=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.approvalReason}' 2>/dev/null || true)
 
     printf '\n'
     printf '           %s%sAI Analysis%s\n' "$_c_bold" "$_c_cyan" "$_c_reset"
@@ -662,10 +662,10 @@ poll_pipeline() {
                     ;;
                 AwaitingApproval)
                     if [ "$aa_shown" = false ]; then
-                        show_ai_analysis "$target_ns"
+                        show_ai_analysis "$target_ns" || true
                         aa_shown=true
                     fi
-                    show_approval_notification "$target_ns"
+                    show_approval_notification "$target_ns" || true
                     if [ "$approve_mode" != "--auto-approve" ]; then
                         local _hint_rr
                         _hint_rr=$(_find_rr_name "$target_ns")
@@ -675,7 +675,7 @@ poll_pipeline() {
                     ;;
                 Executing)
                     if [ "$aa_shown" = false ]; then
-                        show_ai_analysis "$target_ns"
+                        show_ai_analysis "$target_ns" || true
                         aa_shown=true
                     fi
                     log_phase "WorkflowExecution running..."
@@ -689,14 +689,14 @@ poll_pipeline() {
                     ;;
                 Completed)
                     if [ "$aa_shown" = false ]; then
-                        show_ai_analysis "$target_ns"
+                        show_ai_analysis "$target_ns" || true
                         aa_shown=true
                     fi
                     local outcome
                     outcome=$(get_rr_outcome "$target_ns")
                     log_success "Pipeline completed (outcome: ${outcome})"
                     _wait_for_ea "$target_ns"
-                    show_outcome_notification "$target_ns"
+                    show_outcome_notification "$target_ns" || true
                     return 0
                     ;;
                 Failed|TimedOut|Cancelled)
