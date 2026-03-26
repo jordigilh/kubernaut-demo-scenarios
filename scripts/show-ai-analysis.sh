@@ -25,9 +25,9 @@ fi
 
 ROOT_CAUSE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCause}' 2>/dev/null)
 SEVERITY=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.severity}' 2>/dev/null)
-AFFECTED_KIND=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.affectedResource.kind}' 2>/dev/null)
-AFFECTED_NAME=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.affectedResource.name}' 2>/dev/null)
-AFFECTED_NS=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.affectedResource.namespace}' 2>/dev/null)
+AFFECTED_KIND=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null)
+AFFECTED_NAME=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null)
+AFFECTED_NS=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.namespace}' 2>/dev/null)
 CONFIDENCE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null)
 WORKFLOW_ID=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null)
 EXEC_BUNDLE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null)

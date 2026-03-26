@@ -10,7 +10,7 @@
 # Approval behavior:
 #   - production (kubernaut.ai/environment=production): ALWAYS requires approval
 #   - staging/development/qa/test: auto-approved unless critical safety conditions
-#     (missing affected_resource) or LLM warnings present
+#     (missing remediation_target) or LLM warnings present
 
 package aianalysis.approval
 
@@ -43,23 +43,23 @@ is_stateful if {
     input.detected_labels["stateful"] == true
 }
 
-# ADR-055: Check if affected_resource is present (required LLM output)
-has_affected_resource if {
-    input.affected_resource
-    input.affected_resource.kind != ""
+# ADR-055 + ADR-055-A001: Check if remediation_target is present (required LLM output)
+has_remediation_target if {
+    input.remediation_target
+    input.remediation_target.kind != ""
 }
 
-# ADR-055: Check if affected resource is a sensitive kind
+# ADR-055: Check if remediation target is a sensitive kind
 is_sensitive_resource if {
-    input.affected_resource.kind == "Node"
+    input.remediation_target.kind == "Node"
 }
 
 is_sensitive_resource if {
-    input.affected_resource.kind == "StatefulSet"
+    input.remediation_target.kind == "StatefulSet"
 }
 
 # Also match when the alert's target resource is a sensitive kind,
-# even if the LLM identified a different affected resource (e.g., a
+# even if the LLM identified a different remediation target (e.g., a
 # Deployment causing DiskPressure on a Node).
 is_sensitive_resource if {
     input.target_resource.kind == "Node"
@@ -115,9 +115,9 @@ is_high_confidence if {
 # Production: ALWAYS require approval (controlled via namespace label).
 # Non-production: confidence-gated rules for risk factors.
 
-# BR-AI-085-005: Default-deny when affected_resource is missing (ADR-055)
+# BR-AI-085-005: Default-deny when remediation_target is missing (ADR-055)
 require_approval if {
-    not has_affected_resource
+    not has_remediation_target
 }
 
 # Production environments ALWAYS require approval, regardless of confidence.
@@ -147,8 +147,8 @@ require_approval if {
 # SCORED RISK FACTORS FOR REASON GENERATION
 # ========================================
 
-risk_factors contains {"score": 90, "reason": "Missing affected resource - cannot determine remediation target (BR-AI-085-005)"} if {
-    not has_affected_resource
+risk_factors contains {"score": 90, "reason": "Missing remediation target - cannot determine target resource (BR-AI-085-005)"} if {
+    not has_remediation_target
 }
 
 risk_factors contains {"score": 85, "reason": "Sensitive resource kind (Node/StatefulSet) - requires manual approval"} if {
