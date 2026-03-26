@@ -23,17 +23,17 @@ if [ -z "$AA_NAME" ]; then
   AA_NAME=$(kubectl get aianalyses -n "$PLATFORM_NS" -o jsonpath='{.items[-1].metadata.name}' 2>/dev/null)
 fi
 
-ROOT_CAUSE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCause}' 2>/dev/null)
-SEVERITY=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.severity}' 2>/dev/null)
-AFFECTED_KIND=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null)
-AFFECTED_NAME=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null)
-AFFECTED_NS=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.namespace}' 2>/dev/null)
-CONFIDENCE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null)
-WORKFLOW_ID=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null)
-EXEC_BUNDLE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null)
-RATIONALE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.rationale}' 2>/dev/null)
-APPROVAL=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.approvalRequired}' 2>/dev/null)
-APPROVAL_REASON=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.approvalReason}' 2>/dev/null)
+ROOT_CAUSE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCause}' 2>/dev/null || true)
+SEVERITY=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.severity}' 2>/dev/null || true)
+AFFECTED_KIND=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || true)
+AFFECTED_NAME=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || true)
+AFFECTED_NS=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.namespace}' 2>/dev/null || true)
+CONFIDENCE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || true)
+WORKFLOW_ID=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || true)
+EXEC_BUNDLE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || true)
+RATIONALE=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.selectedWorkflow.rationale}' 2>/dev/null || true)
+APPROVAL=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.approvalRequired}' 2>/dev/null || true)
+APPROVAL_REASON=$(kubectl get aianalyses "$AA_NAME" -n "$PLATFORM_NS" -o jsonpath='{.status.approvalReason}' 2>/dev/null || true)
 
 printf '\n'
 printf '  Root Cause Analysis\n'
