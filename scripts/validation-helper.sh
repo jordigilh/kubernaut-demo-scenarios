@@ -401,9 +401,9 @@ show_ai_analysis() {
 
     root_cause=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCause}' 2>/dev/null)
     severity=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.severity}' 2>/dev/null)
-    affected_kind=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.affectedResource.kind}' 2>/dev/null)
-    affected_name=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.affectedResource.name}' 2>/dev/null)
-    affected_ns=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.affectedResource.namespace}' 2>/dev/null)
+    affected_kind=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null)
+    affected_name=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null)
+    affected_ns=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.namespace}' 2>/dev/null)
     confidence=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null)
     workflow_id=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null)
     exec_bundle=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null)

@@ -149,4 +149,4 @@ This removes the namespace, scale-request ConfigMap, kills the provisioner, and 
 
 - **Production analogy**: The provisioner agent is the Kind equivalent of Karpenter (EKS), NAP (GKE), or cluster-autoscaler. In production, the WE Job would call a cloud API directly instead of writing a ConfigMap.
 - **Security**: The WE Job runs unprivileged inside K8s. Only the host-side agent (outside K8s) has Podman access.
-- **EM target**: The `AffectedResource` should be the Deployment (pods now Running), not the cluster itself.
+- **EM target**: The `RemediationTarget` should be the Deployment (pods now Running), not the cluster itself.
