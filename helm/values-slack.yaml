@@ -1,4 +1,4 @@
-# Slack notification configuration.
+# Slack notification configuration (rc13+).
 # Layer this on top of the platform values file to enable Slack delivery.
 #
 # Prerequisites:
@@ -10,36 +10,11 @@
 #     --values helm/kubernaut-<kind|ocp>-values.yaml \
 #     --values helm/values-slack.yaml
 #
-# The routing block below overrides the chart's default notification routing
-# to deliver approval, completion, escalation, and failure notifications to
-# Slack.  Adjust the channel and route matchers to suit your environment.
+# Setting slack.secretName auto-generates routing (approval, completion,
+# escalation, failure → Slack) and credential projection into the
+# notification controller pod.  For advanced routing use routing.content
+# or routing.existingConfigMap instead.
 notification:
   slack:
     secretName: slack-webhook
     channel: "#demo-notifications"
-  routing:
-    route:
-      receiver: default-console
-      routes:
-        - match:
-            type: escalation
-          receiver: slack-alerts
-        - match:
-            type: approval
-          receiver: slack-alerts
-        - match:
-            type: completion
-          receiver: slack-alerts
-        - match:
-            type: failed
-          receiver: slack-alerts
-    receivers:
-      - name: default-console
-        consoleConfigs:
-          - enabled: true
-      - name: slack-alerts
-        consoleConfigs:
-          - enabled: true
-        slackConfigs:
-          - channel: "#demo-notifications"
-            credentialRef: slack-webhook

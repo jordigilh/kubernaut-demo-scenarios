@@ -176,7 +176,7 @@ wait_for_controller() {
             # Verify web pod is ready
             local ready_pods
             ready_pods=$(kubectl get pods -n "${AAP_NAMESPACE}" \
-                -l "app.kubernetes.io/managed-by=${AAP_INSTANCE_NAME}" \
+                -l "app.kubernetes.io/part-of=${AAP_INSTANCE_NAME}" \
                 --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l || echo "0")
             if [ "$ready_pods" -gt 0 ]; then
                 echo "  AAP Controller pods ready (${ready_pods} running)."
@@ -187,7 +187,7 @@ wait_for_controller() {
 
         local pod_status
         pod_status=$(kubectl get pods -n "${AAP_NAMESPACE}" \
-            -l "app.kubernetes.io/managed-by=${AAP_INSTANCE_NAME}" \
+            -l "app.kubernetes.io/part-of=${AAP_INSTANCE_NAME}" \
             --no-headers 2>/dev/null | head -3 || echo "(no pods yet)")
         echo "  Waiting... Controller status: ${status:-Pending}"
         echo "  ${pod_status}"
