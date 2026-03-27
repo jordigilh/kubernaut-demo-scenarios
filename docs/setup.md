@@ -291,7 +291,8 @@ the helper scripts automatically:
 ### Pre-create Database Secrets (Option B only)
 
 > **Required for v1.1.0-rc14+.** The chart no longer auto-generates database credentials
-> (kubernaut#557). Option A handles this automatically via `_ensure_pre_install_secrets()`.
+> (kubernaut#557, #243). Option A handles this automatically. **Run these commands
+> before `helm install`** (see README Step B1 for the full ordering).
 
 ```bash
 kubectl create namespace kubernaut-system 2>/dev/null || true

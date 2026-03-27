@@ -356,6 +356,12 @@ seed_scenario_workflow() {
 # As of v1.1.0-rc14 (kubernaut#557) the chart no longer auto-generates
 # database credentials. They must be pre-created here.
 _ensure_pre_install_secrets() {
+    if ! command -v openssl &>/dev/null; then
+        echo "ERROR: openssl is required to generate database passwords."
+        echo "  Install it (e.g. 'brew install openssl' or 'apt install openssl') and retry."
+        return 1
+    fi
+
     kubectl create namespace "${PLATFORM_NS}" --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
 
     # Helm namespace adoption labels
@@ -383,8 +389,8 @@ _ensure_pre_install_secrets() {
     # Valkey secret (#243).
     local valkey_pass
     valkey_pass=$(kubectl get secret valkey-secret -n "${PLATFORM_NS}" \
-        -o jsonpath='{.data.valkey-secrets\.yaml}' 2>/dev/null | base64 -d 2>/dev/null \
-        | grep 'password:' | awk '{print $2}' || echo "")
+        -o 'go-template={{index .data "valkey-secrets.yaml"}}' 2>/dev/null | base64 -d 2>/dev/null \
+        | sed -n 's/^password: *//p' || echo "")
     if [ -z "$valkey_pass" ]; then
         valkey_pass=$(openssl rand -base64 24)
     fi

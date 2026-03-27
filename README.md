@@ -119,7 +119,7 @@ If you already have a cluster, install the platform manually.
 
 > **Important (v1.1.0-rc14+):** The chart no longer auto-generates database credentials.
 > You must create `postgresql-secret` and `valkey-secret` before running `helm install`.
-> See kubernaut#557 for background.
+> See kubernaut#557 and #243 for background.
 
 ```bash
 # OCP: ensure you're logged in (oc login ...)
