@@ -20,6 +20,14 @@ Kind Demo (equivalent):
 
 The WE Job runs **unprivileged inside Kubernetes**. It writes a scale request and waits. The host-side provisioner agent is the Kind-specific equivalent of Karpenter (EKS), NAP (GKE), or `cluster-autoscaler`.
 
+## Platform Compatibility
+
+| Platform | Supported | Notes |
+|----------|-----------|-------|
+| **macOS / Kind** | Yes | Kind runs inside a Podman/Docker Desktop VM with capped memory (typically 4-8 GB), so the dynamic replica computation produces a manageable number of pods. |
+| **Linux bare-metal / Kind** | **No** | Kind nodes inherit the full host memory. On high-memory hosts (e.g. 250 GB), the script computes hundreds of replicas to exhaust capacity. The resulting AlertManager webhook payload (~372 KB) exceeds the gateway's 100 KB defensive limit, so the alert is never ingested and the pipeline never triggers. |
+| **OCP / Cloud** | Not tested | Would require a real cluster autoscaler (Karpenter, NAP, cluster-autoscaler) instead of the host-side provisioner agent. |
+
 ## Prerequisites
 
 - Kind cluster created with `overlays/kind/kind-cluster-config.yaml` (multi-node: control-plane + 1 worker)
