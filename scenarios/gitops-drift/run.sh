@@ -31,6 +31,8 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
 # shellcheck source=../../scripts/monitoring-helper.sh
 source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 require_infra gitea
 require_infra argocd
 
@@ -55,9 +57,42 @@ echo " GitOps Drift Remediation Demo (#125)"
 echo "============================================="
 echo ""
 
-# Step 0: Clean up stale alerts/RRs from any previous run (#245)
-# shellcheck source=../../scripts/validation-helper.sh
-source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
+# Step 0: Clean up stale state from any previous run (#245)
+# Delete the ArgoCD Application first so selfHeal doesn't fight the
+# namespace deletion inside ensure_clean_slate.
+kubectl delete -f "${SCRIPT_DIR}/manifests/argocd-application.yaml" \
+  --ignore-not-found 2>/dev/null || true
+
+# Revert the Gitea repo to the initial (healthy) commit so that
+# run_inject's git-commit is never a no-op (#245).
+if kubectl get namespace "${GITEA_NAMESPACE}" &>/dev/null; then
+    kill_stale_gitea_pf
+    kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http \
+      "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
+    local pf_pid=$!
+    sleep 3
+    local work_dir
+    work_dir=$(mktemp -d)
+    if timeout 30 git clone \
+         "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" \
+         "${work_dir}/repo" &>/dev/null; then
+        cd "${work_dir}/repo"
+        local initial_commit current_head
+        initial_commit=$(git rev-list --max-parents=0 HEAD 2>/dev/null || echo "")
+        current_head=$(git rev-parse HEAD 2>/dev/null || echo "")
+        if [ -n "$initial_commit" ] && [ -n "$current_head" ] \
+           && [ "$current_head" != "$initial_commit" ]; then
+            git reset --hard "$initial_commit" &>/dev/null \
+              && git push --force origin main &>/dev/null \
+              && echo "  Gitea repo reset to initial commit (${initial_commit:0:7})." \
+              || echo "  WARNING: Failed to reset Gitea repo."
+        fi
+        cd /
+    fi
+    rm -rf "${work_dir}"
+    kill "$pf_pid" 2>/dev/null || true
+fi
+
 ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Apply all manifests (namespace, ArgoCD Application, deployment, PrometheusRule)
@@ -83,16 +118,22 @@ echo "  web-frontend is healthy."
 # If we inject before that settles, the alert fires for the terminated pod
 # and the Gateway drops it (correctly) because the pod no longer exists.
 echo "  Waiting for ArgoCD to reconcile (single ReplicaSet)..."
-for _try in $(seq 1 24); do
-  _active_rs=$(kubectl get rs -n "${NAMESPACE}" --no-headers 2>/dev/null \
+local active_rs=0
+local rs_elapsed=0
+while [ "$rs_elapsed" -lt 120 ]; do
+  active_rs=$(kubectl get rs -n "${NAMESPACE}" --no-headers 2>/dev/null \
     | awk '$2 > 0 { n++ } END { print n+0 }')
-  if [ "$_active_rs" -le 1 ]; then
+  if [ "$active_rs" -le 1 ]; then
     break
   fi
+  if (( rs_elapsed % 20 == 0 )) && [ "$rs_elapsed" -gt 0 ]; then
+    echo "  Still waiting... ${active_rs} active ReplicaSets (${rs_elapsed}s elapsed)"
+  fi
   sleep 5
+  rs_elapsed=$((rs_elapsed + 5))
 done
-if [ "${_active_rs:-0}" -gt 1 ]; then
-  echo "  WARNING: ${_active_rs} active ReplicaSets — stale alert risk remains."
+if [ "$active_rs" -gt 1 ]; then
+  echo "  WARNING: ${active_rs} active ReplicaSets after ${rs_elapsed}s — stale alert risk remains."
 fi
 
 # Step 3: Establish baseline (let Prometheus scrape healthy metrics)
