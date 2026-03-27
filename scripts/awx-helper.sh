@@ -413,15 +413,36 @@ configure_awx() {
     AWX_API_BODY='{"name":"localhost","variables":"ansible_connection: local\nansible_python_interpreter: /usr/bin/python3"}'
     awx_api POST "${awx_url}/api/v2/inventories/${inv_id}/hosts/" "" >/dev/null
 
-    # 6d. Create job template for GitOps memory update
-    echo "  Creating job template (kubernaut-gitops-update-memory)..."
-    AWX_API_BODY=$(jq -n --argjson proj "$proj_id" --argjson inv "$inv_id" \
-        '{name:"kubernaut-gitops-update-memory", description:"GitOps: update memory limits via git commit", project:$proj, playbook:"playbooks/gitops-update-memory-limits.yml", inventory:$inv, ask_variables_on_launch:true}')
-    local tmpl_result
-    tmpl_result=$(awx_api POST "${awx_url}/api/v2/job_templates/" "")
-    local tmpl_id
-    tmpl_id=$(echo "$tmpl_result" | jq -r '.id // empty' 2>/dev/null || echo "")
-    echo "    Job Template ID: ${tmpl_id}"
+    # 6d. Create job templates
+    create_awx_job_template() {
+        local name="$1" desc="$2" playbook="$3"
+        echo "  Creating job template (${name})..."
+        AWX_API_BODY=$(jq -n --argjson proj "$proj_id" --argjson inv "$inv_id" \
+            --arg name "$name" --arg desc "$desc" --arg pb "$playbook" \
+            '{name:$name, description:$desc, project:$proj, playbook:$pb, inventory:$inv, ask_variables_on_launch:true}')
+        local result
+        result=$(awx_api POST "${awx_url}/api/v2/job_templates/" "")
+        local id
+        id=$(echo "$result" | jq -r '.id // empty' 2>/dev/null || echo "")
+        if [ -z "$id" ]; then
+            id=$(AWX_API_BODY="" awx_api GET "${awx_url}/api/v2/job_templates/?name=${name// /+}" "" | \
+                jq -r '.results[0].id // empty' 2>/dev/null || echo "")
+        fi
+        echo "    Job Template ID: ${id}"
+        echo "$id"
+    }
+
+    local memory_tmpl_id
+    memory_tmpl_id=$(create_awx_job_template \
+        "kubernaut-gitops-update-memory" \
+        "GitOps: update memory limits via git commit" \
+        "playbooks/gitops-update-memory-limits.yml")
+
+    local migrate_tmpl_id
+    migrate_tmpl_id=$(create_awx_job_template \
+        "kubernaut-migrate-emptydir-to-pvc" \
+        "DiskPressure: migrate emptyDir database to PVC via GitOps" \
+        "playbooks/gitops-migrate-postgres-emptydir-to-pvc.yml")
 
     # 6e. Create K8s Bearer Token credential for AWX EE
     # The playbook uses kubernetes.core.k8s_info to read Deployments, ArgoCD Applications,
@@ -508,12 +529,83 @@ EOFK8S
     k8s_cred_id=$(echo "$k8s_cred_result" | jq -r '.id // empty' 2>/dev/null || echo "")
     echo "    K8s credential ID: ${k8s_cred_id}"
 
-    if [ -n "$tmpl_id" ] && [ -n "$k8s_cred_id" ]; then
-        echo "  Attaching K8s credential to job template..."
-        AWX_API_BODY=$(jq -n --argjson id "$k8s_cred_id" '{id:$id}')
-        awx_api POST "${awx_url}/api/v2/job_templates/${tmpl_id}/credentials/" "" >/dev/null
-        echo "    K8s credential attached to job template."
+    # 6e-ii. Gitea credential for GitOps playbooks
+    echo "  Creating Gitea custom credential type..."
+    AWX_API_BODY=$(jq -n --arg name "kubernaut-secret-gitea-repo-creds" '{
+        name: $name,
+        description: "Injects Gitea credentials as env vars for Kubernaut GitOps playbooks",
+        kind: "cloud",
+        inputs: {
+            fields: [
+                { id: "username", type: "string", label: "Gitea Username" },
+                { id: "password", type: "string", label: "Gitea Password", secret: true }
+            ],
+            required: ["username", "password"]
+        },
+        injectors: {
+            env: {
+                KUBERNAUT_SECRET_GITEA_REPO_CREDS_USERNAME: "{{username}}",
+                KUBERNAUT_SECRET_GITEA_REPO_CREDS_PASSWORD: "{{password}}"
+            }
+        }
+    }')
+    local gitea_ct_result
+    gitea_ct_result=$(awx_api POST "${awx_url}/api/v2/credential_types/" "")
+    local gitea_ct_id
+    gitea_ct_id=$(echo "$gitea_ct_result" | jq -r '.id // empty' 2>/dev/null || echo "")
+    if [ -z "$gitea_ct_id" ]; then
+        gitea_ct_id=$(AWX_API_BODY="" awx_api GET "${awx_url}/api/v2/credential_types/?name=kubernaut-secret-gitea-repo-creds" "" | \
+            jq -r '.results[0].id // empty' 2>/dev/null || echo "")
     fi
+    echo "    Gitea credential type ID: ${gitea_ct_id}"
+
+    local gitea_cred_id=""
+    if [ -n "$gitea_ct_id" ]; then
+        echo "  Creating Gitea credential..."
+        local gitea_user="${GITEA_ADMIN_USER:-kubernaut}"
+        local gitea_pass="${GITEA_ADMIN_PASS:-kubernaut123}"
+        local _ns="kubernaut-workflows"
+        local _secret_user _secret_pass
+        _secret_user=$(kubectl get secret gitea-repo-creds -n "$_ns" \
+            -o jsonpath='{.data.username}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+        _secret_pass=$(kubectl get secret gitea-repo-creds -n "$_ns" \
+            -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+        if [ -n "$_secret_user" ] && [ -n "$_secret_pass" ]; then
+            gitea_user="$_secret_user"
+            gitea_pass="$_secret_pass"
+        fi
+
+        AWX_API_BODY=$(jq -n \
+            --argjson org "$org_id" \
+            --argjson ct "$gitea_ct_id" \
+            --arg user "$gitea_user" \
+            --arg pass "$gitea_pass" \
+            '{name:"kubernaut-gitea-creds", description:"Gitea credentials for Kubernaut GitOps playbooks", organization:$org, credential_type:$ct, inputs:{username:$user, password:$pass}}')
+        local gitea_cred_result
+        gitea_cred_result=$(awx_api POST "${awx_url}/api/v2/credentials/" "")
+        gitea_cred_id=$(echo "$gitea_cred_result" | jq -r '.id // empty' 2>/dev/null || echo "")
+        if [ -z "$gitea_cred_id" ]; then
+            gitea_cred_id=$(AWX_API_BODY="" awx_api GET "${awx_url}/api/v2/credentials/?name=kubernaut-gitea-creds" "" | \
+                jq -r '.results[0].id // empty' 2>/dev/null || echo "")
+        fi
+        echo "    Gitea credential ID: ${gitea_cred_id}"
+    fi
+
+    # Attach K8s and Gitea credentials to all job templates
+    for tmpl_id_val in "$memory_tmpl_id" "$migrate_tmpl_id"; do
+        local clean_id
+        clean_id=$(echo "$tmpl_id_val" | tail -1)
+        if [ -n "$clean_id" ] && [ -n "$k8s_cred_id" ]; then
+            AWX_API_BODY=$(jq -n --argjson id "$k8s_cred_id" '{id:$id}')
+            awx_api POST "${awx_url}/api/v2/job_templates/${clean_id}/credentials/" "" >/dev/null
+            echo "    K8s credential attached to template ${clean_id}."
+        fi
+        if [ -n "$clean_id" ] && [ -n "${gitea_cred_id:-}" ]; then
+            AWX_API_BODY=$(jq -n --argjson id "$gitea_cred_id" '{id:$id}')
+            awx_api POST "${awx_url}/api/v2/job_templates/${clean_id}/credentials/" "" >/dev/null
+            echo "    Gitea credential attached to template ${clean_id}."
+        fi
+    done
     echo ""
 
     # 6f. Create API token
@@ -563,7 +655,9 @@ EOFK8S
     else
         echo "    AWX API: ${awx_url}"
     fi
-    echo "    Job Template: kubernaut-gitops-update-memory (ID: ${tmpl_id})"
+    echo "    Job Templates:"
+    echo "      - kubernaut-gitops-update-memory"
+    echo "      - kubernaut-migrate-emptydir-to-pvc"
     echo ""
 }
 

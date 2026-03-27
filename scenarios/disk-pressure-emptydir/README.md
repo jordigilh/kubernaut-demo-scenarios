@@ -198,7 +198,7 @@ kubectl logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-serv
 The `run.sh` script auto-detects the platform and applies the `overlays/ocp/` kustomization via `get_manifest_dir()`. The overlay:
 
 - Adds `openshift.io/cluster-monitoring: "true"` to the demo namespace
-- Swaps `postgres:16-alpine` to `registry.redhat.io/rhel9/postgresql-16` with adjusted env vars and data paths
+- Swaps `postgres:16-alpine` to `quay.io/sclorg/postgresql-16-c9s` with adjusted env vars and data paths
 - Moves the ArgoCD `Application` to the `openshift-gitops` namespace
 - Removes the `release` label from `PrometheusRule`
 

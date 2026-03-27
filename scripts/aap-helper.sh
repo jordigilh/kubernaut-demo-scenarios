@@ -357,7 +357,7 @@ configure_aap() {
     migrate_tmpl_id=$(create_job_template \
         "kubernaut-migrate-emptydir-to-pvc" \
         "DiskPressure: migrate emptyDir database to PVC via GitOps" \
-        "playbooks/gitops-migrate-emptydir-to-pvc.yml")
+        "playbooks/gitops-migrate-postgres-emptydir-to-pvc.yml")
 
     # 4e. K8s ServiceAccount credential for EE
     echo "  Creating K8s ServiceAccount for AAP EE..."
@@ -443,7 +443,72 @@ EOFK8S
     fi
     echo "    K8s credential ID: ${k8s_cred_id}"
 
-    # Attach K8s credential to all job templates
+    # 4e-ii. Gitea credential for GitOps playbooks
+    # Playbooks that push to Gitea (e.g., gitops-migrate-postgres-emptydir-to-pvc.yml)
+    # need Gitea credentials injected as environment variables via a custom credential type.
+    echo "  Creating Gitea custom credential type..."
+    AAP_API_BODY=$(jq -n --arg name "kubernaut-secret-gitea-repo-creds" '{
+        name: $name,
+        description: "Injects Gitea credentials as env vars for Kubernaut GitOps playbooks",
+        kind: "cloud",
+        inputs: {
+            fields: [
+                { id: "username", type: "string", label: "Gitea Username" },
+                { id: "password", type: "string", label: "Gitea Password", secret: true }
+            ],
+            required: ["username", "password"]
+        },
+        injectors: {
+            env: {
+                KUBERNAUT_SECRET_GITEA_REPO_CREDS_USERNAME: "{{username}}",
+                KUBERNAUT_SECRET_GITEA_REPO_CREDS_PASSWORD: "{{password}}"
+            }
+        }
+    }')
+    local gitea_ct_result
+    gitea_ct_result=$(aap_api POST "${api_base}/api/v2/credential_types/" "")
+    local gitea_ct_id
+    gitea_ct_id=$(echo "$gitea_ct_result" | jq -r '.id // empty' 2>/dev/null || echo "")
+    if [ -z "$gitea_ct_id" ]; then
+        gitea_ct_id=$(AAP_API_BODY="" aap_api GET "${api_base}/api/v2/credential_types/?name=kubernaut-secret-gitea-repo-creds" "" | \
+            jq -r '.results[0].id // empty' 2>/dev/null || echo "")
+    fi
+    echo "    Gitea credential type ID: ${gitea_ct_id}"
+
+    if [ -n "$gitea_ct_id" ]; then
+        echo "  Creating Gitea credential..."
+        local gitea_user="${GITEA_ADMIN_USER:-kubernaut}"
+        local gitea_pass="${GITEA_ADMIN_PASS:-kubernaut123}"
+        # Read from the gitea-repo-creds Secret if available
+        local _ns="kubernaut-workflows"
+        local _secret_user _secret_pass
+        _secret_user=$(kubectl get secret gitea-repo-creds -n "$_ns" \
+            -o jsonpath='{.data.username}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+        _secret_pass=$(kubectl get secret gitea-repo-creds -n "$_ns" \
+            -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+        if [ -n "$_secret_user" ] && [ -n "$_secret_pass" ]; then
+            gitea_user="$_secret_user"
+            gitea_pass="$_secret_pass"
+        fi
+
+        AAP_API_BODY=$(jq -n \
+            --argjson org "$org_id" \
+            --argjson ct "$gitea_ct_id" \
+            --arg user "$gitea_user" \
+            --arg pass "$gitea_pass" \
+            '{name:"kubernaut-gitea-creds", description:"Gitea credentials for Kubernaut GitOps playbooks", organization:$org, credential_type:$ct, inputs:{username:$user, password:$pass}}')
+        local gitea_cred_result
+        gitea_cred_result=$(aap_api POST "${api_base}/api/v2/credentials/" "")
+        local gitea_cred_id
+        gitea_cred_id=$(echo "$gitea_cred_result" | jq -r '.id // empty' 2>/dev/null || echo "")
+        if [ -z "$gitea_cred_id" ]; then
+            gitea_cred_id=$(AAP_API_BODY="" aap_api GET "${api_base}/api/v2/credentials/?name=kubernaut-gitea-creds" "" | \
+                jq -r '.results[0].id // empty' 2>/dev/null || echo "")
+        fi
+        echo "    Gitea credential ID: ${gitea_cred_id}"
+    fi
+
+    # Attach K8s and Gitea credentials to all job templates
     for tmpl_id_val in "$memory_tmpl_id" "$migrate_tmpl_id"; do
         local clean_id
         clean_id=$(echo "$tmpl_id_val" | tail -1)  # last line is the ID
@@ -451,6 +516,11 @@ EOFK8S
             AWX_API_BODY="" AAP_API_BODY=$(jq -n --argjson id "$k8s_cred_id" '{id:$id}')
             aap_api POST "${api_base}/api/v2/job_templates/${clean_id}/credentials/" "" >/dev/null
             echo "    K8s credential attached to template ${clean_id}."
+        fi
+        if [ -n "$clean_id" ] && [ -n "${gitea_cred_id:-}" ]; then
+            AWX_API_BODY="" AAP_API_BODY=$(jq -n --argjson id "$gitea_cred_id" '{id:$id}')
+            aap_api POST "${api_base}/api/v2/job_templates/${clean_id}/credentials/" "" >/dev/null
+            echo "    Gitea credential attached to template ${clean_id}."
         fi
     done
 

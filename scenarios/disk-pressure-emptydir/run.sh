@@ -50,7 +50,7 @@ require_infra argocd
 
 # Platform-specific PostgreSQL settings (top-level so both setup and inject see them)
 if [ "$PLATFORM" = "ocp" ]; then
-    PG_IMAGE="registry.redhat.io/rhel9/postgresql-16"
+    PG_IMAGE="quay.io/sclorg/postgresql-16-c9s"
     PG_ENV_USER="POSTGRESQL_USER"
     PG_ENV_DB="POSTGRESQL_DATABASE"
     PG_ENV_PASS="POSTGRESQL_PASSWORD"
