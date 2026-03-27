@@ -86,8 +86,14 @@ kubectl get remediationworkflow migrate-emptydir-to-pvc-gitops-v1 -n kubernaut-s
 kubectl port-forward -n aap svc/kubernaut-controller-service 8080:80 &
 AAP_PASS=$(kubectl get secret kubernaut-controller-admin-password -n aap \
   -o jsonpath='{.data.password}' | base64 -d)
-# List credentials on the migrate-emptydir-to-pvc template (template ID 10):
-curl -s http://localhost:8080/api/v2/job_templates/10/credentials/ \
+# Find the migrate template ID and list its credentials:
+TMPL_ID=$(curl -s http://localhost:8080/api/v2/job_templates/ \
+  -u "admin:${AAP_PASS}" | python3 -c "
+import json,sys; d=json.load(sys.stdin)
+for t in d.get('results',[]):
+    if 'migrate' in t.get('name','').lower(): print(t['id']); break
+")
+curl -s "http://localhost:8080/api/v2/job_templates/${TMPL_ID}/credentials/" \
   -u "admin:${AAP_PASS}" | python3 -c "
 import json,sys; d=json.load(sys.stdin)
 for c in d.get('results',[]):
@@ -298,7 +304,7 @@ filesystem on the scenario worker node, using Claude Sonnet 4 as the LLM backend
 | RAR created | immediate | Human approval gate (confidence: 95%) |
 | RAR approved | manual | Operator approves remediation |
 | AWX playbook | ~5-10 min | cordon -> pg_dump -> git commit -> ArgoCD sync -> pg_restore |
-| EA verifies | ~30s | DiskPressure never materialized + data intact |
+| EA verifies | ~7 min | Reduced timing for webhook-based ArgoCD (gitOpsSyncDelay=1m, stabilization=3m, alertDelay=3m) |
 | **Total** | **~15-20 min** | End-to-end proactive remediation (includes manual approval) |
 
 ### LLM Analysis (OCP observed — correct, rc14)
@@ -334,6 +340,8 @@ The LLM correctly identified PostgreSQL as the root cause using 19 tool calls:
 - ArgoCD managed-by label missing on namespace. See [#96](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/96).
 - `seed-workflows.sh` skips Ansible workflows even when AWX/AAP is installed. See [#99](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/99).
 - Notification routing config uses `approval_required` instead of `approval`, causing missing Slack notifications. See [kubernaut#571](https://github.com/jordigilh/kubernaut/issues/571).
+- EM AlertManager RBAC uses `nonResourceURLs` which OCP's kube-rbac-proxy rejects (403). EA completes as `partial` because alert assessment never succeeds. Safety-net in `enable_prometheus_toolset()` patches the ClusterRole. See [kubernaut#576](https://github.com/jordigilh/kubernaut/issues/576).
+- EM DataStorage workflow-started check fails with JSON deserialization error (non-fatal). See [kubernaut#575](https://github.com/jordigilh/kubernaut/issues/575).
 
 ## Troubleshooting
 

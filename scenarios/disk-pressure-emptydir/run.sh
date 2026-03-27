@@ -269,7 +269,9 @@ _check_prerequisites() {
         echo "  NOTE: slack-webhook secret not found in ${PLATFORM_NS} (notifications will use console only)."
     fi
 
-    _check_aap_credentials
+    if ! _check_aap_credentials; then
+        missing=true
+    fi
 
     if [ "$missing" = true ]; then
         echo ""
@@ -305,13 +307,13 @@ _check_aap_credentials() {
     local pf_port=18052
     kubectl port-forward -n "$aap_ns" "svc/${aap_svc}" "${pf_port}:80" &>/dev/null &
     local pf_pid=$!
+    trap 'kill "$pf_pid" 2>/dev/null; wait "$pf_pid" 2>/dev/null' RETURN
     sleep 2
 
     local templates
     templates=$(curl -sf "http://localhost:${pf_port}/api/v2/job_templates/" \
         -u "admin:${aap_pass}" 2>/dev/null || true)
     if [ -z "$templates" ]; then
-        kill "$pf_pid" 2>/dev/null; wait "$pf_pid" 2>/dev/null
         return 0
     fi
 
@@ -331,8 +333,6 @@ for t in d.get('results', []):
             -u "admin:${aap_pass}" 2>/dev/null || true)
         if [ -z "$creds" ]; then continue; fi
 
-        local cred_count
-        cred_count=$(echo "$creds" | python3 -c "import json,sys; print(json.load(sys.stdin).get('count',0))" 2>/dev/null || echo "0")
         local tmpl_name
         tmpl_name=$(echo "$templates" | python3 -c "
 import json, sys
@@ -360,7 +360,6 @@ print('yes' if any('gitea' in c.get('name','').lower() for c in d.get('results',
             [ "$has_gitea" = "no" ] && echo "    - Gitea credential (GitOps push access)"
             echo "    Fix: bash scripts/aap-helper.sh --configure-only"
             any_missing=true
-            missing=true
         fi
     done
 
@@ -368,8 +367,7 @@ print('yes' if any('gitea' in c.get('name','').lower() for c in d.get('results',
         echo "  AAP job template credentials verified."
     fi
 
-    kill "$pf_pid" 2>/dev/null; wait "$pf_pid" 2>/dev/null
-    return 0
+    [ "$any_missing" = false ]
 }
 
 run_setup() {
@@ -390,6 +388,19 @@ _check_prerequisites
 # Also ensures cluster-monitoring-view RBAC on OCP (kubernaut#574).
 echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
 enable_prometheus_toolset
+echo ""
+
+# Reduce EA timing for webhook-based ArgoCD sync.
+# With a Gitea→ArgoCD webhook, sync is near-instant; the default 3m gitOpsSyncDelay
+# and 5m proactiveAlertDelay add unnecessary wait. cleanup.sh restores defaults.
+echo "==> Tuning RO timing for webhook-based GitOps (gitOpsSyncDelay=1m, stabilization=3m, alertDelay=3m)..."
+kubectl get configmap remediationorchestrator-config -n "${PLATFORM_NS}" -o yaml \
+  | sed 's/gitOpsSyncDelay: "3m"/gitOpsSyncDelay: "1m"/' \
+  | sed 's/stabilizationWindow: "5m"/stabilizationWindow: "3m"/' \
+  | sed 's/proactiveAlertDelay: "5m"/proactiveAlertDelay: "3m"/' \
+  | kubectl apply -f - >/dev/null 2>&1
+kubectl rollout restart deploy/remediationorchestrator-controller -n "${PLATFORM_NS}" >/dev/null 2>&1
+kubectl rollout status deploy/remediationorchestrator-controller -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
 echo ""
 
 # Step 0: Ensure a worker node has the scenario label.

@@ -100,6 +100,16 @@ for node in $(kubectl get nodes -l kubernaut.ai/managed=true \
         kubernaut.ai/sla-tier- 2>/dev/null || true
 done
 
+# Restore default RO timing (run.sh reduces these for webhook-based GitOps).
+echo "==> Restoring RO default timing..."
+kubectl get configmap remediationorchestrator-config -n "${PLATFORM_NS}" -o yaml \
+  | sed 's/gitOpsSyncDelay: "1m"/gitOpsSyncDelay: "3m"/' \
+  | sed 's/stabilizationWindow: "3m"/stabilizationWindow: "5m"/' \
+  | sed 's/proactiveAlertDelay: "3m"/proactiveAlertDelay: "5m"/' \
+  | kubectl apply -f - >/dev/null 2>&1
+kubectl rollout restart deploy/remediationorchestrator-controller -n "${PLATFORM_NS}" >/dev/null 2>&1
+kubectl rollout status deploy/remediationorchestrator-controller -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
+
 restart_alertmanager
 
 # Clean up Gitea repo (optional -- leave for reuse)
