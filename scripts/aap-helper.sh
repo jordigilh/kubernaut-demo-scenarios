@@ -173,7 +173,8 @@ wait_for_controller() {
         if [ "$status" = "True" ]; then
             echo "  AAP Controller is running."
 
-            # Verify web pod is ready
+            # Verify web pod is ready.
+            # AAP 2.5+ labels pods with part-of (not managed-by).
             local ready_pods
             ready_pods=$(kubectl get pods -n "${AAP_NAMESPACE}" \
                 -l "app.kubernetes.io/part-of=${AAP_INSTANCE_NAME}" \

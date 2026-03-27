@@ -117,9 +117,9 @@ If you already have a cluster, install the platform manually.
 
 **Step B1: Create the namespace and pre-install secrets:**
 
-> **Important (v1.1.0-rc14+):** The chart no longer auto-generates database credentials.
-> You must create `postgresql-secret` and `valkey-secret` before running `helm install`.
-> See kubernaut#557 and #243 for background.
+> **Important:** Pre-creating database secrets is **recommended** on v1.1.0-rc13 (prevents
+> credential drift on rollback) and **required** on v1.1.0-rc14+ where the chart no longer
+> auto-generates them. See kubernaut#557 and #243 for background.
 
 ```bash
 # OCP: ensure you're logged in (oc login ...)
@@ -134,12 +134,14 @@ kubectl create secret generic postgresql-secret \
   --from-literal=POSTGRES_USER=slm_user \
   --from-literal=POSTGRES_PASSWORD="$PG_PASSWORD" \
   --from-literal=POSTGRES_DB=action_history \
-  --from-literal=db-secrets.yaml="$(printf 'username: slm_user\npassword: %s' "$PG_PASSWORD")"
+  --from-literal=db-secrets.yaml="$(printf 'username: "slm_user"\npassword: "%s"' "$PG_PASSWORD")"
 
 # Valkey
+VALKEY_PASSWORD=$(openssl rand -base64 24)
 kubectl create secret generic valkey-secret \
   -n kubernaut-system \
-  --from-literal=valkey-secrets.yaml="$(printf 'password: %s' "$(openssl rand -base64 24)")"
+  --from-literal=VALKEY_PASSWORD="$VALKEY_PASSWORD" \
+  --from-literal=valkey-secrets.yaml="$(printf 'password: "%s"' "$VALKEY_PASSWORD")"
 
 # LLM credentials — pick your provider's template:
 #   credentials/anthropic-example.yaml

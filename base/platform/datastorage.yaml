@@ -118,6 +118,10 @@ spec:
                   items:
                     - key: db-secrets.yaml
                       path: db-secrets.yaml
+              # Secret key is "valkey-secrets.yaml" (matching the Helm chart
+              # convention) but the mount path must stay "redis-secrets.yaml"
+              # because the DataStorage config references that filename at
+              # redis.secretsFile (line 36 above).
               - secret:
                   name: valkey-secret
                   items:

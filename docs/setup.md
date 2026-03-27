@@ -290,9 +290,10 @@ the helper scripts automatically:
 
 ### Pre-create Database Secrets (Option B only)
 
-> **Required for v1.1.0-rc14+.** The chart no longer auto-generates database credentials
-> (kubernaut#557, #243). Option A handles this automatically. **Run these commands
-> before `helm install`** (see README Step B1 for the full ordering).
+> **Recommended on v1.1.0-rc13** (prevents credential drift on rollback),
+> **required on v1.1.0-rc14+** where the chart no longer auto-generates database
+> credentials (kubernaut#557, #243). Option A handles this automatically.
+> **Run these commands before `helm install`** (see README Step B1 for the full ordering).
 
 ```bash
 kubectl create namespace kubernaut-system 2>/dev/null || true
@@ -304,12 +305,14 @@ kubectl create secret generic postgresql-secret \
   --from-literal=POSTGRES_USER=slm_user \
   --from-literal=POSTGRES_PASSWORD="$PG_PASSWORD" \
   --from-literal=POSTGRES_DB=action_history \
-  --from-literal=db-secrets.yaml="$(printf 'username: slm_user\npassword: %s' "$PG_PASSWORD")"
+  --from-literal=db-secrets.yaml="$(printf 'username: "slm_user"\npassword: "%s"' "$PG_PASSWORD")"
 
 # Valkey
+VALKEY_PASSWORD=$(openssl rand -base64 24)
 kubectl create secret generic valkey-secret \
   -n kubernaut-system \
-  --from-literal=valkey-secrets.yaml="$(printf 'password: %s' "$(openssl rand -base64 24)")"
+  --from-literal=VALKEY_PASSWORD="$VALKEY_PASSWORD" \
+  --from-literal=valkey-secrets.yaml="$(printf 'password: "%s"' "$VALKEY_PASSWORD")"
 ```
 
 These secrets are stable across upgrades -- `helm upgrade` will not overwrite them.

@@ -40,9 +40,7 @@ kubectl get notificationrequests -A -o wide
 ### Check workflow catalog
 ```bash
 kubectl port-forward -n kubernaut-system svc/datastorage-service 30081:8081 &
-# DataStorage's internal API does not require authentication when accessed
-# via port-forward. The old api-token key in datastorage-db-secret never
-# existed; this was a pre-existing documentation error.
+# No authentication is needed when accessing DataStorage via port-forward.
 curl -s http://localhost:30081/api/v1/workflows | jq '.'
 ```
 

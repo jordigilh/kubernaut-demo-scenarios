@@ -353,8 +353,10 @@ seed_scenario_workflow() {
 #   - slack-webhook     (notification credential store, issue #104)
 # Also labels the namespace for Helm adoption if it was pre-created.
 #
-# As of v1.1.0-rc14 (kubernaut#557) the chart no longer auto-generates
-# database credentials. They must be pre-created here.
+# Recommended on v1.1.0-rc13 (prevents credential drift when helm
+# rollback regenerates secrets with different passwords).
+# Required on v1.1.0-rc14+ (kubernaut#557) where the chart no longer
+# auto-generates database credentials.
 _ensure_pre_install_secrets() {
     if ! command -v openssl &>/dev/null; then
         echo "ERROR: openssl is required to generate database passwords."
@@ -372,9 +374,11 @@ _ensure_pre_install_secrets() {
 
     # PostgreSQL + DataStorage consolidated secret (#243).
     # Reuse existing password on upgrades to avoid the rotation bug (kubernaut#557).
-    local pg_pass
-    pg_pass=$(kubectl get secret postgresql-secret -n "${PLATFORM_NS}" \
-        -o jsonpath='{.data.POSTGRES_PASSWORD}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+    local pg_pass=""
+    if kubectl get secret postgresql-secret -n "${PLATFORM_NS}" &>/dev/null; then
+        pg_pass=$(kubectl get secret postgresql-secret -n "${PLATFORM_NS}" \
+            -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d 2>/dev/null) || true
+    fi
     if [ -z "$pg_pass" ]; then
         pg_pass=$(openssl rand -base64 24)
     fi
@@ -383,20 +387,24 @@ _ensure_pre_install_secrets() {
         --from-literal=POSTGRES_USER=slm_user \
         --from-literal=POSTGRES_PASSWORD="${pg_pass}" \
         --from-literal=POSTGRES_DB=action_history \
-        --from-literal=db-secrets.yaml="$(printf 'username: slm_user\npassword: %s' "${pg_pass}")" \
+        --from-literal=db-secrets.yaml="$(printf 'username: "slm_user"\npassword: "%s"' "${pg_pass}")" \
         --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
 
     # Valkey secret (#243).
-    local valkey_pass
-    valkey_pass=$(kubectl get secret valkey-secret -n "${PLATFORM_NS}" \
-        -o 'go-template={{index .data "valkey-secrets.yaml"}}' 2>/dev/null | base64 -d 2>/dev/null \
-        | sed -n 's/^password: *//p' || echo "")
+    # VALKEY_PASSWORD is a plain-text key for safe extraction on upgrades;
+    # valkey-secrets.yaml is the YAML file mounted by DataStorage.
+    local valkey_pass=""
+    if kubectl get secret valkey-secret -n "${PLATFORM_NS}" &>/dev/null; then
+        valkey_pass=$(kubectl get secret valkey-secret -n "${PLATFORM_NS}" \
+            -o jsonpath='{.data.VALKEY_PASSWORD}' | base64 -d 2>/dev/null) || true
+    fi
     if [ -z "$valkey_pass" ]; then
         valkey_pass=$(openssl rand -base64 24)
     fi
     kubectl create secret generic valkey-secret \
         -n "${PLATFORM_NS}" \
-        --from-literal=valkey-secrets.yaml="$(printf 'password: %s' "${valkey_pass}")" \
+        --from-literal=VALKEY_PASSWORD="${valkey_pass}" \
+        --from-literal=valkey-secrets.yaml="$(printf 'password: "%s"' "${valkey_pass}")" \
         --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
 
     # LLM credentials (VertexAI ADC)
