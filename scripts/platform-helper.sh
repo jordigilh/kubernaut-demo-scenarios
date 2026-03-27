@@ -262,6 +262,8 @@ wait_platform_ready() {
 }
 
 ensure_platform() {
+    _ensure_pre_install_secrets
+
     if helm status kubernaut -n "${PLATFORM_NS}" &>/dev/null; then
         echo "  Kubernaut platform already installed."
         _check_llm_credentials
@@ -269,8 +271,6 @@ ensure_platform() {
     fi
 
     echo "==> Installing Kubernaut platform..."
-
-    _ensure_pre_install_secrets
 
     echo "  Applying CRDs (source: ${CHART_SOURCE})..."
     if [ "${CHART_SOURCE}" = "local" ]; then
