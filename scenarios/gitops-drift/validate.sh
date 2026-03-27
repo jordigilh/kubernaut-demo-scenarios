@@ -24,7 +24,7 @@ show_alert "KubePodCrashLooping" "${NAMESPACE}"
 
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
-wait_for_rr "${NAMESPACE}" 120
+wait_for_rr "${NAMESPACE}" 300
 poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"
 
 # ── Assertions ──────────────────────────────────────────────────────────────

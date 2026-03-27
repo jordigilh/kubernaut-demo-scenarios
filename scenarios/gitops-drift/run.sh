@@ -55,12 +55,17 @@ echo " GitOps Drift Remediation Demo (#125)"
 echo "============================================="
 echo ""
 
+# Step 0: Clean up stale alerts/RRs from any previous run (#245)
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
+ensure_clean_slate "${NAMESPACE}"
+
 # Step 1: Apply all manifests (namespace, ArgoCD Application, deployment, PrometheusRule)
-echo "==> Step 2: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
+echo "==> Step 1: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
-echo "==> Step 3: Waiting for ArgoCD to sync and pods to be ready..."
+echo "==> Step 2: Waiting for ArgoCD to sync and pods to be ready..."
 echo "  Waiting for namespace to be created by ArgoCD..."
 for i in $(seq 1 60); do
   if kubectl get namespace "${NAMESPACE}" &>/dev/null; then
@@ -72,16 +77,36 @@ kubectl wait --for=condition=Available deployment/web-frontend \
   -n "${NAMESPACE}" --timeout=180s
 echo "  web-frontend is healthy."
 
-# Step 4: Establish baseline
+# Wait for ArgoCD to settle so only one ReplicaSet is active (#245).
+# Both kubectl and ArgoCD manage the deployment; ArgoCD may re-apply with
+# tracking labels, creating a transient second RS whose pods then disappear.
+# If we inject before that settles, the alert fires for the terminated pod
+# and the Gateway drops it (correctly) because the pod no longer exists.
+echo "  Waiting for ArgoCD to reconcile (single ReplicaSet)..."
+for _try in $(seq 1 24); do
+  _active_rs=$(kubectl get rs -n "${NAMESPACE}" --no-headers 2>/dev/null \
+    | awk '$2 > 0 { n++ } END { print n+0 }')
+  if [ "$_active_rs" -le 1 ]; then
+    break
+  fi
+  sleep 5
+done
+if [ "${_active_rs:-0}" -gt 1 ]; then
+  echo "  WARNING: ${_active_rs} active ReplicaSets — stale alert risk remains."
+fi
+
+# Step 3: Establish baseline (let Prometheus scrape healthy metrics)
 echo ""
-echo "==> Step 4: Initial state (healthy):"
+echo "==> Step 3: Establishing healthy baseline (30s)..."
 kubectl get pods -n "${NAMESPACE}" -o wide
+sleep 30
+echo "  Baseline established."
 echo ""
 }
 
 run_inject() {
-# Step 6: Inject failure -- push bad ConfigMap to Gitea
-echo "==> Step 6: Injecting failure (bad ConfigMap via Git commit)..."
+# Step 4: Inject failure -- push bad ConfigMap to Gitea
+echo "==> Step 4: Injecting failure (bad ConfigMap via Git commit)..."
 WORK_DIR=$(mktemp -d)
 kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
@@ -205,14 +230,14 @@ echo ""
 }
 
 run_monitor() {
-# Step 7: Wait for ArgoCD to sync and pods to crash
-echo "==> Step 7: Waiting for ArgoCD to sync and pods to enter CrashLoopBackOff..."
+# Step 5: Wait for ArgoCD to sync and pods to crash
+echo "==> Step 5: Waiting for ArgoCD to sync and pods to enter CrashLoopBackOff..."
 echo "  ArgoCD poll interval is ~3 min. Waiting..."
 sleep 60
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
-# Step 8: Validate pipeline
+# Step 6: Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
