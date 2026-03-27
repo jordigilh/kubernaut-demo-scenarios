@@ -69,3 +69,49 @@ The scenario requires an infrastructure component that was skipped. Re-run the b
 ```
 
 See the [dependency table](scenarios.md#dependencies) for which scenarios need which components.
+
+## Helm upgrade fails with CRD field manager conflict
+
+When re-installing or upgrading the Kubernaut Helm chart after a previous install (or after manually applying CRDs via `kubectl apply`), you may see:
+
+```
+Error: failed to install CRD crds/kubernaut.ai_aianalyses.yaml:
+Apply failed with 1 conflict: conflict with "kubectl": .spec.versions
+```
+
+This happens because Helm uses server-side apply and detects that `kubectl` (or a previous Helm install) owns the CRD fields.
+
+**Fix:** Force-apply the CRDs first, then install with `--skip-crds`:
+
+```bash
+CRD_DIR=$(mktemp -d)
+helm pull oci://quay.io/kubernaut-ai/charts/kubernaut --version <version> --untar --untardir "$CRD_DIR"
+kubectl apply -f "$CRD_DIR/kubernaut/crds/" --server-side --force-conflicts
+rm -rf "$CRD_DIR"
+
+# Then install with --skip-crds
+helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
+    --version <version> \
+    -n kubernaut-system --create-namespace \
+    --values helm/kubernaut-ocp-values.yaml \
+    --skip-crds \
+    --wait --timeout 10m
+```
+
+## Helm upgrade fails with SDK ConfigMap conflict
+
+After using `enable_prometheus_toolset()` (from `platform-helper.sh`) or manually patching the `holmesgpt-sdk-config` ConfigMap, a subsequent `helm upgrade` may fail with:
+
+```
+Apply failed with 1 conflict: conflict with "kubectl-patch" using v1: .data.sdk-config.yaml
+```
+
+**Fix:** The `enable_prometheus_toolset()` function (as of #229) now applies changes with Helm ownership annotations to prevent this. If you encounter this after a manual `kubectl patch`, re-adopt the ConfigMap for Helm:
+
+```bash
+kubectl annotate configmap holmesgpt-sdk-config -n kubernaut-system \
+    meta.helm.sh/release-name=kubernaut \
+    meta.helm.sh/release-namespace=kubernaut-system --overwrite
+```
+
+Then retry `helm upgrade`.

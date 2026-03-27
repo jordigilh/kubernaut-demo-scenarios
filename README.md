@@ -99,6 +99,21 @@ If you already have a cluster, install the platform manually.
 > | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible) |
 > | OpenShift Service Mesh (OSSM) | mesh-routing-failure |
 > | AWX/AAP | disk-pressure-emptydir, memory-limits-gitops-ansible |
+>
+> **AWX/AAP setup:** After installing the AWX or AAP operator, run the helper script
+> to configure the controller, job templates, credentials (including Gitea for GitOps
+> playbooks), and the Ansible engine in the WE controller:
+>
+> ```bash
+> # AWX (recommended, no license needed):
+> bash scripts/awx-helper.sh
+>
+> # AAP (requires Red Hat subscription):
+> bash scripts/aap-helper.sh
+> ```
+>
+> Both scripts are idempotent. Use `--configure-only` to skip operator installation
+> if the controller is already deployed.
 
 **Step B1: Create the namespace and apply LLM credentials first:**
 
@@ -151,12 +166,32 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     --wait --timeout 10m
 ```
 
+**Ansible-engine scenarios (disk-pressure-emptydir, memory-limits-gitops-ansible):** If you plan
+to run scenarios that use AWX/AAP, add the ansible engine values to your install command.
+Replace `<aap-or-awx-url>`, `<token-secret>`, and `<namespace>` with your actual values
+(the helper scripts from the prerequisites section configure these automatically):
+
+```bash
+    --set workflowexecution.config.ansible.apiURL=<aap-or-awx-url> \
+    --set workflowexecution.config.ansible.tokenSecretRef.name=<token-secret> \
+    --set workflowexecution.config.ansible.tokenSecretRef.namespace=<namespace> \
+    --set workflowexecution.config.ansible.tokenSecretRef.key=token \
+    --set workflowexecution.config.ansible.insecure=true \
+    --set workflowexecution.config.ansible.organizationID=1
+```
+
+> **Note:** The `aap-helper.sh` and `awx-helper.sh` scripts automatically patch the WE controller
+> ConfigMap with these values, so you can skip this if you run the helper scripts after install.
+
 > **Chart version:** The latest stable version is installed by default. Helm's OCI resolver
 > skips pre-release tags (e.g., `1.1.0-rc0`), so add `--version` to pin a specific release:
 >
 > ```
 > --version 1.1.0-rc0
 > ```
+>
+> **Re-install / upgrade:** If upgrading from a previous version or re-installing after `helm uninstall`,
+> add `--skip-crds` to avoid CRD field manager conflicts. See [Troubleshooting](docs/troubleshooting.md#helm-upgrade-fails-with-crd-field-manager-conflict) for details.
 
 The chart seeds ActionTypes and RemediationWorkflows automatically (`demoContent.enabled: true` by default). No manual seeding needed.
 

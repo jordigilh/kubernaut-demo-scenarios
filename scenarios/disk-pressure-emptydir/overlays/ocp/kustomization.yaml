@@ -21,7 +21,7 @@ patches:
     patch: |
       - op: replace
         path: /spec/template/spec/containers/0/image
-        value: registry.redhat.io/rhel9/postgresql-16
+        value: quay.io/sclorg/postgresql-16-c9s
       - op: replace
         path: /spec/template/spec/containers/0/env/0/name
         value: POSTGRESQL_USER
