@@ -34,6 +34,15 @@ source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
 require_infra gitea
 require_infra argocd
 
+# Ensure the git-revert-v2 workflow is seeded. It depends on gitea-repo-creds,
+# which only exists after Gitea is installed. If the initial seed ran before
+# Gitea was available, the workflow was skipped (#237).
+echo "==> Seeding ActionType CRDs..."
+kubectl apply -f "${SCRIPT_DIR}/../../deploy/action-types/" -n "${PLATFORM_NS:-kubernaut-system}" --quiet 2>/dev/null || true
+echo "==> Seeding RemediationWorkflow CRDs (namespace: ${PLATFORM_NS:-kubernaut-system})..."
+bash "${SCRIPT_DIR}/../../scripts/seed-workflows.sh" --scenario gitops-drift --continue-on-error 2>&1 \
+  | grep -E '(Applied|SKIP|ERROR|FAIL|error|git-revert|created)' | sed 's/^/    /'
+
 GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
 GITEA_ADMIN_PASS="kubernaut123"
