@@ -113,6 +113,30 @@ UWM
     echo "  The scenario may still work via cluster-monitoring with openshift.io/cluster-monitoring label."
 }
 
+# Restart the UWM prometheus-operator so it picks up newly-created
+# ServiceMonitors in user namespaces. Works around a known race where the
+# operator acknowledges the resource but does not regenerate the Prometheus
+# scrape configuration until bounced (#129).
+# No-op on Kind (where kube-prometheus-stack handles everything).
+refresh_uwm_scrape_config() {
+    if [ "${PLATFORM:-}" != "ocp" ]; then
+        return 0
+    fi
+
+    local ns="openshift-user-workload-monitoring"
+    local deploy="prometheus-operator"
+
+    if ! kubectl get deployment "$deploy" -n "$ns" &>/dev/null; then
+        echo "  WARNING: $deploy not found in $ns — skipping UWM refresh."
+        return 0
+    fi
+
+    echo "  Restarting UWM prometheus-operator to pick up new ServiceMonitors (#129)..."
+    kubectl rollout restart deployment "$deploy" -n "$ns"
+    kubectl rollout status deployment "$deploy" -n "$ns" --timeout=60s 2>/dev/null || \
+        echo "  WARNING: $deploy rollout did not complete within 60s."
+}
+
 # ── kube-prometheus-stack ────────────────────────────────────────────────────
 # Installs kube-prometheus-stack via Helm (idempotent).
 # Provides: Prometheus Operator, Prometheus, AlertManager, Grafana,
