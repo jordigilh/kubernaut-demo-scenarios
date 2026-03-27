@@ -62,7 +62,7 @@ wfe_phase=$(get_wfe_phase "${NAMESPACE}")
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
 # Verify the target node was cordoned (SchedulingDisabled)
-TARGET_NODE=$(kubectl get nodes -l kubernaut.ai/managed=true -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+TARGET_NODE=$(kubectl get nodes -l 'kubernaut.ai/managed=true,!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 if [ -n "$TARGET_NODE" ]; then
   unschedulable=$(kubectl get node "$TARGET_NODE" -o jsonpath='{.spec.unschedulable}' 2>/dev/null || echo "")
   assert_eq "${unschedulable}" "true" "Node $TARGET_NODE is cordoned (unschedulable)"
