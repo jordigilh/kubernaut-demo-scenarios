@@ -386,6 +386,30 @@ This adds a webhook route for `demo-*` namespace alerts and `KubeNodeNotReady` t
 
 > **Note:** The `alertmanager-main` Secret is managed by the cluster monitoring operator. If you later reconfigure cluster monitoring, you may need to re-apply this patch.
 
+### HAPI Prometheus Access (OCP)
+
+The `prometheus/metrics` toolset gives HAPI's LLM access to real-time Prometheus
+metrics during AI analysis (e.g., disk growth rates via `node_filesystem_avail_bytes`).
+On OCP, this requires HAPI's ServiceAccount to have `cluster-monitoring-view` for
+querying the OCP Prometheus service.
+
+**Option A (chart-managed):** The OCP values file (`helm/kubernaut-ocp-values.yaml`)
+ships with `holmesgptApi.prometheus.enabled: true` and `ocpMonitoringRbac: true`.
+When the chart is installed with these values, it creates the ClusterRoleBinding
+automatically. No manual action needed.
+
+**Option B (manual install):** If you installed the chart without the OCP values file
+or with `holmesgptApi.prometheus.enabled: false`, create the binding manually:
+
+```bash
+kubectl create clusterrolebinding holmesgpt-monitoring-view \
+  --clusterrole=cluster-monitoring-view \
+  --serviceaccount=kubernaut-system:holmesgpt-api-sa
+```
+
+Scenario scripts that call `enable_prometheus_toolset()` also create this binding
+as a safety net if it does not exist.
+
 ## Optional: Slack Notifications
 
 To receive remediation notifications in Slack:

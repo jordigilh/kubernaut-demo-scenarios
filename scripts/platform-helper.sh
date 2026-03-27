@@ -466,7 +466,7 @@ _sdk_configmap_name() {
 
 _prom_url_for_platform() {
     if [ "${PLATFORM:-kind}" = "ocp" ]; then
-        echo "https://thanos-querier.openshift-monitoring.svc:9091"
+        echo "https://prometheus-k8s.openshift-monitoring.svc:9091"
     else
         echo "http://kube-prometheus-stack-prometheus.monitoring.svc:9090"
     fi
@@ -525,6 +525,21 @@ _apply_sdk_config_to_cluster() {
 enable_prometheus_toolset() {
     local prom_url
     prom_url=$(_prom_url_for_platform)
+
+    # On OCP, HAPI's SA needs cluster-monitoring-view to query Thanos Querier.
+    # The chart creates this when holmesgptApi.prometheus.ocpMonitoringRbac=true,
+    # but we ensure it here as a safety net for older installs (kubernaut#574).
+    if [ "${PLATFORM:-}" = "ocp" ]; then
+        if ! kubectl get clusterrolebinding holmesgpt-monitoring-view &>/dev/null; then
+            local hapi_sa
+            hapi_sa=$(kubectl get sa -n "${PLATFORM_NS}" -l app=holmesgpt-api \
+                -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "holmesgpt-api-sa")
+            kubectl create clusterrolebinding holmesgpt-monitoring-view \
+                --clusterrole=cluster-monitoring-view \
+                --serviceaccount="${PLATFORM_NS}:${hapi_sa}" 2>/dev/null || true
+            echo "  Prometheus RBAC: granted cluster-monitoring-view to ${hapi_sa}."
+        fi
+    fi
 
     if [ -f "${SDK_CONFIG}" ]; then
         local before_hash after_hash

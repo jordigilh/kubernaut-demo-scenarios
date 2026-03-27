@@ -47,8 +47,15 @@ llm:
 #
 # If you must set it manually:
 #   Kind:  http://kube-prometheus-stack-prometheus.monitoring.svc:9090
-#   OCP:   https://thanos-querier.openshift-monitoring.svc:9091
+#   OCP:   https://prometheus-k8s.openshift-monitoring.svc:9091
 #          (also set prometheus_ssl_ca_file: "/etc/ssl/hapi/service-ca.crt")
+#
+# OCP RBAC: HAPI's ServiceAccount needs cluster-monitoring-view to query Thanos.
+# The chart creates this automatically when holmesgptApi.prometheus.ocpMonitoringRbac
+# is true (default in kubernaut-ocp-values.yaml). For manual installs, run:
+#   kubectl create clusterrolebinding holmesgpt-monitoring-view \
+#     --clusterrole=cluster-monitoring-view \
+#     --serviceaccount=kubernaut-system:holmesgpt-api-sa
 toolsets: {}
 
 # -- MCP servers (optional)

@@ -35,8 +35,8 @@ effectivenessmonitor:
 # existingSdkConfigMap, add the prometheus toolset to your SDK config manually.
 holmesgptApi:
   prometheus:
-    enabled: false
-    url: "https://thanos-querier.openshift-monitoring.svc:9091"
+    enabled: true
+    url: "https://prometheus-k8s.openshift-monitoring.svc:9091"
     ocpMonitoringRbac: true
 
 # PostgreSQL: use the Red Hat RHEL10 image for OCP (restricted-v2 SCC compatible).
