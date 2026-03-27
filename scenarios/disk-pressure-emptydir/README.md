@@ -52,6 +52,36 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 | Gitea webhook | Automated by `run.sh setup` (see [Gitea-ArgoCD Webhook](#gitea-argocd-webhook)) |
 | Workflow catalog | `migrate-emptydir-to-pvc-gitops-v1` registered in DataStorage |
 
+### Pre-flight checklist (OCP)
+
+Before running this scenario for the first time on an existing OCP cluster, complete
+these steps **in order**. `run.sh all` handles steps 2-4 automatically, but step 1
+must be done manually.
+
+```bash
+# 1. Configure AWX/AAP (creates aap-api-token, job templates, credentials,
+#    patches WE controller with ansible executor). Run once per cluster.
+bash scripts/aap-helper.sh            # AAP (Red Hat subscription required)
+bash scripts/awx-helper.sh            # or AWX (no license needed)
+
+# 2. Deploy Gitea and ArgoCD (if not already present)
+bash scenarios/gitops/scripts/setup-gitea.sh
+bash scenarios/gitops/scripts/setup-argocd.sh
+
+# 3. Verify the critical secrets exist
+kubectl get secret aap-api-token   -n kubernaut-system      # or awx-api-token
+kubectl get secret gitea-repo-creds -n kubernaut-workflows
+
+# 4. Verify the ansible workflow is registered
+kubectl get remediationworkflow migrate-emptydir-to-pvc-gitops-v1 -n kubernaut-system
+```
+
+> **Why the order matters:** The Helm post-install hook seeds workflows at install
+> time, but skips `migrate-emptydir-to-pvc-gitops-v1` when `gitea-repo-creds` is
+> absent (the workflow declares it as a dependency). Running `aap-helper.sh` before
+> the scenario ensures the Ansible engine is registered in WE, and `run.sh setup`
+> creates `gitea-repo-creds` and seeds the workflow if it was skipped earlier.
+
 ## Automated Run
 
 ```bash

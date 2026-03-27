@@ -48,6 +48,10 @@ kubectl wait --for=condition=Available deployment/traffic-gen \
   -n "${NAMESPACE}" --timeout=120s
 echo "  Workload and traffic generator deployed with Istio sidecars."
 kubectl get pods -n "${NAMESPACE}"
+
+# On OCP, the UWM prometheus-operator may not pick up the new ServiceMonitor
+# until restarted (#129). No-op on Kind.
+refresh_uwm_scrape_config
 echo ""
 
 # Step 2: Baseline -- let traffic flow so Prometheus scrapes healthy metrics

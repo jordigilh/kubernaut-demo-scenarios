@@ -115,7 +115,11 @@ If you already have a cluster, install the platform manually.
 > Both scripts are idempotent. Use `--configure-only` to skip operator installation
 > if the controller is already deployed.
 
-**Step B1: Create the namespace and apply LLM credentials first:**
+**Step B1: Create the namespace and pre-install secrets:**
+
+> **Important:** Pre-creating database secrets is **recommended** on v1.1.0-rc13 (prevents
+> credential drift on rollback) and **required** on v1.1.0-rc14+ where the chart no longer
+> auto-generates them. See kubernaut#557 and #243 for background.
 
 ```bash
 # OCP: ensure you're logged in (oc login ...)
@@ -123,7 +127,23 @@ If you already have a cluster, install the platform manually.
 
 kubectl create namespace kubernaut-system 2>/dev/null || true
 
-# Pick your provider's credential template:
+# PostgreSQL + DataStorage (consolidated single secret)
+PG_PASSWORD=$(openssl rand -base64 24)
+kubectl create secret generic postgresql-secret \
+  -n kubernaut-system \
+  --from-literal=POSTGRES_USER=slm_user \
+  --from-literal=POSTGRES_PASSWORD="$PG_PASSWORD" \
+  --from-literal=POSTGRES_DB=action_history \
+  --from-literal=db-secrets.yaml="$(printf 'username: "slm_user"\npassword: "%s"' "$PG_PASSWORD")"
+
+# Valkey
+VALKEY_PASSWORD=$(openssl rand -base64 24)
+kubectl create secret generic valkey-secret \
+  -n kubernaut-system \
+  --from-literal=VALKEY_PASSWORD="$VALKEY_PASSWORD" \
+  --from-literal=valkey-secrets.yaml="$(printf 'password: "%s"' "$VALKEY_PASSWORD")"
+
+# LLM credentials — pick your provider's template:
 #   credentials/anthropic-example.yaml
 #   credentials/openai-example.yaml
 #   credentials/vertex-ai-example.yaml
