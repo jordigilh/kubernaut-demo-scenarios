@@ -1,5 +1,5 @@
-# Optional: Slack notification overrides.
-# Layer this on top of the platform values file to enable Slack alerts.
+# Slack notification configuration.
+# Layer this on top of the platform values file to enable Slack delivery.
 #
 # Prerequisites:
 #   kubectl create secret generic slack-webhook -n kubernaut-system \
@@ -9,7 +9,37 @@
 #   helm upgrade --install kubernaut ... \
 #     --values helm/kubernaut-<kind|ocp>-values.yaml \
 #     --values helm/values-slack.yaml
+#
+# The routing block below overrides the chart's default notification routing
+# to deliver approval, completion, escalation, and failure notifications to
+# Slack.  Adjust the channel and route matchers to suit your environment.
 notification:
   slack:
     secretName: slack-webhook
-    channel: "#kubernaut-alerts"
+    channel: "#demo-notifications"
+  routing:
+    route:
+      receiver: default-console
+      routes:
+        - match:
+            type: escalation
+          receiver: slack-alerts
+        - match:
+            type: approval
+          receiver: slack-alerts
+        - match:
+            type: completion
+          receiver: slack-alerts
+        - match:
+            type: failed
+          receiver: slack-alerts
+    receivers:
+      - name: default-console
+        consoleConfigs:
+          - enabled: true
+      - name: slack-alerts
+        consoleConfigs:
+          - enabled: true
+        slackConfigs:
+          - channel: "#demo-notifications"
+            credentialRef: slack-webhook
