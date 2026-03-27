@@ -230,7 +230,7 @@ This takes ~10 minutes on first run and performs the following steps:
 1. **Kind cluster** -- Creates a multi-node Kind cluster (`kubernaut-demo`) with port mappings for Gateway, DataStorage, and monitoring
 2. **Monitoring stack** -- Installs kube-prometheus-stack (Prometheus, AlertManager, Grafana, kube-state-metrics) and the Kubernaut Grafana dashboard
 3. **Infrastructure dependencies** -- cert-manager, metrics-server, Istio, blackbox-exporter, Gitea, ArgoCD
-4. **Kubernaut platform** -- Installs the Helm chart (from OCI registry, or local sibling if present), including CRDs, pre-install Secrets, and all 10 platform services
+4. **Kubernaut platform** -- Pre-creates required Secrets (`postgresql-secret`, `valkey-secret`, `llm-credentials`, `slack-webhook`), then installs the Helm chart (from OCI registry, or local sibling if present), including CRDs and all 10 platform services
 5. **Workflow catalog** -- Seeds ActionType CRDs and registers all scenario workflows in DataStorage
 
 Every step is idempotent -- you can safely re-run the script if it fails partway through.
@@ -288,9 +288,34 @@ the helper scripts automatically:
 >   -n kubernaut-system
 > ```
 
+### Pre-create Database Secrets (Option B only)
+
+> **Required for v1.1.0-rc14+.** The chart no longer auto-generates database credentials
+> (kubernaut#557). Option A handles this automatically via `_ensure_pre_install_secrets()`.
+
+```bash
+kubectl create namespace kubernaut-system 2>/dev/null || true
+
+# PostgreSQL + DataStorage (consolidated single secret)
+PG_PASSWORD=$(openssl rand -base64 24)
+kubectl create secret generic postgresql-secret \
+  -n kubernaut-system \
+  --from-literal=POSTGRES_USER=slm_user \
+  --from-literal=POSTGRES_PASSWORD="$PG_PASSWORD" \
+  --from-literal=POSTGRES_DB=action_history \
+  --from-literal=db-secrets.yaml="$(printf 'username: slm_user\npassword: %s' "$PG_PASSWORD")"
+
+# Valkey
+kubectl create secret generic valkey-secret \
+  -n kubernaut-system \
+  --from-literal=valkey-secrets.yaml="$(printf 'password: %s' "$(openssl rand -base64 24)")"
+```
+
+These secrets are stable across upgrades -- `helm upgrade` will not overwrite them.
+
 ### Apply LLM Credentials
 
-Once the bootstrap completes and pods are running, apply your LLM credentials Secret (see the provider-specific instructions above):
+Apply your LLM credentials Secret (see the provider-specific instructions above):
 
 ```bash
 kubectl apply -f my-llm-credentials.yaml
