@@ -55,7 +55,7 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 ### Pre-flight checklist (OCP)
 
 Before running this scenario for the first time on an existing OCP cluster, complete
-these steps **in order**. `run.sh all` handles steps 2-4 automatically, but step 1
+these steps **in order**. `run.sh all` handles steps 3-5 automatically, but steps 1-2
 must be done manually.
 
 ```bash
@@ -74,6 +74,34 @@ kubectl get secret gitea-repo-creds -n kubernaut-workflows
 
 # 4. Verify the ansible workflow is registered
 kubectl get remediationworkflow migrate-emptydir-to-pvc-gitops-v1 -n kubernaut-system
+
+# 5. Verify AAP job template credentials are attached
+#    CRITICAL: This is the most common failure point. The AWX/AAP job templates
+#    must have both a K8s credential (for cluster access) and a Gitea credential
+#    (for GitOps pushes) attached. If they are missing, the Ansible playbook
+#    fails immediately with "Could not create API client: Invalid kube-config
+#    file. No configuration found."
+#
+#    After running aap-helper.sh, verify:
+kubectl port-forward -n aap svc/kubernaut-controller-service 8080:80 &
+AAP_PASS=$(kubectl get secret kubernaut-controller-admin-password -n aap \
+  -o jsonpath='{.data.password}' | base64 -d)
+# Find the migrate template ID and list its credentials:
+TMPL_ID=$(curl -s http://localhost:8080/api/v2/job_templates/ \
+  -u "admin:${AAP_PASS}" | python3 -c "
+import json,sys; d=json.load(sys.stdin)
+for t in d.get('results',[]):
+    if 'migrate' in t.get('name','').lower(): print(t['id']); break
+")
+curl -s "http://localhost:8080/api/v2/job_templates/${TMPL_ID}/credentials/" \
+  -u "admin:${AAP_PASS}" | python3 -c "
+import json,sys; d=json.load(sys.stdin)
+for c in d.get('results',[]):
+    print(f'  {c[\"name\"]} (type={c[\"credential_type\"]}, id={c[\"id\"]})')
+if not d.get('results'):
+    print('  ERROR: No credentials attached! Re-run: bash scripts/aap-helper.sh --configure-only')
+"
+kill %1 2>/dev/null
 ```
 
 > **Why the order matters:** The Helm post-install hook seeds workflows at install
@@ -81,6 +109,14 @@ kubectl get remediationworkflow migrate-emptydir-to-pvc-gitops-v1 -n kubernaut-s
 > absent (the workflow declares it as a dependency). Running `aap-helper.sh` before
 > the scenario ensures the Ansible engine is registered in WE, and `run.sh setup`
 > creates `gitea-repo-creds` and seeds the workflow if it was skipped earlier.
+
+> **Common failure: stale AAP credentials.** If you uninstall/reinstall the Kubernaut
+> platform or delete the `aap` namespace, the AAP credential IDs become stale.
+> The WE controller creates ephemeral credentials at job launch time, but these
+> are cloned from the base credentials on the job template. If the base credentials
+> are missing (e.g., after an AAP reinstall), the Ansible playbook fails with a
+> kubeconfig error. **Fix:** re-run `bash scripts/aap-helper.sh --configure-only`
+> to recreate and re-attach the credentials.
 
 ## Automated Run
 
@@ -147,8 +183,8 @@ The LLM creates a RemediationApprovalRequest. Approve it to proceed:
 
 ```bash
 RAR=$(kubectl get rar -n kubernaut-system -o name | head -1)
-kubectl patch "$RAR" -n kubernaut-system --type merge \
-  -p '{"spec":{"decision":"approved"}}'
+kubectl patch "$RAR" -n kubernaut-system --type merge --subresource=status \
+  -p '{"status":{"decision":"Approved","decidedBy":"kube:admin"}}'
 ```
 
 ### 6. Verify remediation
@@ -236,40 +272,120 @@ Gitea access uses the OCP Route automatically when available. No manual steps re
 
 **OCP prerequisites**: OpenShift GitOps operator must be installed from OperatorHub. AWX is deployed via `scripts/awx-helper.sh` (or AAP via `aap-helper.sh` with a Red Hat subscription). See [docs/setup.md](../../docs/setup.md).
 
-## Pipeline Timeline (OCP observed, 1.1.0-rc1 on OCP 4.21)
+**Prometheus RBAC (OCP):** The chart creates the `cluster-monitoring-view`
+ClusterRoleBinding for HAPI when `holmesgptApi.prometheus.enabled` and
+`ocpMonitoringRbac` are both `true` (default in `helm/kubernaut-ocp-values.yaml`).
+`run.sh` also creates the binding as a safety net if it does not exist. For manual
+installs without the OCP values file:
 
-Wall-clock times from a live run on a 4-node OCP 4.21 cluster (56 GB worker disks) using Claude Sonnet 4 as the LLM backend.
+```bash
+kubectl create clusterrolebinding holmesgpt-monitoring-view \
+  --clusterrole=cluster-monitoring-view \
+  --serviceaccount=kubernaut-system:holmesgpt-api-sa
+```
 
-> **Known issue**: On OCP 4.21, the LLM chose `NoActionRequired` because HAPI's investigation inspected the noise workloads (redis, nginx) which had stabilized, but missed the actual PostgreSQL emptyDir volume growth (18+ GB at the time of investigation). See [#101](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/101).
+Without this, HAPI loads the Prometheus toolset but cannot execute queries (401
+from Prometheus). The LLM still functions using kubectl-based investigation, but
+lacks real-time metrics for disk growth rate analysis.
+
+## Pipeline Timeline (OCP observed, 1.1.0-rc14 on OCP 4.21)
+
+Wall-clock times from a live run on a 4-node OCP 4.21 cluster with a 5 GB constrained
+filesystem on the scenario worker node, using Claude Sonnet 4 as the LLM backend.
 
 | Phase | Duration | Notes |
 |-------|----------|-------|
 | Gitea push + ArgoCD sync | ~30s | Manifests pushed, ArgoCD synced on first attempt |
 | Pod readiness | ~3 min | nginx-cache has a 3 min init container for cache warm-up |
-| Data growth start | immediate | `simulate_data_growth(4290, 8192, 50)` — ~42 MB/s |
+| Data growth start | immediate | `simulate_data_growth()` with auto-tuned rate |
 | Alert fires | ~4 min | `PredictedDiskPressure` fires via `predict_linear` |
-| Gateway → SP → AA | ~90s | SP normalizes to `DiskPressure` with `signalMode=proactive` |
-| AA completes | — | **NoActionRequired** — LLM assessed false positive (see issue) |
-| **Total** | **~10 min** | Pipeline completed but remediation was not triggered |
+| Gateway -> SP -> AA | ~5s | SP normalizes to `DiskPressure` with `signalMode=proactive` |
+| AA completes | ~90s | LLM runs 19 tool calls, identifies PostgreSQL root cause |
+| RAR created | immediate | Human approval gate (confidence: 95%) |
+| RAR approved | manual | Operator approves remediation |
+| AWX playbook | ~5-10 min | cordon -> pg_dump -> git commit -> ArgoCD sync -> pg_restore |
+| EA verifies | ~7 min | Reduced timing for webhook-based ArgoCD (gitOpsSyncDelay=1m, stabilization=3m, alertDelay=3m) |
+| **Total** | **~15-20 min** | End-to-end proactive remediation (includes manual approval) |
 
-### LLM Analysis (OCP observed — incorrect)
+### LLM Analysis (OCP observed — correct, rc14)
 
 ```
-Assessment:    False positive DiskPressure prediction. Demo workloads designed
-               to simulate disk pressure have stabilized at ~100-200MB usage
-               on a node with 52GB available space.
-Severity:      low
-Workflow:      None
-Actionable:    false
+Root cause:    PostgreSQL deployment using unbounded emptyDir storage with
+               active data growth simulation causing predictable DiskPressure
+Confidence:    95%
+Workflow:      MigrateEmptyDirToPVC (migrate-emptydir-to-pvc-gitops-v1)
+Rationale:     Perfect match: GitOps-managed PostgreSQL deployment using
+               emptyDir storage causing DiskPressure. The workflow migrates
+               to PVC via ArgoCD, preventing future disk pressure events.
 ```
 
-The LLM correctly inspected the noise pods (redis at ~100 MB stable, nginx burst then stable) but did not check the PostgreSQL emptyDir volume (`du -sh /var/lib/pgsql/data` showed 18 GB and growing). This is a HAPI tool gap — the investigation prompt should instruct the LLM to check emptyDir volume utilization for all pods, not just node-level capacity.
+The LLM correctly identified PostgreSQL as the root cause using 19 tool calls:
+1. Described the node to assess current disk conditions
+2. Listed pods and inspected `postgres-emptydir` pod spec (saw `emptyDir` volume)
+3. Read postgres logs (continuous `INSERT` operations from `simulate_data_growth`)
+4. Read `postgres-init-sql` ConfigMap (found the growth procedure definition)
+5. Resolved resource context (detected `gitOpsManaged=true` via ArgoCD Application)
+6. Walked the 3-step workflow discovery protocol -> selected `MigrateEmptyDirToPVC`
 
-### Additional OCP Issues Found
+> **Note on Prometheus metrics**: `run.sh` enables the `prometheus/metrics` toolset
+> but HAPI may not use it in every analysis. In the observed rc14 run, the LLM
+> relied on kubectl inspection (pod specs, logs, configmaps) rather than Prometheus
+> queries. The Prometheus toolset provides additional signal (disk growth rates via
+> `node_filesystem_avail_bytes`) which can help disambiguate when multiple pods
+> are actively writing to disk.
 
-- PrometheusRule uses `mountpoint="/"` and `instance=~"stress-worker.*"` — neither exists on RHCOS (should be `/var` and the actual node FQDN). See [#100](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/100).
+### Known Issues (fixed in rc14)
+
+- PrometheusRule `mountpoint` and `instance` selectors incorrect on OCP. Fixed: `run.sh` patches dynamically. See [#100](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/100).
 - ArgoCD managed-by label missing on namespace. See [#96](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/96).
 - `seed-workflows.sh` skips Ansible workflows even when AWX/AAP is installed. See [#99](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/99).
+- Notification routing config uses `approval_required` instead of `approval`, causing missing Slack notifications. See [kubernaut#571](https://github.com/jordigilh/kubernaut/issues/571).
+- EM AlertManager RBAC uses `nonResourceURLs` which OCP's kube-rbac-proxy rejects (403). EA completes as `partial` because alert assessment never succeeds. Safety-net in `enable_prometheus_toolset()` patches the ClusterRole. See [kubernaut#576](https://github.com/jordigilh/kubernaut/issues/576).
+- EM DataStorage workflow-started check fails with JSON deserialization error (non-fatal). See [kubernaut#575](https://github.com/jordigilh/kubernaut/issues/575).
+
+## Troubleshooting
+
+### Ansible playbook fails: "Invalid kube-config file"
+
+```
+TASK [Get target deployment]
+fatal: [localhost]: FAILED! => {"msg": "Could not create API client:
+  Invalid kube-config file. No configuration found."}
+```
+
+The AAP job template is missing the K8s credential. This happens when:
+- AAP was reinstalled or the `aap` namespace was recreated
+- `aap-helper.sh` was not re-run after a platform reinstall
+- The WE controller creates ephemeral credentials at launch, but clones them from
+  the base credentials on the template — if the base is missing, the clone is empty
+
+**Fix:** `bash scripts/aap-helper.sh --configure-only`
+
+### HAPI pod CrashLoopBackOff after install
+
+Check logs for `FATAL: No LLM credentials found for provider 'vertex_ai'`.
+The `llm-credentials` secret requires specific keys depending on the provider.
+For Vertex AI, it needs `VERTEXAI_PROJECT`, `VERTEXAI_LOCATION`,
+`GOOGLE_APPLICATION_CREDENTIALS` (mount path), and `application_default_credentials.json`
+(file content). See `helm/llm-credentials/vertex-ai-example.yaml`.
+
+### Slack notifications not received
+
+Even if `NotificationRequest` shows `Sent`, check the `notification-routing-config`
+ConfigMap. The auto-generated routing may use `type: approval_required` while the RO
+emits `type: approval`. Patch the routing or set `slack-alerts` as the default receiver.
+See [kubernaut#571](https://github.com/jordigilh/kubernaut/issues/571).
+
+### Alert never fires
+
+Verify the `PrometheusRule` expression matches the target node. On OCP, `run.sh`
+patches the rule with the correct `mountpoint` and `instance` values. If the
+constrained filesystem is not mounted, the `predict_linear` has no data to work with.
+
+```bash
+kubectl get prometheusrule demo-diskpressure-rules -n demo-diskpressure \
+  -o jsonpath='{.spec.groups[0].rules[0].expr}'
+```
 
 ## Cleanup
 

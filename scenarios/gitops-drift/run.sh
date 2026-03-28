@@ -31,6 +31,8 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
 # shellcheck source=../../scripts/monitoring-helper.sh
 source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 require_infra gitea
 require_infra argocd
 
@@ -55,12 +57,50 @@ echo " GitOps Drift Remediation Demo (#125)"
 echo "============================================="
 echo ""
 
+# Step 0: Clean up stale state from any previous run (#245)
+# Delete the ArgoCD Application first so selfHeal doesn't fight the
+# namespace deletion inside ensure_clean_slate.
+kubectl delete -f "${SCRIPT_DIR}/manifests/argocd-application.yaml" \
+  --ignore-not-found 2>/dev/null || true
+
+# Revert the Gitea repo to the initial (healthy) commit so that
+# run_inject's git-commit is never a no-op (#245).
+if kubectl get namespace "${GITEA_NAMESPACE}" &>/dev/null; then
+    kill_stale_gitea_pf
+    kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http \
+      "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
+    local pf_pid=$!
+    sleep 3
+    local work_dir
+    work_dir=$(mktemp -d)
+    if timeout 30 git clone \
+         "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" \
+         "${work_dir}/repo" &>/dev/null; then
+        cd "${work_dir}/repo"
+        local initial_commit current_head
+        initial_commit=$(git rev-list --max-parents=0 HEAD 2>/dev/null || echo "")
+        current_head=$(git rev-parse HEAD 2>/dev/null || echo "")
+        if [ -n "$initial_commit" ] && [ -n "$current_head" ] \
+           && [ "$current_head" != "$initial_commit" ]; then
+            git reset --hard "$initial_commit" &>/dev/null \
+              && git push --force origin main &>/dev/null \
+              && echo "  Gitea repo reset to initial commit (${initial_commit:0:7})." \
+              || echo "  WARNING: Failed to reset Gitea repo."
+        fi
+        cd /
+    fi
+    rm -rf "${work_dir}"
+    kill "$pf_pid" 2>/dev/null || true
+fi
+
+ensure_clean_slate "${NAMESPACE}"
+
 # Step 1: Apply all manifests (namespace, ArgoCD Application, deployment, PrometheusRule)
-echo "==> Step 2: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
+echo "==> Step 1: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
-echo "==> Step 3: Waiting for ArgoCD to sync and pods to be ready..."
+echo "==> Step 2: Waiting for ArgoCD to sync and pods to be ready..."
 echo "  Waiting for namespace to be created by ArgoCD..."
 for i in $(seq 1 60); do
   if kubectl get namespace "${NAMESPACE}" &>/dev/null; then
@@ -72,16 +112,42 @@ kubectl wait --for=condition=Available deployment/web-frontend \
   -n "${NAMESPACE}" --timeout=180s
 echo "  web-frontend is healthy."
 
-# Step 4: Establish baseline
+# Wait for ArgoCD to settle so only one ReplicaSet is active (#245).
+# Both kubectl and ArgoCD manage the deployment; ArgoCD may re-apply with
+# tracking labels, creating a transient second RS whose pods then disappear.
+# If we inject before that settles, the alert fires for the terminated pod
+# and the Gateway drops it (correctly) because the pod no longer exists.
+echo "  Waiting for ArgoCD to reconcile (single ReplicaSet)..."
+local active_rs=0
+local rs_elapsed=0
+while [ "$rs_elapsed" -lt 120 ]; do
+  active_rs=$(kubectl get rs -n "${NAMESPACE}" --no-headers 2>/dev/null \
+    | awk '$2 > 0 { n++ } END { print n+0 }')
+  if [ "$active_rs" -le 1 ]; then
+    break
+  fi
+  if (( rs_elapsed % 20 == 0 )) && [ "$rs_elapsed" -gt 0 ]; then
+    echo "  Still waiting... ${active_rs} active ReplicaSets (${rs_elapsed}s elapsed)"
+  fi
+  sleep 5
+  rs_elapsed=$((rs_elapsed + 5))
+done
+if [ "$active_rs" -gt 1 ]; then
+  echo "  WARNING: ${active_rs} active ReplicaSets after ${rs_elapsed}s — stale alert risk remains."
+fi
+
+# Step 3: Establish baseline (let Prometheus scrape healthy metrics)
 echo ""
-echo "==> Step 4: Initial state (healthy):"
+echo "==> Step 3: Establishing healthy baseline (30s)..."
 kubectl get pods -n "${NAMESPACE}" -o wide
+sleep 30
+echo "  Baseline established."
 echo ""
 }
 
 run_inject() {
-# Step 6: Inject failure -- push bad ConfigMap to Gitea
-echo "==> Step 6: Injecting failure (bad ConfigMap via Git commit)..."
+# Step 4: Inject failure -- push bad ConfigMap to Gitea
+echo "==> Step 4: Injecting failure (bad ConfigMap via Git commit)..."
 WORK_DIR=$(mktemp -d)
 kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
@@ -205,14 +271,14 @@ echo ""
 }
 
 run_monitor() {
-# Step 7: Wait for ArgoCD to sync and pods to crash
-echo "==> Step 7: Waiting for ArgoCD to sync and pods to enter CrashLoopBackOff..."
+# Step 5: Wait for ArgoCD to sync and pods to crash
+echo "==> Step 5: Waiting for ArgoCD to sync and pods to enter CrashLoopBackOff..."
 echo "  ArgoCD poll interval is ~3 min. Waiting..."
 sleep 60
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
-# Step 8: Validate pipeline
+# Step 6: Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."

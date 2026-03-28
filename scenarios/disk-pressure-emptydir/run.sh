@@ -268,11 +268,106 @@ _check_prerequisites() {
     if ! kubectl get secret slack-webhook -n "${PLATFORM_NS}" &>/dev/null; then
         echo "  NOTE: slack-webhook secret not found in ${PLATFORM_NS} (notifications will use console only)."
     fi
+
+    if ! _check_aap_credentials; then
+        missing=true
+    fi
+
     if [ "$missing" = true ]; then
         echo ""
-        echo "  Setup will continue, but the pipeline may fail without LLM credentials."
+        echo "  Setup will continue, but the pipeline may fail without the above."
         echo ""
     fi
+}
+
+# Verify AAP/AWX job template has K8s and Gitea credentials attached.
+# Without these, the Ansible playbook fails with "Invalid kube-config file".
+_check_aap_credentials() {
+    local aap_ns="${AAP_NAMESPACE:-aap}"
+    local aap_svc
+    aap_svc=$(kubectl get svc -n "$aap_ns" -o name 2>/dev/null \
+        | grep -m1 'controller-service' | sed 's|^service/||' || true)
+    if [ -z "$aap_svc" ]; then
+        return 0
+    fi
+
+    local aap_pass
+    aap_pass=$(kubectl get secret -n "$aap_ns" \
+        -l app.kubernetes.io/component=automationcontroller \
+        -o jsonpath='{.items[0].data.password}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    if [ -z "$aap_pass" ]; then
+        aap_pass=$(kubectl get secret "${aap_svc%-service}-admin-password" -n "$aap_ns" \
+            -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    fi
+    if [ -z "$aap_pass" ]; then
+        echo "  NOTE: Could not retrieve AAP admin password; skipping credential check."
+        return 0
+    fi
+
+    local pf_port=18052
+    kubectl port-forward -n "$aap_ns" "svc/${aap_svc}" "${pf_port}:80" &>/dev/null &
+    local pf_pid=$!
+    trap 'kill "$pf_pid" 2>/dev/null; wait "$pf_pid" 2>/dev/null' RETURN
+    sleep 2
+
+    local templates
+    templates=$(curl -sf "http://localhost:${pf_port}/api/v2/job_templates/" \
+        -u "admin:${aap_pass}" 2>/dev/null || true)
+    if [ -z "$templates" ]; then
+        return 0
+    fi
+
+    local tmpl_ids
+    tmpl_ids=$(echo "$templates" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+for t in d.get('results', []):
+    if 'migrate' in t.get('name','').lower() or 'memory' in t.get('name','').lower():
+        print(t['id'])
+" 2>/dev/null || true)
+
+    local any_missing=false
+    for tmpl_id in $tmpl_ids; do
+        local creds
+        creds=$(curl -sf "http://localhost:${pf_port}/api/v2/job_templates/${tmpl_id}/credentials/" \
+            -u "admin:${aap_pass}" 2>/dev/null || true)
+        if [ -z "$creds" ]; then continue; fi
+
+        local tmpl_name
+        tmpl_name=$(echo "$templates" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+for t in d.get('results', []):
+    if t['id'] == ${tmpl_id}:
+        print(t['name']); break
+" 2>/dev/null || echo "template-${tmpl_id}")
+
+        local has_k8s has_gitea
+        has_k8s=$(echo "$creds" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print('yes' if any(c.get('credential_type') in (17, 18) for c in d.get('results',[])) else 'no')
+" 2>/dev/null || echo "unknown")
+        has_gitea=$(echo "$creds" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+print('yes' if any('gitea' in c.get('name','').lower() for c in d.get('results',[])) else 'no')
+" 2>/dev/null || echo "unknown")
+
+        if [ "$has_k8s" = "no" ] || [ "$has_gitea" = "no" ]; then
+            echo "  WARNING: AAP template '${tmpl_name}' (id=${tmpl_id}) is missing credentials:"
+            [ "$has_k8s" = "no" ] && echo "    - K8s credential (cluster access for Ansible playbooks)"
+            [ "$has_gitea" = "no" ] && echo "    - Gitea credential (GitOps push access)"
+            echo "    Fix: bash scripts/aap-helper.sh --configure-only"
+            any_missing=true
+        fi
+    done
+
+    if [ "$any_missing" = false ] && [ -n "$tmpl_ids" ]; then
+        echo "  AAP job template credentials verified."
+    fi
+
+    [ "$any_missing" = false ]
 }
 
 run_setup() {
@@ -290,8 +385,22 @@ echo "==> Checking prerequisites..."
 _check_prerequisites
 
 # Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
+# Also ensures cluster-monitoring-view RBAC on OCP (kubernaut#574).
 echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
 enable_prometheus_toolset
+echo ""
+
+# Reduce EA timing for webhook-based ArgoCD sync.
+# With a Gitea→ArgoCD webhook, sync is near-instant; the default 3m gitOpsSyncDelay
+# and 5m proactiveAlertDelay add unnecessary wait. cleanup.sh restores defaults.
+echo "==> Tuning RO timing for webhook-based GitOps (gitOpsSyncDelay=1m, stabilization=3m, alertDelay=3m)..."
+kubectl get configmap remediationorchestrator-config -n "${PLATFORM_NS}" -o yaml \
+  | sed 's/gitOpsSyncDelay: "3m"/gitOpsSyncDelay: "1m"/' \
+  | sed 's/stabilizationWindow: "5m"/stabilizationWindow: "3m"/' \
+  | sed 's/proactiveAlertDelay: "5m"/proactiveAlertDelay: "3m"/' \
+  | kubectl apply -f - >/dev/null 2>&1
+kubectl rollout restart deploy/remediationorchestrator-controller -n "${PLATFORM_NS}" >/dev/null 2>&1
+kubectl rollout status deploy/remediationorchestrator-controller -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
 echo ""
 
 # Step 0: Ensure a worker node has the scenario label.
