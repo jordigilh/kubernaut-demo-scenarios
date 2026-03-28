@@ -2,8 +2,9 @@
 # Validate duplicate-alert-suppression scenario pipeline outcome.
 # Tests BR-DEDUP-001: 5 alerts from same Deployment → 1 RR (dedup).
 #
-# NOTE: Currently BLOCKED by #209 (circular duplicate blocking deadlock).
-# This script validates the expected behavior once #209 is fixed.
+# NOTE: Deduplication depends on kubernaut platform fix for circular duplicate
+# blocking deadlock. If the platform hasn't addressed this, the dedup assertion
+# (exactly 1 active RR) may fail. See kubernaut-demo-scenarios#22.
 #
 # Called by run-scenario.sh or standalone:
 #   ./scenarios/duplicate-alert-suppression/validate.sh [--auto-approve] [--no-color]
