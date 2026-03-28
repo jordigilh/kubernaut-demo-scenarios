@@ -303,7 +303,7 @@ filesystem on the scenario worker node, using Claude Sonnet 4 as the LLM backend
 | AA completes | ~90s | LLM runs 19 tool calls, identifies PostgreSQL root cause |
 | RAR created | immediate | Human approval gate (confidence: 95%) |
 | RAR approved | manual | Operator approves remediation |
-| AWX playbook | ~5-10 min | cordon -> pg_dump -> git commit -> ArgoCD sync -> pg_restore |
+| AWX playbook | ~5-10 min | cordon -> pg_dump -> git commit (PVC + remove nodeSelector) -> ArgoCD sync -> pg_restore |
 | EA verifies | ~7 min | Reduced timing for webhook-based ArgoCD (gitOpsSyncDelay=1m, stabilization=3m, alertDelay=3m) |
 | **Total** | **~15-20 min** | End-to-end proactive remediation (includes manual approval) |
 
@@ -342,6 +342,11 @@ The LLM correctly identified PostgreSQL as the root cause using 19 tool calls:
 - Notification routing config uses `approval_required` instead of `approval`, causing missing Slack notifications. See [kubernaut#571](https://github.com/jordigilh/kubernaut/issues/571).
 - EM AlertManager RBAC uses `nonResourceURLs` which OCP's kube-rbac-proxy rejects (403). EA completes as `partial` because alert assessment never succeeds. Safety-net in `enable_prometheus_toolset()` patches the ClusterRole. See [kubernaut#576](https://github.com/jordigilh/kubernaut/issues/576).
 - EM DataStorage workflow-started check fails with JSON deserialization error (non-fatal). See [kubernaut#575](https://github.com/jordigilh/kubernaut/issues/575).
+- Ansible playbook patches ALL deployment files instead of only the target, and leaves `nodeSelector`/`tolerations` pinning the migrated pod to the constrained node. On OCP with TopoLVM local storage, this causes `ContainerCreating` due to stale CSI driver registration under disk pressure. See [kubernaut-test-playbooks#11](https://github.com/jordigilh/kubernaut-test-playbooks/issues/11).
+
+### Post-migration scheduling (WaitForFirstConsumer)
+
+The playbook commits both the PVC manifest and the deployment change (emptyDir->PVC, nodeSelector removal) in a single git push. Because `lvms-vg1` uses `WaitForFirstConsumer` binding mode, the PVC stays Pending until the new pod is scheduled. With the `nodeSelector` and `tolerations` removed, the pod cannot schedule on the tainted constrained node, so it lands on a healthy worker. The PV is provisioned there. This avoids the CSI driver stale-registration issue on the constrained-FS node entirely.
 
 ## Troubleshooting
 

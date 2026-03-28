@@ -307,7 +307,7 @@ _check_aap_credentials() {
     local pf_port=18052
     kubectl port-forward -n "$aap_ns" "svc/${aap_svc}" "${pf_port}:80" &>/dev/null &
     local pf_pid=$!
-    trap 'kill "$pf_pid" 2>/dev/null; wait "$pf_pid" 2>/dev/null' RETURN
+    trap '[ -n "${pf_pid:-}" ] && kill "$pf_pid" 2>/dev/null && wait "$pf_pid" 2>/dev/null || true' RETURN
     sleep 2
 
     local templates
@@ -1167,7 +1167,7 @@ echo "    4. AI detects emptyDir antipattern + ArgoCD management"
 echo "    5. AI selects MigrateEmptyDirToPVC workflow"
 echo "    6. RAR created -- human approval required"
 echo "    7. AWX dispatches Ansible playbook (engine=ansible)"
-echo "    8. Playbook: cordon -> pg_dump (live!) -> git commit PVC -> ArgoCD sync -> pg_restore -> uncordon"
+echo "    8. Playbook: cordon -> pg_dump -> git commit (PVC + remove nodeSelector) -> ArgoCD sync -> pg_restore -> uncordon"
 echo "    9. EA verifies DiskPressure never materialized + DB accessible"
 echo ""
 

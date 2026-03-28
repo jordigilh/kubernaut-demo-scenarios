@@ -42,9 +42,16 @@ workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 assert_neq "$workflow_id" "" "AA selected a workflow"
 
-bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
-assert_contains "$bundle" "migrate-emptydir-to-pvc" "AA selected correct workflow"
+# Resolve the workflow name from the selected workflowId.
+# The executionBundle is a git URL (e.g. kubernaut-test-playbooks.git) and does
+# NOT contain the workflow name, so we look up the RemediationWorkflow CR instead.
+wf_name=$(kubectl get remediationworkflows -n "${PLATFORM_NS}" \
+  -o jsonpath="{.items[?(@.metadata.uid==\"${workflow_id}\")].metadata.name}" 2>/dev/null || true)
+if [ -z "$wf_name" ]; then
+    wf_name=$(kubectl get remediationworkflows -n kubernaut-workflows \
+      -o jsonpath="{.items[?(@.metadata.uid==\"${workflow_id}\")].metadata.name}" 2>/dev/null || true)
+fi
+assert_contains "${wf_name}" "migrate-emptydir-to-pvc" "AA selected correct workflow"
 
 # Verify the workflow execution used the ansible engine
 wfe_name=$(kubectl get wfe -n "${PLATFORM_NS}" \
