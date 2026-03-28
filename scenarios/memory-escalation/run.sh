@@ -31,6 +31,8 @@ done
 
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 require_demo_ready
 
 echo "============================================="
@@ -38,6 +40,9 @@ echo " Memory Escalation Demo (#168)"
 echo " OOMKill -> Increase Limits -> Repeat -> Escalate"
 echo "============================================="
 echo ""
+
+# Step 0: Clean up stale alerts/RRs from any previous run (#193)
+ensure_clean_slate "${NAMESPACE}"
 
 # Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
 echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."

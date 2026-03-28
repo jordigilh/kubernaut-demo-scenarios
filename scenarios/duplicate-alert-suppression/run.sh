@@ -28,6 +28,8 @@ done
 
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 require_demo_ready
 
 echo "============================================="
@@ -35,6 +37,9 @@ echo " Duplicate Alert Suppression Demo (#170)"
 echo " 5 Crashing Pods -> 1 RemediationRequest"
 echo "============================================="
 echo ""
+
+# Step 0: Clean up stale alerts/RRs from any previous run (#193)
+ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Deploy scenario resources
 echo "==> Step 1: Deploying scenario resources..."

@@ -14,6 +14,14 @@ APPROVE_MODE="${1:---auto-approve}"
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
+# ── Clean stale blocked duplicates ──────────────────────────────────────────
+
+for _ns in "${NS_ALPHA}" "${NS_BETA}"; do
+    for rr in $(kubectl get rr -n "${PLATFORM_NS}" -o jsonpath='{range .items[*]}{.metadata.name}={.status.overallPhase}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null | grep "=Blocked=${_ns}" | cut -d= -f1); do
+        kubectl delete rr "$rr" -n "${PLATFORM_NS}" --wait=false 2>/dev/null || true
+    done
+done
+
 # ── Wait for alerts ──────────────────────────────────────────────────────────
 
 wait_for_alert "KubePodCrashLooping" "${NS_ALPHA}" 480
