@@ -15,11 +15,11 @@ done
 
 echo "==> Waiting for namespace deletion to complete..."
 for NS in demo-team-alpha demo-team-beta; do
-  local_elapsed=0
+  _elapsed=0
   while kubectl get ns "${NS}" &>/dev/null; do
     sleep 2
-    local_elapsed=$((local_elapsed + 2))
-    if [ "$local_elapsed" -ge 120 ]; then
+    _elapsed=$((_elapsed + 2))
+    if [ "$_elapsed" -ge 120 ]; then
       echo "  WARNING: Namespace ${NS} still terminating after 120s, proceeding..."
       break
     fi

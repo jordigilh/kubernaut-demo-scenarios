@@ -46,10 +46,22 @@ ensure_clean_slate "demo-team-beta"
 # The SP controller only loads the policy.rego key, so we append the
 # risk_tolerance extraction rules directly into it (not a separate key).
 # We save the original content as an annotation so cleanup.sh can restore it.
+#
+# Guard: if a previous run crashed before cleanup, the annotation already holds
+# the real original. Restore it first to avoid double-appending risk-tolerance rules.
 echo "==> Step 0b: Injecting risk-tolerance rules into SP policy.rego..."
 
-ORIGINAL_POLICY=$(kubectl get configmap signalprocessing-policy -n kubernaut-system \
-  -o jsonpath='{.data.policy\.rego}')
+EXISTING_B64=$(kubectl get configmap signalprocessing-policy -n kubernaut-system \
+  -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-policy-rego}' 2>/dev/null || echo "")
+if [ -n "${EXISTING_B64}" ]; then
+    echo "  Restoring original policy from previous run's annotation..."
+    ORIGINAL_POLICY=$(echo "${EXISTING_B64}" | base64 -d)
+    kubectl patch configmap signalprocessing-policy -n kubernaut-system --type=merge \
+      -p "{\"data\":{\"policy.rego\":$(echo "${ORIGINAL_POLICY}" | jq -Rs .)}}"
+else
+    ORIGINAL_POLICY=$(kubectl get configmap signalprocessing-policy -n kubernaut-system \
+      -o jsonpath='{.data.policy\.rego}')
+fi
 
 kubectl annotate configmap signalprocessing-policy -n kubernaut-system \
   "kubernaut.ai/original-policy-rego=$(echo "${ORIGINAL_POLICY}" | base64)" --overwrite
