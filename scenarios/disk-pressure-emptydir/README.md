@@ -334,17 +334,24 @@ The LLM correctly identified PostgreSQL as the root cause using 19 tool calls:
 > `node_filesystem_avail_bytes`) which can help disambiguate when multiple pods
 > are actively writing to disk.
 
-### Known Issues (fixed in rc14)
+### Known Issues
+
+**Fixed in rc14:**
 
 - PrometheusRule `mountpoint` and `instance` selectors incorrect on OCP. Fixed: `run.sh` patches dynamically. See [#100](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/100).
 - ArgoCD managed-by label missing on namespace. See [#96](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/96).
 - `seed-workflows.sh` skips Ansible workflows even when AWX/AAP is installed. See [#99](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/99).
+
+**Open (upstream):**
+
 - Notification routing config uses `approval_required` instead of `approval`, causing missing Slack notifications. See [kubernaut#571](https://github.com/jordigilh/kubernaut/issues/571).
 - EM AlertManager RBAC uses `nonResourceURLs` which OCP's kube-rbac-proxy rejects (403). EA completes as `partial` because alert assessment never succeeds. Safety-net in `enable_prometheus_toolset()` patches the ClusterRole. See [kubernaut#576](https://github.com/jordigilh/kubernaut/issues/576).
 - EM DataStorage workflow-started check fails with JSON deserialization error (non-fatal). See [kubernaut#575](https://github.com/jordigilh/kubernaut/issues/575).
-- Ansible playbook patches ALL deployment files instead of only the target, and leaves `nodeSelector`/`tolerations` pinning the migrated pod to the constrained node. On OCP with TopoLVM local storage, this causes `ContainerCreating` due to stale CSI driver registration under disk pressure. See [kubernaut-test-playbooks#11](https://github.com/jordigilh/kubernaut-test-playbooks/issues/11).
+- Ansible playbook patches ALL deployment files instead of only the target, and leaves `nodeSelector`/`tolerations` pinning the migrated pod to the constrained node. On OCP with TopoLVM local storage, this causes `ContainerCreating` due to stale CSI driver registration under disk pressure. Fixed upstream. See [kubernaut-test-playbooks#11](https://github.com/jordigilh/kubernaut-test-playbooks/issues/11).
 
 ### Post-migration scheduling (WaitForFirstConsumer)
+
+> **Requires:** fixed playbook from [kubernaut-test-playbooks#11](https://github.com/jordigilh/kubernaut-test-playbooks/issues/11) (addressed upstream).
 
 The playbook commits both the PVC manifest and the deployment change (emptyDir->PVC, nodeSelector removal) in a single git push. Because `lvms-vg1` uses `WaitForFirstConsumer` binding mode, the PVC stays Pending until the new pod is scheduled. With the `nodeSelector` and `tolerations` removed, the pod cannot schedule on the tainted constrained node, so it lands on a healthy worker. The PV is provisioned there. This avoids the CSI driver stale-registration issue on the constrained-FS node entirely.
 
