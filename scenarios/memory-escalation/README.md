@@ -138,7 +138,39 @@ The LLM will:
 3. Select `IncreaseMemoryLimits` with `MEMORY_INCREASE_FACTOR=2` (64 Mi → 128 Mi)
 4. Request human approval (critical severity in production environment)
 
-### 4. Approve remediation
+### 4. Inspect AI Analysis
+
+```bash
+# Get the latest AIA resource
+AIA=$(kubectl get aia -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+
+# Root cause analysis: summary, severity, and remediation target
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Root Cause:  {.status.rootCauseAnalysis.summary}
+Severity:    {.status.rootCauseAnalysis.severity}
+Target:      {.status.rootCauseAnalysis.remediationTarget.kind}/{.status.rootCauseAnalysis.remediationTarget.name}
+'
+
+# Selected workflow and LLM rationale
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Workflow:    {.status.selectedWorkflow.workflowId}
+Confidence:  {.status.selectedWorkflow.confidence}
+Rationale:   {.status.selectedWorkflow.rationale}
+'
+
+# Alternative workflows considered
+kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}'
+
+# Approval context and investigation narrative
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Approval:    {.status.approvalRequired}
+Reason:      {.status.approvalContext.reason}
+Confidence:  {.status.approvalContext.confidenceLevel}
+'
+kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'
+```
+
+### 5. Approve remediation
 
 ```bash
 # Find and approve the RAR
@@ -147,7 +179,7 @@ kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=stat
   -p '{"status":{"decision":"Approved","decidedBy":"human"}}'
 ```
 
-### 5. Observe Cycle 1 result
+### 6. Observe Cycle 1 result
 
 After approval, the WFE increases the memory limit and restarts the pod:
 
@@ -163,7 +195,7 @@ kubectl get pods -n demo-memory-escalation
 The EA evaluates effectiveness and records `healthScore: 0` — the OOMKill recurred,
 meaning the remediation was technically successful but *ineffective*.
 
-### 6. Observe escalation (Cycle 2 or 3)
+### 7. Observe escalation (Cycle 2 or 3)
 
 When the OOMKill recurs, a new RR is created. The outcome depends on which
 escalation path the platform takes (see [Escalation Paths](#escalation-paths)):

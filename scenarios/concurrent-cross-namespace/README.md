@@ -205,7 +205,39 @@ Root cause analysis (from AA):
 > Contributing factors: Invalid nginx configuration directive, Bad ConfigMap
 > deployment, Rolling update with malformed config
 
-### 8. Approve Team Beta (if not using --auto-approve)
+### 8. Inspect AI Analysis
+
+```bash
+# Get the latest AIA resource
+AIA=$(kubectl get aia -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+
+# Root cause analysis: summary, severity, and remediation target
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Root Cause:  {.status.rootCauseAnalysis.summary}
+Severity:    {.status.rootCauseAnalysis.severity}
+Target:      {.status.rootCauseAnalysis.remediationTarget.kind}/{.status.rootCauseAnalysis.remediationTarget.name}
+'
+
+# Selected workflow and LLM rationale
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Workflow:    {.status.selectedWorkflow.workflowId}
+Confidence:  {.status.selectedWorkflow.confidence}
+Rationale:   {.status.selectedWorkflow.rationale}
+'
+
+# Alternative workflows considered
+kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}'
+
+# Approval context and investigation narrative
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Approval:    {.status.approvalRequired}
+Reason:      {.status.approvalContext.reason}
+Confidence:  {.status.approvalContext.confidenceLevel}
+'
+kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'
+```
+
+### 9. Approve Team Beta (if not using --auto-approve)
 
 ```bash
 # Find the RAR:
@@ -217,7 +249,7 @@ kubectl patch remediationapprovalrequest "$RAR_NAME" -n kubernaut-system \
   -p '{"status":{"decision":"Approved","decidedBy":"admin","decisionMessage":"Manual approval"}}'
 ```
 
-### 9. Verify remediation
+### 10. Verify remediation
 
 ```bash
 kubectl get pods -n demo-team-alpha

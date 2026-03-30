@@ -140,11 +140,45 @@ PLATFORM=ocp bash scenarios/orphaned-pvc-no-action/inject-orphan-pvcs.sh
 
 # 5. Monitor pipeline
 kubectl get rr -n kubernaut-system -w
-
-# Path A: RR → Completed (NoActionRequired)
-# Path B: RR → AwaitingApproval → reject/approve via RAR patch
-# Path C: RR → Completed (Remediated) — PVCs cleaned up
 ```
+
+### 6. Inspect AI Analysis
+
+```bash
+# Get the latest AIA resource
+AIA=$(kubectl get aia -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+
+# Root cause analysis: summary, severity, and remediation target
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Root Cause:  {.status.rootCauseAnalysis.summary}
+Severity:    {.status.rootCauseAnalysis.severity}
+Target:      {.status.rootCauseAnalysis.remediationTarget.kind}/{.status.rootCauseAnalysis.remediationTarget.name}
+'
+
+# Selected workflow and LLM rationale
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Workflow:    {.status.selectedWorkflow.workflowId}
+Confidence:  {.status.selectedWorkflow.confidence}
+Rationale:   {.status.selectedWorkflow.rationale}
+'
+
+# Alternative workflows considered
+kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}'
+
+# Approval context and investigation narrative
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Approval:    {.status.approvalRequired}
+Reason:      {.status.approvalContext.reason}
+Confidence:  {.status.approvalContext.confidenceLevel}
+'
+kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'
+```
+
+Path outcomes after monitoring:
+
+- **Path A**: RR → Completed (`NoActionRequired`)
+- **Path B**: RR → `AwaitingApproval` → reject/approve via RAR patch
+- **Path C**: RR → Completed (`Remediated`) — PVCs cleaned up
 
 ## Cleanup
 
