@@ -125,7 +125,7 @@ kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- 
 kubectl get rr,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
-### 7. Inspect AI Analysis
+### 8. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
