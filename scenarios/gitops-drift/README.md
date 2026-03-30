@@ -98,7 +98,6 @@ kubectl wait --for=condition=Available deployment/web-frontend \
 kubectl get pods -n demo-gitops
 # NAME                            READY   STATUS    RESTARTS   AGE
 # web-frontend-xxx-yyy            1/1     Running   0          30s
-# web-frontend-xxx-zzz            1/1     Running   0          30s
 ```
 
 ### 4. Inject Failure

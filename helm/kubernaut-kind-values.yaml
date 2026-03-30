@@ -49,6 +49,9 @@ effectivenessmonitor:
     runAsUser: 65534
 
 remediationorchestrator:
+  config:
+    asyncPropagation:
+      gitOpsSyncDelay: "30s"
   containerSecurityContext:
     runAsUser: 65534
 
