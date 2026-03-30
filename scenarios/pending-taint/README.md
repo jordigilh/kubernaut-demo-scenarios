@@ -38,6 +38,10 @@ script and use `--interactive` to pause at approval.
 After the `KubePodNotScheduled` alert fires (~3 min), watch Kubernaut resources:
 
 ```bash
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodNotScheduled --alertmanager.url=http://localhost:9093
+
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 

@@ -112,6 +112,10 @@ kubectl get rr -n kubernaut-system
 ### 5. Monitor the pipeline
 
 ```bash
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 

@@ -129,6 +129,10 @@ kubectl get pods -n demo-memory-escalation
 The `ContainerOOMKilling` alert fires after 30 s. The full pipeline completes in ~4 min:
 
 ```bash
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
+
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 

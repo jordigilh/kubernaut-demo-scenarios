@@ -108,11 +108,15 @@ kubectl scale deployment/web-cluster --replicas=14 -n demo-autoscale
 # 7. Verify some pods are Pending
 kubectl get pods -n demo-autoscale   # some Running, rest Pending
 
-# 8. Watch Kubernaut pipeline
+# 8. Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodSchedulingFailed --alertmanager.url=http://localhost:9093
+
+# 9. Watch Kubernaut pipeline
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
-### 9. Inspect AI Analysis
+### 10. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -144,14 +148,14 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 10. Verify remediation
+### 11. Verify remediation
 
 ```bash
 kubectl get nodes                          # 3rd node visible
 kubectl get pods -n demo-autoscale -o wide # distributed across nodes
 ```
 
-### 11. Cleanup
+### 12. Cleanup
 
 ```bash
 kill $PROVISIONER_PID

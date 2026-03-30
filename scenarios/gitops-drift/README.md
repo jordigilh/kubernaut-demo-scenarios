@@ -228,6 +228,10 @@ git push origin main
 # Watch pods crash
 kubectl get pods -n demo-gitops -w
 
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+
 # Watch Kubernaut CRDs
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```

@@ -123,6 +123,14 @@ kubectl get pods -n demo-pdb
 
 The `KubePodDisruptionBudgetAtLimit` alert fires after 3 minutes at 0 allowed disruptions.
 
+```bash
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodDisruptionBudgetAtLimit --alertmanager.url=http://localhost:9093
+
+kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
+```
+
 ### 6. Inspect AI Analysis
 
 ```bash

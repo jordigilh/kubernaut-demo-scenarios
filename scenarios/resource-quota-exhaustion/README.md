@@ -96,7 +96,10 @@ bash scenarios/resource-quota-exhaustion/exhaust-quota.sh
 kubectl describe rs -n demo-quota | grep -A3 FailedCreate
 kubectl describe quota -n demo-quota
 
-# 5. Wait for alert (~1-2 min for: duration)
+# 5. Query Alertmanager for active alerts (~1-2 min for: duration)
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubeResourceQuotaExhausted --alertmanager.url=http://localhost:9093
+
 # 6. Monitor pipeline
 kubectl get rr -n kubernaut-system -w
 # Expect: Failed with outcome=ManualReviewRequired

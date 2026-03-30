@@ -39,6 +39,10 @@ from `scenarios/node-notready/manifests/` and run `inject-node-failure.sh` as in
 After the `KubeNodeNotReady` alert fires (~1–2 min), watch Kubernaut resources:
 
 ```bash
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubeNodeNotReady --alertmanager.url=http://localhost:9093
+
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 

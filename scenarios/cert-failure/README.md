@@ -104,6 +104,11 @@ kubectl get certificate -n demo-cert-failure -w
 # Alert fires after 2 min of NotReady
 # Check: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
 #        then open http://localhost:9090/alerts
+
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
+
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
