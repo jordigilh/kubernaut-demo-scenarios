@@ -104,7 +104,7 @@ kubectl get certificate -n demo-cert-failure -w
 # Alert fires after 2 min of NotReady
 # Check: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
 #        then open http://localhost:9090/alerts
-kubectl get rr,sp,aa,we,ea -n demo-cert-failure -w
+kubectl get rr,sp,aia,wfe,ea,notif -n demo-cert-failure -w
 ```
 
 ### 7. Verify remediation

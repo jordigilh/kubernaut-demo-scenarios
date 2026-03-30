@@ -109,7 +109,7 @@ kubectl scale deployment/web-cluster --replicas=14 -n demo-autoscale
 kubectl get pods -n demo-autoscale   # some Running, rest Pending
 
 # 8. Watch Kubernaut pipeline
-kubectl get rr,sp,aa,we,ea -n demo-autoscale -w
+kubectl get rr,sp,aia,wfe,ea,notif -n demo-autoscale -w
 
 # 9. Verify: new node appeared, all pods Running
 kubectl get nodes                          # 3rd node visible

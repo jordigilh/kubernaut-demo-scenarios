@@ -111,7 +111,7 @@ The script will: create CA, push manifests to Gitea, deploy ArgoCD Application, 
 ### 3. Observe Pipeline
 
 ```bash
-kubectl get rr,sp,aa,we,ea -n demo-cert-gitops -w
+kubectl get rr,sp,aia,wfe,ea,notif -n demo-cert-gitops -w
 ```
 
 ### 4. Verify Remediation

@@ -118,7 +118,7 @@ bash scenarios/slo-burn/inject-bad-config.sh
 #    Alert fires after 3 min for: duration
 
 # 6. Watch pipeline
-kubectl get rr,aa,we,ea -n kubernaut-system -w
+kubectl get rr,aia,wfe,ea,notif -n kubernaut-system -w
 
 # 7. Approve when prompted (production environment)
 kubectl patch remediationapprovalrequest <RAR> -n kubernaut-system \

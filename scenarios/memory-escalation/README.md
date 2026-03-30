@@ -129,7 +129,7 @@ kubectl get pods -n demo-memory-escalation
 The `ContainerOOMKilling` alert fires after 30 s. The full pipeline completes in ~4 min:
 
 ```bash
-kubectl get rr,sp,aa,we,ea -n kubernaut-system
+kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:
