@@ -17,8 +17,8 @@ The LLM must choose the GitOps-aware remediation path.
 | Container runtime | Podman | — (provided by OCP) |
 | Kubernaut services | All controllers deployed with real LLM backend | Same |
 | Gitea | Deployed via `scenarios/gitops/scripts/setup-gitea.sh` | Same (adds OCP-compatible securityContext) |
-| ArgoCD | Community core-install via `scenarios/gitops/scripts/setup-argocd.sh` | OpenShift GitOps operator (script skips install, provisions credentials only) |
-| Memory budget | ~6.1GB total (4.6GB base + 1.5GB GitOps infra) | N/A (cluster-managed) |
+| ArgoCD | Full install via `scenarios/gitops/scripts/setup-argocd.sh` (includes server + Gitea webhook) | OpenShift GitOps operator (script skips install, provisions credentials only) |
+| Memory budget | ~6.2GB total (4.6GB base + 1.6GB GitOps infra) | N/A (cluster-managed) |
 
 ## BDD Specification
 
@@ -102,20 +102,124 @@ kubectl get pods -n demo-gitops
 
 ### 4. Inject Failure
 
+> **Important**: The injected `configmap.yaml` must remain valid YAML. If ArgoCD
+> cannot parse the manifest (e.g. tab characters, broken indentation), it will
+> reject the sync entirely and the deployment will never update — no crash, no
+> alert, no pipeline.
+>
+> **Note**: The commands below use `nginx:1.27-alpine` (Kind). On OCP, replace
+> with `nginxinc/nginx-unprivileged:1.27-alpine` to comply with restricted SCCs.
+
 ```bash
 # Port-forward to Gitea
 kubectl port-forward -n gitea svc/gitea-http 3031:3000 &
 
-# Clone, break ConfigMap, push
+# Clone the repo
 git clone http://kubernaut:kubernaut123@localhost:3031/kubernaut/demo-gitops-repo.git /tmp/gitops-break
 cd /tmp/gitops-break
 
-# Edit manifests/configmap.yaml -- add "invalid_directive_that_breaks_nginx on;" to the http block
-# This causes nginx to fail config validation on startup, entering CrashLoopBackOff
+# Overwrite configmap.yaml with an invalid nginx directive (valid YAML, broken nginx config)
+cat > manifests/configmap.yaml <<'EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: demo-gitops
+  labels:
+    app: web-frontend
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /tmp/nginx.pid;
 
-git add . && git commit -m "chore: update nginx config (broken value)" && git push
+    events {
+        worker_connections 1024;
+    }
 
-# ArgoCD will sync within ~3 minutes (or force sync via ArgoCD UI)
+    http {
+        # INVALID: causes nginx to fail on startup
+        invalid_directive_that_breaks_nginx on;
+
+        server {
+            listen 8080;
+            server_name _;
+
+            location / {
+                return 200 'healthy\n';
+                add_header Content-Type text/plain;
+            }
+
+            location /healthz {
+                return 200 'ok\n';
+                add_header Content-Type text/plain;
+            }
+        }
+    }
+EOF
+
+# Force a pod rollout by adding an annotation to the deployment
+cat > manifests/deployment.yaml <<'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-frontend
+  namespace: demo-gitops
+  labels:
+    app: web-frontend
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-frontend
+  template:
+    metadata:
+      labels:
+        app: web-frontend
+        kubernaut.ai/managed: "true"
+      annotations:
+        kubernaut.ai/config-version: "broken"
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 2
+          periodSeconds: 3
+      volumes:
+      - name: config
+        configMap:
+          name: nginx-config
+EOF
+
+git add .
+git commit -m "chore: update nginx config (broken value)"
+git push origin main
+
+# The Gitea webhook notifies ArgoCD immediately; sync happens within seconds
 ```
 
 ### 5. Observe Pipeline

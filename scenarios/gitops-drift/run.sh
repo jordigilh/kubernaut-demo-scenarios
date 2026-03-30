@@ -273,8 +273,8 @@ echo ""
 run_monitor() {
 # Step 5: Wait for ArgoCD to sync and pods to crash
 echo "==> Step 5: Waiting for ArgoCD to sync and pods to enter CrashLoopBackOff..."
-echo "  ArgoCD poll interval is ~3 min. Waiting..."
-sleep 60
+echo "  Gitea webhook notifies ArgoCD on push. Waiting for sync + crash..."
+sleep 30
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
