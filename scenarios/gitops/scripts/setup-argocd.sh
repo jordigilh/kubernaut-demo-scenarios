@@ -111,7 +111,7 @@ if [ "$PLATFORM" != "ocp" ]; then
     kill_stale_gitea_pf 2>/dev/null || true
     kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
     _WEBHOOK_PF_PID=$!
-    sleep 3
+    wait_for_port "${GITEA_LOCAL_PORT}"
 
     GITEA_API="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}"
 

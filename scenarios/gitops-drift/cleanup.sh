@@ -23,7 +23,7 @@ if kubectl get namespace "${GITEA_NAMESPACE}" &>/dev/null; then
     kill_stale_gitea_pf
     kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
     PF_PID=$!
-    sleep 3
+    wait_for_port "${GITEA_LOCAL_PORT}"
 
     WORK_DIR=$(mktemp -d)
     if timeout 30 git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" \
