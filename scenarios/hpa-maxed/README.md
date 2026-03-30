@@ -105,7 +105,7 @@ Typical time from injection: ~5 min on Kind, ~3-5 min on OCP.
 ### 6. Monitor the pipeline
 
 ```bash
-kubectl get rr,sp,aa,we,ea -n kubernaut-system
+kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:

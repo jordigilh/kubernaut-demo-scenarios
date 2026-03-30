@@ -112,7 +112,7 @@ kubectl get rr -n kubernaut-system
 ### 5. Monitor the pipeline
 
 ```bash
-kubectl get rr,sp,aa,we,ea -n kubernaut-system
+kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:

@@ -101,7 +101,7 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:909
 Once the alert fires, the full pipeline completes in ~3-4 minutes:
 
 ```bash
-kubectl get rr,sp,aa,we,ea -n kubernaut-system
+kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:

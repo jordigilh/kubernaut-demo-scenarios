@@ -93,7 +93,7 @@ kubectl get pods -n demo-memory-gitops-ansible -w
 
 ```bash
 # ContainerOOMKilling alert fires immediately (for: 0m)
-kubectl get rr,sp,aa,we,ea -n kubernaut-system -w
+kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
 ### 5. Verify remediation

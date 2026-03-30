@@ -122,7 +122,7 @@ The `KubePodCrashLooping` alert fires after the expression is true for 3 minutes
 (typically ~4-5 min after injection). Once it fires, the Kubernaut pipeline starts:
 
 ```bash
-kubectl get rr,sp,aa,we,ea -n kubernaut-system
+kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:

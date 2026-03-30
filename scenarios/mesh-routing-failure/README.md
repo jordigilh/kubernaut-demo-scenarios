@@ -151,7 +151,7 @@ kubectl exec -n demo-mesh-failure deploy/traffic-gen -- \
 # Alert fires after ~3 min of sustained 403 responses
 # Check: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
 #        then open http://localhost:9090/alerts
-kubectl get rr,sp,aa,we,ea -n kubernaut-system -w
+kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
 ### 7. Verify remediation

@@ -125,7 +125,7 @@ git add . && git commit -m "chore: update nginx config (broken value)" && git pu
 kubectl get pods -n demo-gitops -w
 
 # Watch Kubernaut CRDs
-kubectl get rr,sp,aa,we,ea -n demo-gitops -w
+kubectl get rr,sp,aia,wfe,ea,notif -n demo-gitops -w
 ```
 
 ### 6. Verify Remediation

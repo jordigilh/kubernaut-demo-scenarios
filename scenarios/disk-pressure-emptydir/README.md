@@ -174,7 +174,7 @@ pg_restore) enough time to complete before data loss.
 
 ```bash
 # PredictedDiskPressure alert fires before kubelet eviction (~2-3 min)
-kubectl get rr,sp,aa,rar,we,ea -n kubernaut-system -w
+kubectl get rr,sp,aia,rar,wfe,ea,notif -n kubernaut-system -w
 ```
 
 ### 5. Approve the remediation (RAR)
