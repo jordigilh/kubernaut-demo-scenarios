@@ -177,7 +177,39 @@ pg_restore) enough time to complete before data loss.
 kubectl get rr,sp,aia,rar,wfe,ea,notif -n kubernaut-system -w
 ```
 
-### 5. Approve the remediation (RAR)
+### 5. Inspect AI Analysis
+
+```bash
+# Get the latest AIA resource
+AIA=$(kubectl get aia -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+
+# Root cause analysis: summary, severity, and remediation target
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Root Cause:  {.status.rootCauseAnalysis.summary}
+Severity:    {.status.rootCauseAnalysis.severity}
+Target:      {.status.rootCauseAnalysis.remediationTarget.kind}/{.status.rootCauseAnalysis.remediationTarget.name}
+'; echo
+
+# Selected workflow and LLM rationale
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Workflow:    {.status.selectedWorkflow.workflowId}
+Confidence:  {.status.selectedWorkflow.confidence}
+Rationale:   {.status.selectedWorkflow.rationale}
+'; echo
+
+# Alternative workflows considered
+kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
+
+# Approval context and investigation narrative
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Approval:    {.status.approvalRequired}
+Reason:      {.status.approvalContext.reason}
+Confidence:  {.status.approvalContext.confidenceLevel}
+'; echo
+kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
+```
+
+### 6. Approve the remediation (RAR)
 
 The LLM creates a RemediationApprovalRequest. Approve it to proceed:
 
@@ -187,7 +219,7 @@ kubectl patch "$RAR" -n kubernaut-system --type merge --subresource=status \
   -p '{"status":{"decision":"Approved","decidedBy":"kube:admin"}}'
 ```
 
-### 6. Verify remediation
+### 7. Verify remediation
 
 ```bash
 # DiskPressure should never have materialized (proactive remediation)

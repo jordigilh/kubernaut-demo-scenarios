@@ -96,16 +96,47 @@ bash scenarios/resource-contention/scripts/external-actor.sh &
 kubectl get pods -n demo-resource-contention -w
 
 # 4. Wait for alert (~30s for: duration)
+
 # 5. Watch first remediation cycle
 kubectl get rr -n kubernaut-system -w
 # Expect: Analyzing → Executing → Verifying → Completed (Remediated)
+```
 
-# 6. Watch external actor revert + subsequent cycles
+### 6. Inspect AI Analysis
+
+```bash
+# Get the latest AIA resource
+AIA=$(kubectl get aia -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+
+# Root cause analysis: summary, severity, and remediation target
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Root Cause:  {.status.rootCauseAnalysis.summary}
+Severity:    {.status.rootCauseAnalysis.severity}
+Target:      {.status.rootCauseAnalysis.remediationTarget.kind}/{.status.rootCauseAnalysis.remediationTarget.name}
+'; echo
+
+# Selected workflow and LLM rationale
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Workflow:    {.status.selectedWorkflow.workflowId}
+Confidence:  {.status.selectedWorkflow.confidence}
+Rationale:   {.status.selectedWorkflow.rationale}
+'; echo
+
+# Alternative workflows considered
+kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
+```
+
+### 7. Watch external actor revert + subsequent cycles
+
+```bash
 # External actor log: "[external-actor] Reverting to original value..."
 # Cycles 2-3: new RRs with IncreaseMemoryLimits
 # Final: ManualReviewRequired
+```
 
-# 7. Kill external actor and set proper limits
+### 8. Kill external actor and set proper limits
+
+```bash
 kill %1
 kubectl set resources deployment/contention-app -n demo-resource-contention \
   --limits=memory=256Mi --requests=memory=128Mi

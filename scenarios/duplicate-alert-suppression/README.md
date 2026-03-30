@@ -123,7 +123,31 @@ The LLM will:
 5. Consider a risk-averse `CrashLoopRollback` alternative (0.85) but reject it
 6. Auto-approve (policy does not require manual approval)
 
-### 6. Verify remediation and deduplication
+### 6. Inspect AI Analysis
+
+```bash
+# Get the latest AIA resource
+AIA=$(kubectl get aia -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+
+# Root cause analysis: summary, severity, and remediation target
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Root Cause:  {.status.rootCauseAnalysis.summary}
+Severity:    {.status.rootCauseAnalysis.severity}
+Target:      {.status.rootCauseAnalysis.remediationTarget.kind}/{.status.rootCauseAnalysis.remediationTarget.name}
+'; echo
+
+# Selected workflow and LLM rationale
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Workflow:    {.status.selectedWorkflow.workflowId}
+Confidence:  {.status.selectedWorkflow.confidence}
+Rationale:   {.status.selectedWorkflow.rationale}
+'; echo
+
+# Alternative workflows considered
+kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
+```
+
+### 7. Verify remediation and deduplication
 
 ```bash
 # All 5 pods recovered via a single rollback

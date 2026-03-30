@@ -111,7 +111,31 @@ The LLM will:
 4. Select `GracefulRestart` workflow (confidence 0.9) — a rolling restart resets memory
 5. Auto-approve (warning severity does not require human approval per Rego policy)
 
-### 6. Verify remediation
+### 6. Inspect AI Analysis
+
+```bash
+# Get the latest AIA resource
+AIA=$(kubectl get aia -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+
+# Root cause analysis: summary, severity, and remediation target
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Root Cause:  {.status.rootCauseAnalysis.summary}
+Severity:    {.status.rootCauseAnalysis.severity}
+Target:      {.status.rootCauseAnalysis.remediationTarget.kind}/{.status.rootCauseAnalysis.remediationTarget.name}
+'; echo
+
+# Selected workflow and LLM rationale
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Workflow:    {.status.selectedWorkflow.workflowId}
+Confidence:  {.status.selectedWorkflow.confidence}
+Rationale:   {.status.selectedWorkflow.rationale}
+'; echo
+
+# Alternative workflows considered
+kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
+```
+
+### 7. Verify remediation
 
 After the workflow execution completes:
 

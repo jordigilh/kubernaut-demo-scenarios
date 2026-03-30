@@ -109,13 +109,51 @@ kubectl scale deployment/web-cluster --replicas=14 -n demo-autoscale
 kubectl get pods -n demo-autoscale   # some Running, rest Pending
 
 # 8. Watch Kubernaut pipeline
-kubectl get rr,sp,aia,wfe,ea,notif -n demo-autoscale -w
+kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
+```
 
-# 9. Verify: new node appeared, all pods Running
+### 9. Inspect AI Analysis
+
+```bash
+# Get the latest AIA resource
+AIA=$(kubectl get aia -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+
+# Root cause analysis: summary, severity, and remediation target
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Root Cause:  {.status.rootCauseAnalysis.summary}
+Severity:    {.status.rootCauseAnalysis.severity}
+Target:      {.status.rootCauseAnalysis.remediationTarget.kind}/{.status.rootCauseAnalysis.remediationTarget.name}
+'; echo
+
+# Selected workflow and LLM rationale
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Workflow:    {.status.selectedWorkflow.workflowId}
+Confidence:  {.status.selectedWorkflow.confidence}
+Rationale:   {.status.selectedWorkflow.rationale}
+'; echo
+
+# Alternative workflows considered
+kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
+
+# Approval context and investigation narrative
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Approval:    {.status.approvalRequired}
+Reason:      {.status.approvalContext.reason}
+Confidence:  {.status.approvalContext.confidenceLevel}
+'; echo
+kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
+```
+
+### 10. Verify remediation
+
+```bash
 kubectl get nodes                          # 3rd node visible
 kubectl get pods -n demo-autoscale -o wide # distributed across nodes
+```
 
-# 10. Cleanup
+### 11. Cleanup
+
+```bash
 kill $PROVISIONER_PID
 ./scenarios/autoscale/cleanup.sh
 ```

@@ -26,6 +26,68 @@ investigates, identifies the taint as the root cause, and removes it.
 ./scenarios/pending-taint/run.sh
 ```
 
+## Manual Step-by-Step
+
+### 1. Apply taint and deploy workload
+
+Follow `./scenarios/pending-taint/run.sh --no-validate` (taint + deploy), or run the full
+script and use `--interactive` to pause at approval.
+
+### 2. Wait for alert and watch pipeline
+
+After the `KubePodNotScheduled` alert fires (~3 min), watch Kubernaut resources:
+
+```bash
+kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
+```
+
+### 3. Inspect AI Analysis
+
+```bash
+# Get the latest AIA resource
+AIA=$(kubectl get aia -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+
+# Root cause analysis: summary, severity, and remediation target
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Root Cause:  {.status.rootCauseAnalysis.summary}
+Severity:    {.status.rootCauseAnalysis.severity}
+Target:      {.status.rootCauseAnalysis.remediationTarget.kind}/{.status.rootCauseAnalysis.remediationTarget.name}
+'; echo
+
+# Selected workflow and LLM rationale
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Workflow:    {.status.selectedWorkflow.workflowId}
+Confidence:  {.status.selectedWorkflow.confidence}
+Rationale:   {.status.selectedWorkflow.rationale}
+'; echo
+
+# Alternative workflows considered
+kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
+
+# Approval context and investigation narrative
+kubectl get $AIA -n kubernaut-system -o jsonpath='
+Approval:    {.status.approvalRequired}
+Reason:      {.status.approvalContext.reason}
+Confidence:  {.status.approvalContext.confidenceLevel}
+'; echo
+kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
+```
+
+### 4. Approve the RAR (when using `--interactive`)
+
+```bash
+kubectl get rar -n kubernaut-system
+kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=status \
+  -p '{"status":{"decision":"Approved","decidedBy":"operator"}}'
+```
+
+### 5. Verify remediation
+
+```bash
+kubectl get pods -n demo-taint
+kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .spec.taints[*]}{.key}={.value}:{.effect}{" "}{end}{"\n"}{end}'
+```
+
 ## Cleanup
 
 ```bash
