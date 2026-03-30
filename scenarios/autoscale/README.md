@@ -108,7 +108,11 @@ kubectl scale deployment/web-cluster --replicas=14 -n demo-autoscale
 # 7. Verify some pods are Pending
 kubectl get pods -n demo-autoscale   # some Running, rest Pending
 
-# 8. Watch Kubernaut pipeline
+# 8. Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodSchedulingFailed --alertmanager.url=http://localhost:9093
+
+# 9. Watch Kubernaut pipeline
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 

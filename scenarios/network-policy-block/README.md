@@ -76,6 +76,11 @@ The script applies a deny-all NetworkPolicy that blocks all ingress traffic. The
 # Alert fires after ~3 min of unavailable replicas
 # Check: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
 #        then open http://localhost:9090/alerts
+
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubeDeploymentReplicasMismatch --alertmanager.url=http://localhost:9093
+
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 

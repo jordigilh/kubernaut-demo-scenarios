@@ -117,7 +117,11 @@ bash scenarios/slo-burn/inject-bad-config.sh
 #    Prometheus: job:api_gateway:error_rate_5m should go to ~1.0
 #    Alert fires after 3 min for: duration
 
-# 6. Watch pipeline
+# 6. Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=ErrorBudgetBurn --alertmanager.url=http://localhost:9093
+
+# 7. Watch pipeline
 kubectl get rr,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 

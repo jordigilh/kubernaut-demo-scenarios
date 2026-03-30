@@ -114,6 +114,10 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:909
 ### 6. Monitor the pipeline
 
 ```bash
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubeDeploymentRolloutStuck --alertmanager.url=http://localhost:9093
+
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 

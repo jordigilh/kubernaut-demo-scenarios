@@ -135,8 +135,9 @@ kubectl wait --for=condition=Available deploy/data-processor -n demo-orphaned-pv
 # 3. Inject orphaned PVCs
 PLATFORM=ocp bash scenarios/orphaned-pvc-no-action/inject-orphan-pvcs.sh
 
-# 4. Wait for alert (~3 min for: duration)
-# Platform Prometheus → AlertManager → gateway-webhook
+# 4. Query Alertmanager for active alerts (~3 min for: duration)
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePersistentVolumeClaimOrphaned --alertmanager.url=http://localhost:9093
 
 # 5. Monitor pipeline
 kubectl get rr -n kubernaut-system -w

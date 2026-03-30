@@ -180,6 +180,10 @@ worker-68b54dc69c-7ppr9   1/1     Running            0             66s
 Alerts fire after >3 restarts in 10 min (~3 min with `for: 3m`):
 
 ```bash
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+
 kubectl get remediationrequest -n kubernaut-system -w
 ```
 

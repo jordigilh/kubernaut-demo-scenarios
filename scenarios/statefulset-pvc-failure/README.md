@@ -104,7 +104,10 @@ kubectl rollout status sts/kv-store -n demo-statefulset --timeout=180s
 bash scenarios/statefulset-pvc-failure/inject-pvc-issue.sh
 # kv-store-2 → Pending (broken-storage-class)
 
-# 4. Wait for alert (~3 min)
+# 4. Query Alertmanager for active alerts (~3 min)
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubeStatefulSetReplicasMismatch --alertmanager.url=http://localhost:9093
+
 # 5. Monitor pipeline
 kubectl get rr -n kubernaut-system -w
 # Expect: Analyzing → AwaitingApproval

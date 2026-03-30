@@ -122,6 +122,10 @@ The `KubePodCrashLooping` alert fires after the expression is true for 3 minutes
 (typically ~4-5 min after injection). Once it fires, the Kubernaut pipeline starts:
 
 ```bash
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 

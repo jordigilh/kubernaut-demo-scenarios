@@ -91,9 +91,13 @@ takes **3-4 minutes** of trend data on OCP (5-7 minutes on Kind due to slower
 scrape intervals).
 
 ```bash
-# Check alert status
+# Check alert status via Prometheus UI
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
 # open http://localhost:9090/alerts
+
+# Query Alertmanager for active alerts
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=ContainerMemoryExhaustionPredicted --alertmanager.url=http://localhost:9093
 ```
 
 ### 5. Monitor the Kubernaut pipeline
