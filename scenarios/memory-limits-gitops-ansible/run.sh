@@ -59,7 +59,7 @@ WORK_DIR=$(mktemp -d)
 kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
-sleep 3
+wait_for_port "${GITEA_LOCAL_PORT}"
 
 # Create repo if it doesn't exist
 curl -s -X POST "http://localhost:${GITEA_LOCAL_PORT}/api/v1/user/repos" \

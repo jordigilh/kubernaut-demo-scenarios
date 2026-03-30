@@ -70,6 +70,19 @@ kill_stale_gitea_pf() {
     fi
 }
 
+wait_for_port() {
+    local port="${1:?port required}" timeout="${2:-15}"
+    local elapsed=0
+    until curl -sf "http://localhost:${port}" >/dev/null 2>&1; do
+        sleep 1
+        elapsed=$((elapsed + 1))
+        if [ "$elapsed" -ge "$timeout" ]; then
+            echo "  WARNING: port ${port} not ready after ${timeout}s"
+            return 1
+        fi
+    done
+}
+
 # Returns the kustomize directory to use for kubectl apply -k.
 # Uses the OCP overlay when available and PLATFORM=ocp, otherwise the base manifests.
 get_manifest_dir() {
