@@ -24,32 +24,45 @@ import rego.v1
 # ========== Environment Classification (BR-SP-051) ==========
 # Reads the kubernaut.ai/environment namespace label, falling back to
 # well-known namespace names when no label is present.
-# All values are lowercased so downstream consumers (approval policy,
-# workflow discovery) match case-insensitively.
+# Output values are PascalCase to match the SP CRD enum:
+#   "Production", "Staging", "Development", "Test", "Unknown"
+# Input comparisons use lower() for case-insensitive matching.
 
-default environment := {"environment": "unknown", "source": "default"}
+default environment := {"environment": "Unknown", "source": "default"}
 
-environment := {"environment": lower(env), "source": "namespace-labels"} if {
+environment := {"environment": "Production", "source": "namespace-labels"} if {
     env := input.namespace.labels["kubernaut.ai/environment"]
-    env != ""
+    lower(env) == "production"
 }
-environment := {"environment": "production", "source": "namespace-name"} if {
+environment := {"environment": "Staging", "source": "namespace-labels"} if {
+    env := input.namespace.labels["kubernaut.ai/environment"]
+    lower(env) == "staging"
+}
+environment := {"environment": "Development", "source": "namespace-labels"} if {
+    env := input.namespace.labels["kubernaut.ai/environment"]
+    lower(env) == "development"
+}
+environment := {"environment": "Test", "source": "namespace-labels"} if {
+    env := input.namespace.labels["kubernaut.ai/environment"]
+    lower(env) == "test"
+}
+environment := {"environment": "Production", "source": "namespace-name"} if {
     not input.namespace.labels["kubernaut.ai/environment"]
     lower(input.namespace.name) == "production"
 }
-environment := {"environment": "production", "source": "namespace-name"} if {
+environment := {"environment": "Production", "source": "namespace-name"} if {
     not input.namespace.labels["kubernaut.ai/environment"]
     lower(input.namespace.name) == "prod"
 }
-environment := {"environment": "staging", "source": "namespace-name"} if {
+environment := {"environment": "Staging", "source": "namespace-name"} if {
     not input.namespace.labels["kubernaut.ai/environment"]
     lower(input.namespace.name) == "staging"
 }
-environment := {"environment": "development", "source": "namespace-name"} if {
+environment := {"environment": "Development", "source": "namespace-name"} if {
     not input.namespace.labels["kubernaut.ai/environment"]
     lower(input.namespace.name) == "development"
 }
-environment := {"environment": "development", "source": "namespace-name"} if {
+environment := {"environment": "Development", "source": "namespace-name"} if {
     not input.namespace.labels["kubernaut.ai/environment"]
     lower(input.namespace.name) == "dev"
 }
@@ -73,19 +86,19 @@ severity := "low"      if { lower(input.signal.severity) == "info" }
 default priority := {"priority": "P3", "policy_name": "default"}
 
 priority := {"priority": "P0", "policy_name": "production-critical"} if {
-    environment.environment == "production"
+    environment.environment == "Production"
     severity == "critical"
 }
 priority := {"priority": "P1", "policy_name": "production-high"} if {
-    environment.environment == "production"
+    environment.environment == "Production"
     severity == "high"
 }
 priority := {"priority": "P1", "policy_name": "staging-critical"} if {
-    environment.environment == "staging"
+    environment.environment == "Staging"
     severity == "critical"
 }
 priority := {"priority": "P2", "policy_name": "staging-any"} if {
-    environment.environment == "staging"
+    environment.environment == "Staging"
     severity != "critical"
 }
 
