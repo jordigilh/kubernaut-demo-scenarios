@@ -82,7 +82,9 @@ echo ""
 
 # Step 0c: Register risk-tolerance-aware workflows as RemediationWorkflow CRDs
 echo "==> Step 0c: Applying RemediationWorkflow CRDs..."
-kubectl apply -f "${REPO_ROOT}/deploy/remediation-workflows/concurrent-cross-namespace/" -n kubernaut-system
+for yaml_file in "${REPO_ROOT}/deploy/remediation-workflows/concurrent-cross-namespace/"*.yaml; do
+    _apply_workflow_yaml "$yaml_file" kubernaut-system
+done
 echo ""
 
 # Step 1: Deploy both namespaces and workloads
