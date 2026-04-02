@@ -42,14 +42,28 @@ is_production if {
     lower(input.environment) == "production"
 }
 
-is_sensitive_resource if {
+has_remediation_target if {
     input.remediation_target
+    input.remediation_target.kind != ""
+}
+
+is_sensitive_resource if {
     input.remediation_target.kind == "Node"
 }
 
 is_sensitive_resource if {
-    input.remediation_target
     input.remediation_target.kind == "StatefulSet"
+}
+
+# Also match when the alert's target resource is a sensitive kind,
+# even if the LLM identified a different remediation target (e.g., a
+# Deployment causing DiskPressure on a Node).
+is_sensitive_resource if {
+    input.target_resource.kind == "Node"
+}
+
+is_sensitive_resource if {
+    input.target_resource.kind == "StatefulSet"
 }
 
 # ========== Approval Rules ==========
@@ -59,8 +73,8 @@ is_sensitive_resource if {
 # Sensitive resources always require approval regardless of confidence.
 require_approval if { is_sensitive_resource }
 
-# Missing remediation target — cannot determine what to remediate.
-require_approval if { not input.remediation_target }
+# Missing or empty remediation target — cannot determine what to remediate.
+require_approval if { not has_remediation_target }
 
 # LLM warnings warrant human review.
 require_approval if { count(input.warnings) > 0 }
@@ -76,7 +90,7 @@ require_approval if {
 # The highest-scoring factor determines the human-readable reason.
 
 risk_factors contains {"score": 90, "reason": "Missing remediation target"} if {
-    not input.remediation_target
+    not has_remediation_target
 }
 
 risk_factors contains {"score": 80, "reason": "Sensitive resource kind requires manual approval"} if {

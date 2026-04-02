@@ -24,16 +24,20 @@ data:
     is_high_confidence if { input.confidence >= confidence_threshold }
     is_production if { lower(input.environment) == "production" }
 
-    is_sensitive_resource if { input.remediation_target; input.remediation_target.kind == "Node" }
-    is_sensitive_resource if { input.remediation_target; input.remediation_target.kind == "StatefulSet" }
+    has_remediation_target if { input.remediation_target; input.remediation_target.kind != "" }
+
+    is_sensitive_resource if { input.remediation_target.kind == "Node" }
+    is_sensitive_resource if { input.remediation_target.kind == "StatefulSet" }
+    is_sensitive_resource if { input.target_resource.kind == "Node" }
+    is_sensitive_resource if { input.target_resource.kind == "StatefulSet" }
 
     require_approval if { is_sensitive_resource }
-    require_approval if { not input.remediation_target }
+    require_approval if { not has_remediation_target }
     require_approval if { count(input.warnings) > 0 }
     require_approval if { is_production; not is_high_confidence }
 
     risk_factors contains {"score": 90, "reason": "Missing remediation target"} if {
-        not input.remediation_target
+        not has_remediation_target
     }
     risk_factors contains {"score": 80, "reason": "Sensitive resource kind requires manual approval"} if {
         is_sensitive_resource
