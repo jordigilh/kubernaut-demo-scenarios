@@ -1,3 +1,67 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: migrate-emptydir-to-pvc-gitops-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: migrate-emptydir-to-pvc-gitops-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: migrate-emptydir-to-pvc-gitops-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: migrate-emptydir-to-pvc-gitops-v1
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["endpoints"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses"]
+    verbs: ["get", "list"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    verbs: ["get", "list"]
+  - apiGroups: ["kubernaut.ai"]
+    resources: ["workflowexecutions"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: migrate-emptydir-to-pvc-gitops-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: migrate-emptydir-to-pvc-gitops-v1
+subjects:
+  - kind: ServiceAccount
+    name: migrate-emptydir-to-pvc-gitops-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: migrate-emptydir-to-pvc-gitops-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
@@ -28,6 +92,7 @@ spec:
     engineConfig:
       playbookPath: "playbooks/gitops-migrate-postgres-emptydir-to-pvc.yml"
       jobTemplateName: "kubernaut-migrate-emptydir-to-pvc"
+    serviceAccountName: migrate-emptydir-to-pvc-gitops-v1-runner
 
   dependencies:
     secrets:

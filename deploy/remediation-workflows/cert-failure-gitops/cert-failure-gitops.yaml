@@ -1,3 +1,43 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fix-certificate-gitops-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-certificate-gitops-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fix-certificate-gitops-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-certificate-gitops-v1
+rules:
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    verbs: ["get", "list"]
+  - apiGroups: ["cert-manager.io"]
+    resources: ["certificates"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fix-certificate-gitops-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-certificate-gitops-v1
+subjects:
+  - kind: ServiceAccount
+    name: fix-certificate-gitops-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: fix-certificate-gitops-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
@@ -26,6 +66,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-gitops-job@sha256:ec0da9e32cdd6e1457aa0f18dccb39b3ca840e2b6a73a3ba1d1435c36255f6fa
+    serviceAccountName: fix-certificate-gitops-v1-runner
 
   dependencies:
     secrets:

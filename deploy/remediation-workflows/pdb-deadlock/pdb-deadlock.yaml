@@ -1,3 +1,40 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: relax-pdb-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: relax-pdb-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: relax-pdb-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: relax-pdb-v1
+rules:
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: relax-pdb-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: relax-pdb-v1
+subjects:
+  - kind: ServiceAccount
+    name: relax-pdb-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: relax-pdb-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
@@ -26,6 +63,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:006e5db2f15fa9217c1f34567d2b84912524fc6a74de1c5cf1a2d64419a2fa4b
+    serviceAccountName: relax-pdb-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

@@ -1,3 +1,46 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: increase-memory-limits-gitops-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: increase-memory-limits-gitops-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: increase-memory-limits-gitops-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: increase-memory-limits-gitops-v1
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    verbs: ["get", "list"]
+  - apiGroups: ["kubernaut.ai"]
+    resources: ["workflowexecutions"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: increase-memory-limits-gitops-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: increase-memory-limits-gitops-v1
+subjects:
+  - kind: ServiceAccount
+    name: increase-memory-limits-gitops-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: increase-memory-limits-gitops-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
@@ -30,6 +73,7 @@ spec:
     engineConfig:
       playbookPath: "playbooks/gitops-update-memory-limits.yml"
       jobTemplateName: "kubernaut-gitops-update-memory"
+    serviceAccountName: increase-memory-limits-gitops-v1-runner
 
   dependencies:
     secrets:
