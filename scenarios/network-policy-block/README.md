@@ -33,6 +33,20 @@ deny-all NetworkPolicy blocks inter-pod traffic
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `fix-network-policy-v1` registered in DataStorage |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `fix-network-policy-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `fix-network-policy-v1-runner` |
+| ClusterRoleBinding | `fix-network-policy-v1-runner` |
+
+**Permissions**: `networking.k8s.io` networkpolicies (get, list, delete), `apps` deployments (get, list)
+
 ## Detected Label
 
 - **networkIsolated**: `true` -- indicates NetworkPolicy is blocking traffic; remediation removes the offending policy

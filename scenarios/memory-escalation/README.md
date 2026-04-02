@@ -89,6 +89,20 @@ Path B (3 cycles — RO guard-driven):
 | Workflow catalog | `increase-memory-limits-v1` registered in DataStorage |
 | HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` (#108) |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `increase-memory-limits-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `increase-memory-limits-v1-runner` |
+| ClusterRoleBinding | `increase-memory-limits-v1-runner` |
+
+**Permissions**: `apps` deployments (get, list, patch), core pods (get, list)
+
 ## Automated Run
 
 ```bash

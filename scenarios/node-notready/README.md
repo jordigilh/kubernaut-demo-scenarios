@@ -21,6 +21,20 @@ existing workloads to healthy nodes.
 | Podman | Required to pause/unpause Kind node container |
 | Workflow catalog | `cordon-drain-v1` registered in DataStorage |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `cordon-drain-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `cordon-drain-v1-runner` |
+| ClusterRoleBinding | `cordon-drain-v1-runner` |
+
+**Permissions**: core nodes (get, list, patch, update), core pods (get, list), core pods/eviction (create)
+
 ## Automated Run
 
 ```bash

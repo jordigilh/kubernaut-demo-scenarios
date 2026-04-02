@@ -51,6 +51,25 @@ Team Alpha (demo-team-alpha, staging):                Team Beta (demo-team-beta,
 | Workflow catalog | `restart-pods-v1` and `crashloop-rollback-risk-v1` registered | Same |
 | Container image | `nginx:1.27-alpine` | `nginxinc/nginx-unprivileged:1.27-alpine` (OCP overlay) |
 
+### Workflow RBAC
+
+This scenario's remediation workflows run under dedicated ServiceAccounts with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `crashloop-rollback-risk-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `crashloop-rollback-risk-v1-runner` |
+| ClusterRoleBinding | `crashloop-rollback-risk-v1-runner` |
+| ServiceAccount | `restart-pods-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `restart-pods-v1-runner` |
+| ClusterRoleBinding | `restart-pods-v1-runner` |
+
+**Permissions** (`crashloop-rollback-risk-v1-runner`): `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+
+**Permissions** (`restart-pods-v1-runner`): `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+
 ## Automated Run
 
 ```bash

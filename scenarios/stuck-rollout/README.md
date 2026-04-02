@@ -43,6 +43,20 @@ kube_deployment_status_condition{condition="Progressing",status="false"} == 1
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `rollback-deployment-v1` registered in DataStorage |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `rollback-deployment-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `rollback-deployment-v1-runner` |
+| ClusterRoleBinding | `rollback-deployment-v1-runner` |
+
+**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+
 ## Automated Run
 
 ```bash

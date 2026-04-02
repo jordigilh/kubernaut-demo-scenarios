@@ -113,6 +113,20 @@ LLM ambivalence independently of the environment guard.
 | Workflow catalog | `cleanup-pvc-v1` present (shipped with demo content) |
 | Rego policy | Warning-aware rule (`llm_warns_no_remediation`) — applied by `run.sh` |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `cleanup-pvc-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `cleanup-pvc-v1-runner` |
+| ClusterRoleBinding | `cleanup-pvc-v1-runner` |
+
+**Permissions**: core persistentvolumeclaims (get, list, delete), core pods (get, list)
+
 ## Automated Run
 
 ```bash
@@ -141,7 +155,7 @@ kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- 
   amtool alert query alertname=KubePersistentVolumeClaimOrphaned --alertmanager.url=http://localhost:9093
 
 # 5. Monitor pipeline
-kubectl get rr -n kubernaut-system -w
+kubectl get rr -n kubernaut-system -w -o wide
 ```
 
 ### 6. Inspect AI Analysis

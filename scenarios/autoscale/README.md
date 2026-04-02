@@ -37,6 +37,20 @@ The WE Job runs **unprivileged inside Kubernetes**. It writes a scale request an
 - `ProvisionNode` action type registered in DataStorage (migration 026)
 - `provision-node-v1` workflow registered in the workflow catalog
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `provision-node-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `provision-node-v1-runner` |
+| ClusterRoleBinding | `provision-node-v1-runner` |
+
+**Permissions**: core configmaps (get, list, create, update), core pods (get, list)
+
 ## BDD Specification
 
 ```gherkin

@@ -79,6 +79,20 @@ clear-cut and warrants a direct rollback.
 > updates the ConfigMap listen directive, traffic-gen URL, and Probe target
 > accordingly.
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `proactive-rollback-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `proactive-rollback-v1-runner` |
+| ClusterRoleBinding | `proactive-rollback-v1-runner` |
+
+**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+
 ## Automated Run
 
 ```bash

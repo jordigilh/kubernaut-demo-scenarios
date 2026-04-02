@@ -14,6 +14,13 @@ policy constraint that cannot be resolved by any available workflow and escalate
 **Outcome**: `ManualReviewRequired` — no workflow matches; human must increase quota
 or scale down
 
+> **v1.2.0 note**: The LLM now receives ResourceQuota details (limits, usage) from
+> the `LabelDetector`, making Path A (direct escalation) the dominant path. The LLM
+> is quota-aware and will avoid selecting workflows like `IncreaseMemoryLimits` that
+> would worsen quota pressure. The RR now transitions to `Completed` (not `Failed`)
+> with outcome `ManualReviewRequired` when the LLM explicitly finds no applicable
+> workflow.
+
 ## Signal Flow
 
 ```
@@ -69,6 +76,13 @@ capability — the LLM learns from the failed first attempt.
 | Workflows | No specific workflow needed (scenario proves escalation) |
 | HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` (#108) |
 
+### Workflow RBAC
+
+This scenario intentionally has no matching remediation workflow. The LLM
+recognizes the ResourceQuota constraint and escalates to `ManualReviewRequired`
+rather than attempting automated remediation. No dedicated workflow
+ServiceAccount is required.
+
 ## Automated Run
 
 ```bash
@@ -101,8 +115,8 @@ kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- 
   amtool alert query alertname=KubeResourceQuotaExhausted --alertmanager.url=http://localhost:9093
 
 # 6. Monitor pipeline
-kubectl get rr -n kubernaut-system -w
-# Expect: Failed with outcome=ManualReviewRequired
+kubectl get rr -n kubernaut-system -w -o wide
+# Expect: Completed with outcome=ManualReviewRequired
 ```
 
 ### 7. Inspect AI Analysis
@@ -153,7 +167,7 @@ kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.inves
 | Alert fires | T+3:15 | ~3 min `for:` + scrape interval |
 | RR created | T+3:20 | 5 s |
 | AA completes (no_matching_workflows) | T+4:51 | ~91 s investigation (6 poll cycles) |
-| RR → Failed (ManualReviewRequired) | T+4:51 | — |
+| RR → Completed (ManualReviewRequired) | T+4:51 | — |
 | ManualReviewNotification sent | T+4:51 | immediate |
 | **Total** | **~5 min** | |
 
@@ -175,7 +189,7 @@ Feature: Resource Quota Exhaustion — policy constraint escalation
       And the LLM identifies this as a policy constraint (ResourceQuota)
       And no matching workflow is found
       And AA sets needsHumanReview to true with reason "no_matching_workflows"
-      And RR transitions to Failed with outcome ManualReviewRequired
+      And RR transitions to Completed with outcome ManualReviewRequired
       And a ManualReviewNotification is sent
       And the ResourceQuota remains exhausted (no automated fix)
 

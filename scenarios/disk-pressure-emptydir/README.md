@@ -118,6 +118,20 @@ kill %1 2>/dev/null
 > kubeconfig error. **Fix:** re-run `bash scripts/aap-helper.sh --configure-only`
 > to recreate and re-attach the credentials.
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `migrate-emptydir-to-pvc-gitops-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `migrate-emptydir-to-pvc-gitops-v1-runner` |
+| ClusterRoleBinding | `migrate-emptydir-to-pvc-gitops-v1-runner` |
+
+**Permissions**: core nodes (get, list, patch, update), core pods (get, list), core secrets (get, list), core endpoints (get, list), core persistentvolumeclaims (get, list, create, delete), `apps` deployments (get, list), `batch` jobs (get, list, create, delete), `storage.k8s.io` storageclasses (get, list), `argoproj.io` applications (get, list), `kubernaut.ai` workflowexecutions (get, list)
+
 ## Automated Run
 
 ```bash

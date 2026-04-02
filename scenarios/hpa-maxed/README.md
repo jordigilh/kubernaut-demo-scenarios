@@ -44,6 +44,20 @@ CPU stress → HPA scales to maxReplicas (3) → can't scale further
 | Workflow catalog | `patch-hpa-v1` registered in DataStorage |
 | HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` (#108) |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `patch-hpa-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `patch-hpa-v1-runner` |
+| ClusterRoleBinding | `patch-hpa-v1-runner` |
+
+**Permissions**: `autoscaling` horizontalpodautoscalers (get, list, patch), `apps` deployments (get, list)
+
 ## Automated Run
 
 ```bash

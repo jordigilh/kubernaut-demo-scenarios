@@ -80,6 +80,20 @@ these automatically, but if you created the cluster manually:
 > **Note:** kubernaut#498 tracks adding control-plane tolerations to WFE
 > jobs so that taint removal is no longer required.
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `relax-pdb-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `relax-pdb-v1-runner` |
+| ClusterRoleBinding | `relax-pdb-v1-runner` |
+
+**Permissions**: `policy` poddisruptionbudgets (get, list, patch)
+
 ## Automated Run
 
 ```bash

@@ -34,6 +34,20 @@ kube_pod_container_status_restarts_total increasing → KubePodCrashLooping aler
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `crashloop-rollback-v1` registered in DataStorage |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `crashloop-rollback-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `crashloop-rollback-v1-runner` |
+| ClusterRoleBinding | `crashloop-rollback-v1-runner` |
+
+**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+
 ## Automated Run
 
 ```bash
