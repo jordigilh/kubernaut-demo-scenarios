@@ -194,8 +194,12 @@ spec:
 MANIFEST
 
 git add .
-git commit -m "feat: initial cert-manager resources (healthy state)"
-git push origin main
+if ! git diff --cached --quiet; then
+  git commit -m "feat: initial cert-manager resources (healthy state)"
+  git push origin main
+else
+  echo "  Manifests already in repo (idempotent). Skipping commit."
+fi
 
 kill "${PF_PID}" 2>/dev/null || true
 cd /
