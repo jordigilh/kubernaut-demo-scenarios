@@ -55,10 +55,11 @@ ESCALATION_TIMEOUT=900
 ESCALATION_ELAPSED=0
 
 while [ "$ESCALATION_ELAPSED" -lt "$ESCALATION_TIMEOUT" ]; do
-    # Check for Blocked phase OR Failed phase with ManualReviewRequired outcome
+    # Check for Blocked/Failed phase, or Completed with ManualReviewRequired
+    # (v1.2.0 transitions ManualReviewRequired to Completed, not Failed)
     blocked_rr=$(kubectl get rr -n "${PLATFORM_NS}" \
       -o jsonpath='{range .items[*]}{.metadata.name}={.status.overallPhase}={.status.outcome}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
-      | grep -E "=(Blocked|Failed)=(ManualReviewRequired)?=${NAMESPACE}" | head -1 | cut -d= -f1 || true)
+      | grep -E "=(Blocked|Failed)=(ManualReviewRequired)?=${NAMESPACE}|=Completed=ManualReviewRequired=${NAMESPACE}" | head -1 | cut -d= -f1 || true)
 
     escalated_rr=$(kubectl get rr -n "${PLATFORM_NS}" \
       -o jsonpath='{range .items[*]}{.metadata.name}={.status.outcome}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
