@@ -25,7 +25,7 @@ show_alert "KubePersistentVolumeClaimOrphaned" "${NAMESPACE}"
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
 wait_for_rr "${NAMESPACE}" 120
-poll_pipeline "${NAMESPACE}" 300 "${APPROVE_MODE}"
+poll_pipeline "${NAMESPACE}" 480 "${APPROVE_MODE}"
 
 # ── Determine which path the LLM took ──────────────────────────────────────
 

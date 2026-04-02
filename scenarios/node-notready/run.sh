@@ -27,6 +27,11 @@ done
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
 
+# Workaround for #282: clean up completed WFE Jobs to avoid name collisions
+# when the same workflow+target is reused across runs.
+kubectl delete jobs -n kubernaut-workflows -l kubernaut.ai/component=workflowexecution --field-selector=status.successful=1 --ignore-not-found 2>/dev/null || true
+kubectl delete jobs -n kubernaut-workflows --field-selector=status.successful=1 --ignore-not-found 2>/dev/null || true
+
 echo "============================================="
 echo " Node NotReady Demo (#127)"
 echo "============================================="
