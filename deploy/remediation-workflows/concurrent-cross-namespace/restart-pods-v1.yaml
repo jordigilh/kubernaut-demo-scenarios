@@ -46,7 +46,7 @@ kind: RemediationWorkflow
 metadata:
   name: restart-pods-v1
 spec:
-  version: "1.0.10"
+  version: "1.2.0"
   description:
     what: "Performs a rolling restart of a deployment to recover from CrashLoopBackOff by resetting pod state without changing the deployment revision"
     whenToUse: "When a deployment enters CrashLoopBackOff and the signal carries risk_tolerance=high. This simpler restart approach prioritizes recovery speed over revision safety -- it resets pod state without rolling back to a previous revision. Best for teams that accept the risk of the current configuration and want the fastest path to recovery."
