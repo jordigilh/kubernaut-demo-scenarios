@@ -12,29 +12,29 @@ data:
   environment.rego: |
     package signalprocessing.environment
     default result := {"environment": "unknown", "source": "default"}
-    result := {"environment": env, "source": "namespace-labels"} if {
+    result := {"environment": lower(env), "source": "namespace-labels"} if {
       env := input.namespace.labels["kubernaut.ai/environment"]
       env != ""
     }
     result := {"environment": "production", "source": "namespace-name"} if {
       not input.namespace.labels["kubernaut.ai/environment"]
-      input.namespace.name == "production"
+      lower(input.namespace.name) == "production"
     }
     result := {"environment": "production", "source": "namespace-name"} if {
       not input.namespace.labels["kubernaut.ai/environment"]
-      input.namespace.name == "prod"
+      lower(input.namespace.name) == "prod"
     }
     result := {"environment": "staging", "source": "namespace-name"} if {
       not input.namespace.labels["kubernaut.ai/environment"]
-      input.namespace.name == "staging"
+      lower(input.namespace.name) == "staging"
     }
     result := {"environment": "development", "source": "namespace-name"} if {
       not input.namespace.labels["kubernaut.ai/environment"]
-      input.namespace.name == "development"
+      lower(input.namespace.name) == "development"
     }
     result := {"environment": "development", "source": "namespace-name"} if {
       not input.namespace.labels["kubernaut.ai/environment"]
-      input.namespace.name == "dev"
+      lower(input.namespace.name) == "dev"
     }
 ---
 # 2. Priority Assignment Policy (BR-SP-070)
@@ -94,23 +94,17 @@ data:
     package signalprocessing.severity
     import rego.v1
     determine_severity := "critical" if {
-      lower(input.signal.severity) == "sev1"
-    } else := "critical" if {
-      lower(input.signal.severity) == "p0"
-    } else := "critical" if {
-      lower(input.signal.severity) == "p1"
-    } else := "critical" if {
-      lower(input.signal.severity) == "error"
+      lower(input.signal.severity) == "critical"
     } else := "high" if {
-      lower(input.signal.severity) == "sev2"
-    } else := "high" if {
-      lower(input.signal.severity) == "p2"
-    } else := "high" if {
-      lower(input.signal.severity) == "warning"
+      lower(input.signal.severity) == "high"
     } else := "medium" if {
-      lower(input.signal.severity) == "sev3"
+      lower(input.signal.severity) == "medium"
+    } else := "medium" if {
+      lower(input.signal.severity) == "warning"
     } else := "low" if {
-      lower(input.signal.severity) == "p3"
+      lower(input.signal.severity) == "low"
+    } else := "low" if {
+      lower(input.signal.severity) == "info"
     } else := "unknown" if {
       true
     }

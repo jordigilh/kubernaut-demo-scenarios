@@ -1,14 +1,8 @@
-# Unified SignalProcessing Rego Policy (ADR-060)
+# Unified SignalProcessing Classification Policy
 #
-# This single file contains all classification rules for the SignalProcessing controller.
 # Deploy via Helm:
 #   helm install kubernaut kubernaut/kubernaut \
-#     --set-file signalprocessing.policy=signalprocessing-policy.rego
-#
-# Or create a ConfigMap and reference it:
-#   kubectl create configmap signalprocessing-policy --from-file=policy.rego=signalprocessing-policy.rego
-#   helm install kubernaut kubernaut/kubernaut \
-#     --set signalprocessing.existingPolicyConfigMap=signalprocessing-policy
+#     --set-file signalprocessing.policy=deploy/defaults/signalprocessing-policy.rego
 #
 # Input schema (type-safe from Go):
 #   input.namespace.name         string
@@ -27,9 +21,11 @@ package signalprocessing
 
 import rego.v1
 
-# ========== Environment Classification (BR-SP-051-053) ==========
-# Returns: {"environment": string, "source": string}
-# Priority: namespace label > namespace name prefix > default
+# ========== Environment Classification (BR-SP-051) ==========
+# Reads the kubernaut.ai/environment namespace label, falling back to
+# well-known namespace names when no label is present.
+# All values are lowercased so downstream consumers (approval policy,
+# workflow discovery) match case-insensitively.
 
 default environment := {"environment": "unknown", "source": "default"}
 
@@ -37,42 +33,42 @@ environment := {"environment": lower(env), "source": "namespace-labels"} if {
     env := input.namespace.labels["kubernaut.ai/environment"]
     env != ""
 }
-environment := {"environment": "production", "source": "namespace-labels"} if {
+environment := {"environment": "production", "source": "namespace-name"} if {
     not input.namespace.labels["kubernaut.ai/environment"]
-    input.namespace.labels["env"] == "production"
+    lower(input.namespace.name) == "production"
 }
-environment := {"environment": "staging", "source": "namespace-labels"} if {
+environment := {"environment": "production", "source": "namespace-name"} if {
     not input.namespace.labels["kubernaut.ai/environment"]
-    input.namespace.labels["env"] == "staging"
+    lower(input.namespace.name) == "prod"
 }
-environment := {"environment": "development", "source": "namespace-labels"} if {
+environment := {"environment": "staging", "source": "namespace-name"} if {
     not input.namespace.labels["kubernaut.ai/environment"]
-    input.namespace.labels["env"] == "development"
+    lower(input.namespace.name) == "staging"
+}
+environment := {"environment": "development", "source": "namespace-name"} if {
+    not input.namespace.labels["kubernaut.ai/environment"]
+    lower(input.namespace.name) == "development"
+}
+environment := {"environment": "development", "source": "namespace-name"} if {
+    not input.namespace.labels["kubernaut.ai/environment"]
+    lower(input.namespace.name) == "dev"
 }
 
-# ========== Severity Determination (BR-SP-105) ==========
-# Returns: string (critical/high/medium/low/unknown)
-# Maps external monitoring severity values to kubernaut-normalized values.
-# Add else clauses for your monitoring tool's severity scheme.
+# ========== Severity Normalization (BR-SP-105) ==========
+# Maps Prometheus/Alertmanager severity labels to kubernaut-standard values.
+# Extend the else-chain to support additional monitoring tools.
 
 default severity := "unknown"
 
 severity := "critical" if { lower(input.signal.severity) == "critical" }
-severity := "critical" if { lower(input.signal.severity) == "sev1" }
-severity := "critical" if { lower(input.signal.severity) == "p0" }
-severity := "high" if { lower(input.signal.severity) == "high" }
-severity := "high" if { lower(input.signal.severity) == "sev2" }
-severity := "high" if { lower(input.signal.severity) == "p2" }
-severity := "medium" if { lower(input.signal.severity) == "medium" }
-severity := "medium" if { lower(input.signal.severity) == "warning" }
-severity := "medium" if { lower(input.signal.severity) == "sev3" }
-severity := "low" if { lower(input.signal.severity) == "low" }
-severity := "low" if { lower(input.signal.severity) == "info" }
-severity := "low" if { lower(input.signal.severity) == "sev4" }
+severity := "high"     if { lower(input.signal.severity) == "high" }
+severity := "medium"   if { lower(input.signal.severity) == "medium" }
+severity := "medium"   if { lower(input.signal.severity) == "warning" }
+severity := "low"      if { lower(input.signal.severity) == "low" }
+severity := "low"      if { lower(input.signal.severity) == "info" }
 
 # ========== Priority Assignment (BR-SP-070) ==========
-# Returns: {"priority": string, "policy_name": string}
-# References `environment` and `severity` rules above -- Rego resolves internally.
+# Combines environment and severity to assign a priority bucket (P0–P3).
 
 default priority := {"priority": "P3", "policy_name": "default"}
 
@@ -94,9 +90,8 @@ priority := {"priority": "P2", "policy_name": "staging-any"} if {
 }
 
 # ========== Custom Labels (BR-SP-102) ==========
-# Returns: map[string][]string
-# Extract operator-defined labels from namespace metadata.
-# Reserved prefixes ("kubernaut.ai/", "system/") are stripped by Go after evaluation.
+# Extracts operator-defined labels from namespace metadata for
+# workflow-context matching (team, tier).
 
 default labels := {}
 
