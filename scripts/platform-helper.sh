@@ -133,6 +133,32 @@ silence_alert() {
       --comment="Cleanup silence" 2>/dev/null || true
 }
 
+# Apply a multi-document workflow YAML, routing each document to the
+# correct namespace. RemediationWorkflow docs get -n $ns (platform namespace),
+# other docs (ServiceAccount, ClusterRole, ClusterRoleBinding) are applied
+# without -n so they respect their own metadata.namespace.
+_apply_workflow_yaml() {
+    local yaml_file="$1" ns="$2"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    trap "rm -rf '${tmpdir}'" RETURN
+
+    kubectl create namespace "${WE_NAMESPACE:-kubernaut-workflows}" \
+        --dry-run=client -o yaml 2>/dev/null | kubectl apply -f - 2>/dev/null || true
+
+    awk -v dir="$tmpdir" \
+        'BEGIN{n=0} /^---$/{n++; next} {print >> dir"/doc-"n".yaml"}' "$yaml_file"
+
+    for doc in "$tmpdir"/doc-*.yaml; do
+        [ -f "$doc" ] || continue
+        if grep -q 'kind: RemediationWorkflow' "$doc"; then
+            kubectl apply -n "$ns" -f "$doc" 2>&1
+        else
+            kubectl apply -f "$doc" 2>&1
+        fi
+    done
+}
+
 # Ensure all ActionType and RemediationWorkflow CRDs are applied.
 # Idempotent: kubectl apply is a no-op when resources are unchanged.
 seed_action_types_and_workflows() {
@@ -181,7 +207,7 @@ seed_action_types_and_workflows() {
                 continue
             fi
 
-            kubectl apply -n "$ns" -f "$yaml_file" 2>&1 \
+            _apply_workflow_yaml "$yaml_file" "$ns" 2>&1 \
                 | grep -v unchanged | sed 's/^/    /' || true
             applied=$((applied + 1))
         done < <(find "$wf_dir" -name '*.yaml' -print0)
@@ -285,13 +311,18 @@ ensure_platform() {
 
     echo "==> Installing Kubernaut platform..."
 
+    local version_flag=""
+    if [ -n "${CHART_VERSION:-}" ]; then
+        version_flag="--version ${CHART_VERSION}"
+    fi
+
     echo "  Applying CRDs (source: ${CHART_SOURCE})..."
     if [ "${CHART_SOURCE}" = "local" ]; then
         kubectl apply -f "${CHART_REF}/crds/" 2>&1 | sed 's/^/    /'
     else
         local _crd_tmp
         _crd_tmp=$(mktemp -d)
-        helm pull "${CHART_REF}" --untar --untardir "${_crd_tmp}" 2>&1 | sed 's/^/    /'
+        helm pull "${CHART_REF}" ${version_flag} --untar --untardir "${_crd_tmp}" 2>&1 | sed 's/^/    /'
         kubectl apply -f "${_crd_tmp}/kubernaut/crds/" 2>&1 | sed 's/^/    /'
         rm -rf "${_crd_tmp}"
     fi
@@ -319,19 +350,28 @@ ensure_platform() {
         values_file="${KIND_VALUES}"
     fi
 
-    local version_flag=""
     if [ -n "${CHART_VERSION:-}" ]; then
-        version_flag="--version ${CHART_VERSION}"
         echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF}, version: ${CHART_VERSION}, platform: ${PLATFORM})..."
     else
         echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF}, platform: ${PLATFORM})..."
     fi
+    local policy_flags=""
+    local sp_policy="${REPO_ROOT}/deploy/defaults/signalprocessing-policy.rego"
+    local aa_policy="${REPO_ROOT}/deploy/defaults/approval-policy.rego"
+    if [ -f "$sp_policy" ]; then
+        policy_flags="--set-file signalprocessing.policy=${sp_policy}"
+    fi
+    if [ -f "$aa_policy" ]; then
+        policy_flags="${policy_flags} --set-file aianalysis.policies.content=${aa_policy}"
+    fi
+
     helm upgrade --install kubernaut "${CHART_REF}" \
         --namespace "${PLATFORM_NS}" \
         --create-namespace \
         --values "${values_file}" \
         ${llm_flags} \
         ${version_flag} \
+        ${policy_flags} \
         --set demoContent.enabled=false \
         --skip-crds \
         --wait --timeout 10m

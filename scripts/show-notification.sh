@@ -39,7 +39,24 @@ display_one() {
     prio=$(echo "$json" | jq -r '.spec.priority // ""')
     type=$(echo "$json" | jq -r '.spec.type // ""')
     phase=$(echo "$json" | jq -r '.status.phase // "Pending"')
-    meta=$(echo "$json" | jq -r '(.spec.metadata // {}) | to_entries | map("\(.key)=\(.value)") | join(", ")')
+    meta=$(echo "$json" | jq -r '(.spec.extensions // {}) | to_entries | map("\(.key)=\(.value)") | join(", ")')
+
+    # v1.2.0 structured context: flatten .spec.context sub-structs into
+    # display-friendly lines (lineage, workflow, analysis, verification).
+    local ctx_lines=""
+    ctx_lines=$(echo "$json" | jq -r '
+      def kv(prefix; obj): obj // {} | to_entries[] | "\(prefix).\(.key) = \(.value)";
+      [
+        (if .spec.context.lineage    then kv("lineage";    .spec.context.lineage)    else empty end),
+        (if .spec.context.workflow    then kv("workflow";   .spec.context.workflow)   else empty end),
+        (if .spec.context.analysis    then kv("analysis";   .spec.context.analysis)   else empty end),
+        (if .spec.context.review      then kv("review";     .spec.context.review)     else empty end),
+        (if .spec.context.execution   then kv("execution";  .spec.context.execution)  else empty end),
+        (if .spec.context.target      then kv("target";     .spec.context.target)     else empty end),
+        (if .spec.context.dedup       then kv("dedup";      .spec.context.dedup)      else empty end),
+        (if .spec.context.verification then kv("verification"; .spec.context.verification) else empty end)
+      ] | join("\n")
+    ' 2>/dev/null || true)
 
     # Supplement empty Outcome from the RR status (notification is created
     # during the Verifying phase before the outcome is known).
@@ -63,7 +80,7 @@ display_one() {
     prio=$(kubectl get notificationrequest "$name" -n "$NAMESPACE" -o jsonpath='{.spec.priority}' 2>/dev/null || true)
     type=$(kubectl get notificationrequest "$name" -n "$NAMESPACE" -o jsonpath='{.spec.type}' 2>/dev/null || true)
     phase=$(kubectl get notificationrequest "$name" -n "$NAMESPACE" -o jsonpath='{.status.phase}' 2>/dev/null || true)
-    meta=$(kubectl get notificationrequest "$name" -n "$NAMESPACE" -o jsonpath='{.spec.metadata}' 2>/dev/null | sed 's/map\[//;s/\]//' || true)
+    meta=$(kubectl get notificationrequest "$name" -n "$NAMESPACE" -o jsonpath='{.spec.extensions}' 2>/dev/null | sed 's/map\[//;s/\]//' || true)
   fi
 
   # Title from subject or type
@@ -80,6 +97,19 @@ display_one() {
   echo "$body" | fold -s -w "$line_w" | while IFS= read -r line; do
     printf '  %s\n' "$line"
   done
+
+  # v1.2.0: display structured context when present (jq path only)
+  if [ -n "${ctx_lines:-}" ]; then
+    printf '\n  \e[1;36mContext\e[0m\n'
+    printf '  \e[38;5;245m%s\e[0m\n' "────────────────────────────────────────────────────────────────────────"
+    echo "$ctx_lines" | while IFS= read -r cline; do
+      [ -n "$cline" ] && printf '  \e[38;5;245m%s\e[0m\n' "$cline"
+    done
+  fi
+
+  if [ -n "${meta:-}" ]; then
+    printf '\n  \e[1;36mExtensions\e[0m  %s\n' "$meta"
+  fi
   printf '\n'
 }
 
