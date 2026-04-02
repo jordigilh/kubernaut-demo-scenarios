@@ -73,8 +73,8 @@ spec:
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
-      required: true
-      description: "Namespace of the StatefulSet"
+      required: false
+      description: "Namespace of the StatefulSet. Discovered automatically when not provided."
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true

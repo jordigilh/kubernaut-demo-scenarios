@@ -70,8 +70,8 @@ spec:
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
-      required: true
-      description: "Namespace of the affected workload and Certificate"
+      required: false
+      description: "Namespace of the affected Certificate. Optional for cluster-scoped targets (e.g. ClusterIssuer); discovered automatically when not provided."
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true

@@ -2,7 +2,16 @@
 set -e
 
 : "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
-: "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
+
+if [ -z "${TARGET_RESOURCE_NAMESPACE:-}" ]; then
+  echo "TARGET_RESOURCE_NAMESPACE not set. Discovering namespace for StatefulSet ${TARGET_RESOURCE_NAME}..."
+  TARGET_RESOURCE_NAMESPACE=$(kubectl get statefulset -A -o jsonpath="{range .items[?(@.metadata.name==\"${TARGET_RESOURCE_NAME}\")]}{.metadata.namespace}{end}" 2>/dev/null || echo "")
+  if [ -z "${TARGET_RESOURCE_NAMESPACE}" ]; then
+    echo "ERROR: Cannot discover namespace for StatefulSet '${TARGET_RESOURCE_NAME}'"
+    exit 1
+  fi
+  echo "Discovered namespace: ${TARGET_RESOURCE_NAMESPACE}"
+fi
 
 echo "=== Phase 1: Validate ==="
 echo "Checking StatefulSet ${TARGET_RESOURCE_NAME} in ${TARGET_RESOURCE_NAMESPACE}..."
