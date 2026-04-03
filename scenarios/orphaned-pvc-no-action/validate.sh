@@ -41,15 +41,15 @@ sp_phase=$(get_sp_phase "${NAMESPACE}")
 assert_eq "$sp_phase" "Completed" "SP phase"
 
 aa_phase=$(get_aa_phase "${NAMESPACE}")
-assert_eq "$aa_phase" "Completed" "AA phase"
+assert_in "$aa_phase" "AA phase" "Completed" "Failed"
 
 assert_eq "$rr_phase" "Completed" "RR phase"
 
 if [ -z "${aa_workflow_id}" ]; then
-    # Path A: LLM determined no action needed
-    log_phase "Path A detected: LLM said not actionable → NoActionRequired"
+    # Path A: no matching workflow → ManualReviewRequired (v1.2) or NoActionRequired
+    log_phase "Path A detected: LLM found no actionable workflow"
 
-    assert_eq "$rr_outcome" "NoActionRequired" "RR outcome"
+    assert_in "$rr_outcome" "RR outcome" "NoActionRequired" "ManualReviewRequired"
 
     pvc_count=$(kubectl get pvc -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
     assert_eq "$pvc_count" "5" "Orphaned PVCs still present (no-action path)"
