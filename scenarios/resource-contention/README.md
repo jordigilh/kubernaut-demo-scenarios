@@ -73,7 +73,7 @@ The EA (EffectivenessAssessment) detects the revert via spec hash comparison:
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
 | Workflow | `increase-memory-limits-v1` (shipped with demo content) |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` (#108) |
+| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 
 ### Workflow RBAC
 

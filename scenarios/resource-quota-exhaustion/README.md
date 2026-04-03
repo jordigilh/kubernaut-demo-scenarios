@@ -74,7 +74,7 @@ capability — the LLM learns from the failed first attempt.
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
 | Workflows | No specific workflow needed (scenario proves escalation) |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` (#108) |
+| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 
 ### Workflow RBAC
 
