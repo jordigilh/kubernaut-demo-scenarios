@@ -211,12 +211,31 @@ kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply
 if [ "$PLATFORM" = "ocp" ]; then
     kubectl label namespace "${NAMESPACE}" openshift.io/cluster-monitoring=true --overwrite
     kubectl label namespace "${NAMESPACE}" argocd.argoproj.io/managed-by=openshift-gitops --overwrite
+    # Label cert-manager namespace so its ServiceMonitor is scraped by cluster
+    # Prometheus (same instance evaluating the PrometheusRule in demo-cert-gitops).
+    # Without this, cert-manager metrics go to user-workload Prometheus and the
+    # alert rule in cluster Prometheus never fires (#290).
+    kubectl label namespace cert-manager openshift.io/cluster-monitoring=true --overwrite
+    echo "  Labeled cert-manager namespace for cluster Prometheus scraping."
 fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
 echo "  Waiting for ArgoCD sync..."
 sleep 15
+
+if [ "$PLATFORM" = "ocp" ]; then
+    echo "  Waiting for cluster Prometheus to scrape cert-manager metrics..."
+    for i in $(seq 1 12); do
+        if kubectl get --raw "/api/v1/namespaces/openshift-monitoring/services/prometheus-k8s:web/proxy/api/v1/query?query=certmanager_certificate_ready_status" 2>/dev/null \
+           | grep -q '"result":\[{'; then
+            echo "  cert-manager metrics available in cluster Prometheus (attempt $i)."
+            break
+        fi
+        [ "$i" -eq 12 ] && echo "  WARNING: cert-manager metrics not yet visible after 60s. Proceeding anyway."
+        sleep 5
+    done
+fi
 
 echo "==> Step 6: Waiting for Certificate to become Ready..."
 for i in $(seq 1 30); do
