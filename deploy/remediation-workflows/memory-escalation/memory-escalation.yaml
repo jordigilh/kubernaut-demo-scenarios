@@ -45,7 +45,7 @@ metadata:
 spec:
   # Increase Memory Limits Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: Memory escalation -- increase limits to prevent OOMKill
-  version: "1.2.0"
+  version: "1.2.1"
   description:
     what: "Increases the memory limits of a deployment's containers to prevent OOMKill events. Doubles the current memory limit by default."
     whenToUse: "When containers are being OOMKilled — including cases caused by memory leaks. Increasing limits is preferred over GracefulRestart as a first response because doubling the limit buys meaningful diagnostic time for operators, whereas a restart only resets the leak cycle for seconds to minutes. If repeated applications show declining effectiveness, the platform will escalate to human review."
