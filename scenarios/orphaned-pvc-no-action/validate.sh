@@ -17,7 +17,7 @@ APPROVE_MODE="${1:---auto-approve}"
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
-PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 600)}"
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 480)}"
 
 # ── Wait for alert ──────────────────────────────────────────────────────────
 

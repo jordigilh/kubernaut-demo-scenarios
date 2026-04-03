@@ -4,6 +4,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/platform-helper.sh
+source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+
 echo "==> Cleaning up cert-manager Certificate Failure demo..."
 
 kubectl delete -f "${SCRIPT_DIR}/manifests/servicemonitor.yaml" --ignore-not-found
@@ -13,6 +16,10 @@ kubectl delete -f "${SCRIPT_DIR}/manifests/deployment.yaml" --ignore-not-found
 kubectl delete -f "${SCRIPT_DIR}/manifests/clusterissuer.yaml" --ignore-not-found
 kubectl delete secret demo-ca-key-pair -n cert-manager --ignore-not-found
 kubectl delete namespace demo-cert-failure --ignore-not-found
+
+if [ "$PLATFORM" = "ocp" ]; then
+    kubectl label namespace cert-manager openshift.io/cluster-monitoring- 2>/dev/null || true
+fi
 
 echo "==> Cleanup complete."
 echo "    NOTE: cert-manager itself is NOT removed. To remove:"

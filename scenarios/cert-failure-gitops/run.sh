@@ -215,6 +215,8 @@ if [ "$PLATFORM" = "ocp" ]; then
     # Prometheus (same instance evaluating the PrometheusRule in demo-cert-gitops).
     # Without this, cert-manager metrics go to user-workload Prometheus and the
     # alert rule in cluster Prometheus never fires (#290).
+    # NOTE: This moves ALL ServiceMonitors in cert-manager ns to cluster Prometheus.
+    # cleanup.sh removes this label to restore the original state.
     kubectl label namespace cert-manager openshift.io/cluster-monitoring=true --overwrite
     echo "  Labeled cert-manager namespace for cluster Prometheus scraping."
 fi

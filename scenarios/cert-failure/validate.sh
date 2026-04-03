@@ -11,6 +11,8 @@ APPROVE_MODE="${1:---auto-approve}"
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 600)}"
+
 # ── Clean stale blocked duplicates ──────────────────────────────────────────
 
 for rr in $(kubectl get rr -n "${PLATFORM_NS}" -o jsonpath='{range .items[*]}{.metadata.name}={.status.overallPhase}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null | grep "=Blocked=${NAMESPACE}" | cut -d= -f1); do
@@ -26,7 +28,7 @@ show_alert "CertManagerCertNotReady" "${NAMESPACE}"
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
 wait_for_rr "${NAMESPACE}" 120
-poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"
+poll_pipeline "${NAMESPACE}" "${PIPELINE_TIMEOUT}" "${APPROVE_MODE}"
 
 # ── Assertions ──────────────────────────────────────────────────────────────
 

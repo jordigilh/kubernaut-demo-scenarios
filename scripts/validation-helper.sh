@@ -653,10 +653,12 @@ auto_approve_rar() {
 # ── Main pipeline poller ─────────────────────────────────────────────────────
 # Polls RR overallPhase, prints transitions, shows AI analysis and WFE inline.
 #
-# Args: $1=target_namespace $2=timeout (default 600) $3=--auto-approve|--interactive (default --auto-approve)
+# Args: $1=target_namespace $2=timeout $3=--auto-approve|--interactive (default --auto-approve)
+# Default timeout: 900s on OCP (EA stabilization window is longer), 600s on Kind.
 poll_pipeline() {
     local target_ns="$1"
-    local timeout="${2:-600}"
+    local _default_timeout; _default_timeout=$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 600)
+    local timeout="${2:-$_default_timeout}"
     local approve_mode="${3:---auto-approve}"
     local elapsed=0
     local interval=10
