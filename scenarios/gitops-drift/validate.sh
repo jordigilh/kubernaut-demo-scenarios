@@ -7,10 +7,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="demo-gitops"
 APPROVE_MODE="${1:---auto-approve}"
-PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-900}"
 
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
+
+# OCP EA stabilization (hashComputeDelay+stabilizationWindow) can exceed 600s;
+# Kind uses 30s stabilization so 600s is sufficient.
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 600)}"
 
 # ── Clean stale blocked duplicates ──────────────────────────────────────────
 

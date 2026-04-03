@@ -13,10 +13,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="demo-orphaned-pvc"
 APPROVE_MODE="${1:---auto-approve}"
-PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-900}"
 
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
+
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 600)}"
 
 # ── Wait for alert ──────────────────────────────────────────────────────────
 
