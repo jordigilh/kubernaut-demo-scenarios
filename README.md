@@ -310,6 +310,27 @@ Prometheus alert fires (KubePodCrashLooping)
 
 Each of the 24 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
 
+## Scenario Prerequisites Matrix
+
+Most scenarios run with just the base Kubernaut platform. Some require additional
+infrastructure. The `run.sh` preflight checks will tell you if something is missing,
+but this matrix lets you plan ahead:
+
+| Infrastructure | Scenarios | Setup |
+|----------------|-----------|-------|
+| **Gitea + ArgoCD** | gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible | Option A: `--with-gitea --with-argocd`. Option B: see [Setup Guide](docs/setup.md). |
+| **AWX/AAP + Ansible engine** | disk-pressure-emptydir, memory-limits-gitops-ansible | `bash scripts/awx-helper.sh` (or `aap-helper.sh`). Configures operator, job templates, and WE controller Ansible engine. |
+| **cert-manager** | cert-failure, cert-failure-gitops | OCP: `openshift-cert-manager-operator` from OperatorHub. Kind: installed by `setup-demo-cluster.sh`. |
+| **Istio / Service Mesh** | mesh-routing-failure | OCP: OpenShift Service Mesh (OSSM) from OperatorHub. Kind: `--with-istio`. |
+| **metrics-server** | autoscale, hpa-maxed | Built-in on OCP. Kind: installed by `setup-demo-cluster.sh`. |
+| **HAPI Prometheus toolset** | autoscale, hpa-maxed, memory-leak, memory-escalation, slo-burn, disk-pressure-emptydir, resource-contention, resource-quota-exhaustion | Auto-enabled by `run.sh`. [Manual enablement](docs/prometheus-toolset.md). |
+| **Podman (Kind only)** | node-notready | Kind-only scenario. Not supported on OCP (#287). |
+
+Scenarios not listed above (crashloop, crashloop-helm, duplicate-alert-suppression,
+concurrent-cross-namespace, memory-escalation, network-policy-block, orphaned-pvc-no-action,
+pdb-deadlock, pending-taint, resource-contention, resource-quota-exhaustion,
+statefulset-pvc-failure, stuck-rollout) require only the base Kubernaut platform.
+
 ## Documentation
 
 | Guide | Description |
