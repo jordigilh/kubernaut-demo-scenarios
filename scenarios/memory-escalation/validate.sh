@@ -59,8 +59,8 @@ fi
 # ── Wait for escalation (subsequent cycles) ──────────────────────────────────
 # The workload will OOMKill again. After 2-3 cycles, the RO should block.
 
-log_phase "Waiting for escalation (Blocked RR after 2-3 cycles, timeout 900s)..."
-ESCALATION_TIMEOUT=900
+log_phase "Waiting for escalation (Blocked RR after 3-4 cycles, timeout 1800s)..."
+ESCALATION_TIMEOUT=1800
 ESCALATION_ELAPSED=0
 
 while [ "$ESCALATION_ELAPSED" -lt "$ESCALATION_TIMEOUT" ]; do
@@ -126,20 +126,7 @@ total_rr=$(kubectl get rr -n "${PLATFORM_NS}" \
   | { grep "^${NAMESPACE}$" || true; } | wc -l | tr -d ' ')
 assert_gt "${total_rr:-0}" "1" "Multiple RRs created (multi-cycle)"
 
-if [ "${total_escalated}" -gt 0 ]; then
-    assert_gt "${total_escalated}" "0" "At least 1 escalated RR (Blocked or ManualReviewRequired)"
-else
-    # Both IncreaseMemoryLimits and GracefulRestart cycles complete as
-    # "Remediated" (the workflow itself succeeds each time), so the RO may
-    # not trigger an explicit Blocked/ManualReviewRequired within the
-    # timeout. Multi-cycle creation already proves the platform detected
-    # recurrence; accept this as a pass.
-    log_warn "No explicit escalation (all ${total_rr} cycles completed as Remediated)"
-    _ASSERT_TOTAL=$((_ASSERT_TOTAL + 1))
-    _ASSERT_PASS=$((_ASSERT_PASS + 1))
-    printf '           %s[PASS]%s Multi-cycle recurrence validated (%s RRs, workflow: %s)\n' \
-        "$_c_green" "$_c_reset" "$total_rr" "$FIRST_WORKFLOW"
-fi
+assert_gt "${total_escalated}" "0" "At least 1 escalated RR (Blocked or ManualReviewRequired)"
 
 # ── Post-escalation root cause fix ──────────────────────────────────────────
 # Scale workload to 0 so OOMKills stop and alerts resolve naturally.
