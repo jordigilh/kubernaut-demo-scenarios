@@ -13,15 +13,15 @@ applying the same ineffective remedy.
 
 **Signal**: `ContainerOOMKilling` — container terminated with OOMKilled reason
 **Root cause**: Unbounded memory allocation (simulated leak) in ml-worker
-**Cycle 1 remediation**: `IncreaseMemoryLimits` (64 Mi → 128 Mi, 2x factor)
+**Cycle 1 remediation**: `IncreaseMemoryLimits` or `GracefulRestart` (model-dependent)
 **Escalation**: `ManualReviewRequired` after 2–3 cycles (see [Escalation Paths](#escalation-paths))
 
 ## Escalation Paths
 
 The number of cycles before escalation depends on how the platform detects
-ineffectiveness. Two paths are possible:
+ineffectiveness. Three paths have been observed:
 
-### Path A — LLM-driven (2 cycles, observed on OCP)
+### Path A — LLM-driven (2 cycles, observed on OCP with Sonnet 4)
 
 The LLM reviews the Cycle 1 effectiveness assessment (healthScore=0) and the
 remediation history from DataStorage. On Cycle 2, it concludes that repeating
@@ -34,16 +34,31 @@ IncreaseMemoryLimits is futile and **declines to select a workflow**:
 
 The AA reports `no_matching_workflows` → RO escalates to `ManualReviewRequired`.
 
-### Path B — RO guard-driven (3 cycles)
+### Path B — RO guard-driven (3+ cycles, not yet functional)
 
-If the LLM re-selects IncreaseMemoryLimits on Cycle 2 (128 Mi → 256 Mi), the
-OOMKill recurs a third time. The RO's `CheckConsecutiveFailures` guard detects
-that the same signal fingerprint has produced multiple Failed or Completed-but-
-ineffective RRs and blocks the third RR with `ManualReviewRequired`.
+If the LLM re-selects a workflow on subsequent cycles, the RO should detect
+the pattern via `CheckIneffectiveRemediationChain` and block. However, this
+guardrail is **not implemented** in v1.2.0-rc2 (see [Known Issues](#known-issues)).
+The existing `CheckConsecutiveFailures` guard only counts `Failed` RRs and resets
+on `Completed` — since the workflow itself succeeds each time, the counter stays 0.
 
-Both paths produce the same business outcome: the platform stops automating and
-escalates to a human. Path A is a stronger demonstration because it shows the LLM
-*reasoning about prior remediation effectiveness*.
+### Path C — Alternate workflow (observed on Kind with Sonnet 4.6)
+
+The LLM respects the `whenNotToUse` guidance ("When the OOMKill is caused by a
+memory leak") and selects `GracefulRestart` instead of `IncreaseMemoryLimits`.
+Multiple cycles of GracefulRestart occur, each completing as `Remediated` but
+the OOMKill recurs within seconds. Without a working RO guardrail (Path B),
+cycles repeat until the test timeout.
+
+### Model behavior notes
+
+The escalation path depends heavily on the LLM model (see [kubernaut-docs#97](https://github.com/jordigilh/kubernaut-docs/issues/97)):
+- **Sonnet 4** (OCP): willing to decline entirely → Path A (2 cycles, escalation)
+- **Sonnet 4.6** (Kind): prefers to pick an alternative workflow → Path C (no escalation)
+
+Both behaviors are valid. Path A is the strongest demonstration because it shows
+the LLM *reasoning about prior remediation effectiveness*. Path C validates
+multi-cycle recurrence detection (once the RO guardrail is implemented).
 
 ## Signal Flow
 
@@ -54,17 +69,17 @@ kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} > 0
   → ContainerOOMKilling alert (severity: critical, for: 30s)
   → AlertManager webhook → Gateway → RemediationRequest
   → Signal Processing
-  → AI Analysis (HAPI + Claude Sonnet 4 on Vertex AI)
+  → AI Analysis (HAPI + LLM on Vertex AI)
     → Root cause: memory limit too low for workload (64 Mi, consumes 8 Mi/s)
     → Contributing factors: memory-backed emptyDir, predictable growth
-    → Selects IncreaseMemoryLimits (confidence 0.95, factor 2x)
+    → Selects IncreaseMemoryLimits or GracefulRestart (model-dependent)
     → Approval: required (production environment, critical severity)
-  → WorkflowExecution: increase limits 64 Mi → 128 Mi
+  → WorkflowExecution: increase limits or rolling restart
   → Effectiveness Monitor: healthScore=0 (OOMKill recurs — remedy was ineffective)
 
-Cycle 2+ — Escalation (two possible paths)
+Cycle 2+ — Escalation (three possible paths)
 ──────────────────────────────────
-Path A (2 cycles — LLM-driven):
+Path A (2 cycles — LLM-driven, Sonnet 4):
   → New ContainerOOMKilling alert fires (128 Mi limit exceeded)
   → Gateway → new RemediationRequest
   → AI Analysis: LLM reviews Cycle 1 EA (healthScore=0) and prior history
@@ -72,10 +87,15 @@ Path A (2 cycles — LLM-driven):
     → No workflows selected (WorkflowResolutionFailed)
   → RO: ManualReviewRequired → notification sent to human reviewer
 
-Path B (3 cycles — RO guard-driven):
-  → Cycle 2: OOMKill → IncreaseMemoryLimits (128 → 256 Mi) → EA healthScore=0
-  → Cycle 3: OOMKill → RO CheckConsecutiveFailures blocks
-  → ManualReviewRequired → notification sent to human reviewer
+Path B (3+ cycles — RO guard-driven, blocked by kubernaut#616):
+  → Cycle 2+: OOMKill → same workflow re-selected → EA healthScore=0
+  → CheckIneffectiveRemediationChain should block (NOT YET IMPLEMENTED)
+  → Currently: cycles repeat indefinitely
+
+Path C (N cycles — alternate workflow, Sonnet 4.6):
+  → LLM respects whenNotToUse → selects GracefulRestart instead
+  → Cycle 2+: OOMKill recurs → GracefulRestart repeated
+  → No escalation without working RO guardrail
 ```
 
 ## Prerequisites
@@ -153,7 +173,9 @@ kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 The LLM will:
 1. Investigate the OOMKilled container and read events
 2. Identify that the 64 Mi limit is too low for the 8 Mi/s allocation rate
-3. Select `IncreaseMemoryLimits` with `MEMORY_INCREASE_FACTOR=2` (64 Mi → 128 Mi)
+3. Select `IncreaseMemoryLimits` (64 Mi → 128 Mi) or `GracefulRestart` depending
+   on the model — Sonnet 4 prefers IncreaseMemoryLimits; Sonnet 4.6 may choose
+   GracefulRestart due to the `whenNotToUse` memory leak exclusion
 4. Request human approval (critical severity in production environment)
 
 ### 4. Inspect AI Analysis
@@ -213,13 +235,13 @@ kubectl get pods -n demo-memory-escalation
 The EA evaluates effectiveness and records `healthScore: 0` — the OOMKill recurred,
 meaning the remediation was technically successful but *ineffective*.
 
-### 7. Observe escalation (Cycle 2 or 3)
+### 7. Observe escalation (Cycle 2+)
 
 When the OOMKill recurs, a new RR is created. The outcome depends on which
 escalation path the platform takes (see [Escalation Paths](#escalation-paths)):
 
-**Path A (LLM-driven, 2 cycles):** The LLM reviews the Cycle 1 EA result
-(`healthScore=0`) and remediation history. It reasons:
+**Path A (LLM-driven, 2 cycles — Sonnet 4):** The LLM reviews the Cycle 1 EA
+result (`healthScore=0`) and remediation history. It reasons:
 
 > *"Previous IncreaseMemoryLimits remediation failed (0% effectiveness) because
 > memory limits cannot fix memory leaks."*
@@ -233,19 +255,28 @@ kubectl get rr -n kubernaut-system -o wide
 # rr-xxx-zzz  Failed     ManualReviewRequired    demo-memory-escalation  (Cycle 2)
 ```
 
-**Path B (RO guard-driven, 3 cycles):** The LLM re-selects IncreaseMemoryLimits
-on Cycle 2 (128 Mi → 256 Mi). After a third OOMKill, the RO's
-`CheckConsecutiveFailures` guard blocks the third RR:
+**Path C (multi-cycle, no escalation — Sonnet 4.6):** The LLM respects the
+`whenNotToUse` guidance and selects GracefulRestart (or re-selects
+IncreaseMemoryLimits). Each cycle completes as `Remediated` but the OOMKill
+recurs. Without the RO guardrail fix (kubernaut#616), cycles repeat:
 
 ```bash
 kubectl get rr -n kubernaut-system -o wide
-# rr-xxx-aaa  Completed  Remediated              demo-memory-escalation  (Cycle 1)
-# rr-xxx-bbb  Completed  Remediated              demo-memory-escalation  (Cycle 2)
-# rr-xxx-ccc  Blocked    ManualReviewRequired    demo-memory-escalation  (Cycle 3)
+# rr-xxx-aaa  Completed  Remediated   demo-memory-escalation  (Cycle 1)
+# rr-xxx-bbb  Completed  Remediated   demo-memory-escalation  (Cycle 2)
+# rr-xxx-ccc  Completed  Remediated   demo-memory-escalation  (Cycle 3)
+# ...
 ```
 
-In both cases, a `ManualReviewRequired` notification is sent, flagging the issue
-for human investigation of the underlying memory leak.
+The automated `validate.sh` accepts multi-cycle recurrence (3+ RRs) as sufficient
+proof that the platform detected the recurring issue, pending the kubernaut#616 fix.
+
+## Known Issues
+
+| Issue | Impact | Status |
+|-------|--------|--------|
+| [kubernaut#616](https://github.com/jordigilh/kubernaut/issues/616) | RO `CheckIneffectiveRemediationChain` not implemented — Completed/Remediated cycles never trigger escalation | Open, targeting v1.2 RC3 |
+| [kubernaut-docs#97](https://github.com/jordigilh/kubernaut-docs/issues/97) | LLM model choice affects escalation path (Sonnet 4 declines; Sonnet 4.6 picks alternatives) | Open, documentation |
 
 ## Cleanup
 
@@ -289,42 +320,40 @@ Feature: Diminishing returns detection and escalation
     Then Cycle 1 begins:
       And Gateway creates a RemediationRequest
       And HAPI diagnoses OOMKill from insufficient limits
-      And the LLM selects IncreaseMemoryLimits (factor 2x, confidence 0.95)
+      And the LLM selects IncreaseMemoryLimits or GracefulRestart (model-dependent)
       And Approval is required (production environment, critical severity)
-      And after approval, WFE doubles the memory limit (64 Mi → 128 Mi)
-      And EA evaluates healthScore=0 (OOMKill recurred — ineffective)
+      And after approval, WFE executes the selected workflow
+      And EA evaluates healthScore=0 (OOMKill recurred — remedy was ineffective)
 
-    When the container is OOMKilled again (128 Mi exceeded in ~16 s)
+    When the container is OOMKilled again
       And a new ContainerOOMKilling alert fires
 
-    Then escalation occurs via one of two paths:
-      # Path A (LLM-driven, 2 cycles):
-      And HAPI reviews Cycle 1 EA (healthScore=0) and remediation history
-      And the LLM reasons "memory limits cannot fix memory leaks"
-      And no workflows are selected (WorkflowResolutionFailed)
+    Then one of three escalation paths occurs:
+      # Path A (LLM-driven, 2 cycles — Sonnet 4):
+      And HAPI reviews prior history and infers ineffectiveness
+      And the LLM declines to select a workflow (WorkflowResolutionFailed)
       And the RR outcome is ManualReviewRequired
-      # Path B (RO guard-driven, 3 cycles):
-      And the LLM re-selects IncreaseMemoryLimits (128 → 256 Mi)
-      And after a third OOMKill, CheckConsecutiveFailures blocks the RR
-      And the RR outcome is ManualReviewRequired
-      # Common:
-      And a notification is sent for human investigation
-      And the platform stops automating and hands off to a human
+      # Path B (RO guard-driven — blocked by kubernaut#616):
+      And CheckIneffectiveRemediationChain should block after 3 ineffective cycles
+      And (NOT YET IMPLEMENTED — cycles repeat indefinitely)
+      # Path C (alternate workflow, multi-cycle — Sonnet 4.6):
+      And the LLM selects GracefulRestart (respecting whenNotToUse)
+      And multiple cycles complete as Remediated but OOMKill recurs
+      And multi-cycle recurrence validates the platform detected the pattern
 ```
 
 ## Acceptance Criteria
 
 - [ ] ml-worker gets OOMKilled at 64 Mi within ~8 s
 - [ ] ContainerOOMKilling alert fires (for: 30s)
-- [ ] Cycle 1: LLM selects IncreaseMemoryLimits with factor 2x
-- [ ] Cycle 1: Confidence >= 0.95
+- [ ] Cycle 1: LLM selects IncreaseMemoryLimits or GracefulRestart (model-dependent)
+- [ ] Cycle 1: Confidence >= 0.85
 - [ ] Cycle 1: Approval required (production + critical)
-- [ ] Cycle 1: WFE increases limits from 64 Mi to 128 Mi
+- [ ] Cycle 1: WFE executes the selected workflow
 - [ ] Cycle 1: EA healthScore=0 (remediation was ineffective)
-- [ ] OOMKill recurs at 128 Mi after Cycle 1 remediation
-- [ ] Escalation occurs via Path A (LLM declines — `no_matching_workflows`) or Path B (RO guard — `CheckConsecutiveFailures`)
-- [ ] Final RR outcome = ManualReviewRequired
-- [ ] LLM rationale references prior ineffective remediation (Path A)
-- [ ] Notification sent to human reviewer
-- [ ] Multiple RRs created (2 or 3, depending on escalation path)
+- [ ] OOMKill recurs after Cycle 1 remediation
+- [ ] Escalation occurs via Path A (LLM declines), Path B (RO guard — blocked by kubernaut#616), or Path C (multi-cycle recurrence)
+- [ ] Path A: Final RR outcome = ManualReviewRequired, LLM rationale references prior ineffective remediation
+- [ ] Path C: Multiple RRs created (3+), all Completed/Remediated — validates recurrence detection
+- [ ] Multiple RRs created (2+, depending on escalation path)
 - [ ] Works on both Kind and OCP
