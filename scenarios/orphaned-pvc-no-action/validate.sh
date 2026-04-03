@@ -34,8 +34,8 @@ log_phase "Running assertions..."
 rr_phase=$(get_rr_phase "${NAMESPACE}")
 rr_outcome=$(get_rr_outcome "${NAMESPACE}")
 
-aa_actionable=$(kubectl get aianalyses "ai-$(get_rr_name "${NAMESPACE}")" \
-  -n "${PLATFORM_NS}" -o jsonpath='{.status.isActionable}' 2>/dev/null || echo "")
+aa_workflow_id=$(kubectl get aianalyses "ai-$(get_rr_name "${NAMESPACE}")" \
+  -n "${PLATFORM_NS}" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 
 sp_phase=$(get_sp_phase "${NAMESPACE}")
 assert_eq "$sp_phase" "Completed" "SP phase"
@@ -45,7 +45,7 @@ assert_eq "$aa_phase" "Completed" "AA phase"
 
 assert_eq "$rr_phase" "Completed" "RR phase"
 
-if [ "${aa_actionable:-false}" = "false" ]; then
+if [ -z "${aa_workflow_id}" ]; then
     # Path A: LLM determined no action needed
     log_phase "Path A detected: LLM said not actionable → NoActionRequired"
 
