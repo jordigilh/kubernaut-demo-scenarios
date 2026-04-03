@@ -17,13 +17,13 @@ metadata:
 rules:
   - apiGroups: ["apps"]
     resources: ["statefulsets"]
-    verbs: ["get", "list"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["persistentvolumeclaims"]
-    verbs: ["get", "list", "create", "delete"]
+    verbs: ["get", "list", "watch", "create", "delete"]
   - apiGroups: [""]
     resources: ["pods"]
-    verbs: ["get", "list", "delete"]
+    verbs: ["get", "list", "watch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -68,7 +68,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-statefulset-pvc-job@sha256:2e10daeaf318a496b1dcb0341910808f251b9eb204c934fed12e1bac8731561f
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-statefulset-pvc-job@sha256:fac4083b95a3a4453eb0cfaeacb609dd7bdb44d69814e0b573fcdd1d7192dca9
     serviceAccountName: fix-statefulset-pvc-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
