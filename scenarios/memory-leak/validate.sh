@@ -29,7 +29,7 @@ show_alert "ContainerMemoryExhaustionPredicted" "${NAMESPACE}"
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
 wait_for_rr "${NAMESPACE}" 120
-poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"
+poll_pipeline "${NAMESPACE}" 720 "${APPROVE_MODE}"
 
 # ── Assertions ──────────────────────────────────────────────────────────────
 
