@@ -39,6 +39,15 @@ holmesgptApi:
     url: "https://prometheus-k8s.openshift-monitoring.svc:9091"
     ocpMonitoringRbac: true
 
+# Remediation Orchestrator: reduce gitOpsSyncDelay for webhook-based ArgoCD.
+# When using a Gitea->ArgoCD webhook, sync is near-instant; the default 3m is
+# unnecessary. Set to 30s to match Kind. Omit this block if your OCP deployment
+# does not use webhooks for ArgoCD sync.
+remediationorchestrator:
+  config:
+    asyncPropagation:
+      gitOpsSyncDelay: "30s"
+
 # PostgreSQL: use the Red Hat RHEL10 image for OCP (restricted-v2 SCC compatible).
 # Data directory is image-agnostic at /var/lib/kubernaut-pg/data (see kubernaut#464).
 postgresql:
