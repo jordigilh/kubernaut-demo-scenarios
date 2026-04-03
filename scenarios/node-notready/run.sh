@@ -27,6 +27,13 @@ done
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
 
+if [ "$PLATFORM" = "ocp" ]; then
+    echo "ERROR: node-notready is Kind-only. The inject/cleanup scripts use"
+    echo "       'podman pause/unpause' which does not apply to OCP VMs."
+    echo "       See https://github.com/jordigilh/kubernaut-demo-scenarios/issues/287"
+    exit 1
+fi
+
 # Workaround for #282: clean up completed WFE Jobs to avoid name collisions
 # when the same workflow+target is reused across runs.
 kubectl delete jobs -n kubernaut-workflows -l kubernaut.ai/component=workflowexecution --field-selector=status.successful=1 --ignore-not-found 2>/dev/null || true
