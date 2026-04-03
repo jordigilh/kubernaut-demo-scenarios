@@ -13,6 +13,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="demo-orphaned-pvc"
 APPROVE_MODE="${1:---auto-approve}"
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-900}"
 
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
@@ -25,7 +26,7 @@ show_alert "KubePersistentVolumeClaimOrphaned" "${NAMESPACE}"
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
 wait_for_rr "${NAMESPACE}" 120
-poll_pipeline "${NAMESPACE}" 480 "${APPROVE_MODE}"
+poll_pipeline "${NAMESPACE}" "${PIPELINE_TIMEOUT}" "${APPROVE_MODE}"
 
 # ── Determine which path the LLM took ──────────────────────────────────────
 

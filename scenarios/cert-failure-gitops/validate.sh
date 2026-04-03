@@ -7,6 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="demo-cert-gitops"
 APPROVE_MODE="${1:---auto-approve}"
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-900}"
 
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
@@ -25,7 +26,7 @@ show_alert "CertManagerCertNotReady" "${NAMESPACE}"
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
 wait_for_rr "${NAMESPACE}" 120
-poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"
+poll_pipeline "${NAMESPACE}" "${PIPELINE_TIMEOUT}" "${APPROVE_MODE}"
 
 # ── Assertions ──────────────────────────────────────────────────────────────
 
