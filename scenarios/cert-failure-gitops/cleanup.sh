@@ -19,6 +19,8 @@ kubectl delete secret demo-ca-key-pair -n cert-manager --ignore-not-found
 kubectl delete secret nonexistent-ca-secret -n cert-manager --ignore-not-found
 
 if [ "$PLATFORM" = "ocp" ]; then
+    kubectl delete rolebinding prometheus-k8s-read-binding -n cert-manager --ignore-not-found
+    kubectl delete role prometheus-k8s-read -n cert-manager --ignore-not-found
     kubectl label namespace cert-manager openshift.io/cluster-monitoring- 2>/dev/null || true
 fi
 

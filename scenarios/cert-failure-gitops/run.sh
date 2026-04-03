@@ -219,6 +219,33 @@ if [ "$PLATFORM" = "ocp" ]; then
     # cleanup.sh removes this label to restore the original state.
     kubectl label namespace cert-manager openshift.io/cluster-monitoring=true --overwrite
     echo "  Labeled cert-manager namespace for cluster Prometheus scraping."
+    # The namespace label alone is not sufficient: the cluster Prometheus SA
+    # needs RBAC to discover endpoints in cert-manager for scraping.
+    kubectl apply -f - <<'RBAC'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-k8s-read
+  namespace: cert-manager
+rules:
+- apiGroups: [""]
+  resources: [endpoints, services, pods]
+  verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-k8s-read-binding
+  namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s-read
+subjects:
+- kind: ServiceAccount
+  name: prometheus-k8s
+  namespace: openshift-monitoring
+RBAC
 fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
