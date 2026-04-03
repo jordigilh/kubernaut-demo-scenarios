@@ -67,23 +67,31 @@ echo "Validated: StatefulSet has missing PVC causing stuck pod."
 
 echo "=== Phase 2: Action ==="
 
+POD_INDEX=$(echo "${MISSING_PVC}" | grep -o '[0-9]*$')
+STUCK_POD="${TARGET_RESOURCE_NAME}-${POD_INDEX}"
+
 EXISTING_PHASE=$(kubectl get pvc "${MISSING_PVC}" -n "${TARGET_RESOURCE_NAMESPACE}" \
   -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 
 if [ -n "${EXISTING_PHASE}" ] && [ "${EXISTING_PHASE}" = "Bound" ]; then
   echo "PVC ${MISSING_PVC} already exists and is Bound (auto-healed by StatefulSet controller)."
-  echo "Skipping PVC creation. Ensuring pod is rescheduled..."
+  echo "Deleting stuck pod to trigger reschedule..."
+  kubectl delete pod "${STUCK_POD}" -n "${TARGET_RESOURCE_NAMESPACE}" --ignore-not-found --grace-period=0
 elif [ -n "${EXISTING_PHASE}" ]; then
-  echo "PVC ${MISSING_PVC} exists but is ${EXISTING_PHASE} (not Bound). Deleting..."
-  kubectl delete pvc "${MISSING_PVC}" -n "${TARGET_RESOURCE_NAMESPACE}" --wait=false 2>/dev/null || true
+  echo "PVC ${MISSING_PVC} exists but is ${EXISTING_PHASE} (not Bound)."
+  echo "Deleting stuck pod ${STUCK_POD} to release PVC protection finalizer..."
+  kubectl delete pod "${STUCK_POD}" -n "${TARGET_RESOURCE_NAMESPACE}" --ignore-not-found --grace-period=0
   sleep 3
+  echo "Deleting broken PVC ${MISSING_PVC}..."
+  kubectl delete pvc "${MISSING_PVC}" -n "${TARGET_RESOURCE_NAMESPACE}" --wait=true --timeout=15s 2>/dev/null || true
+  sleep 2
 
   RECHECK_PHASE=$(kubectl get pvc "${MISSING_PVC}" -n "${TARGET_RESOURCE_NAMESPACE}" \
     -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
   if [ "${RECHECK_PHASE}" = "Bound" ]; then
     echo "PVC was auto-recreated and bound by StatefulSet controller."
-  else
-    echo "Recreating PVC ${MISSING_PVC}..."
+  elif [ -z "${RECHECK_PHASE}" ]; then
+    echo "PVC deleted. Recreating ${MISSING_PVC}..."
     PVC_YAML="/tmp/pvc-${MISSING_PVC}.yaml"
     cat > "${PVC_YAML}" <<PVCEOF
 apiVersion: v1
@@ -105,6 +113,8 @@ PVCEOF
     fi
     kubectl apply -f "${PVC_YAML}"
     rm -f "${PVC_YAML}"
+  else
+    echo "WARNING: PVC still in ${RECHECK_PHASE} state after delete attempt."
   fi
 else
   echo "PVC ${MISSING_PVC} does not exist. Creating..."
@@ -129,12 +139,9 @@ PVCEOF
   fi
   kubectl apply -f "${PVC_YAML}"
   rm -f "${PVC_YAML}"
+  echo "Deleting stuck pod to trigger reschedule..."
+  kubectl delete pod "${STUCK_POD}" -n "${TARGET_RESOURCE_NAMESPACE}" --ignore-not-found --grace-period=0
 fi
-
-echo "Deleting stuck pod to trigger reschedule..."
-POD_INDEX=$(echo "${MISSING_PVC}" | grep -o '[0-9]*$')
-STUCK_POD="${TARGET_RESOURCE_NAME}-${POD_INDEX}"
-kubectl delete pod "${STUCK_POD}" -n "${TARGET_RESOURCE_NAMESPACE}" --ignore-not-found --grace-period=0
 
 echo "Waiting for StatefulSet to reconcile (30s)..."
 sleep 30
