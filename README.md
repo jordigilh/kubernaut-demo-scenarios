@@ -161,8 +161,7 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-kind-values.yaml \
     --set holmesgptApi.llm.provider=$KUBERNAUT_LLM_PROVIDER \
-    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL \
-    --wait --timeout 10m
+    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL
 ```
 
 For **OCP** with quickstart (env vars):
@@ -172,8 +171,7 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-ocp-values.yaml \
     --set holmesgptApi.llm.provider=$KUBERNAUT_LLM_PROVIDER \
-    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL \
-    --wait --timeout 10m
+    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL
 ```
 
 For **either platform** with advanced config (SDK config file from Step 3):
@@ -182,9 +180,17 @@ For **either platform** with advanced config (SDK config file from Step 3):
 helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-<kind|ocp>-values.yaml \
-    --set-file holmesgptApi.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml \
-    --wait --timeout 10m
+    --set-file holmesgptApi.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml
 ```
+
+> **Do not use `--wait`:** The chart includes a post-install database migration
+> job. `--wait` blocks until all pods are ready, but the authwebhook pod depends
+> on the migration completing first — creating a deadlock. Instead, run the
+> install without `--wait` and then poll for readiness:
+>
+> ```bash
+> kubectl rollout status deployment/gateway -n kubernaut-system --timeout=5m
+> ```
 
 **Ansible-engine scenarios (disk-pressure-emptydir, memory-limits-gitops-ansible):** If you plan
 to run scenarios that use AWX/AAP, add the ansible engine values to your install command.
