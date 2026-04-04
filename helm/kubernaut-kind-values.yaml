@@ -1,4 +1,4 @@
-# Kind-specific value overrides for the Kubernaut Helm chart (v1.2.0-rc2).
+# Kind-specific value overrides for the Kubernaut Helm chart.
 # Exposes gateway and datastorage via NodePort so they are accessible
 # from the host via Kind's extraPortMappings.
 #
@@ -8,12 +8,7 @@
 #
 # K8s >=1.30 requires numeric runAsUser when runAsNonRoot is set.
 # The chart images use named users, so we override here with UID 65534 (nobody).
-#
-# image.tag must match the rc tag in quay.io; the chart's appVersion
-# (1.2.0) has no published images — only the rc tags do.
 global:
-  image:
-    tag: "1.2.0-rc2"
   nodeSelector:
     node-role.kubernetes.io/control-plane: ""
   tolerations:
