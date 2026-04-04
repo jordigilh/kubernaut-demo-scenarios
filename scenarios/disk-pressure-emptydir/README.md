@@ -285,7 +285,18 @@ not a Kubernetes API operation.
 
 ### Manual verification
 
+The ArgoCD namespace and server label differ by platform:
+
+| | **Kind** | **OCP** |
+|---|---|---|
+| Namespace | `argocd` | `openshift-gitops` |
+| Server label | `app.kubernetes.io/name=argocd-server` | `app.kubernetes.io/name=openshift-gitops-server` |
+
 ```bash
+# Set the ArgoCD namespace for your platform
+ARGOCD_NS="argocd"              # Kind
+ARGOCD_NS="openshift-gitops"    # OCP
+
 # 1. Verify Gitea ROOT_URL matches ArgoCD's repoURL
 GITEA_POD=$(kubectl get pods -n gitea -l app.kubernetes.io/name=gitea \
   -o jsonpath='{.items[0].metadata.name}')
@@ -294,7 +305,7 @@ kubectl exec -n gitea "$GITEA_POD" -- \
 # Expected: ROOT_URL = http://gitea-http.gitea:3000
 
 # 2. Check the ArgoCD secret has the webhook key
-kubectl get secret argocd-secret -n openshift-gitops \
+kubectl get secret argocd-secret -n "$ARGOCD_NS" \
   -o jsonpath='{.data.webhook\.gitea\.secret}' | base64 -d && echo
 
 # 3. List webhooks on the repo
@@ -303,7 +314,9 @@ kubectl exec -n gitea "$GITEA_POD" -- \
   --header="Authorization: token <token>" 2>/dev/null | python3 -m json.tool
 
 # 4. Verify ArgoCD receives push events with the correct URL
-kubectl logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-server \
+#    Kind:  -l app.kubernetes.io/name=argocd-server
+#    OCP:   -l app.kubernetes.io/name=openshift-gitops-server
+kubectl logs -n "$ARGOCD_NS" -l app.kubernetes.io/name=openshift-gitops-server \
   --tail=20 | grep "Received push event"
 # Expected URL: http://gitea-http.gitea:3000/kubernaut/demo-diskpressure-repo
 ```
