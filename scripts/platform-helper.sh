@@ -139,7 +139,7 @@ silence_alert() {
 # without -n so they respect their own metadata.namespace.
 _apply_workflow_yaml() {
     local yaml_file="$1" ns="$2"
-    local tmpdir
+    local tmpdir _rc=0
     tmpdir=$(mktemp -d)
     trap "rm -rf '${tmpdir}'" RETURN
 
@@ -152,11 +152,12 @@ _apply_workflow_yaml() {
     for doc in "$tmpdir"/doc-*.yaml; do
         [ -f "$doc" ] || continue
         if grep -q 'kind: RemediationWorkflow' "$doc"; then
-            kubectl apply -n "$ns" -f "$doc" 2>&1
+            kubectl apply -n "$ns" -f "$doc" 2>&1 || _rc=$?
         else
-            kubectl apply -f "$doc" 2>&1
+            kubectl apply -f "$doc" 2>&1 || _rc=$?
         fi
     done
+    return $_rc
 }
 
 # Ensure all ActionType and RemediationWorkflow CRDs are applied.
@@ -173,7 +174,7 @@ seed_action_types_and_workflows() {
     local wf_dir="${REPO_ROOT}/deploy/remediation-workflows"
     if [ -d "$wf_dir" ]; then
         echo "==> Seeding RemediationWorkflow CRDs (namespace: ${ns})..."
-        local applied=0 skipped=0
+        local applied=0 skipped=0 failed=0
         while IFS= read -r -d '' yaml_file; do
             local basename="${yaml_file##*/}"
 
@@ -193,13 +194,13 @@ seed_action_types_and_workflows() {
             local we_ns="${WE_NAMESPACE:-kubernaut-workflows}"
             local unmet=""
             while IFS= read -r secret_name; do
+                [ -z "$secret_name" ] && continue
                 if ! kubectl get secret "$secret_name" -n "${ns}" &>/dev/null && \
                    ! kubectl get secret "$secret_name" -n "${we_ns}" &>/dev/null; then
                     unmet="${secret_name}"
                     break
                 fi
-            done < <(grep -A1 'secrets:' "$yaml_file" 2>/dev/null \
-                      | grep -- '- name:' | awk '{print $NF}')
+            done < <(awk '/^[[:space:]]*secrets:/{f=1; next} f && /- name:/{print $NF} f && !/^[[:space:]]*-/{f=0}' "$yaml_file" 2>/dev/null)
 
             if [ -n "$unmet" ]; then
                 echo "    SKIP ${basename} (secret \"${unmet}\" not found in ${ns} or ${we_ns})"
@@ -207,11 +208,17 @@ seed_action_types_and_workflows() {
                 continue
             fi
 
-            _apply_workflow_yaml "$yaml_file" "$ns" 2>&1 \
-                | grep -v unchanged | sed 's/^/    /' || true
-            applied=$((applied + 1))
+            local _output
+            if _output=$(_apply_workflow_yaml "$yaml_file" "$ns" 2>&1); then
+                echo "$_output" | grep -v unchanged | sed 's/^/    /' || true
+                applied=$((applied + 1))
+            else
+                echo "$_output" | grep -v unchanged | sed 's/^/    /' || true
+                echo "    WARN: ${basename} was not fully applied (webhook rejection or validation error)"
+                failed=$((failed + 1))
+            fi
         done < <(find "$wf_dir" -name '*.yaml' -print0)
-        echo "    Applied ${applied} workflow(s), skipped ${skipped}."
+        echo "    Applied ${applied} workflow(s), skipped ${skipped}, failed ${failed}."
     fi
 }
 
@@ -272,7 +279,33 @@ require_demo_ready() {
         exit 1
     fi
 
+    if [ "$PLATFORM" = "ocp" ]; then
+        _warn_slow_ksm_scrape
+    fi
+
     seed_action_types_and_workflows
+}
+
+# Detect the kube-state-metrics scrape interval on OCP and warn if it
+# exceeds 30s.  A slow scrape interval delays metric propagation after
+# remediation, causing the EffectivenessMonitor to sample stale data.
+# See kubernaut-demo-scenarios#293.
+_warn_slow_ksm_scrape() {
+    local interval
+    interval=$(kubectl get servicemonitor kube-state-metrics -n openshift-monitoring \
+        -o jsonpath='{.spec.endpoints[0].interval}' 2>/dev/null || true)
+    if [ -z "$interval" ]; then
+        return 0
+    fi
+    local seconds
+    seconds=$(echo "$interval" | sed 's/s$//' | sed 's/m$//' )
+    if echo "$interval" | grep -q 'm$'; then
+        seconds=$((seconds * 60))
+    fi
+    if [ "$seconds" -gt 30 ]; then
+        echo "  NOTE: OCP kube-state-metrics scrape interval is ${interval} (>${seconds}s)."
+        echo "  The OCP values file sets stabilizationWindow: 120s to compensate (#293)."
+    fi
 }
 
 wait_platform_ready() {
