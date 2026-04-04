@@ -72,11 +72,12 @@ cert_ready=$(kubectl get certificate demo-app-cert -n "${NAMESPACE}" \
 assert_eq "$cert_ready" "True" "Certificate Ready"
 
 # Verify ArgoCD application is Synced (git revert restored correct config)
-argocd_sync=$(kubectl get application demo-cert-gitops -n argocd \
+ARGOCD_NS=$([ "${PLATFORM:-}" = "ocp" ] && echo "openshift-gitops" || echo "argocd")
+argocd_sync=$(kubectl get application demo-cert-gitops -n "$ARGOCD_NS" \
   -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "")
 assert_eq "$argocd_sync" "Synced" "ArgoCD application Synced"
 
-argocd_health=$(kubectl get application demo-cert-gitops -n argocd \
+argocd_health=$(kubectl get application demo-cert-gitops -n "$ARGOCD_NS" \
   -o jsonpath='{.status.health.status}' 2>/dev/null || echo "")
 assert_eq "$argocd_health" "Healthy" "ArgoCD application Healthy"
 

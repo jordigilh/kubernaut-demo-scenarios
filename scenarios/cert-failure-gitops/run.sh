@@ -22,6 +22,7 @@ REPO_NAME="demo-cert-gitops-repo"
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
 SUBCOMMAND="all"
+ARGOCD_NS=$([ "${PLATFORM:-}" = "ocp" ] && echo "openshift-gitops" || echo "argocd")
 for _arg in "$@"; do
     case "$_arg" in
         --auto-approve)  APPROVE_MODE="--auto-approve" ;;
@@ -58,7 +59,7 @@ kubectl create secret tls demo-ca-key-pair \
 rm -rf "${TMPDIR_CA}"
 
 # Speed up ArgoCD polling for demo scenarios (default 180s -> 60s)
-kubectl patch configmap argocd-cm -n argocd --type merge \
+kubectl patch configmap argocd-cm -n "$ARGOCD_NS" --type merge \
   -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
 
 # Step 3: Create Gitea repo with cert-manager manifests
@@ -322,7 +323,7 @@ rm -rf "${WORK_DIR}"
 echo "  Bad commit pushed. ArgoCD will sync broken ClusterIssuer."
 
 # Force ArgoCD to refresh immediately instead of waiting for the next poll cycle.
-kubectl annotate application demo-cert-gitops -n argocd \
+kubectl annotate application demo-cert-gitops -n "$ARGOCD_NS" \
   argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
 
 # Wait for ArgoCD to sync the broken commit.
@@ -336,7 +337,7 @@ for i in $(seq 1 90); do
   fi
   if [ $((i % 12)) -eq 0 ]; then
     echo "  Still waiting... (attempt $i, re-triggering refresh)"
-    kubectl annotate application demo-cert-gitops -n argocd \
+    kubectl annotate application demo-cert-gitops -n "$ARGOCD_NS" \
       argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
   fi
   sleep 5

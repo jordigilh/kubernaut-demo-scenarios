@@ -21,7 +21,14 @@ GIT_USERNAME=$(cat "${SECRET_DIR}/username")
 GIT_PASSWORD=$(cat "${SECRET_DIR}/password")
 
 echo "=== Phase 0: Discover ArgoCD Application ==="
-ARGO_APP_JSON=$(kubectl get applications.argoproj.io -n argocd -o json)
+# Auto-detect ArgoCD namespace: openshift-gitops (OCP) or argocd (Kind)
+if kubectl get namespace openshift-gitops &>/dev/null; then
+  ARGOCD_NS="openshift-gitops"
+else
+  ARGOCD_NS="argocd"
+fi
+echo "ArgoCD namespace: ${ARGOCD_NS}"
+ARGO_APP_JSON=$(kubectl get applications.argoproj.io -n "$ARGOCD_NS" -o json)
 
 GIT_REPO_URL=$(echo "${ARGO_APP_JSON}" | jq -r \
   --arg ns "${TARGET_RESOURCE_NAMESPACE}" \

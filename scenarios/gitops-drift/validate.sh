@@ -74,7 +74,8 @@ crashing_pods=$(kubectl get pods -n "${NAMESPACE}" --no-headers 2>/dev/null \
 assert_eq "${crashing_pods:-0}" "0" "No pods in CrashLoopBackOff"
 
 # Verify ArgoCD application is Synced (git revert restored correct config)
-argocd_sync=$(kubectl get application web-frontend -n argocd \
+ARGOCD_NS=$([ "${PLATFORM:-}" = "ocp" ] && echo "openshift-gitops" || echo "argocd")
+argocd_sync=$(kubectl get application web-frontend -n "$ARGOCD_NS" \
   -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "")
 assert_eq "$argocd_sync" "Synced" "ArgoCD application Synced"
 
