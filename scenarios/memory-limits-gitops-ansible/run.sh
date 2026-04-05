@@ -19,6 +19,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARGOCD_NS=$([ "${PLATFORM:-}" = "ocp" ] && echo "openshift-gitops" || echo "argocd")
 NAMESPACE="demo-memory-gitops-ansible"
 GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
@@ -134,7 +135,7 @@ MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
 # Speed up ArgoCD polling for demo
-kubectl patch configmap argocd-cm -n argocd --type merge \
+kubectl patch configmap argocd-cm -n "$ARGOCD_NS" --type merge \
   -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
 
 # Step 3: Wait for ArgoCD sync

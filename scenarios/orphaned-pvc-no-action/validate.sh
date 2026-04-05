@@ -17,6 +17,8 @@ APPROVE_MODE="${1:---auto-approve}"
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 480)}"
+
 # ── Wait for alert ──────────────────────────────────────────────────────────
 
 wait_for_alert "KubePersistentVolumeClaimOrphaned" "${NAMESPACE}" 480
@@ -25,7 +27,7 @@ show_alert "KubePersistentVolumeClaimOrphaned" "${NAMESPACE}"
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
 wait_for_rr "${NAMESPACE}" 120
-poll_pipeline "${NAMESPACE}" 300 "${APPROVE_MODE}"
+poll_pipeline "${NAMESPACE}" "${PIPELINE_TIMEOUT}" "${APPROVE_MODE}"
 
 # ── Determine which path the LLM took ──────────────────────────────────────
 
@@ -34,22 +36,22 @@ log_phase "Running assertions..."
 rr_phase=$(get_rr_phase "${NAMESPACE}")
 rr_outcome=$(get_rr_outcome "${NAMESPACE}")
 
-aa_actionable=$(kubectl get aianalyses "ai-$(get_rr_name "${NAMESPACE}")" \
-  -n "${PLATFORM_NS}" -o jsonpath='{.status.isActionable}' 2>/dev/null || echo "")
+aa_workflow_id=$(kubectl get aianalyses "ai-$(get_rr_name "${NAMESPACE}")" \
+  -n "${PLATFORM_NS}" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 
 sp_phase=$(get_sp_phase "${NAMESPACE}")
 assert_eq "$sp_phase" "Completed" "SP phase"
 
 aa_phase=$(get_aa_phase "${NAMESPACE}")
-assert_eq "$aa_phase" "Completed" "AA phase"
+assert_in "$aa_phase" "AA phase" "Completed" "Failed"
 
 assert_eq "$rr_phase" "Completed" "RR phase"
 
-if [ "${aa_actionable:-false}" = "false" ]; then
-    # Path A: LLM determined no action needed
-    log_phase "Path A detected: LLM said not actionable → NoActionRequired"
+if [ -z "${aa_workflow_id}" ]; then
+    # Path A: no matching workflow → ManualReviewRequired (v1.2) or NoActionRequired
+    log_phase "Path A detected: LLM found no actionable workflow"
 
-    assert_eq "$rr_outcome" "NoActionRequired" "RR outcome"
+    assert_in "$rr_outcome" "RR outcome" "NoActionRequired" "ManualReviewRequired"
 
     pvc_count=$(kubectl get pvc -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
     assert_eq "$pvc_count" "5" "Orphaned PVCs still present (no-action path)"

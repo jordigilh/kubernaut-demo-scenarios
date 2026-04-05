@@ -10,6 +10,14 @@ patches:
     patch: |
       - op: remove
         path: /metadata/labels/release
+  # Category C: ServiceMonitor - remove release label for OCP
+  # OCP cluster Prometheus selects all ServiceMonitors in cluster-monitoring namespaces
+  - target:
+      kind: ServiceMonitor
+      name: cert-manager
+    patch: |
+      - op: remove
+        path: /metadata/labels/release
   # Category D: ArgoCD Application namespace argocd -> openshift-gitops
   - target:
       kind: Application

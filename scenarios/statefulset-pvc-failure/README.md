@@ -78,6 +78,20 @@ default StorageClass, and the pod recovers.
 | StorageClass | Cluster default (Kind: `standard`, OCP: `ocs-storagecluster-ceph-rbd`) |
 | Workflow | `fix-statefulset-pvc-v1` (shipped with demo content) |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `fix-statefulset-pvc-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `fix-statefulset-pvc-v1-runner` |
+| ClusterRoleBinding | `fix-statefulset-pvc-v1-runner` |
+
+**Permissions**: `apps` statefulsets (get, list), core persistentvolumeclaims (get, list, create, delete), core pods (get, list, delete)
+
 ## Automated Run
 
 ```bash
@@ -109,7 +123,7 @@ kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- 
   amtool alert query alertname=KubeStatefulSetReplicasMismatch --alertmanager.url=http://localhost:9093
 
 # 5. Monitor pipeline
-kubectl get rr -n kubernaut-system -w
+kubectl get rr -n kubernaut-system -w -o wide
 # Expect: Analyzing → AwaitingApproval
 ```
 

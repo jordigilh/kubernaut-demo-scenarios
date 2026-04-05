@@ -59,6 +59,12 @@ The EA (EffectivenessAssessment) detects the revert via spec hash comparison:
 - After N cycles, the RO's `CheckIneffectiveRemediationChain` blocks further
   automated remediation.
 
+> **v1.2.0 note**: Spec hash computation now includes mounted ConfigMap content
+> (#396), making drift detection more robust when an external actor modifies
+> ConfigMaps rather than the Deployment spec directly. Hash-capture failures
+> are surfaced via `PreRemediationHashCaptured` / `PostRemediationHashCaptured`
+> conditions and a `degraded` status flag on the EA.
+
 ## Prerequisites
 
 | Component | Requirement |
@@ -67,7 +73,22 @@ The EA (EffectivenessAssessment) detects the revert via spec hash comparison:
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
 | Workflow | `increase-memory-limits-v1` (shipped with demo content) |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` (#108) |
+| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
+
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`). It uses the `increase-memory-limits-v1` workflow from the
+memory-escalation scenario:
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `increase-memory-limits-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `increase-memory-limits-v1-runner` |
+| ClusterRoleBinding | `increase-memory-limits-v1-runner` |
+
+**Permissions**: `apps` deployments (get, list, patch), core pods (get, list)
 
 ## Automated Run
 
@@ -100,7 +121,7 @@ kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- 
   amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
 
 # 5. Watch first remediation cycle
-kubectl get rr -n kubernaut-system -w
+kubectl get rr -n kubernaut-system -w -o wide
 # Expect: Analyzing → Executing → Verifying → Completed (Remediated)
 ```
 

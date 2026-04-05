@@ -20,6 +20,20 @@ investigates, identifies the taint as the root cause, and removes it.
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `remove-taint-v1` registered in DataStorage |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `remove-taint-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `remove-taint-v1-runner` |
+| ClusterRoleBinding | `remove-taint-v1-runner` |
+
+**Permissions**: core nodes (get, list, patch, update), core pods (get, list)
+
 ## Automated Run
 
 ```bash

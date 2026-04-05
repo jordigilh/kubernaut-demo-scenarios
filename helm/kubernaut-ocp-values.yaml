@@ -19,7 +19,15 @@ gateway:
 # EffectivenessMonitor: full Prometheus/AlertManager integration on OCP.
 # TLS CA support added in kubernaut#452 (1.1.0-rc2+). The service-serving
 # CA is injected by the chart via the openshift-service-ca.crt ConfigMap.
+#
+# OCP's kube-state-metrics scrape interval is 1m (vs 30s on Kind).
+# Increase stabilizationWindow so the EM doesn't sample stale metrics
+# before kube-state-metrics reflects the post-remediation state.
+# See kubernaut-demo-scenarios#293 and kubernaut#625.
 effectivenessmonitor:
+  config:
+    assessment:
+      stabilizationWindow: "120s"
   external:
     prometheusUrl: "https://prometheus-k8s.openshift-monitoring.svc:9091"
     prometheusEnabled: true
@@ -38,6 +46,15 @@ holmesgptApi:
     enabled: true
     url: "https://prometheus-k8s.openshift-monitoring.svc:9091"
     ocpMonitoringRbac: true
+
+# Remediation Orchestrator: reduce gitOpsSyncDelay for webhook-based ArgoCD.
+# When using a Gitea->ArgoCD webhook, sync is near-instant; the default 3m is
+# unnecessary. Set to 30s to match Kind. Omit this block if your OCP deployment
+# does not use webhooks for ArgoCD sync.
+remediationorchestrator:
+  config:
+    asyncPropagation:
+      gitOpsSyncDelay: "30s"
 
 # PostgreSQL: use the Red Hat RHEL10 image for OCP (restricted-v2 SCC compatible).
 # Data directory is image-agnostic at /var/lib/kubernaut-pg/data (see kubernaut#464).

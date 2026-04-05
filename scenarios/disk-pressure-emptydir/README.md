@@ -46,7 +46,7 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics and `node-exporter` |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` (#108) |
+| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 | AWX/AAP | `scripts/awx-helper.sh` (or `aap-helper.sh` with Red Hat subscription) |
 | Gitea + ArgoCD | Deployed via `scenarios/gitops/scripts/setup-gitea.sh` and `scenarios/gitops/scripts/setup-argocd.sh` |
 | Gitea webhook | Automated by `run.sh setup` (see [Gitea-ArgoCD Webhook](#gitea-argocd-webhook)) |
@@ -118,6 +118,20 @@ kill %1 2>/dev/null
 > kubeconfig error. **Fix:** re-run `bash scripts/aap-helper.sh --configure-only`
 > to recreate and re-attach the credentials.
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `migrate-emptydir-to-pvc-gitops-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `migrate-emptydir-to-pvc-gitops-v1-runner` |
+| ClusterRoleBinding | `migrate-emptydir-to-pvc-gitops-v1-runner` |
+
+**Permissions**: core nodes (get, list, patch, update), core pods (get, list), core secrets (get, list), core endpoints (get, list), core persistentvolumeclaims (get, list, create, delete), `apps` deployments (get, list), `batch` jobs (get, list, create, delete), `storage.k8s.io` storageclasses (get, list), `argoproj.io` applications (get, list), `kubernaut.ai` workflowexecutions (get, list)
+
 ## Automated Run
 
 ```bash
@@ -157,18 +171,34 @@ kubectl exec -n demo-diskpressure deploy/postgres-emptydir -- pg_isready -U post
 
 ### 3. Inject disk pressure
 
+The stored procedure `simulate_data_growth(batch_size, iterations, sleep_ms)` must be
+called with parameters tuned to the target node's filesystem capacity. Writing too fast
+exhausts disk before the pipeline completes; too slow and `predict_linear()` never fires.
+
+Use the helper script to compute the parameters for your environment:
+
 ```bash
-# Connect to the PostgreSQL pod and run the data growth procedure
-POD=$(kubectl get pod -n demo-diskpressure -l app=postgres-emptydir -o name | head -1)
-kubectl exec -n demo-diskpressure "$POD" -- \
-  psql -U postgres -c "CALL simulate_data_growth(500, 200, 50);" &
+bash scenarios/disk-pressure-emptydir/compute-inject-params.sh
 ```
 
-The stored procedure parameters (batch_size, iterations, sleep_ms) are computed dynamically
-by `run.sh inject` based on the target node's filesystem capacity (see `run_inject()`).
+The script reads the node's filesystem stats and prints the computed values along with
+a ready-to-paste `kubectl exec` command. It does **not** start the injection — copy the
+command it prints and run it when you are ready:
+
+```bash
+# Example output (values will differ based on your node's disk capacity):
+#   kubectl exec -n demo-diskpressure postgres-emptydir-xxxx -- \
+#     psql -U postgres -d postgres -c "CALL simulate_data_growth(128, 29520, 50);" &
+```
+
 The rate is auto-tuned so `predict_linear()` fires with ~8 min margin before kubelet eviction,
 giving the full pipeline (LLM analysis, RAR approval, AWX dispatch, pg_dump, ArgoCD sync,
 pg_restore) enough time to complete before data loss.
+
+> **How it works:** The script targets a write rate that triggers the `PredictedDiskPressure`
+> alert at ~4 min while leaving ~8 min before kubelet eviction. It accounts for PostgreSQL's
+> ~2x disk amplification (tuple headers, WAL, TOAST) and clamps the rate based on the
+> filesystem size to avoid edge cases. See `run_inject()` in `run.sh` for the full algorithm.
 
 ### 4. Wait for alert and pipeline
 
@@ -271,7 +301,18 @@ not a Kubernetes API operation.
 
 ### Manual verification
 
+The ArgoCD namespace and server label differ by platform:
+
+| | **Kind** | **OCP** |
+|---|---|---|
+| Namespace | `argocd` | `openshift-gitops` |
+| Server label | `app.kubernetes.io/name=argocd-server` | `app.kubernetes.io/name=openshift-gitops-server` |
+
 ```bash
+# Set the ArgoCD namespace for your platform
+ARGOCD_NS="argocd"              # Kind
+ARGOCD_NS="openshift-gitops"    # OCP
+
 # 1. Verify Gitea ROOT_URL matches ArgoCD's repoURL
 GITEA_POD=$(kubectl get pods -n gitea -l app.kubernetes.io/name=gitea \
   -o jsonpath='{.items[0].metadata.name}')
@@ -280,7 +321,7 @@ kubectl exec -n gitea "$GITEA_POD" -- \
 # Expected: ROOT_URL = http://gitea-http.gitea:3000
 
 # 2. Check the ArgoCD secret has the webhook key
-kubectl get secret argocd-secret -n openshift-gitops \
+kubectl get secret argocd-secret -n "$ARGOCD_NS" \
   -o jsonpath='{.data.webhook\.gitea\.secret}' | base64 -d && echo
 
 # 3. List webhooks on the repo
@@ -289,7 +330,9 @@ kubectl exec -n gitea "$GITEA_POD" -- \
   --header="Authorization: token <token>" 2>/dev/null | python3 -m json.tool
 
 # 4. Verify ArgoCD receives push events with the correct URL
-kubectl logs -n openshift-gitops -l app.kubernetes.io/name=openshift-gitops-server \
+#    Kind:  -l app.kubernetes.io/name=argocd-server
+#    OCP:   -l app.kubernetes.io/name=openshift-gitops-server
+kubectl logs -n "$ARGOCD_NS" -l app.kubernetes.io/name=openshift-gitops-server \
   --tail=20 | grep "Received push event"
 # Expected URL: http://gitea-http.gitea:3000/kubernaut/demo-diskpressure-repo
 ```

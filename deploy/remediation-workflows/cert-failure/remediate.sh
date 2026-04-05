@@ -3,9 +3,22 @@ set -e
 
 : "${CERTIFICATE_NAME:?CERTIFICATE_NAME is required}"
 : "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
-: "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
 : "${ISSUER_NAME:?ISSUER_NAME is required}"
 : "${CA_SECRET_NAME:?CA_SECRET_NAME is required}"
+
+if [ -z "${TARGET_RESOURCE_NAMESPACE:-}" ]; then
+  echo "TARGET_RESOURCE_NAMESPACE not set (cluster-scoped target). Discovering certificate namespace..."
+  DISCOVERED_NS=$(kubectl get certificates -A -o jsonpath="{range .items[?(@.metadata.name==\"${CERTIFICATE_NAME}\")]}{.metadata.namespace}{end}" 2>/dev/null || echo "")
+  if [ -z "${DISCOVERED_NS}" ]; then
+    DISCOVERED_NS=$(kubectl get certificates -A -o jsonpath="{range .items[?(@.spec.secretName==\"${CERTIFICATE_NAME}\")]}{.metadata.namespace}{end}" 2>/dev/null || echo "")
+  fi
+  if [ -z "${DISCOVERED_NS}" ]; then
+    echo "ERROR: Cannot discover namespace for Certificate '${CERTIFICATE_NAME}'"
+    exit 1
+  fi
+  TARGET_RESOURCE_NAMESPACE="${DISCOVERED_NS}"
+  echo "Discovered namespace: ${TARGET_RESOURCE_NAMESPACE}"
+fi
 
 echo "=== Phase 1: Validate ==="
 echo "Checking Certificate ${CERTIFICATE_NAME} in ${TARGET_RESOURCE_NAMESPACE}..."

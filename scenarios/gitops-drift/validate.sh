@@ -11,6 +11,10 @@ APPROVE_MODE="${1:---auto-approve}"
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
+# OCP EA stabilization (hashComputeDelay+stabilizationWindow) can exceed 600s;
+# Kind uses 30s stabilization so 600s is sufficient.
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 600)}"
+
 # ── Clean stale blocked duplicates ──────────────────────────────────────────
 
 for rr in $(kubectl get rr -n "${PLATFORM_NS}" -o jsonpath='{range .items[*]}{.metadata.name}={.status.overallPhase}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null | grep "=Blocked=${NAMESPACE}" | cut -d= -f1); do
@@ -25,7 +29,7 @@ show_alert "KubePodCrashLooping" "${NAMESPACE}"
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
 wait_for_rr "${NAMESPACE}" 300
-poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"
+poll_pipeline "${NAMESPACE}" "${PIPELINE_TIMEOUT}" "${APPROVE_MODE}"
 
 # ── Assertions ──────────────────────────────────────────────────────────────
 
@@ -70,7 +74,8 @@ crashing_pods=$(kubectl get pods -n "${NAMESPACE}" --no-headers 2>/dev/null \
 assert_eq "${crashing_pods:-0}" "0" "No pods in CrashLoopBackOff"
 
 # Verify ArgoCD application is Synced (git revert restored correct config)
-argocd_sync=$(kubectl get application web-frontend -n argocd \
+ARGOCD_NS=$([ "${PLATFORM:-}" = "ocp" ] && echo "openshift-gitops" || echo "argocd")
+argocd_sync=$(kubectl get application web-frontend -n "$ARGOCD_NS" \
   -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "")
 assert_eq "$argocd_sync" "Synced" "ArgoCD application Synced"
 

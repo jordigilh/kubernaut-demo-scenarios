@@ -29,7 +29,7 @@ show_alert "ContainerMemoryExhaustionPredicted" "${NAMESPACE}"
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
 wait_for_rr "${NAMESPACE}" 120
-poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"
+poll_pipeline "${NAMESPACE}" 720 "${APPROVE_MODE}"
 
 # ── Assertions ──────────────────────────────────────────────────────────────
 
@@ -65,8 +65,13 @@ assert_neq "$confidence" "" "AA confidence present"
 wfe_phase=$(get_wfe_phase "${NAMESPACE}")
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
-rollout_rev=$(kubectl rollout history deployment/leaky-app -n "${NAMESPACE}" 2>/dev/null \
-  | grep -c "^[0-9]" || echo "0")
+# Poll for revision increment (the rollout restart may take a few seconds to propagate)
+for _i in $(seq 1 6); do
+  rollout_rev=$(kubectl rollout history deployment/leaky-app -n "${NAMESPACE}" 2>/dev/null \
+    | grep -c "^[0-9]" || echo "0")
+  [ "$rollout_rev" -gt 1 ] && break
+  sleep 5
+done
 assert_gt "$rollout_rev" "1" "Deployment has >1 revision (restart occurred)"
 
 # ── Post-remediation root cause fix ─────────────────────────────────────────

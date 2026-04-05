@@ -46,6 +46,20 @@ kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} for 0m
 | Gitea + ArgoCD | Deployed via `scenarios/gitops/scripts/setup-gitea.sh` and `scenarios/gitops/scripts/setup-argocd.sh` |
 | Workflow catalog | `increase-memory-limits-gitops-v1` registered in DataStorage |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `increase-memory-limits-gitops-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `increase-memory-limits-gitops-v1-runner` |
+| ClusterRoleBinding | `increase-memory-limits-gitops-v1-runner` |
+
+**Permissions**: `apps` deployments (get, list), `argoproj.io` applications (get, list), `kubernaut.ai` workflowexecutions (get, list)
+
 ## Automated Run
 
 ```bash

@@ -69,4 +69,4 @@ spec:
   targets:
     staticConfig:
       static:
-      - http://api-gateway.demo-slo.svc/api/status
+      - http://api-gateway.demo-slo.svc:8080/api/status

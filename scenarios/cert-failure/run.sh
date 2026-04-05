@@ -53,6 +53,43 @@ echo "  CA Secret created in cert-manager namespace."
 
 # Step 2: Deploy scenario resources
 echo "==> Step 2: Deploying scenario resources..."
+if [ "$PLATFORM" = "ocp" ]; then
+    # Label cert-manager namespace so its ServiceMonitor is scraped by cluster
+    # Prometheus (same instance evaluating the PrometheusRule in demo-cert-failure).
+    # Without this, cert-manager metrics go to user-workload Prometheus and the
+    # alert rule in cluster Prometheus never fires (#290).
+    # NOTE: This moves ALL ServiceMonitors in cert-manager ns to cluster Prometheus.
+    # cleanup.sh removes this label to restore the original state.
+    kubectl label namespace cert-manager openshift.io/cluster-monitoring=true --overwrite
+    echo "  Labeled cert-manager namespace for cluster Prometheus scraping."
+    # The namespace label alone is not sufficient: the cluster Prometheus SA
+    # needs RBAC to discover endpoints in cert-manager for scraping.
+    kubectl apply -f - <<'RBAC'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-k8s-read
+  namespace: cert-manager
+rules:
+- apiGroups: [""]
+  resources: [endpoints, services, pods]
+  verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-k8s-read-binding
+  namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s-read
+subjects:
+- kind: ServiceAccount
+  name: prometheus-k8s
+  namespace: openshift-monitoring
+RBAC
+fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
@@ -75,6 +112,18 @@ echo ""
 
 # Step 4: Baseline
 echo "==> Step 4: Establishing healthy baseline (20s)..."
+if [ "$PLATFORM" = "ocp" ]; then
+    echo "  Waiting for cluster Prometheus to scrape cert-manager metrics..."
+    for i in $(seq 1 12); do
+        if kubectl get --raw "/api/v1/namespaces/openshift-monitoring/services/prometheus-k8s:web/proxy/api/v1/query?query=certmanager_certificate_ready_status" 2>/dev/null \
+           | grep -q '"result":\[{'; then
+            echo "  cert-manager metrics available in cluster Prometheus (attempt $i)."
+            break
+        fi
+        [ "$i" -eq 12 ] && echo "  WARNING: cert-manager metrics not yet visible after 60s. Proceeding anyway."
+        sleep 5
+    done
+fi
 sleep 20
 if [ "$CERT_READY" = "true" ]; then
     echo "  Baseline established. Certificate is Ready, workload is healthy."

@@ -11,12 +11,14 @@ The LLM's behavior is non-deterministic, yielding three valid outcomes:
 
 | Path | LLM Decision | Warnings | Outcome |
 |------|-------------|----------|---------|
-| **A** | No workflow selected (`actionable: false`) | None | `NoActionRequired` — auto-completes |
+| **A** | No workflow selected (empty `workflowId`) | None | `NoActionRequired` or `ManualReviewRequired` — auto-completes |
 | **B** | Selects `CleanupPVC` + warns "no remediation warranted" | `["Alert not actionable — no remediation warranted"]` | `AwaitingApproval` — human review gate |
 | **C** | Selects `CleanupPVC`, no warnings | None | `Remediated` — PVCs cleaned up |
 
-All three paths are correct. Path A reflects pure LLM confidence that no action is
-needed. Path B shows the LLM hedging — it identifies a matching workflow but raises a
+All three paths are correct. Path A reflects the LLM's judgment that no action is
+needed; on v1.2+ the AA phase may be `Failed` and the RR outcome `ManualReviewRequired`
+when no workflow is selected (instead of `NoActionRequired` on v1.1).
+Path B shows the LLM hedging — it identifies a matching workflow but raises a
 warning that the situation is benign housekeeping; the warning-aware Rego policy
 (`has_warnings`) catches this and forces human review. Path C shows the LLM confidently
 selecting the cleanup workflow — orphaned PVCs from completed batch jobs are a valid
@@ -113,6 +115,20 @@ LLM ambivalence independently of the environment guard.
 | Workflow catalog | `cleanup-pvc-v1` present (shipped with demo content) |
 | Rego policy | Warning-aware rule (`llm_warns_no_remediation`) — applied by `run.sh` |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `cleanup-pvc-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `cleanup-pvc-v1-runner` |
+| ClusterRoleBinding | `cleanup-pvc-v1-runner` |
+
+**Permissions**: core persistentvolumeclaims (get, list, delete), core pods (get, list)
+
 ## Automated Run
 
 ```bash
@@ -141,7 +157,7 @@ kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- 
   amtool alert query alertname=KubePersistentVolumeClaimOrphaned --alertmanager.url=http://localhost:9093
 
 # 5. Monitor pipeline
-kubectl get rr -n kubernaut-system -w
+kubectl get rr -n kubernaut-system -w -o wide
 ```
 
 ### 6. Inspect AI Analysis
@@ -227,9 +243,9 @@ Feature: Orphaned PVC — LLM judgment with available workflow
     When 5 orphaned PVCs from simulated completed batch jobs are created
       And the KubePersistentVolumeClaimOrphaned alert fires (>3 bound PVCs for 3 min)
     Then the alert flows through Gateway → SP → AA (HAPI)
-      And the LLM sets actionable to false with no warnings
-      And AA outcome is WorkflowNotNeeded
-      And RO marks the RR as Completed with outcome NoActionRequired
+      And the LLM selects no workflow (empty workflowId)
+      And AA phase is Completed or Failed (v1.2: Failed when no workflow matched)
+      And RO marks the RR as Completed with outcome NoActionRequired or ManualReviewRequired
       And no WorkflowExecution CRD is created
       And all 5 orphaned PVCs remain in the namespace
 
@@ -258,7 +274,7 @@ Feature: Orphaned PVC — LLM judgment with available workflow
 
 - [ ] 5 orphaned PVCs are created and bound successfully
 - [ ] Alert fires after 3 minutes
-- [ ] Path A: RR reaches `Completed` with outcome `NoActionRequired`, no WFE, PVCs remain
+- [ ] Path A: RR reaches `Completed` with outcome `NoActionRequired` or `ManualReviewRequired` (v1.2), no WFE, PVCs remain
 - [ ] Path B: RR reaches `AwaitingApproval`, reason mentions "no remediation warranted"
 - [ ] Path B: `approvalReason` is "LLM warning: no remediation warranted", not "Production environment"
 - [ ] Path C: RR reaches `Completed` with outcome `Remediated`, WFE completes, PVCs deleted

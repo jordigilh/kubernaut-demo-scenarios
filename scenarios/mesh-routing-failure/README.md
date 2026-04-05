@@ -95,6 +95,20 @@ are Running and Ready.
 > `openshift.io/prometheus-rule-evaluation-scope: leaf-prometheus` label to the
 > PrometheusRule for UWM rule evaluation. See #128 for details.
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `fix-authz-policy-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `fix-authz-policy-v1-runner` |
+| ClusterRoleBinding | `fix-authz-policy-v1-runner` |
+
+**Permissions**: `security.istio.io` authorizationpolicies (get, list, delete), core pods (get, list)
+
 ## Automated Run
 
 ```bash

@@ -6,7 +6,7 @@ default require_approval := false
 default reason := "Auto-approved"
 
 # Helpers
-is_production if { input.environment == "production" }
+is_production if { lower(input.environment) == "production" }
 has_warnings if { count(input.warnings) > 0 }
 
 llm_warns_no_remediation if {

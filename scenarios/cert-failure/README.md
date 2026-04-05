@@ -32,6 +32,20 @@ certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady ale
 | cert-manager | Pre-installed (via `setup-demo-cluster.sh` or manually) |
 | Workflow catalog | `fix-certificate-v1` registered in DataStorage |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `fix-certificate-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `fix-certificate-v1-runner` |
+| ClusterRoleBinding | `fix-certificate-v1-runner` |
+
+**Permissions**: `cert-manager.io` certificates (get, list), `cert-manager.io` clusterissuers (get, list), core secrets (get, list, create, update, delete)
+
 ## Automated Run
 
 ```bash

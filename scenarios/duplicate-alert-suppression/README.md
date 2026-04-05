@@ -46,6 +46,21 @@ on duplicate incidents — a critical requirement for noisy production environme
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `rollback-deployment-v1` registered in DataStorage |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`). It uses the `rollback-deployment-v1` workflow from the
+stuck-rollout scenario:
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `rollback-deployment-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `rollback-deployment-v1-runner` |
+| ClusterRoleBinding | `rollback-deployment-v1-runner` |
+
+**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+
 ## Automated Run
 
 ```bash
@@ -96,7 +111,7 @@ kubectl get pods -n demo-alert-storm
 # 3 new pods in CrashLoopBackOff, 4 old pods still Running (rolling update)
 ```
 
-### 4. Wait for alert storm
+### 4. Wait for alert burst
 
 Prometheus fires 5 individual `KubePodCrashLooping` alerts (one per pod).
 AlertManager groups them by namespace and sends 2+ webhook payloads to the Gateway.
@@ -105,7 +120,7 @@ The Gateway's OwnerResolver resolves each pod to `Deployment/api-gateway` and
 produces a single fingerprint. Only **1 RR** is created:
 
 ```bash
-kubectl get rr -n kubernaut-system
+kubectl get rr -n kubernaut-system -o wide
 # Only 1 RR for demo-alert-storm (not 5)
 ```
 

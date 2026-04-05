@@ -1,4 +1,4 @@
-# Kind-specific value overrides for the Kubernaut Helm chart (v1.1.0+).
+# Kind-specific value overrides for the Kubernaut Helm chart.
 # Exposes gateway and datastorage via NodePort so they are accessible
 # from the host via Kind's extraPortMappings.
 #

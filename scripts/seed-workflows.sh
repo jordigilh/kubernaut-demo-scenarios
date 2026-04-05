@@ -51,6 +51,28 @@ if kubectl get namespace gitea &>/dev/null; then
     done
 fi
 
+_apply_workflow_yaml() {
+    local yaml_file="$1" ns="$2"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    trap "rm -rf '${tmpdir}'" RETURN
+
+    kubectl create namespace "${WE_NAMESPACE:-kubernaut-workflows}" \
+        --dry-run=client -o yaml 2>/dev/null | kubectl apply -f - 2>/dev/null || true
+
+    awk -v dir="$tmpdir" \
+        'BEGIN{n=0} /^---$/{n++; next} {print >> dir"/doc-"n".yaml"}' "$yaml_file"
+
+    for doc in "$tmpdir"/doc-*.yaml; do
+        [ -f "$doc" ] || continue
+        if grep -q 'kind: RemediationWorkflow' "$doc"; then
+            kubectl apply -n "$ns" -f "$doc" 2>&1
+        else
+            kubectl apply -f "$doc" 2>&1
+        fi
+    done
+}
+
 echo "==> Applying RemediationWorkflow CRDs from ${WORKFLOWS_DIR}"
 while IFS= read -r -d '' yaml_file; do
     basename="${yaml_file##*/}"
@@ -92,7 +114,7 @@ while IFS= read -r -d '' yaml_file; do
         continue
     fi
 
-    if kubectl apply -n "$NAMESPACE" -f "$yaml_file" 2>&1 | sed 's/^/  /'; then
+    if _apply_workflow_yaml "$yaml_file" "$NAMESPACE" 2>&1 | sed 's/^/  /'; then
         applied=$((applied + 1))
     else
         fail_count=$((fail_count + 1))

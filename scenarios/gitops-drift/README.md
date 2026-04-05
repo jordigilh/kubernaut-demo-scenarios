@@ -20,6 +20,20 @@ The LLM must choose the GitOps-aware remediation path.
 | ArgoCD | Full install via `scenarios/gitops/scripts/setup-argocd.sh` (includes server + Gitea webhook) | OpenShift GitOps operator (script skips install, provisions credentials only) |
 | Memory budget | ~6.2GB total (4.6GB base + 1.6GB GitOps infra) | N/A (cluster-managed) |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `git-revert-v2-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `git-revert-v2-runner` |
+| ClusterRoleBinding | `git-revert-v2-runner` |
+
+**Permissions**: `argoproj.io` applications (get, list), core pods (get, list)
+
 ## BDD Specification
 
 ```gherkin
