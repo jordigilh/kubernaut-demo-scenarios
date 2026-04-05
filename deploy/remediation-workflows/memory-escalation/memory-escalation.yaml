@@ -45,11 +45,11 @@ metadata:
 spec:
   # Increase Memory Limits Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: Memory escalation -- increase limits to prevent OOMKill
-  version: "1.2.0"
+  version: "1.2.1"
   description:
     what: "Increases the memory limits of a deployment's containers to prevent OOMKill events. Doubles the current memory limit by default."
     whenToUse: "When containers are being OOMKilled because the memory limit is too low for the workload's legitimate requirements."
-    whenNotToUse: "When the OOMKill is caused by a memory leak, or when the issue is a namespace ResourceQuota constraint. Increasing individual pod limits cannot resolve quota exhaustion and may worsen it by requesting more memory per pod against a fixed quota ceiling. In quota exhaustion cases, escalate to human review for quota policy adjustment. Check remediation history: if this workflow has been applied multiple times with declining effectiveness, escalate to human review."
+    whenNotToUse: "When the issue is a namespace ResourceQuota constraint — increasing individual pod limits cannot resolve quota exhaustion and may worsen it by requesting more memory per pod against a fixed quota ceiling; in quota exhaustion cases, escalate to human review for quota policy adjustment. Note: even when a memory leak is suspected, this workflow is still the correct first-pass mitigation because it buys runtime for the application team to investigate. The platform's escalation mechanism (CheckConsecutiveFailures / CheckIneffectiveRemediationChain) will automatically detect repeated ineffective remediations and escalate to human review."
     preconditions: "The deployment exists and containers have memory limits set. The node has sufficient allocatable memory for the increased limit."
   
   actionType: IncreaseMemoryLimits
