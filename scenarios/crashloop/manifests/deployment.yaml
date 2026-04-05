@@ -18,13 +18,17 @@ spec:
     spec:
       containers:
       - name: worker
-        image: nginx:1.27-alpine
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
         - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
         volumeMounts:
         - name: config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
             memory: "32Mi"
@@ -57,10 +61,12 @@ metadata:
   labels:
     app: worker
     kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
 spec:
   selector:
     app: worker
   ports:
   - port: 8080
     targetPort: 8080
+    name: http
   type: ClusterIP

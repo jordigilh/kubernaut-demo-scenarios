@@ -17,13 +17,19 @@ spec:
         app: demo-app
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.27-alpine
+      - name: demo-app
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
-        - containerPort: 443
+        - containerPort: 8443
+          name: https
+        env:
+        - name: LISTEN_PORT
+          value: "8443"
+        - name: TLS_CERT_DIR
+          value: /etc/tls
         volumeMounts:
         - name: tls
-          mountPath: /etc/nginx/ssl
+          mountPath: /etc/tls
           readOnly: true
         resources:
           requests:
@@ -46,10 +52,12 @@ metadata:
   labels:
     app: demo-app
     kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
 spec:
   selector:
     app: demo-app
   ports:
-  - port: 443
-    targetPort: 443
+  - port: 8443
+    targetPort: 8443
+    name: http
   type: ClusterIP

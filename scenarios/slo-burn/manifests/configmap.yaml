@@ -6,14 +6,15 @@ metadata:
   labels:
     app: api-gateway
 data:
-  default.conf: |
-    server {
-      listen 80;
-      location /api/ {
-        return 200 '{"status": "ok"}';
-        add_header Content-Type application/json;
-      }
-      location /healthz {
-        return 200 "ok";
-      }
-    }
+  config.yaml: |
+    port: 8080
+    routes:
+      - path: /api/status
+        status: 200
+        body: '{"status": "ok"}'
+      - path: /api/
+        status: 200
+        body: '{"status": "ok"}'
+      - path: /healthz
+        status: 200
+        body: 'ok'
