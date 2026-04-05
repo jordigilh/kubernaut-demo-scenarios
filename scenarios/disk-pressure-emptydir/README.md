@@ -171,18 +171,34 @@ kubectl exec -n demo-diskpressure deploy/postgres-emptydir -- pg_isready -U post
 
 ### 3. Inject disk pressure
 
+The stored procedure `simulate_data_growth(batch_size, iterations, sleep_ms)` must be
+called with parameters tuned to the target node's filesystem capacity. Writing too fast
+exhausts disk before the pipeline completes; too slow and `predict_linear()` never fires.
+
+Use the helper script to compute the parameters for your environment:
+
 ```bash
-# Connect to the PostgreSQL pod and run the data growth procedure
-POD=$(kubectl get pod -n demo-diskpressure -l app=postgres-emptydir -o name | head -1)
-kubectl exec -n demo-diskpressure "$POD" -- \
-  psql -U postgres -c "CALL simulate_data_growth(500, 200, 50);" &
+bash scenarios/disk-pressure-emptydir/compute-inject-params.sh
 ```
 
-The stored procedure parameters (batch_size, iterations, sleep_ms) are computed dynamically
-by `run.sh inject` based on the target node's filesystem capacity (see `run_inject()`).
+The script reads the node's filesystem stats and prints the computed values along with
+a ready-to-paste `kubectl exec` command. It does **not** start the injection — copy the
+command it prints and run it when you are ready:
+
+```bash
+# Example output (values will differ based on your node's disk capacity):
+#   kubectl exec -n demo-diskpressure postgres-emptydir-xxxx -- \
+#     psql -U postgres -d postgres -c "CALL simulate_data_growth(128, 29520, 50);" &
+```
+
 The rate is auto-tuned so `predict_linear()` fires with ~8 min margin before kubelet eviction,
 giving the full pipeline (LLM analysis, RAR approval, AWX dispatch, pg_dump, ArgoCD sync,
 pg_restore) enough time to complete before data loss.
+
+> **How it works:** The script targets a write rate that triggers the `PredictedDiskPressure`
+> alert at ~4 min while leaving ~8 min before kubelet eviction. It accounts for PostgreSQL's
+> ~2x disk amplification (tuple headers, WAL, TOAST) and clamps the rate based on the
+> filesystem size to avoid edge cases. See `run_inject()` in `run.sh` for the full algorithm.
 
 ### 4. Wait for alert and pipeline
 
