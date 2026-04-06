@@ -6,7 +6,7 @@ NAMESPACE="demo-rollout"
 
 echo "==> Setting checkout-api to a non-existent image tag..."
 kubectl set image deployment/checkout-api -n "${NAMESPACE}" \
-  api=nginx:99.99.99-doesnotexist
+  api=quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist
 
 echo "==> Bad image injected. The rollout will stall because:"
 echo "    - New pods will have ImagePullBackOff"

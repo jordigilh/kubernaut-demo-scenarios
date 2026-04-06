@@ -22,6 +22,7 @@ REPO_NAME="demo-cert-gitops-repo"
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
 SUBCOMMAND="all"
+ARGOCD_NS=$([ "${PLATFORM:-}" = "ocp" ] && echo "openshift-gitops" || echo "argocd")
 for _arg in "$@"; do
     case "$_arg" in
         --auto-approve)  APPROVE_MODE="--auto-approve" ;;
@@ -58,7 +59,7 @@ kubectl create secret tls demo-ca-key-pair \
 rm -rf "${TMPDIR_CA}"
 
 # Speed up ArgoCD polling for demo scenarios (default 180s -> 60s)
-kubectl patch configmap argocd-cm -n argocd --type merge \
+kubectl patch configmap argocd-cm -n "$ARGOCD_NS" --type merge \
   -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
 
 # Step 3: Create Gitea repo with cert-manager manifests
@@ -194,8 +195,12 @@ spec:
 MANIFEST
 
 git add .
-git commit -m "feat: initial cert-manager resources (healthy state)"
-git push origin main
+if ! git diff --cached --quiet; then
+  git commit -m "feat: initial cert-manager resources (healthy state)"
+  git push origin main
+else
+  echo "  Manifests already in repo (idempotent). Skipping commit."
+fi
 
 kill "${PF_PID}" 2>/dev/null || true
 cd /
@@ -207,12 +212,60 @@ kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply
 if [ "$PLATFORM" = "ocp" ]; then
     kubectl label namespace "${NAMESPACE}" openshift.io/cluster-monitoring=true --overwrite
     kubectl label namespace "${NAMESPACE}" argocd.argoproj.io/managed-by=openshift-gitops --overwrite
+    # Label cert-manager namespace so its ServiceMonitor is scraped by cluster
+    # Prometheus (same instance evaluating the PrometheusRule in demo-cert-gitops).
+    # Without this, cert-manager metrics go to user-workload Prometheus and the
+    # alert rule in cluster Prometheus never fires (#290).
+    # NOTE: This moves ALL ServiceMonitors in cert-manager ns to cluster Prometheus.
+    # cleanup.sh removes this label to restore the original state.
+    kubectl label namespace cert-manager openshift.io/cluster-monitoring=true --overwrite
+    echo "  Labeled cert-manager namespace for cluster Prometheus scraping."
+    # The namespace label alone is not sufficient: the cluster Prometheus SA
+    # needs RBAC to discover endpoints in cert-manager for scraping.
+    kubectl apply -f - <<'RBAC'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-k8s-read
+  namespace: cert-manager
+rules:
+- apiGroups: [""]
+  resources: [endpoints, services, pods]
+  verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-k8s-read-binding
+  namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s-read
+subjects:
+- kind: ServiceAccount
+  name: prometheus-k8s
+  namespace: openshift-monitoring
+RBAC
 fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
 echo "  Waiting for ArgoCD sync..."
 sleep 15
+
+if [ "$PLATFORM" = "ocp" ]; then
+    echo "  Waiting for cluster Prometheus to scrape cert-manager metrics..."
+    for i in $(seq 1 12); do
+        if kubectl get --raw "/api/v1/namespaces/openshift-monitoring/services/prometheus-k8s:web/proxy/api/v1/query?query=certmanager_certificate_ready_status" 2>/dev/null \
+           | grep -q '"result":\[{'; then
+            echo "  cert-manager metrics available in cluster Prometheus (attempt $i)."
+            break
+        fi
+        [ "$i" -eq 12 ] && echo "  WARNING: cert-manager metrics not yet visible after 60s. Proceeding anyway."
+        sleep 5
+    done
+fi
 
 echo "==> Step 6: Waiting for Certificate to become Ready..."
 for i in $(seq 1 30); do
@@ -270,7 +323,7 @@ rm -rf "${WORK_DIR}"
 echo "  Bad commit pushed. ArgoCD will sync broken ClusterIssuer."
 
 # Force ArgoCD to refresh immediately instead of waiting for the next poll cycle.
-kubectl annotate application demo-cert-gitops -n argocd \
+kubectl annotate application demo-cert-gitops -n "$ARGOCD_NS" \
   argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
 
 # Wait for ArgoCD to sync the broken commit.
@@ -284,15 +337,19 @@ for i in $(seq 1 90); do
   fi
   if [ $((i % 12)) -eq 0 ]; then
     echo "  Still waiting... (attempt $i, re-triggering refresh)"
-    kubectl annotate application demo-cert-gitops -n argocd \
+    kubectl annotate application demo-cert-gitops -n "$ARGOCD_NS" \
       argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
   fi
   sleep 5
 done
 
-# Wait for ClusterIssuer to report Ready=False (the broken reference to
-# nonexistent-ca-secret is sufficient — no need to delete the real CA secret,
-# which would prevent the git revert path from fully restoring the Certificate).
+# cert-manager caches the CA signing keypair in memory. Changing the secretName
+# in the ClusterIssuer spec does not invalidate this cache, so the issuer stays
+# Ready=True indefinitely. Restart cert-manager to flush the cache (#294).
+echo "  Restarting cert-manager to flush cached CA keys..."
+kubectl rollout restart deployment cert-manager -n cert-manager
+kubectl rollout status deployment cert-manager -n cert-manager --timeout=60s
+
 echo "  Waiting for ClusterIssuer to report Ready=False..."
 for i in $(seq 1 30); do
   READY=$(kubectl get clusterissuer demo-selfsigned-ca-gitops \

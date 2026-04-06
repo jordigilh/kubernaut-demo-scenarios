@@ -21,6 +21,25 @@ existing workloads to healthy nodes.
 | Podman | Required to pause/unpause Kind node container |
 | Workflow catalog | `cordon-drain-v1` registered in DataStorage |
 
+> **Kind-only for v1.2**: This scenario uses `podman pause` to simulate kubelet
+> failure, which only works on Kind clusters where nodes are containers. On OCP,
+> `run.sh` exits early with a message. OCP support (via `virsh suspend` for
+> libvirt-backed nodes) is planned for v1.3 (#286).
+
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `cordon-drain-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `cordon-drain-v1-runner` |
+| ClusterRoleBinding | `cordon-drain-v1-runner` |
+
+**Permissions**: core nodes (get, list, patch, update), core pods (get, list), core pods/eviction (create)
+
 ## Automated Run
 
 ```bash

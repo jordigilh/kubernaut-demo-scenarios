@@ -17,12 +17,11 @@ patches:
       - op: remove
         path: /metadata/labels/release
   - target:
-      kind: Deployment
-      name: web-frontend
+      kind: ServiceMonitor
+      name: demo-app-metrics
     patch: |
-      - op: replace
-        path: /spec/template/spec/containers/0/image
-        value: nginxinc/nginx-unprivileged:1.27-alpine
+      - op: remove
+        path: /metadata/labels/release
   - target:
       kind: Deployment
       name: traffic-gen

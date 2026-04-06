@@ -3,10 +3,10 @@
 # Scenario #130: Bad image -> stuck rollout -> rollback
 #
 # Prerequisites:
-#   - Kind cluster with overlays/kind/kind-cluster-config.yaml
+#   - Kind or OCP cluster with Kubernaut services
 #   - Prometheus with kube-state-metrics
 #
-# Usage: ./scenarios/stuck-rollout/run.sh
+# Usage: ./scenarios/stuck-rollout/run.sh [--auto-approve|--interactive]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

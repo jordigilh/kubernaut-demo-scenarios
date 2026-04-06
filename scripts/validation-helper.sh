@@ -487,6 +487,17 @@ show_effectiveness() {
     health_score=$(kubectl get effectivenessassessments "$ea_name" -n "$PLATFORM_NS" -o jsonpath='{.status.components.healthScore}' 2>/dev/null)
     metrics_score=$(kubectl get effectivenessassessments "$ea_name" -n "$PLATFORM_NS" -o jsonpath='{.status.components.metricsScore}' 2>/dev/null)
 
+    # v1.2.0: hash-capture degradation (#546) and spec drift detection (#396)
+    local pre_hash post_hash spec_drift degraded
+    pre_hash=$(kubectl get effectivenessassessments "$ea_name" -n "$PLATFORM_NS" \
+        -o jsonpath='{.status.conditions[?(@.type=="PreRemediationHashCaptured")].status}' 2>/dev/null || true)
+    post_hash=$(kubectl get effectivenessassessments "$ea_name" -n "$PLATFORM_NS" \
+        -o jsonpath='{.status.conditions[?(@.type=="PostRemediationHashCaptured")].status}' 2>/dev/null || true)
+    spec_drift=$(kubectl get effectivenessassessments "$ea_name" -n "$PLATFORM_NS" \
+        -o jsonpath='{.status.components.specDrift}' 2>/dev/null || true)
+    degraded=$(kubectl get effectivenessassessments "$ea_name" -n "$PLATFORM_NS" \
+        -o jsonpath='{.status.degraded}' 2>/dev/null || true)
+
     printf '\n'
     printf '           %s%sEffectiveness Assessment%s\n' "$_c_bold" "$_c_cyan" "$_c_reset"
     printf '           %s──────────────────────────────────────────%s\n' "$_c_dim" "$_c_reset"
@@ -498,6 +509,15 @@ show_effectiveness() {
     printf '           Alert Score:   %s\n' "${alert_score:-pending}"
     printf '           Health Score:  %s\n' "${health_score:-pending}"
     printf '           Metrics Score: %s\n' "${metrics_score:-pending}"
+    if [ -n "$spec_drift" ]; then
+        printf '           Spec Drift:   %s\n' "$spec_drift"
+    fi
+    if [ -n "$pre_hash" ] || [ -n "$post_hash" ]; then
+        printf '           Hash Capture: pre=%s post=%s\n' "${pre_hash:-N/A}" "${post_hash:-N/A}"
+    fi
+    if [ "$degraded" = "true" ]; then
+        printf '           %s%sDegraded:     true (hash capture incomplete)%s\n' "$_c_bold" "$_c_yellow" "$_c_reset"
+    fi
     printf '\n'
 }
 
@@ -633,10 +653,12 @@ auto_approve_rar() {
 # ── Main pipeline poller ─────────────────────────────────────────────────────
 # Polls RR overallPhase, prints transitions, shows AI analysis and WFE inline.
 #
-# Args: $1=target_namespace $2=timeout (default 600) $3=--auto-approve|--interactive (default --auto-approve)
+# Args: $1=target_namespace $2=timeout $3=--auto-approve|--interactive (default --auto-approve)
+# Default timeout: 900s on OCP (EA stabilization window is longer), 600s on Kind.
 poll_pipeline() {
     local target_ns="$1"
-    local timeout="${2:-600}"
+    local _default_timeout; _default_timeout=$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 600)
+    local timeout="${2:-$_default_timeout}"
     local approve_mode="${3:---auto-approve}"
     local elapsed=0
     local interval=10

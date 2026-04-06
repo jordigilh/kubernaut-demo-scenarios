@@ -43,6 +43,20 @@ kube_deployment_status_condition{condition="Progressing",status="false"} == 1
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `rollback-deployment-v1` registered in DataStorage |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `rollback-deployment-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `rollback-deployment-v1-runner` |
+| ClusterRoleBinding | `rollback-deployment-v1-runner` |
+
+**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+
 ## Automated Run
 
 ```bash
@@ -115,8 +129,12 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:909
 
 ```bash
 # Query Alertmanager for active alerts
+# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubeDeploymentRolloutStuck --alertmanager.url=http://localhost:9093
+# OCP:
+# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+#   amtool alert query alertname=KubeDeploymentRolloutStuck --alertmanager.url=http://localhost:9093
 
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```

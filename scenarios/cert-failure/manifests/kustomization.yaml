@@ -9,3 +9,5 @@ resources:
   - deployment.yaml
   - prometheus-rule.yaml
   - servicemonitor.yaml
+components:
+  - ../../components/metrics-servicemonitor

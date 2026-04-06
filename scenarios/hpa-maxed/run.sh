@@ -3,11 +3,11 @@
 # Scenario #123: HPA at ceiling -> temporarily raise maxReplicas
 #
 # Prerequisites:
-#   - Kind cluster with overlays/kind/kind-cluster-config.yaml
+#   - Kind or OCP cluster with Kubernaut services
 #   - Prometheus with kube-state-metrics
 #   - metrics-server installed (for HPA CPU metrics)
 #
-# Usage: ./scenarios/hpa-maxed/run.sh
+# Usage: ./scenarios/hpa-maxed/run.sh [--auto-approve|--interactive]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

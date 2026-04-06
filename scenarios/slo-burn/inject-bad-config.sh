@@ -10,16 +10,8 @@ set -euo pipefail
 
 NAMESPACE="demo-slo"
 
-# Detect listen port from the existing healthy ConfigMap so the bad config
-# uses the same port. More robust than relying on inherited PLATFORM when
-# the script is invoked standalone (#117).
-LISTEN_PORT=$(kubectl get cm api-config -n "${NAMESPACE}" \
-    -o jsonpath='{.data.default\.conf}' 2>/dev/null \
-    | grep -oE 'listen [0-9]+' | grep -oE '[0-9]+') || true
-LISTEN_PORT="${LISTEN_PORT:-80}"
-
-echo "==> Creating bad ConfigMap (500 errors on /api/, port ${LISTEN_PORT})..."
-kubectl apply -f - <<YAML
+echo "==> Creating bad ConfigMap (500 errors on /api/)..."
+kubectl apply -f - <<'YAML'
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -28,16 +20,18 @@ metadata:
   labels:
     app: api-gateway
 data:
-  default.conf: |
-    server {
-      listen ${LISTEN_PORT};
-      location /api/ {
-        return 500 "internal server error";
-      }
-      location /healthz {
-        return 200 "ok";
-      }
-    }
+  config.yaml: |
+    port: 8080
+    routes:
+      - path: /api/status
+        status: 500
+        body: 'internal server error'
+      - path: /api/
+        status: 500
+        body: 'internal server error'
+      - path: /healthz
+        status: 200
+        body: 'ok'
 YAML
 
 echo "==> Patching deployment to reference bad ConfigMap..."

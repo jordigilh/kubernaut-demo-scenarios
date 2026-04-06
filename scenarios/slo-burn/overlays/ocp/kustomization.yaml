@@ -11,71 +11,20 @@ patches:
         path: /metadata/labels/openshift.io~1cluster-monitoring
         value: "true"
   - target:
-      kind: Deployment
-      name: api-gateway
-    patch: |
-      - op: replace
-        path: /spec/template/spec/containers/0/image
-        value: nginxinc/nginx-unprivileged:1.27-alpine
-      - op: replace
-        path: /spec/template/spec/containers/0/ports/0/containerPort
-        value: 8080
-      - op: replace
-        path: /spec/template/spec/containers/0/livenessProbe/httpGet/port
-        value: 8080
-      - op: replace
-        path: /spec/template/spec/containers/0/readinessProbe/httpGet/port
-        value: 8080
-  - target:
-      kind: Service
-      name: api-gateway
-    patch: |
-      - op: replace
-        path: /spec/ports/0/port
-        value: 8080
-      - op: replace
-        path: /spec/ports/0/targetPort
-        value: 8080
-  - target:
-      kind: ConfigMap
-      name: api-config
-    patch: |
-      - op: replace
-        path: /data/default.conf
-        value: |
-          server {
-            listen 8080;
-            location /api/ {
-              return 200 '{"status": "ok"}';
-              add_header Content-Type application/json;
-            }
-            location /healthz {
-              return 200 "ok";
-            }
-          }
-  - target:
-      kind: Deployment
-      name: traffic-gen
-    patch: |
-      - op: replace
-        path: /spec/template/spec/containers/0/args/0
-        value: |
-          while true; do
-            wget -q -O /dev/null http://api-gateway:8080/api/status 2>/dev/null
-            sleep 0.2
-          done
-  - target:
       kind: Probe
       name: api-gateway-probe
     patch: |
-      - op: replace
-        path: /spec/targets/staticConfig/static/0
-        value: "http://api-gateway.demo-slo.svc:8080/api/status"
       - op: remove
         path: /metadata/labels/release
   - target:
       kind: PrometheusRule
       name: slo-burn-rules
+    patch: |
+      - op: remove
+        path: /metadata/labels/release
+  - target:
+      kind: ServiceMonitor
+      name: demo-app-metrics
     patch: |
       - op: remove
         path: /metadata/labels/release

@@ -34,47 +34,47 @@ REMEDIATION_LOOPS=0
 wait_for_rr "${NAMESPACE}" 120
 first_rr=$(get_rr_name "${NAMESPACE}")
 
-if poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"; then
-    # Completed (Path A with ManualReviewRequired via Completed phase is unlikely,
-    # but handle it)
-    REMEDIATION_LOOPS=1
+# v1.2.0: ManualReviewRequired transitions to Completed (not Failed).
+# poll_pipeline returns 0 for Completed, so both Path A and Path B first
+# pass enter the 'if' branch.
+poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}" || true
+REMEDIATION_LOOPS=1
+
+first_outcome=$(kubectl get rr "${first_rr}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+
+if [ "$first_outcome" = "ManualReviewRequired" ]; then
+    # Path A: LLM directly escalated (primary path in v1.2.0 with
+    # quota-aware LabelDetector).
     DECISIVE_RR="$first_rr"
 else
-    # Pipeline terminated (Failed/TimedOut/Cancelled)
-    REMEDIATION_LOOPS=1
-    first_outcome=$(kubectl get rr "${first_rr}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+    # Path B: LLM selected a workflow on the first pass (e.g.
+    # IncreaseMemoryLimits). Alert re-fires, second RR self-corrects
+    # to ManualReviewRequired. See #323.
+    log_info "First remediation outcome: ${first_outcome}. Waiting for self-correction loop (#323)..."
+    REMEDIATION_LOOPS=2
 
-    if [ "$first_outcome" = "ManualReviewRequired" ]; then
-        DECISIVE_RR="$first_rr"
-    else
-        log_info "First remediation outcome: ${first_outcome}. Waiting for self-correction loop (#323)..."
-        REMEDIATION_LOOPS=2
-
-        # Wait for a NEW RR (different from the first) to appear
-        log_phase "Waiting for second RemediationRequest (alert re-fire)..."
-        local_timeout=300
-        local_elapsed=0
-        while [ "$local_elapsed" -lt "$local_timeout" ]; do
-            candidate=$(get_rr_name "${NAMESPACE}")
-            if [ -n "$candidate" ] && [ "$candidate" != "$first_rr" ]; then
-                log_success "Second RR ${candidate} created"
-                break
-            fi
-            sleep 10
-            local_elapsed=$((local_elapsed + 10))
-        done
-
-        if [ "$local_elapsed" -ge "$local_timeout" ]; then
-            log_error "Timed out waiting for second RR (${local_timeout}s)"
-            print_result "resource-quota-exhaustion"
-            exit 1
+    log_phase "Waiting for second RemediationRequest (alert re-fire)..."
+    local_timeout=300
+    local_elapsed=0
+    while [ "$local_elapsed" -lt "$local_timeout" ]; do
+        candidate=$(get_rr_name "${NAMESPACE}")
+        if [ -n "$candidate" ] && [ "$candidate" != "$first_rr" ]; then
+            log_success "Second RR ${candidate} created"
+            break
         fi
+        sleep 10
+        local_elapsed=$((local_elapsed + 10))
+    done
 
-        # Poll the second pipeline
-        poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}" || true
-        DECISIVE_RR=$(get_rr_name "${NAMESPACE}")
+    if [ "$local_elapsed" -ge "$local_timeout" ]; then
+        log_error "Timed out waiting for second RR (${local_timeout}s)"
+        print_result "resource-quota-exhaustion"
+        exit 1
     fi
+
+    poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}" || true
+    DECISIVE_RR=$(get_rr_name "${NAMESPACE}")
 fi
 
 # ── Assertions (on the decisive RR) ────────────────────────────────────────

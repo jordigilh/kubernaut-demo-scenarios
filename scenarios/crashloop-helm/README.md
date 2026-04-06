@@ -40,6 +40,20 @@ kube_pod_container_status_restarts_total increasing → KubePodCrashLooping aler
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `helm-rollback-v1` registered in DataStorage |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `helm-rollback-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `helm-rollback-v1-runner` |
+| ClusterRoleBinding | `helm-rollback-v1-runner` |
+
+**Permissions**: Broad chart-operator role — `apps` deployments/replicasets/statefulsets/daemonsets (full CRUD), core services/configmaps/secrets/pods/serviceaccounts/pvcs (full CRUD), `batch` jobs/cronjobs (full CRUD), `networking.k8s.io` ingresses (full CRUD). Helm rollback re-applies the full release manifest.
+
 ## Automated Run
 
 ```bash
@@ -123,8 +137,12 @@ The `KubePodCrashLooping` alert fires after the expression is true for 3 minutes
 
 ```bash
 # Query Alertmanager for active alerts
+# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+# OCP:
+# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+#   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
 
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```

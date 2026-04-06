@@ -69,7 +69,7 @@ clear-cut and warrants a direct rollback.
 
 - Kubernetes / OpenShift cluster with Prometheus Operator (CRD: Probe, PrometheusRule)
 - Kubernaut services deployed with HAPI configured for a real LLM backend
-- HolmesGPT Prometheus toolset (auto-enabled by `run.sh`, reverted by `cleanup.sh` — see #108)
+- HolmesGPT Prometheus toolset (auto-enabled by `run.sh`, reverted by `cleanup.sh` — [manual enablement](../../docs/prometheus-toolset.md))
 - `RollbackDeployment` action type registered
 - `crashloop-rollback-v1` (or equivalent) workflow in the catalog
 
@@ -78,6 +78,20 @@ clear-cut and warrants a direct rollback.
 > (`overlays/ocp/`) patches the nginx image to `nginx-unprivileged` (port 8080),
 > updates the ConfigMap listen directive, traffic-gen URL, and Probe target
 > accordingly.
+
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `proactive-rollback-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `proactive-rollback-v1-runner` |
+| ClusterRoleBinding | `proactive-rollback-v1-runner` |
+
+**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
 
 ## Automated Run
 
@@ -118,8 +132,12 @@ bash scenarios/slo-burn/inject-bad-config.sh
 #    Alert fires after 3 min for: duration
 
 # 6. Query Alertmanager for active alerts
+# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=ErrorBudgetBurn --alertmanager.url=http://localhost:9093
+# OCP:
+# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+#   amtool alert query alertname=ErrorBudgetBurn --alertmanager.url=http://localhost:9093
 
 # 7. Watch pipeline
 kubectl get rr,aia,wfe,ea,notif -n kubernaut-system -w
@@ -158,16 +176,16 @@ kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.inves
 ```
 
 ```bash
-# 8. Approve when prompted (production environment)
+# 9. Approve when prompted (production environment)
 kubectl patch remediationapprovalrequest <RAR> -n kubernaut-system \
   --type merge --subresource status \
   -p '{"status":{"decision":"Approved","decidedBy":"<you>","decidedAt":"<now>"}}'
 
-# 9. Verify rollback
+# 10. Verify rollback
 kubectl rollout history deployment/api-gateway -n demo-slo
 kubectl get pods -n demo-slo
 
-# 10. Cleanup
+# 11. Cleanup
 bash scenarios/slo-burn/cleanup.sh
 ```
 

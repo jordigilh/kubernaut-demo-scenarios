@@ -1,9 +1,52 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restart-pods-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restart-pods-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: restart-pods-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restart-pods-v1
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: restart-pods-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restart-pods-v1
+subjects:
+  - kind: ServiceAccount
+    name: restart-pods-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: restart-pods-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: restart-pods-v1
 spec:
-  version: "1.0.10"
+  version: "1.2.0"
   description:
     what: "Performs a rolling restart of a deployment to recover from CrashLoopBackOff by resetting pod state without changing the deployment revision"
     whenToUse: "When a deployment enters CrashLoopBackOff and the signal carries risk_tolerance=high. This simpler restart approach prioritizes recovery speed over revision safety -- it resets pod state without rolling back to a previous revision. Best for teams that accept the risk of the current configuration and want the fastest path to recovery."
@@ -24,6 +67,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:c4f5e9cd8bf84ff4669596d6c562aa2c586971e113cb0875f2177ffc3530e3fb
+    serviceAccountName: restart-pods-v1-runner
 
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE

@@ -4,3 +4,5 @@ resources:
   - namespace.yaml
   - statefulset.yaml
   - prometheus-rule.yaml
+components:
+  - ../../components/metrics-servicemonitor

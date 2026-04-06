@@ -1,3 +1,46 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: crashloop-rollback-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: crashloop-rollback-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: crashloop-rollback-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: crashloop-rollback-v1
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: crashloop-rollback-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: crashloop-rollback-v1
+subjects:
+  - kind: ServiceAccount
+    name: crashloop-rollback-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: crashloop-rollback-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
@@ -5,7 +48,7 @@ metadata:
 spec:
   # Rollback Deployment Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #120 -- CrashLoopBackOff -> rollback to working config
-  version: "1.0.11"
+  version: "1.2.0"
   description:
     what: "Rolls back a deployment to its previous revision to recover from CrashLoopBackOff caused by a bad configuration change"
     whenToUse: "When a deployment enters CrashLoopBackOff immediately after a config or image change, and the previous revision was healthy"
@@ -23,6 +66,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:5a370816acd91ffa0781c89f5df20b56650f2eeedc53469610cecea6bb8a5c14
+    serviceAccountName: crashloop-rollback-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

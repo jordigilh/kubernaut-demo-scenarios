@@ -7,6 +7,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
+if [ "$PLATFORM" = "ocp" ]; then
+    echo "ERROR: node-notready cleanup is Kind-only (uses podman unpause)."
+    echo "       See https://github.com/jordigilh/kubernaut-demo-scenarios/issues/287"
+    exit 1
+fi
+
 echo "==> Cleaning up Node NotReady demo..."
 
 # Restore the paused worker node

@@ -37,6 +37,20 @@ certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady ale
 | Workflow catalog | `fix-certificate-gitops-v1` registered in DataStorage | Same |
 | Memory budget | ~6.1GB total (4.6GB base + 1.5GB GitOps infra) | N/A (cluster-managed) |
 
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `fix-certificate-gitops-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `fix-certificate-gitops-v1-runner` |
+| ClusterRoleBinding | `fix-certificate-gitops-v1-runner` |
+
+**Permissions**: `argoproj.io` applications (get, list), `cert-manager.io` certificates (get, list)
+
 ## BDD Specification
 
 ```gherkin

@@ -15,7 +15,11 @@ PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KUBERNAUT_REPO="${KUBERNAUT_REPO:-$(cd "${REPO_ROOT}/../kubernaut" 2>/dev/null && pwd || true)}"
 KUBERNAUT_OCI_CHART="oci://quay.io/kubernaut-ai/charts/kubernaut"
-if [ -n "${KUBERNAUT_REPO}" ] && [ -d "${KUBERNAUT_REPO}/charts/kubernaut" ]; then
+if [ -n "${CHART_VERSION:-}" ]; then
+    # --chart-version requires OCI registry; Helm ignores --version for local paths (#269)
+    CHART_REF="${KUBERNAUT_OCI_CHART}"
+    CHART_SOURCE="oci"
+elif [ -n "${KUBERNAUT_REPO}" ] && [ -d "${KUBERNAUT_REPO}/charts/kubernaut" ]; then
     CHART_REF="${KUBERNAUT_REPO}/charts/kubernaut"
     CHART_SOURCE="local"
 else
@@ -133,6 +137,33 @@ silence_alert() {
       --comment="Cleanup silence" 2>/dev/null || true
 }
 
+# Apply a multi-document workflow YAML, routing each document to the
+# correct namespace. RemediationWorkflow docs get -n $ns (platform namespace),
+# other docs (ServiceAccount, ClusterRole, ClusterRoleBinding) are applied
+# without -n so they respect their own metadata.namespace.
+_apply_workflow_yaml() {
+    local yaml_file="$1" ns="$2"
+    local tmpdir _rc=0
+    tmpdir=$(mktemp -d)
+    trap "rm -rf '${tmpdir}'" RETURN
+
+    kubectl create namespace "${WE_NAMESPACE:-kubernaut-workflows}" \
+        --dry-run=client -o yaml 2>/dev/null | kubectl apply -f - 2>/dev/null || true
+
+    awk -v dir="$tmpdir" \
+        'BEGIN{n=0} /^---$/{n++; next} {print >> dir"/doc-"n".yaml"}' "$yaml_file"
+
+    for doc in "$tmpdir"/doc-*.yaml; do
+        [ -f "$doc" ] || continue
+        if grep -q 'kind: RemediationWorkflow' "$doc"; then
+            kubectl apply -n "$ns" -f "$doc" 2>&1 || _rc=$?
+        else
+            kubectl apply -f "$doc" 2>&1 || _rc=$?
+        fi
+    done
+    return $_rc
+}
+
 # Ensure all ActionType and RemediationWorkflow CRDs are applied.
 # Idempotent: kubectl apply is a no-op when resources are unchanged.
 seed_action_types_and_workflows() {
@@ -147,7 +178,7 @@ seed_action_types_and_workflows() {
     local wf_dir="${REPO_ROOT}/deploy/remediation-workflows"
     if [ -d "$wf_dir" ]; then
         echo "==> Seeding RemediationWorkflow CRDs (namespace: ${ns})..."
-        local applied=0 skipped=0
+        local applied=0 skipped=0 failed=0
         while IFS= read -r -d '' yaml_file; do
             local basename="${yaml_file##*/}"
 
@@ -167,13 +198,13 @@ seed_action_types_and_workflows() {
             local we_ns="${WE_NAMESPACE:-kubernaut-workflows}"
             local unmet=""
             while IFS= read -r secret_name; do
+                [ -z "$secret_name" ] && continue
                 if ! kubectl get secret "$secret_name" -n "${ns}" &>/dev/null && \
                    ! kubectl get secret "$secret_name" -n "${we_ns}" &>/dev/null; then
                     unmet="${secret_name}"
                     break
                 fi
-            done < <(grep -A1 'secrets:' "$yaml_file" 2>/dev/null \
-                      | grep -- '- name:' | awk '{print $NF}')
+            done < <(awk '/^[[:space:]]*secrets:/{f=1; next} f && /- name:/{print $NF} f && !/^[[:space:]]*-/{f=0}' "$yaml_file" 2>/dev/null)
 
             if [ -n "$unmet" ]; then
                 echo "    SKIP ${basename} (secret \"${unmet}\" not found in ${ns} or ${we_ns})"
@@ -181,11 +212,17 @@ seed_action_types_and_workflows() {
                 continue
             fi
 
-            kubectl apply -n "$ns" -f "$yaml_file" 2>&1 \
-                | grep -v unchanged | sed 's/^/    /' || true
-            applied=$((applied + 1))
+            local _output
+            if _output=$(_apply_workflow_yaml "$yaml_file" "$ns" 2>&1); then
+                echo "$_output" | grep -v unchanged | sed 's/^/    /' || true
+                applied=$((applied + 1))
+            else
+                echo "$_output" | grep -v unchanged | sed 's/^/    /' || true
+                echo "    WARN: ${basename} was not fully applied (webhook rejection or validation error)"
+                failed=$((failed + 1))
+            fi
         done < <(find "$wf_dir" -name '*.yaml' -print0)
-        echo "    Applied ${applied} workflow(s), skipped ${skipped}."
+        echo "    Applied ${applied} workflow(s), skipped ${skipped}, failed ${failed}."
     fi
 }
 
@@ -246,7 +283,33 @@ require_demo_ready() {
         exit 1
     fi
 
+    if [ "$PLATFORM" = "ocp" ]; then
+        _warn_slow_ksm_scrape
+    fi
+
     seed_action_types_and_workflows
+}
+
+# Detect the kube-state-metrics scrape interval on OCP and warn if it
+# exceeds 30s.  A slow scrape interval delays metric propagation after
+# remediation, causing the EffectivenessMonitor to sample stale data.
+# See kubernaut-demo-scenarios#293.
+_warn_slow_ksm_scrape() {
+    local interval
+    interval=$(kubectl get servicemonitor kube-state-metrics -n openshift-monitoring \
+        -o jsonpath='{.spec.endpoints[0].interval}' 2>/dev/null || true)
+    if [ -z "$interval" ]; then
+        return 0
+    fi
+    local seconds
+    seconds=$(echo "$interval" | sed 's/s$//' | sed 's/m$//' )
+    if echo "$interval" | grep -q 'm$'; then
+        seconds=$((seconds * 60))
+    fi
+    if [ "$seconds" -gt 30 ]; then
+        echo "  NOTE: OCP kube-state-metrics scrape interval is ${interval} (>${seconds}s)."
+        echo "  The OCP values file sets stabilizationWindow: 120s to compensate (#293)."
+    fi
 }
 
 wait_platform_ready() {
@@ -285,13 +348,18 @@ ensure_platform() {
 
     echo "==> Installing Kubernaut platform..."
 
+    local version_flag=""
+    if [ -n "${CHART_VERSION:-}" ]; then
+        version_flag="--version ${CHART_VERSION}"
+    fi
+
     echo "  Applying CRDs (source: ${CHART_SOURCE})..."
     if [ "${CHART_SOURCE}" = "local" ]; then
         kubectl apply -f "${CHART_REF}/crds/" 2>&1 | sed 's/^/    /'
     else
         local _crd_tmp
         _crd_tmp=$(mktemp -d)
-        helm pull "${CHART_REF}" --untar --untardir "${_crd_tmp}" 2>&1 | sed 's/^/    /'
+        helm pull "${CHART_REF}" ${version_flag} --untar --untardir "${_crd_tmp}" 2>&1 | sed 's/^/    /'
         kubectl apply -f "${_crd_tmp}/kubernaut/crds/" 2>&1 | sed 's/^/    /'
         rm -rf "${_crd_tmp}"
     fi
@@ -319,19 +387,28 @@ ensure_platform() {
         values_file="${KIND_VALUES}"
     fi
 
-    local version_flag=""
     if [ -n "${CHART_VERSION:-}" ]; then
-        version_flag="--version ${CHART_VERSION}"
         echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF}, version: ${CHART_VERSION}, platform: ${PLATFORM})..."
     else
         echo "  Installing Helm chart (${CHART_SOURCE}: ${CHART_REF}, platform: ${PLATFORM})..."
     fi
+    local policy_flags=""
+    local sp_policy="${REPO_ROOT}/deploy/defaults/signalprocessing-policy.rego"
+    local aa_policy="${REPO_ROOT}/deploy/defaults/approval-policy.rego"
+    if [ -f "$sp_policy" ]; then
+        policy_flags="--set-file signalprocessing.policy=${sp_policy}"
+    fi
+    if [ -f "$aa_policy" ]; then
+        policy_flags="${policy_flags} --set-file aianalysis.policies.content=${aa_policy}"
+    fi
+
     helm upgrade --install kubernaut "${CHART_REF}" \
         --namespace "${PLATFORM_NS}" \
         --create-namespace \
         --values "${values_file}" \
         ${llm_flags} \
         ${version_flag} \
+        ${policy_flags} \
         --set demoContent.enabled=false \
         --skip-crds \
         --wait --timeout 10m

@@ -893,10 +893,10 @@ _ensure_gitea_repo_creds
 # secrets or AWX detection at install time.
 _WF_YAML="${SCRIPT_DIR}/../../deploy/remediation-workflows/disk-pressure-emptydir/disk-pressure-emptydir.yaml"
 if [ -f "$_WF_YAML" ]; then
-    _WF_NAME=$(grep -m1 'name:' "$_WF_YAML" | awk '{print $2}')
+    _WF_NAME=$(awk '/kind: RemediationWorkflow/{found=1} found && /^  name:/{print $2; exit}' "$_WF_YAML")
     if ! kubectl get remediationworkflow "$_WF_NAME" -n "${PLATFORM_NS}" &>/dev/null; then
         echo "==> Step 1c: Registering disk-pressure-emptydir workflow..."
-        kubectl apply -n "${PLATFORM_NS}" -f "$_WF_YAML" 2>&1 | sed 's/^/  /'
+        kubectl apply -f "$_WF_YAML" 2>&1 | sed 's/^/  /'
     else
         echo "==> Step 1c: Workflow ${_WF_NAME} already registered."
     fi

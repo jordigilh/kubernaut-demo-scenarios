@@ -8,10 +8,10 @@
 # GracefulRestart (rolling restart) to reset memory before OOM.
 #
 # Prerequisites:
-#   - Kind cluster (kubernaut-demo) with platform installed
+#   - Kind or OCP cluster with Kubernaut services
 #   - Prometheus with kube-state-metrics and cAdvisor scraping
 #
-# Usage: ./scenarios/memory-leak/run.sh
+# Usage: ./scenarios/memory-leak/run.sh [--auto-approve|--interactive]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

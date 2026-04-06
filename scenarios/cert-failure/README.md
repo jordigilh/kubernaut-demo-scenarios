@@ -25,12 +25,32 @@ certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady ale
 
 | Component | Requirement |
 |-----------|-------------|
-| Kind cluster | `scenarios/kind-config-singlenode.yaml` |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
+| Cluster | Kind or OCP with Kubernaut services |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With cert-manager metrics |
 | cert-manager | Pre-installed (via `setup-demo-cluster.sh` or manually) |
 | Workflow catalog | `fix-certificate-v1` registered in DataStorage |
+
+> **OCP note**: On OpenShift, `run.sh` automatically labels the `cert-manager`
+> namespace with `openshift.io/cluster-monitoring=true` so that cert-manager
+> ServiceMonitors are scraped by cluster Prometheus (the same instance evaluating
+> the PrometheusRule). It also creates a Role/RoleBinding granting the
+> `prometheus-k8s` SA read access to endpoints in `cert-manager`. `cleanup.sh`
+> removes both the label and the RBAC resources.
+
+### Workflow RBAC
+
+This scenario's remediation workflow runs under a dedicated ServiceAccount with
+scoped permissions (created automatically when workflows are seeded via
+`platform-helper.sh`):
+
+| Resource | Name |
+|----------|------|
+| ServiceAccount | `fix-certificate-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `fix-certificate-v1-runner` |
+| ClusterRoleBinding | `fix-certificate-v1-runner` |
+
+**Permissions**: `cert-manager.io` certificates (get, list), `cert-manager.io` clusterissuers (get, list), core secrets (get, list, create, update, delete)
 
 ## Automated Run
 
@@ -106,8 +126,12 @@ kubectl get certificate -n demo-cert-failure -w
 #        then open http://localhost:9090/alerts
 
 # Query Alertmanager for active alerts
+# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
+# OCP:
+# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+#   amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
 
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```

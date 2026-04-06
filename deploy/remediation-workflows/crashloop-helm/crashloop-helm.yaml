@@ -1,3 +1,54 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: helm-rollback-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: helm-rollback-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: helm-rollback-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: helm-rollback-v1
+rules:
+  # Helm release storage backend (secrets driver, the default)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  # Helm rollback re-applies the previous release manifest set
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services", "configmaps", "pods", "serviceaccounts", "persistentvolumeclaims"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: helm-rollback-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: helm-rollback-v1
+subjects:
+  - kind: ServiceAccount
+    name: helm-rollback-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: helm-rollback-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
@@ -5,7 +56,7 @@ metadata:
 spec:
   # Helm Rollback Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #135 -- Helm-managed CrashLoopBackOff -> helm rollback
-  version: "1.0.9"
+  version: "1.2.0"
   description:
     what: "Rolls back a Helm release to its previous revision to recover from CrashLoopBackOff caused by a bad configuration change deployed via helm upgrade"
     whenToUse: "When a Helm-managed deployment enters CrashLoopBackOff immediately after a helm upgrade, and the previous Helm revision was healthy"
@@ -26,6 +77,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:a245340eb42e9720f9a4131e5b6a81575241ccc8f2c8177c2838d21186054182
+    serviceAccountName: helm-rollback-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

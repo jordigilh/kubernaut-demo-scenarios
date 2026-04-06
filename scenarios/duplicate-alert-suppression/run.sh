@@ -7,10 +7,10 @@
 # 5 alerts arrive, but only 1 RemediationRequest is created (OccurrenceCount=5).
 #
 # Prerequisites:
-#   - Kind cluster with Kubernaut platform deployed
+#   - Kind or OCP cluster with Kubernaut services
 #   - Prometheus with kube-state-metrics
 #
-# Usage: ./scenarios/duplicate-alert-suppression/run.sh
+# Usage: ./scenarios/duplicate-alert-suppression/run.sh [--auto-approve|--interactive]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
