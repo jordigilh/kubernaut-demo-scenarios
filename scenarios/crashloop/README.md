@@ -28,7 +28,7 @@ kube_pod_container_status_restarts_total increasing → KubePodCrashLooping aler
 
 | Component | Requirement |
 |-----------|-------------|
-| Kind cluster | `overlays/kind/kind-cluster-config.yaml` |
+| Cluster | Kind or OCP with Kubernaut services |
 | Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
@@ -97,8 +97,12 @@ kubectl get pods -n demo-crashloop -w
 #        then open http://localhost:9090/alerts
 
 # Query Alertmanager for active alerts
+# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+# OCP:
+# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+#   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
 
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```

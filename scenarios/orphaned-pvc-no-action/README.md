@@ -142,25 +142,36 @@ Options:
 ## Manual Step-by-Step
 
 ```bash
-# 1. Deploy (base manifests use staging; overlays/ocp for OpenShift)
+# 1. Patch approval policy with warning-aware Rego (backs up current policy)
+kubectl get configmap aianalysis-policies -n kubernaut-system \
+  -o jsonpath='{.data.approval\.rego}' > /tmp/approval-rego-backup
+kubectl patch configmap aianalysis-policies -n kubernaut-system --type=merge \
+  -p "{\"data\":{\"approval.rego\":$(cat scenarios/orphaned-pvc-no-action/rego/approval-warnings.rego | jq -Rs .)}}"
+kubectl rollout restart deployment/aianalysis-controller -n kubernaut-system
+kubectl rollout status deployment/aianalysis-controller -n kubernaut-system --timeout=60s
+
+# 2. Deploy (base manifests use staging; overlays/ocp for OpenShift)
 kubectl apply -k scenarios/orphaned-pvc-no-action/manifests  # or overlays/ocp
 
-# 2. Wait for deployment
+# 3. Wait for deployment
 kubectl wait --for=condition=Available deploy/data-processor -n demo-orphaned-pvc --timeout=120s
 
-# 3. Inject orphaned PVCs
+# 4. Inject orphaned PVCs
 PLATFORM=ocp bash scenarios/orphaned-pvc-no-action/inject-orphan-pvcs.sh
 
-# 4. Wait for alert (~3 min for: duration)
-# Platform Prometheus → AlertManager → gateway-webhook
+# 5. Wait for alert (~3 min for: duration)
+# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubePersistentVolumeClaimOrphaned --alertmanager.url=http://localhost:9093
+# OCP:
+# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+#   amtool alert query alertname=KubePersistentVolumeClaimOrphaned --alertmanager.url=http://localhost:9093
 
-# 5. Monitor pipeline
+# 6. Monitor pipeline
 kubectl get rr -n kubernaut-system -w -o wide
 ```
 
-### 6. Inspect AI Analysis
+### 7. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource

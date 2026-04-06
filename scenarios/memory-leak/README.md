@@ -110,8 +110,12 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:909
 # open http://localhost:9090/alerts
 
 # Query Alertmanager for active alerts
+# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=ContainerMemoryExhaustionPredicted --alertmanager.url=http://localhost:9093
+# OCP:
+# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+#   amtool alert query alertname=ContainerMemoryExhaustionPredicted --alertmanager.url=http://localhost:9093
 ```
 
 ### 5. Monitor the Kubernaut pipeline

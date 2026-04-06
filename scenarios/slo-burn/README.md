@@ -132,8 +132,12 @@ bash scenarios/slo-burn/inject-bad-config.sh
 #    Alert fires after 3 min for: duration
 
 # 6. Query Alertmanager for active alerts
+# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=ErrorBudgetBurn --alertmanager.url=http://localhost:9093
+# OCP:
+# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+#   amtool alert query alertname=ErrorBudgetBurn --alertmanager.url=http://localhost:9093
 
 # 7. Watch pipeline
 kubectl get rr,aia,wfe,ea,notif -n kubernaut-system -w
@@ -172,16 +176,16 @@ kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.inves
 ```
 
 ```bash
-# 8. Approve when prompted (production environment)
+# 9. Approve when prompted (production environment)
 kubectl patch remediationapprovalrequest <RAR> -n kubernaut-system \
   --type merge --subresource status \
   -p '{"status":{"decision":"Approved","decidedBy":"<you>","decidedAt":"<now>"}}'
 
-# 9. Verify rollback
+# 10. Verify rollback
 kubectl rollout history deployment/api-gateway -n demo-slo
 kubectl get pods -n demo-slo
 
-# 10. Cleanup
+# 11. Cleanup
 bash scenarios/slo-burn/cleanup.sh
 ```
 
