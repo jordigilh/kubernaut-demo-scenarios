@@ -3,10 +3,10 @@
 # Scenario #128: Error budget burning -> proactive rollback to preserve SLO
 #
 # Prerequisites:
-#   - Kind cluster with overlays/kind/kind-cluster-config.yaml
-#   - Prometheus with nginx metrics exporter
+#   - Kind or OCP cluster with Kubernaut services
+#   - Prometheus Operator (CRD: Probe, PrometheusRule)
 #
-# Usage: ./scenarios/slo-burn/run.sh
+# Usage: ./scenarios/slo-burn/run.sh [--auto-approve|--interactive]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

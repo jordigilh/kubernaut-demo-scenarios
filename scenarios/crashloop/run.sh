@@ -3,10 +3,10 @@
 # Scenario #120: Bad config deploy -> CrashLoopBackOff -> rollback
 #
 # Prerequisites:
-#   - Kind cluster with overlays/kind/kind-cluster-config.yaml
+#   - Kind or OCP cluster with Kubernaut services
 #   - Prometheus with kube-state-metrics scraping
 #
-# Usage: ./scenarios/crashloop/run.sh
+# Usage: ./scenarios/crashloop/run.sh [--auto-approve|--interactive]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

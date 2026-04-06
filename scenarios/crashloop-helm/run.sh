@@ -3,11 +3,11 @@
 # Scenario #135: Helm-managed bad config -> CrashLoopBackOff -> helm rollback
 #
 # Prerequisites:
-#   - Kind cluster with Kubernaut services
+#   - Kind or OCP cluster with Kubernaut services
 #   - Helm 3 installed
 #   - Prometheus with kube-state-metrics
 #
-# Usage: ./scenarios/crashloop-helm/run.sh
+# Usage: ./scenarios/crashloop-helm/run.sh [--auto-approve|--interactive]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

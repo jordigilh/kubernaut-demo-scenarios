@@ -3,10 +3,11 @@
 # Scenario #133: CA Secret deleted -> Certificate NotReady -> fix issuer
 #
 # Prerequisites:
-#   - Kind cluster
+#   - Kind or OCP cluster with Kubernaut services
 #   - Prometheus with cert-manager metrics
+#   - cert-manager installed
 #
-# Usage: ./scenarios/cert-failure/run.sh
+# Usage: ./scenarios/cert-failure/run.sh [--auto-approve|--interactive]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
