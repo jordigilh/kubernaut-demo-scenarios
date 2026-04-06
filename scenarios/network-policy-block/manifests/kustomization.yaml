@@ -5,3 +5,5 @@ resources:
   - deployment.yaml
   - networkpolicy-allow.yaml
   - prometheus-rule.yaml
+components:
+  - ../../components/metrics-servicemonitor

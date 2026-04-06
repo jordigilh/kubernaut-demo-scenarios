@@ -20,9 +20,17 @@ spec:
         kubernaut.ai/demo-taint-target: "true"
       containers:
       - name: processor
-        image: nginx:1.27-alpine
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
-        - containerPort: 80
+        - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
             memory: "32Mi"
@@ -32,13 +40,35 @@ spec:
             cpu: "50m"
         livenessProbe:
           httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 80
+            path: /healthz
+            port: 8080
           initialDelaySeconds: 3
           periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 2
+          periodSeconds: 3
+      volumes:
+      - name: config
+        configMap:
+          name: batch-processor-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: batch-processor
+  namespace: demo-taint
+  labels:
+    app: batch-processor
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
+spec:
+  selector:
+    app: batch-processor
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  type: ClusterIP

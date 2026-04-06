@@ -6,6 +6,7 @@ metadata:
   labels:
     app: kv-store
     kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
 spec:
   clusterIP: None
   selector:
@@ -36,16 +37,19 @@ spec:
     spec:
       containers:
       - name: kv-store
-        image: nginx:1.27-alpine
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
         - containerPort: 8080
           name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
         volumeMounts:
         - name: data
           mountPath: /data
         - name: config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
             memory: "32Mi"
@@ -84,16 +88,12 @@ metadata:
   name: kv-store-config
   namespace: demo-statefulset
 data:
-  nginx.conf: |
-    worker_processes auto;
-    error_log /var/log/nginx/error.log warn;
-    pid /tmp/nginx.pid;
-    events { worker_connections 1024; }
-    http {
-        server {
-            listen 8080;
-            server_name _;
-            location / { return 200 'ok\n'; add_header Content-Type text/plain; }
-            location /healthz { return 200 'ok\n'; add_header Content-Type text/plain; }
-        }
-    }
+  config.yaml: |
+    port: 8080
+    routes:
+      - path: /
+        status: 200
+        body: 'ok'
+      - path: /healthz
+        status: 200
+        body: 'ok'

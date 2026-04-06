@@ -23,9 +23,17 @@ spec:
         effect: NoSchedule
       containers:
       - name: payment
-        image: nginx:1.27-alpine
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
-        - containerPort: 80
+        - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
             memory: "32Mi"
@@ -35,16 +43,20 @@ spec:
             cpu: "50m"
         livenessProbe:
           httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 80
+            path: /healthz
+            port: 8080
           initialDelaySeconds: 3
           periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 2
+          periodSeconds: 3
+      volumes:
+      - name: config
+        configMap:
+          name: payment-service-config
 ---
 apiVersion: v1
 kind: Service
@@ -54,16 +66,16 @@ metadata:
   labels:
     app: payment-service
     kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
 spec:
   selector:
     app: payment-service
   ports:
-  - port: 80
-    targetPort: 80
+  - port: 8080
+    targetPort: 8080
+    name: http
   type: ClusterIP
 ---
-# Overly restrictive PDB: requires ALL replicas available
-# This blocks rolling updates and voluntary evictions
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: batch-processor-config
+  namespace: demo-taint
+data:
+  config.yaml: |
+    port: 8080
+    routes:
+      - path: /
+        status: 200
+        body: 'healthy'
+      - path: /healthz
+        status: 200
+        body: 'ok'
