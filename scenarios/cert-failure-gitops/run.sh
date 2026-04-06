@@ -343,9 +343,13 @@ for i in $(seq 1 90); do
   sleep 5
 done
 
-# Wait for ClusterIssuer to report Ready=False (the broken reference to
-# nonexistent-ca-secret is sufficient — no need to delete the real CA secret,
-# which would prevent the git revert path from fully restoring the Certificate).
+# cert-manager caches the CA signing keypair in memory. Changing the secretName
+# in the ClusterIssuer spec does not invalidate this cache, so the issuer stays
+# Ready=True indefinitely. Restart cert-manager to flush the cache (#294).
+echo "  Restarting cert-manager to flush cached CA keys..."
+kubectl rollout restart deployment cert-manager -n cert-manager
+kubectl rollout status deployment cert-manager -n cert-manager --timeout=60s
+
 echo "  Waiting for ClusterIssuer to report Ready=False..."
 for i in $(seq 1 30); do
   READY=$(kubectl get clusterissuer demo-selfsigned-ca-gitops \
