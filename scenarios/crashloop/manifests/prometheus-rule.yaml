@@ -10,15 +10,15 @@ spec:
   - name: kubernaut-crashloop
     rules:
     # Detect restart counts that indicate CrashLoopBackOff.
-    # Production-realistic: 10m window. Alert fires ~1-2m after sustained crashes.
-    # Alert resolves ~10m after restarts stop (EA alertScore will be 0 in fast demos).
+    # 5m window balances production realism with EA assessment timing:
+    # alert resolves ~5m after restarts stop, within the EA stabilization window.
     - alert: KubePodCrashLooping
       expr: |
         increase(
           kube_pod_container_status_restarts_total{
             namespace="demo-crashloop",
             container="worker"
-          }[10m]
+          }[5m]
         ) > 1
       for: 3m
       labels:
