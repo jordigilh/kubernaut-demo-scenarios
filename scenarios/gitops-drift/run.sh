@@ -221,10 +221,38 @@ git add .
 git commit -m "Initial deployment: nginx web-frontend with healthy config"
 git remote add origin "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
 git push -u origin main --force
+echo "  Healthy manifests pushed to Gitea."
+
+# Ensure the Gitea→ArgoCD webhook exists so pushes trigger immediate sync.
+# setup-argocd.sh creates this on Kind, but the webhook may be missing if the
+# repo was (re-)created by this script or if setup-argocd.sh ran first.
+local argocd_ns
+argocd_ns=$(get_argocd_namespace)
+local webhook_url="http://argocd-server.${argocd_ns}.svc.cluster.local/api/webhook"
+local gitea_api="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}"
+local existing_hooks
+existing_hooks=$(curl -sf "${gitea_api}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" 2>/dev/null || echo "[]")
+if ! echo "${existing_hooks}" | grep -q "${webhook_url}"; then
+    echo "  Registering Gitea webhook → ArgoCD (${webhook_url})..."
+    curl -sf -X POST "${gitea_api}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"type\": \"gitea\",
+        \"active\": true,
+        \"config\": { \"url\": \"${webhook_url}\", \"content_type\": \"json\" },
+        \"events\": [\"push\"]
+      }" -o /dev/null 2>/dev/null \
+      && echo "  Webhook registered." \
+      || echo "  WARNING: webhook registration failed; ArgoCD will fall back to polling."
+fi
+
 cd /
 rm -rf "${work_dir}"
 kill "$pf_pid" 2>/dev/null || true
-echo "  Healthy manifests pushed to Gitea."
+
+# Speed up ArgoCD polling as a fallback if the webhook is unavailable.
+kubectl patch configmap argocd-cm -n "$argocd_ns" --type merge \
+  -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
 
 # Step 1: Apply all manifests (namespace, ArgoCD Application, deployment, PrometheusRule)
 echo "==> Step 1: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
@@ -398,6 +426,13 @@ cd /
 rm -rf "${WORK_DIR}"
 
 echo "  Bad commit pushed to Gitea. ArgoCD will sync the broken ConfigMap."
+
+# Force ArgoCD to refresh immediately instead of waiting for the next poll
+# cycle. The webhook should also trigger sync, but this guarantees it.
+local argocd_ns
+argocd_ns=$(get_argocd_namespace)
+kubectl annotate application web-frontend -n "$argocd_ns" \
+  argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
 echo ""
 }
 
