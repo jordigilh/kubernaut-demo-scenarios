@@ -77,6 +77,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:e6ad4f9f8bb268d7fe99322fb0caa1c0a6f98b5b81985ebfe6e4772fcaa25dcf
+    serviceAccountName: helm-rollback-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

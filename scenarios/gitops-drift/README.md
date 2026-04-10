@@ -88,25 +88,59 @@ Feature: GitOps drift remediation via git revert
 # Install Gitea (creates repo with healthy manifests)
 ./scenarios/gitops/scripts/setup-gitea.sh
 
-# Install ArgoCD (registers Gitea repo credentials)
+# Install ArgoCD (registers Gitea repo credentials + Gitea webhook on Kind)
 ./scenarios/gitops/scripts/setup-argocd.sh
 ```
 
-### 2. Deploy Scenario Resources
+### 2. Register Gitea Webhook (if missing)
+
+`setup-argocd.sh` creates the webhook on Kind. On OCP (or if the repo was
+recreated), register it manually so pushes trigger immediate ArgoCD sync:
 
 ```bash
-# Prometheus alerting rules
-kubectl apply -f scenarios/gitops-drift/manifests/prometheus-rule.yaml
+# Port-forward to Gitea
+kubectl port-forward -n gitea svc/gitea-http 3031:3000 &
 
-# ArgoCD Application (triggers sync of manifests from Gitea)
-kubectl apply -f scenarios/gitops-drift/manifests/argocd-application.yaml
+# Kind:
+ARGOCD_NS=argocd
+# OCP:
+# ARGOCD_NS=openshift-gitops
 
-# Wait for sync
+curl -s -X POST "http://kubernaut:kubernaut123@localhost:3031/api/v1/repos/kubernaut/demo-gitops-repo/hooks" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"type\": \"gitea\",
+    \"active\": true,
+    \"config\": {
+      \"url\": \"http://argocd-server.${ARGOCD_NS}.svc.cluster.local/api/webhook\",
+      \"content_type\": \"json\"
+    },
+    \"events\": [\"push\"]
+  }"
+
+# Kill the port-forward
+kill %1 2>/dev/null
+```
+
+### 3. Deploy Scenario Resources
+
+Apply the full kustomization (namespace, PrometheusRule, ArgoCD Application, etc.)
+in one step. On OCP, use the overlay so the ArgoCD Application targets
+`openshift-gitops` and the namespace gets the cluster-monitoring label:
+
+```bash
+# Kind
+kubectl apply -k scenarios/gitops-drift/manifests
+
+# OCP
+kubectl apply -k scenarios/gitops-drift/overlays/ocp
+
+# Wait for ArgoCD to sync and the deployment to become available
 kubectl wait --for=condition=Available deployment/web-frontend \
   -n demo-gitops --timeout=120s
 ```
 
-### 3. Verify Healthy State
+### 4. Verify Healthy State
 
 ```bash
 kubectl get pods -n demo-gitops
@@ -114,7 +148,7 @@ kubectl get pods -n demo-gitops
 # web-frontend-xxx-yyy            1/1     Running   0          30s
 ```
 
-### 4. Inject Failure
+### 5. Inject Failure
 
 > **Important**: The injected `configmap.yaml` must remain valid YAML. If ArgoCD
 > cannot parse the manifest (e.g. tab characters, broken indentation), it will
@@ -236,21 +270,25 @@ git push origin main
 # The Gitea webhook notifies ArgoCD immediately; sync happens within seconds
 ```
 
-### 5. Observe Pipeline
+### 6. Observe Pipeline
 
 ```bash
 # Watch pods crash
 kubectl get pods -n demo-gitops -w
 
 # Query Alertmanager for active alerts
+# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+# OCP:
+# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+#   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
 
 # Watch Kubernaut CRDs
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
-### 6. Inspect AI Analysis
+### 7. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -274,7 +312,7 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-### 7. Verify Remediation
+### 8. Verify Remediation
 
 ```bash
 # After WE Job completes, ArgoCD syncs the reverted ConfigMap
@@ -284,7 +322,7 @@ kubectl get pods -n demo-gitops
 # Check git log in Gitea -- should show the revert commit
 ```
 
-### 8. Cleanup
+### 9. Cleanup
 
 ```bash
 ./scenarios/gitops-drift/cleanup.sh

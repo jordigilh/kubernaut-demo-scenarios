@@ -66,6 +66,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/fix-authz-policy-job@sha256:2f09e700e98b5f248f60a4a4fc8647d30c6364525889712f6acc1aab979bfd73
+    serviceAccountName: fix-authz-policy-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

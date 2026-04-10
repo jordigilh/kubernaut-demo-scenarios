@@ -63,37 +63,196 @@ echo ""
 kubectl delete -f "${SCRIPT_DIR}/manifests/argocd-application.yaml" \
   --ignore-not-found 2>/dev/null || true
 
-# Revert the Gitea repo to the initial (healthy) commit so that
-# run_inject's git-commit is never a no-op (#245).
-if kubectl get namespace "${GITEA_NAMESPACE}" &>/dev/null; then
-    kill_stale_gitea_pf
-    kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http \
-      "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
-    local pf_pid=$!
-    wait_for_port "${GITEA_LOCAL_PORT}"
-    local work_dir
-    work_dir=$(mktemp -d)
-    if timeout 30 git clone \
-         "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" \
-         "${work_dir}/repo" &>/dev/null; then
-        cd "${work_dir}/repo"
-        local initial_commit current_head
-        initial_commit=$(git rev-list --max-parents=0 HEAD 2>/dev/null || echo "")
-        current_head=$(git rev-parse HEAD 2>/dev/null || echo "")
-        if [ -n "$initial_commit" ] && [ -n "$current_head" ] \
-           && [ "$current_head" != "$initial_commit" ]; then
-            git reset --hard "$initial_commit" &>/dev/null \
-              && git push --force origin main &>/dev/null \
-              && echo "  Gitea repo reset to initial commit (${initial_commit:0:7})." \
-              || echo "  WARNING: Failed to reset Gitea repo."
-        fi
-        cd /
-    fi
-    rm -rf "${work_dir}"
-    kill "$pf_pid" 2>/dev/null || true
+ensure_clean_slate "${NAMESPACE}"
+
+# Push healthy manifests to Gitea so the scenario is self-contained.
+# This also resets the repo to a known-good state if a previous run
+# left a broken commit (#245).
+echo "==> Pushing healthy manifests to Gitea repo..."
+kill_stale_gitea_pf
+kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http \
+  "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
+local pf_pid=$!
+wait_for_port "${GITEA_LOCAL_PORT}"
+
+# Create repo if it doesn't exist (idempotent)
+curl -sf -X POST "http://localhost:${GITEA_LOCAL_PORT}/api/v1/user/repos" \
+  -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"${REPO_NAME}\", \"auto_init\": true}" -o /dev/null 2>/dev/null || true
+
+local work_dir
+work_dir=$(mktemp -d)
+cd "${work_dir}"
+git init -b main
+git config user.email "kubernaut@kubernaut.ai"
+git config user.name "Kubernaut Setup"
+mkdir -p manifests
+
+cat > manifests/namespace.yaml <<NS_EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${NAMESPACE}
+  labels:
+    kubernaut.ai/environment: staging
+    kubernaut.ai/business-unit: platform
+    kubernaut.ai/service-owner: sre-team
+    kubernaut.ai/criticality: high
+    kubernaut.ai/sla-tier: tier-2
+$([ "$PLATFORM" = "ocp" ] && echo '    openshift.io/cluster-monitoring: "true"')
+$([ "$PLATFORM" = "ocp" ] && echo '    argocd.argoproj.io/managed-by: openshift-gitops')
+NS_EOF
+
+cat > manifests/configmap.yaml <<'CM_EOF'
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: demo-gitops
+  labels:
+    app: web-frontend
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /var/log/nginx/error.log warn;
+    pid /tmp/nginx.pid;
+
+    events {
+        worker_connections 1024;
+    }
+
+    http {
+        server {
+            listen 8080;
+            server_name _;
+
+            location / {
+                return 200 'healthy\n';
+                add_header Content-Type text/plain;
+            }
+
+            location /healthz {
+                return 200 'ok\n';
+                add_header Content-Type text/plain;
+            }
+        }
+    }
+CM_EOF
+
+if [ "$PLATFORM" = "ocp" ]; then
+    local nginx_image="nginxinc/nginx-unprivileged:1.27-alpine"
+else
+    local nginx_image="nginx:1.27-alpine"
 fi
 
-ensure_clean_slate "${NAMESPACE}"
+cat > manifests/deployment.yaml <<DEPLOY_EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-frontend
+  namespace: ${NAMESPACE}
+  labels:
+    app: web-frontend
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-frontend
+  template:
+    metadata:
+      labels:
+        app: web-frontend
+        kubernaut.ai/managed: "true"
+    spec:
+      containers:
+      - name: nginx
+        image: ${nginx_image}
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 2
+          periodSeconds: 3
+      volumes:
+      - name: config
+        configMap:
+          name: nginx-config
+DEPLOY_EOF
+
+cat > manifests/service.yaml <<'SVC_EOF'
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-frontend
+  namespace: demo-gitops
+  labels:
+    app: web-frontend
+    kubernaut.ai/managed: "true"
+spec:
+  selector:
+    app: web-frontend
+  ports:
+  - port: 8080
+    targetPort: 8080
+SVC_EOF
+
+git add .
+git commit -m "Initial deployment: nginx web-frontend with healthy config"
+git remote add origin "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
+git push -u origin main --force
+echo "  Healthy manifests pushed to Gitea."
+
+# Ensure the Gitea→ArgoCD webhook exists so pushes trigger immediate sync.
+# setup-argocd.sh creates this on Kind, but the webhook may be missing if the
+# repo was (re-)created by this script or if setup-argocd.sh ran first.
+local argocd_ns
+argocd_ns=$(get_argocd_namespace)
+local webhook_url="http://argocd-server.${argocd_ns}.svc.cluster.local/api/webhook"
+local gitea_api="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}"
+local existing_hooks
+existing_hooks=$(curl -sf "${gitea_api}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" 2>/dev/null || echo "[]")
+if ! echo "${existing_hooks}" | grep -q "${webhook_url}"; then
+    echo "  Registering Gitea webhook → ArgoCD (${webhook_url})..."
+    curl -sf -X POST "${gitea_api}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"type\": \"gitea\",
+        \"active\": true,
+        \"config\": { \"url\": \"${webhook_url}\", \"content_type\": \"json\" },
+        \"events\": [\"push\"]
+      }" -o /dev/null 2>/dev/null \
+      && echo "  Webhook registered." \
+      || echo "  WARNING: webhook registration failed; ArgoCD will fall back to polling."
+fi
+
+cd /
+rm -rf "${work_dir}"
+kill "$pf_pid" 2>/dev/null || true
+
+# Speed up ArgoCD polling as a fallback if the webhook is unavailable.
+kubectl patch configmap argocd-cm -n "$argocd_ns" --type merge \
+  -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
 
 # Step 1: Apply all manifests (namespace, ArgoCD Application, deployment, PrometheusRule)
 echo "==> Step 1: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
@@ -267,6 +426,13 @@ cd /
 rm -rf "${WORK_DIR}"
 
 echo "  Bad commit pushed to Gitea. ArgoCD will sync the broken ConfigMap."
+
+# Force ArgoCD to refresh immediately instead of waiting for the next poll
+# cycle. The webhook should also trigger sync, but this guarantees it.
+local argocd_ns
+argocd_ns=$(get_argocd_namespace)
+kubectl annotate application web-frontend -n "$argocd_ns" \
+  argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
 echo ""
 }
 

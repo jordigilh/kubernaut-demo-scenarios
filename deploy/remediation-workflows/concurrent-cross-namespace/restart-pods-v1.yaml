@@ -67,6 +67,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:4b445c9026341c01c6c8e3924c533837752f9c878848eb1de9b3be3f7a66a9dc
+    serviceAccountName: restart-pods-v1-runner
 
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE

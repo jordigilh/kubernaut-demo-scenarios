@@ -11,6 +11,12 @@ if [ -z "${_KUBERNAUT_LINEBUF:-}" ] && [ ! -t 1 ] && command -v stdbuf &>/dev/nu
     exec stdbuf -oL -eL "$0" "$@"
 fi
 
+# macOS does not ship GNU coreutils `timeout`. Provide a portable fallback
+# using perl (available on macOS and all RHEL/Fedora systems).
+if ! command -v timeout &>/dev/null; then
+    timeout() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+fi
+
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KUBERNAUT_REPO="${KUBERNAUT_REPO:-$(cd "${REPO_ROOT}/../kubernaut" 2>/dev/null && pwd || true)}"
@@ -150,8 +156,15 @@ _apply_workflow_yaml() {
     kubectl create namespace "${WE_NAMESPACE:-kubernaut-workflows}" \
         --dry-run=client -o yaml 2>/dev/null | kubectl apply -f - 2>/dev/null || true
 
-    awk -v dir="$tmpdir" \
-        'BEGIN{n=0} /^---$/{n++; next} {print >> dir"/doc-"n".yaml"}' "$yaml_file"
+    python3 -c "
+import sys, os
+d, n, f = sys.argv[1], 0, None
+for line in open(sys.argv[2]):
+    if line.strip() == '---':
+        n += 1; f = None; continue
+    if f is None: f = open(os.path.join(d, f'doc-{n}.yaml'), 'a')
+    f.write(line)
+" "$tmpdir" "$yaml_file"
 
     for doc in "$tmpdir"/doc-*.yaml; do
         [ -f "$doc" ] || continue
