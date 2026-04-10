@@ -17,10 +17,18 @@ spec:
         app: api-server
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.27-alpine
+      - name: api-server
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
-        - containerPort: 80
+        - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
             memory: "128Mi"
@@ -30,16 +38,20 @@ spec:
             cpu: "100m"
         livenessProbe:
           httpGet:
-            path: /
-            port: 80
+            path: /healthz
+            port: 8080
           initialDelaySeconds: 3
           periodSeconds: 5
         readinessProbe:
           httpGet:
-            path: /
-            port: 80
+            path: /healthz
+            port: 8080
           initialDelaySeconds: 2
           periodSeconds: 3
+      volumes:
+      - name: config
+        configMap:
+          name: api-server-config
 ---
 apiVersion: v1
 kind: Service
@@ -48,10 +60,13 @@ metadata:
   namespace: demo-quota
   labels:
     app: api-server
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
 spec:
   selector:
     app: api-server
   ports:
-  - port: 80
-    targetPort: 80
+  - port: 8080
+    targetPort: 8080
+    name: http
   type: ClusterIP

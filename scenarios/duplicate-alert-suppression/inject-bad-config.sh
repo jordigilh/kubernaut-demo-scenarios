@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Inject invalid nginx config to cause all 5 pods to crash simultaneously
+# Inject invalid config to cause all 5 pods to crash simultaneously
 set -euo pipefail
 
 NAMESPACE="demo-alert-storm"
@@ -13,28 +13,16 @@ metadata:
   name: gateway-config-bad
   namespace: demo-alert-storm
 data:
-  nginx.conf: |
-    worker_processes auto;
-    error_log /var/log/nginx/error.log warn;
-    pid /tmp/nginx.pid;
-
-    events {
-        worker_connections 1024;
-    }
-
-    http {
-        invalid_directive_that_breaks_nginx on;
-
-        server {
-            listen 8080;
-            server_name _;
-
-            location / {
-                return 200 'healthy\n';
-                add_header Content-Type text/plain;
-            }
-        }
-    }
+  config.yaml: |
+    port: 8080
+    invalid_directive: true
+    routes:
+      - path: /
+        status: 200
+        body: 'healthy'
+      - path: /healthz
+        status: 200
+        body: 'ok'
 YAML
 
 echo "==> Patching deployment to reference broken ConfigMap..."

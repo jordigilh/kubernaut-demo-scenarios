@@ -5,3 +5,5 @@ resources:
   - deployment.yaml
   - prometheus-rule.yaml
   - istio-podmonitor.yaml
+components:
+  - ../../components/metrics-servicemonitor

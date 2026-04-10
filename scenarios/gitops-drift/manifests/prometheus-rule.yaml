@@ -14,7 +14,7 @@ spec:
         increase(
           kube_pod_container_status_restarts_total{
             namespace="demo-gitops",
-            container="nginx"
+            container="web-frontend"
           }[5m]
         ) > 2
       for: 30s
