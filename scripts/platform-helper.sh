@@ -11,6 +11,12 @@ if [ -z "${_KUBERNAUT_LINEBUF:-}" ] && [ ! -t 1 ] && command -v stdbuf &>/dev/nu
     exec stdbuf -oL -eL "$0" "$@"
 fi
 
+# macOS does not ship GNU coreutils `timeout`. Provide a portable fallback
+# using perl (available on macOS and all RHEL/Fedora systems).
+if ! command -v timeout &>/dev/null; then
+    timeout() { perl -e 'alarm shift; exec @ARGV' "$@"; }
+fi
+
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 KUBERNAUT_REPO="${KUBERNAUT_REPO:-$(cd "${REPO_ROOT}/../kubernaut" 2>/dev/null && pwd || true)}"
