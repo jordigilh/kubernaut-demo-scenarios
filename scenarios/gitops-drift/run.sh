@@ -228,7 +228,9 @@ echo "  Healthy manifests pushed to Gitea."
 # repo was (re-)created by this script or if setup-argocd.sh ran first.
 local argocd_ns
 argocd_ns=$(get_argocd_namespace)
-local webhook_url="http://argocd-server.${argocd_ns}.svc.cluster.local/api/webhook"
+local argocd_svc
+argocd_svc=$(get_argocd_server_svc)
+local webhook_url="http://${argocd_svc}.${argocd_ns}.svc.cluster.local/api/webhook"
 local gitea_api="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}"
 local existing_hooks
 existing_hooks=$(curl -sf "${gitea_api}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" 2>/dev/null || echo "[]")
@@ -257,7 +259,7 @@ kubectl patch configmap argocd-cm -n "$argocd_ns" --type merge \
 # Step 1: Apply all manifests (namespace, ArgoCD Application, deployment, PrometheusRule)
 echo "==> Step 1: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
-kubectl apply -k "${MANIFEST_DIR}"
+kubectl apply -k "${MANIFEST_DIR}" --server-side --force-conflicts
 
 echo "==> Step 2: Waiting for ArgoCD to sync and pods to be ready..."
 echo "  Waiting for namespace to be created by ArgoCD..."

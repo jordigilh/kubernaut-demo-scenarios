@@ -115,6 +115,17 @@ get_argocd_namespace() {
     fi
 }
 
+# Returns the ArgoCD server service name for the current platform.
+# OCP (OpenShift GitOps operator): openshift-gitops-server
+# Kind (community ArgoCD):         argocd-server
+get_argocd_server_svc() {
+    if [ "$PLATFORM" = "ocp" ]; then
+        echo "openshift-gitops-server"
+    else
+        echo "argocd-server"
+    fi
+}
+
 # Restart AlertManager to clear stale notification state after cleanup.
 # On OCP the AlertManager is managed by the cluster monitoring operator;
 # restarting it is unnecessary (alerts auto-resolve) and may be disruptive.
