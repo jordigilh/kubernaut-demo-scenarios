@@ -8,6 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="demo-gitops"
 APPROVE_MODE="${1:---auto-approve}"
 
+# shellcheck source=../../scripts/platform-helper.sh
+source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
@@ -74,7 +76,7 @@ crashing_pods=$(kubectl get pods -n "${NAMESPACE}" --no-headers 2>/dev/null \
 assert_eq "${crashing_pods:-0}" "0" "No pods in CrashLoopBackOff"
 
 # Verify ArgoCD application is Synced (git revert restored correct config)
-ARGOCD_NS=$([ "${PLATFORM:-}" = "ocp" ] && echo "openshift-gitops" || echo "argocd")
+ARGOCD_NS=$(get_argocd_namespace)
 argocd_sync=$(kubectl get application web-frontend -n "$ARGOCD_NS" \
   -o jsonpath='{.status.sync.status}' 2>/dev/null || echo "")
 assert_eq "$argocd_sync" "Synced" "ArgoCD application Synced"

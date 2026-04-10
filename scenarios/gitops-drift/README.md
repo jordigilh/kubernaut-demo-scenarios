@@ -40,20 +40,20 @@ scoped permissions (created automatically when workflows are seeded via
 Feature: GitOps drift remediation via git revert
 
   Scenario: Broken ConfigMap causes CrashLoopBackOff in GitOps environment
-    Given ArgoCD manages nginx Deployment "web-frontend" in namespace "demo-gitops"
-      And the Deployment mounts ConfigMap "nginx-config" as /etc/nginx/nginx.conf via volumeMounts
+    Given ArgoCD manages Deployment "web-frontend" in namespace "demo-gitops"
+      And the Deployment mounts ConfigMap "app-config" as /etc/demo-http-server/config.yaml
       And the Gitea repository contains healthy manifests synced by ArgoCD
       And all pods are Running and Ready
 
-    When a bad commit is pushed to Gitea changing ConfigMap "nginx-config" to an invalid value
+    When a bad commit is pushed to Gitea changing ConfigMap "app-config" to contain an invalid_directive
       And ArgoCD syncs the broken ConfigMap to the cluster
-      And nginx pods restart and enter CrashLoopBackOff
+      And pods restart and enter CrashLoopBackOff
 
     Then Prometheus fires "KubePodCrashLooping" alert for namespace "demo-gitops"
       And Gateway creates a RemediationRequest
       And Signal Processing enriches with namespace labels (environment=staging, criticality=high)
       And HAPI LabelDetector detects "gitOpsManaged=true" from ArgoCD annotations
-      And the LLM traces the crash to ConfigMap "nginx-config" (RCA resource != signal resource)
+      And the LLM traces the crash to ConfigMap "app-config" (RCA resource != signal resource)
       And the LLM selects "GitRevertCommit" workflow (not "RollbackDeployment")
       And Remediation Orchestrator creates WorkflowExecution
       And the WE Job clones the Gitea repo and runs "git revert HEAD"
@@ -64,14 +64,14 @@ Feature: GitOps drift remediation via git revert
 ## Acceptance Criteria
 
 - [ ] Gitea + ArgoCD deployed and managing `demo-gitops` namespace
-- [ ] Bad ConfigMap commit causes nginx CrashLoopBackOff
+- [ ] Bad ConfigMap commit causes CrashLoopBackOff
 - [ ] SP enriches signal with business classification from namespace labels
 - [ ] HAPI detects `gitOpsManaged=true` from ArgoCD annotations (DD-HAPI-018)
 - [ ] LLM identifies ConfigMap as root cause (signal != RCA)
 - [ ] LLM selects `GitRevertCommit` workflow over `RollbackDeployment`
 - [ ] WE Job performs `git revert` in Gitea repository
 - [ ] ArgoCD auto-syncs the reverted state
-- [ ] EM verifies Deployment health restored
+- [ ] EM verifies Deployment health restored (metricsScore > 0 via ServiceMonitor)
 - [ ] Full pipeline: Gateway -> RO -> SP -> AA -> WE -> EM
 
 ## Automated Run
@@ -126,9 +126,10 @@ kill %1 2>/dev/null
 
 ### 3. Deploy Scenario Resources
 
-Apply the full kustomization (namespace, PrometheusRule, ArgoCD Application, etc.)
-in one step. On OCP, use the overlay so the ArgoCD Application targets
-`openshift-gitops` and the namespace gets the cluster-monitoring label:
+Apply the full kustomization (namespace, PrometheusRule, ServiceMonitor,
+ArgoCD Application, etc.) in one step. On OCP, use the overlay so the
+ArgoCD Application targets `openshift-gitops` and the namespace gets the
+cluster-monitoring label:
 
 ```bash
 # Kind
@@ -156,9 +157,6 @@ kubectl get pods -n demo-gitops
 > cannot parse the manifest (e.g. tab characters, broken indentation), it will
 > reject the sync entirely and the deployment will never update — no crash, no
 > alert, no pipeline.
->
-> **Note**: The commands below use `nginx:1.27-alpine` (Kind). On OCP, replace
-> with `nginxinc/nginx-unprivileged:1.27-alpine` to comply with restricted SCCs.
 
 ```bash
 # Port-forward to Gitea
@@ -168,44 +166,27 @@ kubectl port-forward -n gitea svc/gitea-http 3031:3000 &
 git clone http://kubernaut:kubernaut123@localhost:3031/kubernaut/demo-gitops-repo.git /tmp/gitops-break
 cd /tmp/gitops-break
 
-# Overwrite configmap.yaml with an invalid nginx directive (valid YAML, broken nginx config)
+# Overwrite configmap.yaml with an invalid_directive (demo-http-server detects it and exits)
 cat > manifests/configmap.yaml <<'EOF'
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nginx-config
+  name: app-config
   namespace: demo-gitops
   labels:
     app: web-frontend
 data:
-  nginx.conf: |
-    worker_processes auto;
-    error_log /var/log/nginx/error.log warn;
-    pid /tmp/nginx.pid;
-
-    events {
-        worker_connections 1024;
-    }
-
-    http {
-        # INVALID: causes nginx to fail on startup
-        invalid_directive_that_breaks_nginx on;
-
-        server {
-            listen 8080;
-            server_name _;
-
-            location / {
-                return 200 'healthy\n';
-                add_header Content-Type text/plain;
-            }
-
-            location /healthz {
-                return 200 'ok\n';
-                add_header Content-Type text/plain;
-            }
-        }
-    }
+  config.yaml: |
+    port: 8080
+    # INVALID: demo-http-server detects this and exits with [emerg]
+    invalid_directive: true
+    routes:
+      - path: /
+        status: 200
+        body: 'healthy'
+      - path: /healthz
+        status: 200
+        body: 'ok'
 EOF
 
 # Force a pod rollout by adding an annotation to the deployment
@@ -232,21 +213,25 @@ spec:
         kubernaut.ai/config-version: "broken"
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.27-alpine
+      - name: web-frontend
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
         - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
         volumeMounts:
         - name: config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
             memory: "64Mi"
             cpu: "50m"
-          limits:
-            memory: "128Mi"
-            cpu: "100m"
         livenessProbe:
           httpGet:
             path: /healthz
@@ -262,11 +247,11 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: nginx-config
+          name: app-config
 EOF
 
 git add .
-git commit -m "chore: update nginx config (broken value)"
+git commit -m "chore: update app config (broken value)"
 git push origin main
 
 # The Gitea webhook notifies ArgoCD immediately; sync happens within seconds
@@ -277,15 +262,21 @@ git push origin main
 ```bash
 # Watch pods crash
 kubectl get pods -n demo-gitops -w
+```
 
-# Query Alertmanager for active alerts
-# Kind:
+Query Alertmanager for active alerts:
+
+```bash
+# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
-# OCP:
-# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-#   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
 
+# OCP
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+```
+
+```bash
 # Watch Kubernaut CRDs
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```

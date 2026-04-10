@@ -28,6 +28,8 @@ require_demo_ready
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
+enable_prometheus_toolset
+
 echo "============================================="
 echo " CrashLoopBackOff Remediation Demo (#120)"
 echo "============================================="

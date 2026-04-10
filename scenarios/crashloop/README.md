@@ -10,7 +10,7 @@ Demonstrates Kubernaut detecting a CrashLoopBackOff caused by a bad configuratio
 change and performing an automatic rollback to the previous working revision.
 
 **Signal**: `KubePodCrashLooping` -- restart count increasing rapidly
-**Root cause**: Invalid nginx configuration deployed via ConfigMap swap
+**Root cause**: Invalid demo-http-server configuration deployed via ConfigMap swap
 **Remediation**: `kubectl rollout undo` restores the previous healthy revision
 
 ## Signal Flow
@@ -79,8 +79,8 @@ kubectl get pods -n demo-crashloop
 bash scenarios/crashloop/inject-bad-config.sh
 ```
 
-The script creates a `worker-config-bad` ConfigMap with an invalid nginx directive and
-patches the deployment to reference it. Pods will crash on startup.
+The script creates a `worker-config-bad` ConfigMap with an `invalid_directive` that causes demo-http-server to exit
+and patches the deployment to reference it. Pods will crash on startup.
 
 ### 4. Observe CrashLoopBackOff
 
@@ -161,7 +161,7 @@ Given a Kind cluster with Kubernaut services and a real LLM backend
   And the "crashloop-rollback-v1" workflow is registered in the DataStorage catalog
   And the "worker" deployment is running healthily in namespace "demo-crashloop"
 
-When a bad ConfigMap is deployed that causes nginx to fail on startup
+When a bad ConfigMap is deployed that causes demo-http-server to fail on startup
   And the deployment is patched to reference the bad ConfigMap
   And pods enter CrashLoopBackOff with rapidly increasing restart counts
   And the KubePodCrashLooping alert fires (>3 restarts in 10 min)

@@ -18,21 +18,25 @@ spec:
         kubernaut.ai/managed: "true"
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.27-alpine
+      - name: web-frontend
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
         - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
         volumeMounts:
         - name: config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
             memory: "64Mi"
             cpu: "50m"
-          limits:
-            memory: "128Mi"
-            cpu: "100m"
         livenessProbe:
           httpGet:
             path: /healthz
@@ -48,53 +52,4 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: nginx-config
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-  namespace: demo-gitops
-  labels:
-    app: web-frontend
-data:
-  nginx.conf: |
-    worker_processes auto;
-    error_log /var/log/nginx/error.log warn;
-    pid /tmp/nginx.pid;
-
-    events {
-        worker_connections 1024;
-    }
-
-    http {
-        server {
-            listen 8080;
-            server_name _;
-
-            location / {
-                return 200 'healthy\n';
-                add_header Content-Type text/plain;
-            }
-
-            location /healthz {
-                return 200 'ok\n';
-                add_header Content-Type text/plain;
-            }
-        }
-    }
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: web-frontend
-  namespace: demo-gitops
-  labels:
-    app: web-frontend
-    kubernaut.ai/managed: "true"
-spec:
-  selector:
-    app: web-frontend
-  ports:
-  - port: 8080
-    targetPort: 8080
+          name: app-config

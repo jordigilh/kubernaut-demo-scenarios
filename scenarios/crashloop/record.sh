@@ -19,6 +19,15 @@ set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCENARIO_DIR}/../.." && pwd)"
+# shellcheck source=../../scripts/platform-helper.sh
+source "${REPO_ROOT}/scripts/platform-helper.sh"
+if [ "${PLATFORM:-}" = "ocp" ]; then
+    _AM_NS="openshift-monitoring"
+    _AM_POD="alertmanager-main-0"
+else
+    _AM_NS="monitoring"
+    _AM_POD="alertmanager-kube-prometheus-stack-alertmanager-0"
+fi
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/kubernaut-demo-config}"
 export PLATFORM_NS
@@ -53,7 +62,7 @@ echo "    Fault injected. Pods will begin crashing."
 # ── Step 4: Wait for alert + capture data ─────
 echo "==> [4/11] Waiting for KubePodCrashLooping alert to fire..."
 ALERT_WAIT=0
-while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 \
+while [ "$(kubectl exec -n "${_AM_NS}" "${_AM_POD}" \
   -- amtool alert query alertname=KubePodCrashLooping \
   --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null \
   | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null)" = "0" ]; do
@@ -62,7 +71,7 @@ while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertma
   echo "    Still waiting... (${ALERT_WAIT}s)"
 done
 echo "    Alert fired! Capturing alert data to ${ALERT_CACHE}..."
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 \
+kubectl exec -n "${_AM_NS}" "${_AM_POD}" \
   -- amtool alert query alertname=KubePodCrashLooping \
   --alertmanager.url=http://localhost:9093 --output=json > "${ALERT_CACHE}" 2>/dev/null || true
 

@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
+disable_prometheus_toolset || true
+
 echo "==> Cleaning up Concurrent Cross-Namespace demo..."
 
 for NS in demo-team-alpha demo-team-beta; do
@@ -27,16 +29,16 @@ for NS in demo-team-alpha demo-team-beta; do
 done
 
 # Restore original policy.rego from annotation saved by run.sh
-ORIGINAL_B64=$(kubectl get configmap signalprocessing-policy -n kubernaut-system \
+ORIGINAL_B64=$(kubectl get configmap signalprocessing-policy -n "${PLATFORM_NS}" \
   -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-policy-rego}' 2>/dev/null || echo "")
 if [ -n "${ORIGINAL_B64}" ]; then
   ORIGINAL_POLICY=$(echo "${ORIGINAL_B64}" | base64 -d)
-  kubectl patch configmap signalprocessing-policy -n kubernaut-system --type=merge \
+  kubectl patch configmap signalprocessing-policy -n "${PLATFORM_NS}" --type=merge \
     -p "{\"data\":{\"policy.rego\":$(echo "${ORIGINAL_POLICY}" | jq -Rs .)}}"
-  kubectl annotate configmap signalprocessing-policy -n kubernaut-system \
+  kubectl annotate configmap signalprocessing-policy -n "${PLATFORM_NS}" \
     "kubernaut.ai/original-policy-rego-" 2>/dev/null || true
 fi
-kubectl rollout restart deployment/signalprocessing-controller -n kubernaut-system 2>/dev/null || true
+kubectl rollout restart deployment/signalprocessing-controller -n "${PLATFORM_NS}" 2>/dev/null || true
 
 restart_alertmanager
 

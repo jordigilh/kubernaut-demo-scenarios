@@ -14,7 +14,7 @@ spec:
         increase(
           kube_pod_container_status_restarts_total{
             namespace="demo-alert-storm",
-            container="nginx"
+            container="api-gateway"
           }[10m]
         ) > 3
       for: 3m

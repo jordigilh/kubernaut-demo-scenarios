@@ -120,7 +120,12 @@ Typical time from injection: ~5 min on Kind, ~3-5 min on OCP.
 
 ```bash
 # Query Alertmanager for active alerts
+# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubeHpaMaxedOut --alertmanager.url=http://localhost:9093
+
+# OCP
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=KubeHpaMaxedOut --alertmanager.url=http://localhost:9093
 
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system

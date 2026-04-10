@@ -19,10 +19,18 @@ spec:
       nodeSelector:
         kubernaut.ai/managed: "true"
       containers:
-      - name: nginx
-        image: nginx:1.27-alpine
+      - name: web-cluster
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
-        - containerPort: 80
+        - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
             memory: "2Gi"
@@ -32,16 +40,20 @@ spec:
             cpu: "500m"
         livenessProbe:
           httpGet:
-            path: /
-            port: 80
+            path: /healthz
+            port: 8080
           initialDelaySeconds: 5
           periodSeconds: 10
         readinessProbe:
           httpGet:
-            path: /
-            port: 80
+            path: /healthz
+            port: 8080
           initialDelaySeconds: 3
           periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: web-cluster-config
 ---
 apiVersion: v1
 kind: Service
@@ -51,10 +63,12 @@ metadata:
   labels:
     app: web-cluster
     kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
 spec:
   selector:
     app: web-cluster
   ports:
-  - port: 80
-    targetPort: 80
+  - port: 8080
+    targetPort: 8080
+    name: http
   type: ClusterIP

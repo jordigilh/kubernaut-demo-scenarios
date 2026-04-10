@@ -151,7 +151,11 @@ kubectl rollout restart deployment/aianalysis-controller -n kubernaut-system
 kubectl rollout status deployment/aianalysis-controller -n kubernaut-system --timeout=60s
 
 # 2. Deploy (base manifests use staging; overlays/ocp for OpenShift)
-kubectl apply -k scenarios/orphaned-pvc-no-action/manifests  # or overlays/ocp
+# Kind
+kubectl apply -k scenarios/orphaned-pvc-no-action/manifests
+
+# OCP
+kubectl apply -k scenarios/orphaned-pvc-no-action/overlays/ocp
 
 # 3. Wait for deployment
 kubectl wait --for=condition=Available deploy/data-processor -n demo-orphaned-pvc --timeout=120s

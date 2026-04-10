@@ -85,7 +85,11 @@ helm upgrade --install demo-crashloop-helm scenarios/crashloop-helm/chart \
 ### 2. Deploy the alerting rule
 
 ```bash
+# Kind
 kubectl apply -k scenarios/crashloop-helm/manifests/
+
+# OCP
+kubectl apply -k scenarios/crashloop-helm/overlays/ocp
 ```
 
 This creates a `PrometheusRule` that fires `KubePodCrashLooping` when

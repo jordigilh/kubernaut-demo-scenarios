@@ -25,11 +25,15 @@ done
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 echo "============================================="
 echo " Pending Pods - Taint Removal Demo (#122)"
 echo "============================================="
 echo ""
+
+ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Apply taint to worker node FIRST (before deploying pods)
 echo "==> Step 1: Tainting worker node with NoSchedule..."

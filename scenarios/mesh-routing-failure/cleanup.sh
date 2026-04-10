@@ -4,6 +4,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/platform-helper.sh
+source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+
 echo "==> Cleaning up Istio Mesh Routing Failure demo..."
 
 kubectl delete -f "${SCRIPT_DIR}/manifests/deny-policy.yaml" --ignore-not-found

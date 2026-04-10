@@ -127,7 +127,12 @@ kubectl wait --for=condition=Available deployment/istiod -n istio-system --timeo
 ### 2. Deploy workload
 
 ```bash
+# Kind
 kubectl apply -k scenarios/mesh-routing-failure/manifests/
+
+# OCP
+kubectl apply -k scenarios/mesh-routing-failure/overlays/ocp
+
 kubectl wait --for=condition=Available deployment/api-server -n demo-mesh-failure --timeout=120s
 kubectl wait --for=condition=Available deployment/traffic-gen -n demo-mesh-failure --timeout=120s
 ```
@@ -167,7 +172,12 @@ kubectl exec -n demo-mesh-failure deploy/traffic-gen -- \
 #        then open http://localhost:9090/alerts
 
 # Query Alertmanager for active alerts
+# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=IstioHighDenyRate --alertmanager.url=http://localhost:9093
+
+# OCP
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=IstioHighDenyRate --alertmanager.url=http://localhost:9093
 
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w

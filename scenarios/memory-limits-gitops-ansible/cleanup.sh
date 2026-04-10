@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cleanup for GitOps Drift Demo (#125)
+# Cleanup for Memory Limits GitOps (Ansible) Demo (#312)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -9,17 +9,15 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 disable_prometheus_toolset || true
 
-NAMESPACE="demo-gitops"
+NAMESPACE="demo-memory-gitops-ansible"
 GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
 GITEA_ADMIN_PASS="kubernaut123"
-REPO_NAME="demo-gitops-repo"
+REPO_NAME="demo-memory-gitops-repo"
 
-echo "==> Cleaning up GitOps Drift demo..."
+echo "==> Cleaning up Memory Limits GitOps (Ansible) demo..."
 
-# ── Revert Gitea repo to healthy state (#236) ────────────────────────────────
-# The inject phase pushes a broken commit. If remediation didn't git-revert it
-# (or didn't run at all), subsequent runs see "nothing to commit" and hang.
+# ── Revert Gitea repo to healthy state ────────────────────────────────────────
 if kubectl get namespace "${GITEA_NAMESPACE}" &>/dev/null; then
     echo "  Reverting Gitea repo to initial healthy state..."
     kill_stale_gitea_pf
@@ -53,18 +51,17 @@ if kubectl get namespace "${GITEA_NAMESPACE}" &>/dev/null; then
     kill "$PF_PID" 2>/dev/null || true
 fi
 
-# ── Delete stale RRs to prevent IneffectiveChain blocking (#238) ─────────────
+# ── Delete stale RRs to prevent IneffectiveChain blocking ─────────────────────
 for rr in $(kubectl get rr -n "${PLATFORM_NS}" -o jsonpath='{range .items[*]}{.metadata.name}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
            | grep "=${NAMESPACE}$" | cut -d= -f1); do
     kubectl delete rr "$rr" -n "${PLATFORM_NS}" --wait=false 2>/dev/null || true
 done
 
 # ── Delete Kubernetes resources ──────────────────────────────────────────────
-argocd_ns=$(get_argocd_namespace)
-kubectl delete application web-frontend -n "$argocd_ns" --ignore-not-found
-kubectl delete prometheusrule kubernaut-gitops-drift-rules -n "${NAMESPACE}" --ignore-not-found
+ARGOCD_NS=$(get_argocd_namespace)
+kubectl delete application demo-memory-gitops-ansible -n "$ARGOCD_NS" --ignore-not-found
+kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 kubectl delete namespace "${NAMESPACE}" --ignore-not-found
 
 echo "==> Cleanup complete."
-echo "    Note: Gitea and ArgoCD are left running for reuse by other scenarios."
-echo "    To remove them: kubectl delete namespace gitea $(get_argocd_namespace)"
+echo "    Note: Gitea, ArgoCD, and AWX are left running for reuse by other scenarios."

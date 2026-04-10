@@ -22,7 +22,6 @@ REPO_NAME="demo-cert-gitops-repo"
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
 SUBCOMMAND="all"
-ARGOCD_NS=$([ "${PLATFORM:-}" = "ocp" ] && echo "openshift-gitops" || echo "argocd")
 for _arg in "$@"; do
     case "$_arg" in
         --auto-approve)  APPROVE_MODE="--auto-approve" ;;
@@ -41,11 +40,24 @@ require_infra cert-manager
 require_infra gitea
 require_infra argocd
 
+enable_prometheus_toolset
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
+
+ARGOCD_NS=$(get_argocd_namespace)
+
 run_setup() {
 echo "============================================="
 echo " cert-manager GitOps Failure Demo (#134)"
 echo "============================================="
 echo ""
+
+# Delete the ArgoCD Application first so selfHeal doesn't fight namespace
+# deletion inside ensure_clean_slate.
+kubectl delete application demo-cert-gitops -n "${ARGOCD_NS}" \
+  --ignore-not-found 2>/dev/null || true
+
+ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Generate self-signed CA
 echo "==> Step 1: Generating self-signed CA key pair..."

@@ -32,6 +32,8 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 require_demo_ready
 
+enable_prometheus_toolset
+
 echo "============================================="
 echo " Duplicate Alert Suppression Demo (#170)"
 echo " 5 Crashing Pods -> 1 RemediationRequest"

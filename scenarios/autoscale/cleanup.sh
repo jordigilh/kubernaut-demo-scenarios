@@ -18,7 +18,7 @@ if pgrep -f "provisioner.sh" >/dev/null 2>&1; then
 fi
 
 # Delete the scale-request ConfigMap
-kubectl delete cm scale-request -n kubernaut-system --ignore-not-found
+kubectl delete cm scale-request -n "${PLATFORM_NS}" --ignore-not-found
 
 # Check if a dynamically provisioned node exists and remove it
 EXTRA_NODES=$(kubectl get nodes -o name 2>/dev/null | grep "worker-[0-9]" || true)

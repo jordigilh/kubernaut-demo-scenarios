@@ -30,11 +30,15 @@ require_demo_ready
 source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
 require_infra istio
 ensure_user_workload_monitoring
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 echo "============================================="
 echo " Istio Mesh Routing Failure Demo (#136)"
 echo "============================================="
 echo ""
+
+ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Deploy scenario resources (namespace with istio-injection, workload, monitoring)
 echo "==> Step 1: Deploying namespace and meshed workload..."

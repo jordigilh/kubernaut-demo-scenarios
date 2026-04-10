@@ -11,7 +11,7 @@ namespaces with different risk tolerances, producing different workflow selectio
 approval flows running in parallel.
 
 **Signal**: `KubePodCrashLooping` — restart count increasing rapidly in both namespaces
-**Root cause**: Invalid nginx configuration deployed via ConfigMap swap
+**Root cause**: Invalid application configuration deployed via ConfigMap swap
 **Remediation**:
 - Team Alpha (staging, high risk tolerance) → `restart-pods-v1` (rolling restart, auto-approved)
 - Team Beta (production, low risk tolerance) → `crashloop-rollback-risk-v1` (full rollback, manual approval)
@@ -19,7 +19,7 @@ approval flows running in parallel.
 ## Signal Flow
 
 ```
-Both namespaces injected with bad nginx config simultaneously
+Both namespaces injected with bad app config simultaneously
 
 Team Alpha (demo-team-alpha, staging):                Team Beta (demo-team-beta, production):
   kube_pod_container_status_restarts_total ↑            kube_pod_container_status_restarts_total ↑
@@ -49,7 +49,7 @@ Team Alpha (demo-team-alpha, staging):                Team Beta (demo-team-beta,
 | LLM backend | Real LLM (not mock) via HAPI | Same |
 | Prometheus | kube-prometheus-stack with kube-state-metrics | OCP built-in monitoring (`openshift-monitoring`) |
 | Workflow catalog | `restart-pods-v1` and `crashloop-rollback-risk-v1` registered | Same |
-| Container image | `nginx:1.27-alpine` | `nginxinc/nginx-unprivileged:1.27-alpine` (OCP overlay) |
+| Container image | `quay.io/kubernaut-cicd/demo-http-server:1.0.0` | Same (platform-neutral) |
 
 ### Workflow RBAC
 
@@ -172,8 +172,9 @@ sleep 20  # healthy baseline
 bash scenarios/concurrent-cross-namespace/inject-both.sh
 ```
 
-The script creates a `worker-config-bad` ConfigMap with an invalid nginx directive in both
-namespaces and patches the deployments to reference it. All pods will crash on startup.
+The script creates a `worker-config-bad` ConfigMap with an `invalid_directive` flag in both
+namespaces and patches the deployments to reference it. The demo-http-server detects this
+on startup and exits with `[emerg]`, causing all pods to crash.
 
 ### 6. Observe CrashLoopBackOff in both namespaces
 
@@ -200,7 +201,12 @@ Alerts fire after >3 restarts in 10 min (~3 min with `for: 3m`):
 
 ```bash
 # Query Alertmanager for active alerts
+# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+
+# OCP
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
 
 kubectl get remediationrequest -n kubernaut-system -w
@@ -221,11 +227,11 @@ rr-3428160586f8-2ea0a4c6   AwaitingApproval             2m     # Beta: waiting f
 ```
 
 Root cause analysis (from AA):
-> *"Pod crashes due to invalid nginx configuration directive
-> 'invalid_directive_that_breaks_nginx' in ConfigMap worker-config-bad,
-> preventing nginx from starting."*
+> *"Pod crashes due to invalid configuration directive
+> 'invalid_directive' in ConfigMap worker-config-bad,
+> preventing demo-http-server from starting."*
 >
-> Contributing factors: Invalid nginx configuration directive, Bad ConfigMap
+> Contributing factors: Invalid configuration directive, Bad ConfigMap
 > deployment, Rolling update with malformed config
 
 ### 8. Inspect AI Analysis
@@ -323,7 +329,7 @@ ai-rr-df3cf7f0a467-f1574ae8   Completed   0.9          false               7m   
 ### OCP
 
 - The OCP overlay (`overlays/ocp/`) patches the namespace with `openshift.io/cluster-monitoring: "true"` so OCP's built-in Prometheus scrapes the PrometheusRules.
-- The deployment image is swapped to `nginxinc/nginx-unprivileged:1.27-alpine` to comply with OCP's default Security Context Constraints.
+- The `demo-http-server` image is platform-neutral and runs as non-root, so no image swap is needed for OCP.
 - PrometheusRule `release` labels are removed (OCP doesn't filter by Helm release).
 
 ## Cleanup

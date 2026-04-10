@@ -31,4 +31,4 @@ kubectl patch deployment worker -n "${NAMESPACE}" \
   -p '[{"op":"replace","path":"/spec/template/spec/volumes/0/configMap/name","value":"worker-config-bad"}]'
 
 echo "==> Bad config injected. Pods will crash on startup with:"
-echo "     [emerg] invalid directive found in config — aborting"
+echo "     fatal: invalid configuration in config.yaml — aborting"

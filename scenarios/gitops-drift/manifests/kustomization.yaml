@@ -3,5 +3,9 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - argocd-application.yaml
+  - configmap.yaml
   - deployment.yaml
+  - service.yaml
   - prometheus-rule.yaml
+components:
+  - ../../components/metrics-servicemonitor

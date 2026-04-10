@@ -13,7 +13,7 @@ workflow (confidence 0.75), correctly preferring the former because the pods are
 `ImagePullBackOff`, not `CrashLoopBackOff`.
 
 **Signal**: `KubeDeploymentRolloutStuck` — Progressing condition is False for >1 min
-**Root cause**: Non-existent image tag `nginx:99.99.99-doesnotexist`
+**Root cause**: Non-existent image tag `quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist`
 **Remediation**: `kubectl rollout undo` restores previous working revision
 
 ## Signal Flow
@@ -72,12 +72,17 @@ Options:
 ### 1. Deploy the workload
 
 ```bash
+# Kind
 kubectl apply -k scenarios/stuck-rollout/manifests/
+
+# OCP
+kubectl apply -k scenarios/stuck-rollout/overlays/ocp
+
 kubectl wait --for=condition=Available deployment/checkout-api \
   -n demo-rollout --timeout=120s
 ```
 
-This creates a 3-replica `checkout-api` Deployment running `nginx:1.27-alpine`,
+This creates a 3-replica `checkout-api` Deployment running `quay.io/kubernaut-cicd/demo-http-server:1.0.0`,
 a Service, and a PrometheusRule.
 
 ### 2. Verify healthy state
@@ -100,7 +105,7 @@ Wait briefly for Prometheus to capture the healthy state before fault injection.
 bash scenarios/stuck-rollout/inject-bad-image.sh
 ```
 
-The script runs `kubectl set image deployment/checkout-api api=nginx:99.99.99-doesnotexist`.
+The script runs `kubectl set image deployment/checkout-api api=quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist`.
 New pods enter `ImagePullBackOff` immediately. The rollout strategy (`RollingUpdate`)
 keeps the old pods running while the new ReplicaSet fails to become ready.
 
@@ -141,7 +146,7 @@ kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 
 The LLM will:
 1. Investigate the stuck rollout and inspect pod events
-2. Identify `nginx:99.99.99-doesnotexist` as the invalid image tag
+2. Identify `quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist` as the invalid image tag
 3. Note the deployment has a previous healthy revision available
 4. Select `RollbackDeployment` (confidence 0.95) over `CrashLoopRollback` (0.75)
 5. Request human approval (critical severity in production)
@@ -188,7 +193,7 @@ kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=stat
 
 # After approval:
 kubectl get pods -n demo-rollout
-# All 3 replicas Running with nginx:1.27-alpine (no ImagePullBackOff pods)
+# All 3 replicas Running with quay.io/kubernaut-cicd/demo-http-server:1.0.0 (no ImagePullBackOff pods)
 
 kubectl rollout history deployment/checkout-api -n demo-rollout
 # REVISION  CHANGE-CAUSE
@@ -225,11 +230,11 @@ Feature: Stuck rollout remediation via deployment rollback
 
   Scenario: Non-existent image tag causes stuck rollout
     Given a deployment "checkout-api" in namespace "demo-rollout"
-      And the deployment has 3 healthy replicas running nginx:1.27-alpine
+      And the deployment has 3 healthy replicas running quay.io/kubernaut-cicd/demo-http-server:1.0.0
       And progressDeadlineSeconds is 120s
       And the "rollback-deployment-v1" workflow is registered
 
-    When the image is updated to "nginx:99.99.99-doesnotexist"
+    When the image is updated to "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist"
       And new pods enter ImagePullBackOff
       And the rollout exceeds progressDeadlineSeconds (120s)
       And the KubeDeploymentRolloutStuck alert fires (for: 1m)
@@ -242,7 +247,7 @@ Feature: Stuck rollout remediation via deployment rollback
       And an alternative CrashLoopRollback is considered but rejected (0.75)
       And Approval is required (production environment, critical severity)
       And after approval, WFE runs "kubectl rollout undo"
-      And the original nginx:1.27-alpine image is restored
+      And the original quay.io/kubernaut-cicd/demo-http-server:1.0.0 image is restored
       And all 3 replicas become Running/Ready
       And Effectiveness Monitor confirms healthScore=1
       And no ImagePullBackOff pods remain
@@ -250,7 +255,7 @@ Feature: Stuck rollout remediation via deployment rollback
 
 ## Acceptance Criteria
 
-- [ ] Deployment starts healthy with 3 replicas (nginx:1.27-alpine)
+- [ ] Deployment starts healthy with 3 replicas (quay.io/kubernaut-cicd/demo-http-server:1.0.0)
 - [ ] Bad image causes ImagePullBackOff on new ReplicaSet pods
 - [ ] Old pods remain running (rolling update strategy preserves availability)
 - [ ] Rollout exceeds progressDeadlineSeconds (120 s)

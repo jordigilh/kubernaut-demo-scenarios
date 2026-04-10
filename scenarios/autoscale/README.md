@@ -58,7 +58,7 @@ Feature: Cluster Autoscaling via Node Provisioning
 
   Scenario: Pods stuck Pending due to resource exhaustion trigger node provisioning
     Given a Kind cluster with 1 control-plane and 1 worker node
-      And an nginx Deployment "web-cluster" with 2 replicas running on the worker node
+      And a demo-http-server Deployment "web-cluster" with 2 replicas running on the worker node
       And each replica requests 2Gi memory
       And the Kubernaut pipeline is active with a real LLM
       And the "provision-node-v1" workflow is registered in the catalog
@@ -123,7 +123,12 @@ kubectl scale deployment/web-cluster --replicas=14 -n demo-autoscale
 kubectl get pods -n demo-autoscale   # some Running, rest Pending
 
 # 8. Query Alertmanager for active alerts
+# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodSchedulingFailed --alertmanager.url=http://localhost:9093
+
+# OCP
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=KubePodSchedulingFailed --alertmanager.url=http://localhost:9093
 
 # 9. Watch Kubernaut pipeline
@@ -178,7 +183,7 @@ kill $PROVISIONER_PID
 
 ## Acceptance Criteria
 
-- [ ] nginx Deployment manifests in `scenarios/autoscale/manifests/`
+- [ ] demo-http-server Deployment manifests in `scenarios/autoscale/manifests/`
 - [ ] WE Job workflow (remediate.sh) creates ScaleRequest and verifies fulfillment
 - [ ] Host-side provisioner agent (provisioner.sh) watches and provisions nodes
 - [ ] `deploy/remediation-workflows/autoscale/autoscale.yaml` with actionType `ProvisionNode` registered in DataStorage

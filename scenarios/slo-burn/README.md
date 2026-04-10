@@ -42,7 +42,7 @@ blackbox-exporter  ──probe──>  api-gateway /api/status
 
 ## Failure Mode
 
-The injection is realistic: a **bad nginx ConfigMap** (`api-config-bad`) that returns
+The injection is realistic: a **bad api-gateway ConfigMap** (`api-config-bad`) that returns
 500 on `/api/` but passes health checks (`/healthz` returns 200). This mirrors a real
 production issue where readiness probes pass but the service is functionally broken.
 
@@ -53,13 +53,13 @@ at the observed rate.
 
 | Field | Value |
 |-------|-------|
-| Root Cause | `api-gateway deployment using misconfigured nginx ConfigMap 'api-config-bad' that explicitly returns HTTP 500 errors for all /api/ requests` |
+| Root Cause | `api-gateway deployment using misconfigured ConfigMap 'api-config-bad' that explicitly returns HTTP 500 errors for all /api/ requests` |
 | Severity | `critical` |
 | Confidence | 0.9 |
 | Selected Workflow | `RollbackDeployment` (crashloop-rollback-v1) |
 | Alternative | `crashloop-rollback-risk-v1` (confidence 0.75) — risk-averse variant |
 | Approval | Required — production environment |
-| Contributing Factors | Misconfigured nginx configuration, Bad ConfigMap deployment |
+| Contributing Factors | Misconfigured application configuration, Bad ConfigMap deployment |
 
 The LLM correctly identifies `api-config-bad` as the root cause and selects
 `RollbackDeployment` over the risk-averse variant because the configuration issue is
@@ -75,9 +75,9 @@ clear-cut and warrants a direct rollback.
 
 > **OCP note**: The scenario deploys its own blackbox-exporter in the `demo-slo`
 > namespace — no cluster-level blackbox installation is required. The OCP overlay
-> (`overlays/ocp/`) patches the nginx image to `nginx-unprivileged` (port 8080),
-> updates the ConfigMap listen directive, traffic-gen URL, and Probe target
-> accordingly.
+> (`overlays/ocp/`) applies cluster integration patches (for example PrometheusRule
+> and ServiceMonitor release labels, and Namespace `cluster-monitoring`); the
+> `demo-http-server` image is platform-neutral (listens on port 8080 by default).
 
 ### Workflow RBAC
 
@@ -215,7 +215,7 @@ bash scenarios/slo-burn/cleanup.sh
 Feature: SLO Error Budget Burn -> Proactive Rollback
 
   Scenario: Error budget burning at unsustainable rate triggers proactive rollback
-    Given an nginx api-gateway Deployment with 2 replicas in demo-slo namespace
+    Given an api-gateway Deployment with 2 replicas in demo-slo namespace
       And a blackbox-exporter Probe targeting /api/status every 10s
       And a traffic generator sending steady requests to /api/status
       And the service is healthy with ~0% error rate (SLO: 99.9%)
@@ -240,10 +240,10 @@ Feature: SLO Error Budget Burn -> Proactive Rollback
 
 ## Acceptance Criteria
 
-- [x] nginx API gateway + ConfigMap + traffic generator + blackbox-exporter manifests
+- [x] API gateway + ConfigMap + traffic generator + blackbox-exporter manifests
 - [x] Injection script to deploy bad config (platform-aware: port 80 / 8080)
 - [x] Prometheus Probe CRD + SLO burn rate PrometheusRule
-- [x] OCP overlay patches (nginx-unprivileged, port 8080, Probe target)
+- [x] OCP overlay patches (PrometheusRule release label, ServiceMonitor release label, Namespace cluster-monitoring)
 - [x] Full pipeline with real LLM: Gateway -> SP -> AA -> WE -> EA
 - [x] LLM correlates error spike with ConfigMap change and selects rollback
 - [x] EffectivenessAssessment healthScore = 1.0, outcome = Remediated

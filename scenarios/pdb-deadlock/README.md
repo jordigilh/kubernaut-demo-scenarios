@@ -105,7 +105,12 @@ scoped permissions (created automatically when workflows are seeded via
 ### 1. Deploy the workload with restrictive PDB
 
 ```bash
+# Kind
 kubectl apply -k scenarios/pdb-deadlock/manifests/
+
+# OCP
+kubectl apply -k scenarios/pdb-deadlock/overlays/ocp
+
 kubectl wait --for=condition=Available deployment/payment-service -n demo-pdb --timeout=120s
 ```
 
@@ -139,7 +144,12 @@ The `KubePodDisruptionBudgetAtLimit` alert fires after 3 minutes at 0 allowed di
 
 ```bash
 # Query Alertmanager for active alerts
+# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodDisruptionBudgetAtLimit --alertmanager.url=http://localhost:9093
+
+# OCP
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=KubePodDisruptionBudgetAtLimit --alertmanager.url=http://localhost:9093
 
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w

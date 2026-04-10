@@ -70,7 +70,12 @@ Options:
 ### 1. Deploy the workload
 
 ```bash
+# Kind
 kubectl apply -k scenarios/memory-leak/manifests/
+
+# OCP
+kubectl apply -k scenarios/memory-leak/overlays/ocp
+
 kubectl wait --for=condition=Available deployment/leaky-app -n demo-memory-leak --timeout=120s
 ```
 

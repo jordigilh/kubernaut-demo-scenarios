@@ -138,7 +138,11 @@ Options:
 ### 1. Deploy the workload
 
 ```bash
+# Kind
 kubectl apply -k scenarios/memory-escalation/manifests/
+
+# OCP
+kubectl apply -k scenarios/memory-escalation/overlays/ocp
 ```
 
 This creates:
@@ -164,7 +168,12 @@ The `ContainerOOMKilling` alert fires after 30 s. The full pipeline completes in
 
 ```bash
 # Query Alertmanager for active alerts
+# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
+
+# OCP
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
 
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system

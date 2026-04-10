@@ -18,10 +18,17 @@ spec:
     spec:
       containers:
       - name: api-server
-        image: nginx:1.27-alpine
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
         - containerPort: 8080
           name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
             memory: "32Mi"
@@ -41,10 +48,6 @@ spec:
             port: 8080
           initialDelaySeconds: 2
           periodSeconds: 3
-        volumeMounts:
-        - name: config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
       volumes:
       - name: config
         configMap:
@@ -56,19 +59,15 @@ metadata:
   name: api-server-config
   namespace: demo-mesh-failure
 data:
-  nginx.conf: |
-    worker_processes auto;
-    error_log /var/log/nginx/error.log warn;
-    pid /tmp/nginx.pid;
-    events { worker_connections 1024; }
-    http {
-        server {
-            listen 8080;
-            server_name _;
-            location / { return 200 'ok\n'; add_header Content-Type text/plain; }
-            location /healthz { return 200 'ok\n'; add_header Content-Type text/plain; }
-        }
-    }
+  config.yaml: |
+    port: 8080
+    routes:
+      - path: /
+        status: 200
+        body: 'ok'
+      - path: /healthz
+        status: 200
+        body: 'ok'
 ---
 apiVersion: v1
 kind: Service
@@ -78,6 +77,7 @@ metadata:
   labels:
     app: api-server
     kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
 spec:
   selector:
     app: api-server

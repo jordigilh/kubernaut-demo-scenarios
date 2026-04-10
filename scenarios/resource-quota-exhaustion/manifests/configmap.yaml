@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: gateway-config
-  namespace: demo-alert-storm
+  name: api-server-config
+  namespace: demo-quota
 data:
   config.yaml: |
     port: 8080

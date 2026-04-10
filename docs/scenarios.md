@@ -38,7 +38,8 @@ The **Environment** column indicates which platforms each scenario supports:
 |-------|---------|
 | **Both** | Runs on Kind and OCP |
 | **OCP** | Requires OpenShift (AWX/AAP, privileged node access, or OCP-specific infrastructure) |
-| **Kind** | Runs only on Kind |
+| **Kind** | Runs only on Kind (Linux and macOS) |
+| **Kind (macOS)** | Runs only on Kind under macOS; Linux bare-metal Kind hits gateway payload limits due to high host memory |
 
 ## Workload Health
 
@@ -57,14 +58,14 @@ The **Environment** column indicates which platforms each scenario supports:
 |----------|---------------|-----------------|-------------|-------------|
 | [**hpa-maxed**](../scenarios/hpa-maxed/) | `KubeHpaMaxedOut` | CPU load drives HPA to ceiling | Patch `maxReplicas` +2 | Both |
 | [**pdb-deadlock**](../scenarios/pdb-deadlock/) | `KubePodDisruptionBudgetAtLimit` | PDB blocks all disruptions | Relax PDB `minAvailable` | Both |
-| [**autoscale**](../scenarios/autoscale/) | `KubePodSchedulingFailed` | Pods Pending (resource exhaustion) | Provision additional node | Both |
+| [**autoscale**](../scenarios/autoscale/) | `KubePodSchedulingFailed` | Pods Pending (resource exhaustion) | Provision additional node | Kind (macOS) |
 
 ## Infrastructure
 
 | Scenario | Signal / Alert | Fault Injection | Remediation | Environment |
 |----------|---------------|-----------------|-------------|-------------|
 | [**pending-taint**](../scenarios/pending-taint/) | `KubePodNotScheduled` | NoSchedule taint on node | Remove taint | Both |
-| [**node-notready**](../scenarios/node-notready/) | `KubeNodeNotReady` | Node failure simulation | Cordon + drain node | Both |
+| [**node-notready**](../scenarios/node-notready/) | `KubeNodeNotReady` | Node failure simulation | Cordon + drain node | Kind |
 | [**orphaned-pvc-no-action**](../scenarios/orphaned-pvc-no-action/) | `KubePersistentVolumeClaimOrphaned` | Orphaned PVCs accumulate | No action (no workflow seeded) | Both |
 | [**statefulset-pvc-failure**](../scenarios/statefulset-pvc-failure/) | `KubeStatefulSetReplicasMismatch` | PVC binding failure | Fix StatefulSet PVC | Both |
 

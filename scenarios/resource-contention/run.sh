@@ -38,6 +38,8 @@ done
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 echo "============================================="
 echo " Resource Contention Demo (Issue #231)"
@@ -49,6 +51,8 @@ echo ""
 echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
 enable_prometheus_toolset
 echo ""
+
+ensure_clean_slate "${NAMESPACE}"
 
 echo ">> Step 1: Deploying scenario resources..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
