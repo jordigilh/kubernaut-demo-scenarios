@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
   - ../../manifests
 patches:
-  # Category A: Namespace label for OCP cluster monitoring
+  # Category A: Namespace labels for OCP cluster monitoring + GitOps
   - target:
       kind: Namespace
       name: demo-gitops
@@ -11,18 +11,20 @@ patches:
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
         value: "true"
-  # Category B: nginx -> nginx-unprivileged (port 8080 already compatible)
-  - target:
-      kind: Deployment
-      name: web-frontend
-    patch: |
-      - op: replace
-        path: /spec/template/spec/containers/0/image
-        value: nginxinc/nginx-unprivileged:1.27-alpine
+      - op: add
+        path: /metadata/labels/argocd.argoproj.io~1managed-by
+        value: openshift-gitops
   # Category C: PrometheusRule - remove release label for OCP
   - target:
       kind: PrometheusRule
       name: kubernaut-gitops-drift-rules
+    patch: |
+      - op: remove
+        path: /metadata/labels/release
+  # Category E: ServiceMonitor - remove release label for OCP
+  - target:
+      kind: ServiceMonitor
+      name: demo-app-metrics
     patch: |
       - op: remove
         path: /metadata/labels/release

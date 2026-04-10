@@ -3,6 +3,8 @@ kind: Kustomization
 resources:
   - ../../manifests
 patches:
+  # Note: Namespace labels (cluster-monitoring, managed-by) are added in the
+  # run.sh heredoc pushed to Gitea -- no Namespace resource in this kustomize tree.
   # Category C: PrometheusRule - remove release label for OCP
   - target:
       kind: PrometheusRule
