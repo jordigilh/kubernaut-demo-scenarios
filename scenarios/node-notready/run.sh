@@ -26,6 +26,8 @@ done
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 if [ "$PLATFORM" = "ocp" ]; then
     echo "ERROR: node-notready is Kind-only. The inject/cleanup scripts use"
@@ -38,6 +40,8 @@ fi
 # when the same workflow+target is reused across runs.
 kubectl delete jobs -n kubernaut-workflows -l kubernaut.ai/component=workflowexecution --field-selector=status.successful=1 --ignore-not-found 2>/dev/null || true
 kubectl delete jobs -n kubernaut-workflows --field-selector=status.successful=1 --ignore-not-found 2>/dev/null || true
+
+ensure_clean_slate "${NAMESPACE}"
 
 echo "============================================="
 echo " Node NotReady Demo (#127)"

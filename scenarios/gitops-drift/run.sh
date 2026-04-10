@@ -36,6 +36,8 @@ source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 require_infra gitea
 require_infra argocd
 
+enable_prometheus_toolset
+
 # Ensure the git-revert-v2 workflow is seeded. It depends on gitea-repo-creds,
 # which only exists after Gitea is installed. If the initial seed ran before
 # Gitea was available, the workflow was skipped (#237).
@@ -60,7 +62,9 @@ echo ""
 # Step 0: Clean up stale state from any previous run (#245)
 # Delete the ArgoCD Application first so selfHeal doesn't fight the
 # namespace deletion inside ensure_clean_slate.
-kubectl delete -f "${SCRIPT_DIR}/manifests/argocd-application.yaml" \
+local argocd_ns
+argocd_ns=$(get_argocd_namespace)
+kubectl delete application web-frontend -n "$argocd_ns" \
   --ignore-not-found 2>/dev/null || true
 
 ensure_clean_slate "${NAMESPACE}"
@@ -104,47 +108,25 @@ $([ "$PLATFORM" = "ocp" ] && echo '    openshift.io/cluster-monitoring: "true"')
 $([ "$PLATFORM" = "ocp" ] && echo '    argocd.argoproj.io/managed-by: openshift-gitops')
 NS_EOF
 
-cat > manifests/configmap.yaml <<'CM_EOF'
+cat > manifests/configmap.yaml <<CM_EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nginx-config
-  namespace: demo-gitops
+  name: app-config
+  namespace: ${NAMESPACE}
   labels:
     app: web-frontend
 data:
-  nginx.conf: |
-    worker_processes auto;
-    error_log /var/log/nginx/error.log warn;
-    pid /tmp/nginx.pid;
-
-    events {
-        worker_connections 1024;
-    }
-
-    http {
-        server {
-            listen 8080;
-            server_name _;
-
-            location / {
-                return 200 'healthy\n';
-                add_header Content-Type text/plain;
-            }
-
-            location /healthz {
-                return 200 'ok\n';
-                add_header Content-Type text/plain;
-            }
-        }
-    }
+  config.yaml: |
+    port: 8080
+    routes:
+      - path: /
+        status: 200
+        body: 'healthy'
+      - path: /healthz
+        status: 200
+        body: 'ok'
 CM_EOF
-
-if [ "$PLATFORM" = "ocp" ]; then
-    local nginx_image="nginxinc/nginx-unprivileged:1.27-alpine"
-else
-    local nginx_image="nginx:1.27-alpine"
-fi
 
 cat > manifests/deployment.yaml <<DEPLOY_EOF
 apiVersion: apps/v1
@@ -167,21 +149,25 @@ spec:
         kubernaut.ai/managed: "true"
     spec:
       containers:
-      - name: nginx
-        image: ${nginx_image}
+      - name: web-frontend
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
         - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
         volumeMounts:
         - name: config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
             memory: "64Mi"
             cpu: "50m"
-          limits:
-            memory: "128Mi"
-            cpu: "100m"
         livenessProbe:
           httpGet:
             path: /healthz
@@ -197,28 +183,31 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: nginx-config
+          name: app-config
 DEPLOY_EOF
 
-cat > manifests/service.yaml <<'SVC_EOF'
+cat > manifests/service.yaml <<SVC_EOF
 apiVersion: v1
 kind: Service
 metadata:
   name: web-frontend
-  namespace: demo-gitops
+  namespace: ${NAMESPACE}
   labels:
     app: web-frontend
     kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
 spec:
   selector:
     app: web-frontend
   ports:
   - port: 8080
     targetPort: 8080
+    name: http
+  type: ClusterIP
 SVC_EOF
 
 git add .
-git commit -m "Initial deployment: nginx web-frontend with healthy config"
+git commit -m "Initial deployment: web-frontend with healthy config"
 git remote add origin "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
 git push -u origin main --force
 echo "  Healthy manifests pushed to Gitea."
@@ -309,6 +298,7 @@ echo ""
 run_inject() {
 # Step 4: Inject failure -- push bad ConfigMap to Gitea
 echo "==> Step 4: Injecting failure (bad ConfigMap via Git commit)..."
+
 WORK_DIR=$(mktemp -d)
 kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
@@ -319,54 +309,37 @@ cd "${WORK_DIR}"
 git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
 cd repo
 
-# Break the ConfigMap: inject an invalid nginx directive
-# Also update the deployment annotation to force a rollout
-cat > manifests/configmap.yaml <<'EOF'
+# Break the ConfigMap: inject an invalid_directive that the demo-http-server
+# detects on startup and aborts with [emerg] (same as nginx would).
+cat > manifests/configmap.yaml <<EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nginx-config
-  namespace: demo-gitops
+  name: app-config
+  namespace: ${NAMESPACE}
   labels:
     app: web-frontend
 data:
-  nginx.conf: |
-    worker_processes auto;
-    error_log /var/log/nginx/error.log warn;
-    pid /tmp/nginx.pid;
-
-    events {
-        worker_connections 1024;
-    }
-
-    http {
-        # INVALID: causes nginx to fail on startup
-        invalid_directive_that_breaks_nginx on;
-
-        server {
-            listen 8080;
-            server_name _;
-
-            location / {
-                return 200 'healthy\n';
-                add_header Content-Type text/plain;
-            }
-
-            location /healthz {
-                return 200 'ok\n';
-                add_header Content-Type text/plain;
-            }
-        }
-    }
+  config.yaml: |
+    port: 8080
+    # INVALID: demo-http-server detects this and exits with [emerg]
+    invalid_directive: true
+    routes:
+      - path: /
+        status: 200
+        body: 'healthy'
+      - path: /healthz
+        status: 200
+        body: 'ok'
 EOF
 
-# Also update deployment to force a pod rollout with the new config
-cat > manifests/deployment.yaml <<'DEPLOY_EOF'
+# Also update deployment annotation to force a pod rollout with the new config
+cat > manifests/deployment.yaml <<DEPLOY_EOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: web-frontend
-  namespace: demo-gitops
+  namespace: ${NAMESPACE}
   labels:
     app: web-frontend
     kubernaut.ai/managed: "true"
@@ -384,21 +357,25 @@ spec:
         kubernaut.ai/config-version: "broken"
     spec:
       containers:
-      - name: nginx
-        image: nginx:1.27-alpine
+      - name: web-frontend
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
         ports:
         - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
         volumeMounts:
         - name: config
-          mountPath: /etc/nginx/nginx.conf
-          subPath: nginx.conf
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
         resources:
           requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
             memory: "64Mi"
             cpu: "50m"
-          limits:
-            memory: "128Mi"
-            cpu: "100m"
         livenessProbe:
           httpGet:
             path: /healthz
@@ -414,13 +391,13 @@ spec:
       volumes:
       - name: config
         configMap:
-          name: nginx-config
+          name: app-config
 DEPLOY_EOF
 
 git add .
 git config user.email "bad-actor@example.com"
 git config user.name "Bad Deploy"
-git commit -m "chore: update nginx config (broken value)"
+git commit -m "chore: update app config (broken value)"
 git push origin main
 
 kill "${PF_PID}" 2>/dev/null || true

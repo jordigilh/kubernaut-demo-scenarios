@@ -19,7 +19,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ARGOCD_NS=$([ "${PLATFORM:-}" = "ocp" ] && echo "openshift-gitops" || echo "argocd")
 NAMESPACE="demo-memory-gitops-ansible"
 GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
@@ -47,12 +46,25 @@ require_infra awx-engine
 require_infra gitea
 require_infra argocd
 
+enable_prometheus_toolset
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
+
+ARGOCD_NS=$(get_argocd_namespace)
+
 run_setup() {
 echo "============================================="
 echo " Memory Limits GitOps (Ansible) Demo (#312)"
 echo " OOMKill -> AWX playbook -> git commit -> ArgoCD sync"
 echo "============================================="
 echo ""
+
+# Delete the ArgoCD Application first so selfHeal doesn't fight namespace
+# deletion inside ensure_clean_slate.
+kubectl delete application demo-memory-gitops-ansible -n "${ARGOCD_NS}" \
+  --ignore-not-found 2>/dev/null || true
+
+ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Push deployment YAML to Gitea repo
 echo "==> Step 1: Pushing deployment manifests to Gitea..."

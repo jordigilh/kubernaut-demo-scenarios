@@ -38,6 +38,8 @@ done
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 echo "============================================="
 echo " Orphaned PVC Demo (#60, #122)"
@@ -58,6 +60,8 @@ echo "  Restarting AIAnalysis controller to pick up policy change..."
 kubectl rollout restart deployment/aianalysis-controller -n "${PLATFORM_NS}"
 kubectl rollout status deployment/aianalysis-controller -n "${PLATFORM_NS}" --timeout=60s
 echo ""
+
+ensure_clean_slate "${NAMESPACE}"
 
 # Step 2: Deploy scenario resources
 echo "==> Step 2: Deploying scenario resources..."

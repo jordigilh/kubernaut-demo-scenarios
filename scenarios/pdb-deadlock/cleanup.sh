@@ -4,6 +4,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/platform-helper.sh
+source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+
+disable_prometheus_toolset || true
+
 echo "==> Cleaning up PDB Deadlock demo..."
 
 # Uncordon the worker node (drain cordons it)

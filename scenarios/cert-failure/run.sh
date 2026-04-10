@@ -32,6 +32,8 @@ require_infra cert-manager
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
+enable_prometheus_toolset
+
 echo "============================================="
 echo " cert-manager Certificate Failure Demo (#133)"
 echo "============================================="

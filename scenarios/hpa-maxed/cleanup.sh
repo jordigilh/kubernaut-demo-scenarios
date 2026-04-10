@@ -17,8 +17,8 @@ for pod in $(kubectl get pods -n demo-hpa -l app=api-frontend -o name 2>/dev/nul
 done
 
 # Delete pipeline CRDs targeting this namespace
-for rr in $(kubectl get remediationrequests -n kubernaut-system -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null | grep demo-hpa | cut -f1); do
-    kubectl delete remediationrequest "$rr" -n kubernaut-system --ignore-not-found 2>/dev/null || true
+for rr in $(kubectl get remediationrequests -n "${PLATFORM_NS}" -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null | grep demo-hpa | cut -f1); do
+    kubectl delete remediationrequest "$rr" -n "${PLATFORM_NS}" --ignore-not-found 2>/dev/null || true
 done
 
 kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
