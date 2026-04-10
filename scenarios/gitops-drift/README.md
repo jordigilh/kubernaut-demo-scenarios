@@ -94,14 +94,18 @@ Feature: GitOps drift remediation via git revert
 
 ### 2. Deploy Scenario Resources
 
+Apply the full kustomization (namespace, PrometheusRule, ArgoCD Application, etc.)
+in one step. On OCP, use the overlay so the ArgoCD Application targets
+`openshift-gitops` and the namespace gets the cluster-monitoring label:
+
 ```bash
-# Prometheus alerting rules
-kubectl apply -f scenarios/gitops-drift/manifests/prometheus-rule.yaml
+# Kind
+kubectl apply -k scenarios/gitops-drift/manifests
 
-# ArgoCD Application (triggers sync of manifests from Gitea)
-kubectl apply -f scenarios/gitops-drift/manifests/argocd-application.yaml
+# OCP
+kubectl apply -k scenarios/gitops-drift/overlays/ocp
 
-# Wait for sync
+# Wait for ArgoCD to sync and the deployment to become available
 kubectl wait --for=condition=Available deployment/web-frontend \
   -n demo-gitops --timeout=120s
 ```
