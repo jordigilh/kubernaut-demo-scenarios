@@ -117,7 +117,12 @@ bash scenarios/resource-contention/scripts/external-actor.sh &
 kubectl get pods -n demo-resource-contention -w
 
 # 4. Query Alertmanager for active alerts
+# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
+
+# OCP
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
 
 # 5. Watch first remediation cycle

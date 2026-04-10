@@ -20,14 +20,14 @@ on duplicate incidents — a critical requirement for noisy production environme
 ## Signal Flow
 
 ```
-5 pods crash (invalid nginx config) → 5 KubePodCrashLooping alerts
+5 pods crash (invalid app config) → 5 KubePodCrashLooping alerts
   → AlertManager groups by namespace → 2+ webhook payloads
   → Gateway OwnerResolver: each pod → Deployment/api-gateway
   → Single fingerprint: SHA256(demo-alert-storm:deployment:api-gateway)
   → 1 RemediationRequest (occurrenceCount increments per webhook)
   → Signal Processing
   → AI Analysis (HAPI + Claude Sonnet 4 on Vertex AI)
-    → Root cause: invalid nginx directive in ConfigMap gateway-config-bad
+    → Root cause: invalid directive in ConfigMap gateway-config-bad
     → Contributing factors: bad config, recent deployment change, no config validation
     → Selected: RollbackDeployment (confidence 0.95)
     → Alternative considered: risk-averse CrashLoopRollback (0.85, rejected — medium risk tolerance)
@@ -76,13 +76,18 @@ Options:
 ### 1. Deploy the workload
 
 ```bash
+# Kind
 kubectl apply -k scenarios/duplicate-alert-suppression/manifests/
+
+# OCP
+kubectl apply -k scenarios/duplicate-alert-suppression/overlays/ocp
+
 kubectl wait --for=condition=Available deployment/api-gateway \
   -n demo-alert-storm --timeout=120s
 ```
 
-This creates a 5-replica `api-gateway` Deployment running `nginx:1.27-alpine`,
-a healthy ConfigMap, a Service, and a PrometheusRule that fires
+This creates a 5-replica `api-gateway` Deployment running `demo-http-server:1.0.0`,
+a healthy ConfigMap, a Service, a ServiceMonitor, and a PrometheusRule that fires
 `KubePodCrashLooping` when `increase(kube_pod_container_status_restarts_total[10m]) > 3`.
 
 ### 2. Verify healthy state
@@ -103,8 +108,9 @@ kubectl get pods -n demo-alert-storm
 bash scenarios/duplicate-alert-suppression/inject-bad-config.sh
 ```
 
-The script creates a `gateway-config-bad` ConfigMap with an invalid nginx directive
-and patches the deployment to reference it. All 5 pods crash simultaneously:
+The script creates a `gateway-config-bad` ConfigMap with an `invalid_directive` flag
+and patches the deployment to reference it. The demo-http-server detects this on startup
+and exits with `[emerg]`. All 5 pods crash simultaneously:
 
 ```bash
 kubectl get pods -n demo-alert-storm
@@ -128,15 +134,20 @@ kubectl get rr -n kubernaut-system -o wide
 
 ```bash
 # Query Alertmanager for active alerts
+# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+
+# OCP
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
 
 kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:
-1. Investigate the crashing pods and read nginx error logs
-2. Identify the `invalid_directive_that_breaks_nginx` in `gateway-config-bad`
+1. Investigate the crashing pods and read container error logs
+2. Identify the `invalid_directive` in `gateway-config-bad`
 3. Note it was introduced in deployment revision 2
 4. Select `RollbackDeployment` (confidence 0.95)
 5. Consider a risk-averse `CrashLoopRollback` alternative (0.85) but reject it
@@ -171,7 +182,7 @@ kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWork
 ```bash
 # All 5 pods recovered via a single rollback
 kubectl get pods -n demo-alert-storm
-# 5 pods Running with nginx:1.27-alpine
+# 5 pods Running with demo-http-server:1.0.0
 
 # Deduplication stats on the single RR
 kubectl get rr <RR_NAME> -n kubernaut-system \
@@ -229,7 +240,7 @@ Feature: Duplicate alert suppression via OwnerResolver fingerprinting
       And the deployment has 5 healthy replicas
       And the "rollback-deployment-v1" workflow is registered
 
-    When an invalid nginx config is injected via ConfigMap swap
+    When an invalid app config is injected via ConfigMap swap
       And all 5 pods enter CrashLoopBackOff simultaneously
       And Prometheus fires 5 KubePodCrashLooping alerts (one per pod)
 
@@ -238,7 +249,7 @@ Feature: Duplicate alert suppression via OwnerResolver fingerprinting
       And a single fingerprint is computed for all 5 alerts
       And exactly 1 RemediationRequest is created (not 5)
       And the RR's deduplication.occurrenceCount reflects webhook deliveries
-      And HAPI diagnoses invalid nginx config in gateway-config-bad
+      And HAPI diagnoses invalid config directive in gateway-config-bad
       And the LLM selects RollbackDeployment (confidence 0.95)
       And auto-approval is granted (no manual review required)
       And WorkflowExecution rolls back the deployment

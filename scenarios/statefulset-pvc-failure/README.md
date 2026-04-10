@@ -119,7 +119,12 @@ bash scenarios/statefulset-pvc-failure/inject-pvc-issue.sh
 # kv-store-2 → Pending (broken-storage-class)
 
 # 4. Query Alertmanager for active alerts (~3 min)
+# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubeStatefulSetReplicasMismatch --alertmanager.url=http://localhost:9093
+
+# OCP
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=KubeStatefulSetReplicasMismatch --alertmanager.url=http://localhost:9093
 
 # 5. Monitor pipeline

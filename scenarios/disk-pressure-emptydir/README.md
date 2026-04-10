@@ -205,8 +205,8 @@ pg_restore) enough time to complete before data loss.
 ```bash
 # PredictedDiskPressure alert fires before kubelet eviction (~2-3 min)
 
-# Query Alertmanager for active alerts
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+# Query Alertmanager for active alerts (OCP only)
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=PredictedDiskPressure --alertmanager.url=http://localhost:9093
 
 kubectl get rr,sp,aia,rar,wfe,ea,notif -n kubernaut-system -w
