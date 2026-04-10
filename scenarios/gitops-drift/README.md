@@ -102,8 +102,10 @@ recreated), register it manually so pushes trigger immediate ArgoCD sync:
 kubectl port-forward -n gitea svc/gitea-http 3031:3000 &
 
 # Kind:
+ARGOCD_SVC=argocd-server
 ARGOCD_NS=argocd
 # OCP:
+# ARGOCD_SVC=openshift-gitops-server
 # ARGOCD_NS=openshift-gitops
 
 curl -s -X POST "http://kubernaut:kubernaut123@localhost:3031/api/v1/repos/kubernaut/demo-gitops-repo/hooks" \
@@ -112,7 +114,7 @@ curl -s -X POST "http://kubernaut:kubernaut123@localhost:3031/api/v1/repos/kuber
     \"type\": \"gitea\",
     \"active\": true,
     \"config\": {
-      \"url\": \"http://argocd-server.${ARGOCD_NS}.svc.cluster.local/api/webhook\",
+      \"url\": \"http://${ARGOCD_SVC}.${ARGOCD_NS}.svc.cluster.local/api/webhook\",
       \"content_type\": \"json\"
     },
     \"events\": [\"push\"]
