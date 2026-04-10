@@ -66,6 +66,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/patch-hpa-job@sha256:12d7e3f5b16188f89040d8c93778c5fbfc88c0088b94b0980047160cba76c040
+    serviceAccountName: patch-hpa-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

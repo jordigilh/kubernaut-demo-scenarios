@@ -66,6 +66,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/rollback-deployment-job@sha256:072048e26217403c2cdd746080c6bfb73993a757e4615396a0488e8dd615e174
+    serviceAccountName: rollback-deployment-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

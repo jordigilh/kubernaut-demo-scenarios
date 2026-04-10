@@ -66,6 +66,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/proactive-rollback-job@sha256:094da6d12106fef4b3a542a9050eecd5edcd1d5a226dde92a252d23edabe3168
+    serviceAccountName: proactive-rollback-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
