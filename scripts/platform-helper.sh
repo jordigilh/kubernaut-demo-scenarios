@@ -150,15 +150,8 @@ _apply_workflow_yaml() {
     kubectl create namespace "${WE_NAMESPACE:-kubernaut-workflows}" \
         --dry-run=client -o yaml 2>/dev/null | kubectl apply -f - 2>/dev/null || true
 
-    python3 -c "
-import sys, os
-d, n, f = sys.argv[1], 0, None
-for line in open(sys.argv[2]):
-    if line.strip() == '---':
-        n += 1; f = None; continue
-    if f is None: f = open(os.path.join(d, f'doc-{n}.yaml'), 'a')
-    f.write(line)
-" "$tmpdir" "$yaml_file"
+    awk -v dir="$tmpdir" \
+        'BEGIN{n=0} /^---$/{n++; next} {print >> dir"/doc-"n".yaml"}' "$yaml_file"
 
     for doc in "$tmpdir"/doc-*.yaml; do
         [ -f "$doc" ] || continue
