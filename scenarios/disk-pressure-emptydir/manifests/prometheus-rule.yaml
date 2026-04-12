@@ -12,26 +12,26 @@ spec:
         # Proactive alert: fires BEFORE DiskPressure occurs (BR-SP-106 / ADR-054).
         # SP normalizes PredictedDiskPressure -> DiskPressure (signalMode=proactive).
         # predict_linear() projects disk exhaustion based on recent growth trend.
-        # Window [3m] balances slope accuracy vs. speed; 1200s horizon gives the
-        # pipeline ~8 min margin (LLM ~2m + approve + AWX + pg_dump + ArgoCD
-        # sync + pg_restore) before eviction; for: 1m sustain.
+        # Tuned for fast demo trigger with margin for remediation: [1m] window
+        # needs only 2 scrape samples (~60s), 600s horizon, 15s sustain.
+        # Alert fires ~75s after data growth; ~6 min margin for pg_dump + GitOps.
         - alert: PredictedDiskPressure
           expr: |
             predict_linear(
-              node_filesystem_avail_bytes{mountpoint="/", instance=~"stress-worker.*"}[3m],
-              1200
+              node_filesystem_avail_bytes{mountpoint="/", instance=~"stress-worker.*"}[1m],
+              600
             ) < 0
-          for: 1m
+          for: 15s
           labels:
             severity: high
             namespace: demo-diskpressure
             node: '{{ $labels.instance }}'
           annotations:
-            summary: "Node {{ $labels.instance }} predicted to exhaust disk within 20 minutes"
+            summary: "Node {{ $labels.instance }} predicted to exhaust disk within 10 minutes"
             description: >-
               Linear regression on node {{ $labels.instance }} filesystem usage
-              over the last 3 minutes predicts available space will reach
-              zero within 20 minutes. This is likely caused by emptyDir growth
+              over the last minute predicts available space will reach
+              zero within 10 minutes. This is likely caused by emptyDir growth
               from the postgres-emptydir deployment in demo-diskpressure
               namespace. Proactive remediation can migrate the database to
               persistent storage before data loss occurs.
