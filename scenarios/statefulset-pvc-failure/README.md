@@ -10,9 +10,11 @@ rescheduling.
 The LLM correctly detects `stateful: true` from the ownership chain, diagnoses the
 PVC failure (non-existent StorageClass), and selects the `FixStatefulSetPVC` workflow.
 
-**Signal**: `KubeStatefulSetReplicasMismatch` — ready replicas < desired for >3 min
-**Root cause**: PVC `data-kv-store-2` references non-existent StorageClass `broken-storage-class`
-**Remediation**: `fix-statefulset-pvc-v1` — recreates PVC with correct SC, deletes stuck pod
+| | |
+|---|---|
+| **Signal** | `KubeStatefulSetReplicasMismatch` — ready replicas < desired for >3 min |
+| **Root cause** | PVC `data-kv-store-2` references non-existent StorageClass `broken-storage-class` |
+| **Remediation** | `fix-statefulset-pvc-v1` — recreates PVC with correct SC, deletes stuck pod |
 
 ## Signal Flow
 
@@ -90,9 +92,23 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `fix-statefulset-pvc-v1-runner` |
 | ClusterRoleBinding | `fix-statefulset-pvc-v1-runner` |
 
-**Permissions**: `apps` statefulsets (get, list), core persistentvolumeclaims (get, list, create, delete), core pods (get, list, delete)
+**Permissions**:
 
-## Automated Run
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| apps | statefulsets | get, list |
+| core | persistentvolumeclaims | get, list, create, delete |
+| core | pods | get, list, delete |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/statefulset-pvc-failure/run.sh
@@ -104,35 +120,78 @@ Options:
 
 > Because StatefulSets always require approval, `--interactive` is recommended.
 
-## Manual Step-by-Step
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-# 1. Deploy
-kubectl apply -k scenarios/statefulset-pvc-failure/manifests       # Kind
-kubectl apply -k scenarios/statefulset-pvc-failure/overlays/ocp    # OCP
-
-# 2. Wait for StatefulSet (3 replicas)
-kubectl rollout status sts/kv-store -n demo-statefulset --timeout=180s
-
-# 3. Inject PVC failure
-bash scenarios/statefulset-pvc-failure/inject-pvc-issue.sh
-# kv-store-2 → Pending (broken-storage-class)
-
-# 4. Query Alertmanager for active alerts (~3 min)
-# Kind
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
-  amtool alert query alertname=KubeStatefulSetReplicasMismatch --alertmanager.url=http://localhost:9093
-
-# OCP
-kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-  amtool alert query alertname=KubeStatefulSetReplicasMismatch --alertmanager.url=http://localhost:9093
-
-# 5. Monitor pipeline
-kubectl get rr -n kubernaut-system -w -o wide
-# Expect: Analyzing → AwaitingApproval
+export PLATFORM=ocp
+./scenarios/statefulset-pvc-failure/run.sh
 ```
 
-### 6. Inspect AI Analysis
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy
+
+```bash
+kubectl apply -k scenarios/statefulset-pvc-failure/manifests
+```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/statefulset-pvc-failure/overlays/ocp/
+```
+
+</details>
+
+#### 2. Wait for StatefulSet (3 replicas)
+
+```bash
+kubectl rollout status sts/kv-store -n demo-statefulset --timeout=180s
+```
+
+#### 3. Inject PVC failure
+
+```bash
+bash scenarios/statefulset-pvc-failure/inject-pvc-issue.sh
+```
+
+`kv-store-2` should move to `Pending` (broken StorageClass).
+
+#### 4. Query Alertmanager for active alerts (~3 min)
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
+```bash
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubeStatefulSetReplicasMismatch --alertmanager.url=http://localhost:9093
+```
+
+<details>
+<summary><strong>OCP (amtool)</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubeStatefulSetReplicasMismatch --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+#### 5. Monitor pipeline
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+Expect: Analyzing → AwaitingApproval.
+
+#### 6. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -164,16 +223,29 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
+#### 7. Approve the RAR
+
 ```bash
-# 7. Approve the RAR
 RAR=$(kubectl get rar -n kubernaut-system -o jsonpath='{.items[0].metadata.name}')
 kubectl patch rar "$RAR" -n kubernaut-system --type=merge --subresource=status \
   -p '{"status":{"decision":"Approved","decidedBy":"operator"}}'
+```
 
-# 8. Watch remediation
-# WFE recreates PVC with correct SC → deletes stuck pod → pod recovers
+#### 8. Watch remediation
+
+The WFE recreates the PVC with the correct StorageClass, deletes the stuck pod, and the pod recovers.
+
+```bash
 kubectl get pods -n demo-statefulset -w
 kubectl get pvc -n demo-statefulset
+```
+
+#### 9. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

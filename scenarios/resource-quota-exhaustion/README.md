@@ -8,11 +8,11 @@ new pods are rejected at admission (`FailedCreate`). The LLM recognizes this as 
 policy constraint that cannot be resolved by any available workflow and escalates to
 `ManualReviewRequired`.
 
-**Signal**: `KubeResourceQuotaExhausted` — ReplicaSet desired > ready for >1 min
-**Root cause**: Namespace memory quota (512 Mi) cannot accommodate both old pods
-(384 Mi used) and new pods (256 Mi each × 3 replicas = 768 Mi requested)
-**Outcome**: `ManualReviewRequired` — no workflow matches; human must increase quota
-or scale down
+| | |
+|---|---|
+| **Signal** | `KubeResourceQuotaExhausted` — ReplicaSet desired > ready for >1 min |
+| **Root cause** | Namespace memory quota (512 Mi) cannot accommodate both old pods (384 Mi used) and new pods (256 Mi each × 3 replicas = 768 Mi requested) |
+| **Outcome** | `ManualReviewRequired` — no workflow matches; human must increase quota or scale down |
 
 > **v1.2.0 note**: The LLM now receives ResourceQuota details (limits, usage) from
 > the `LabelDetector`, making Path A (direct escalation) the dominant path. The LLM
@@ -83,7 +83,13 @@ recognizes the ResourceQuota constraint and escalates to `ManualReviewRequired`
 rather than attempting automated remediation. No dedicated workflow
 ServiceAccount is required.
 
-## Automated Run
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+
+### Automated Run
 
 ```bash
 ./scenarios/resource-quota-exhaustion/run.sh
@@ -93,38 +99,79 @@ Options:
 - `--interactive` — pause at approval gate for manual decision
 - `--no-validate` — skip the automated validation pipeline
 
-## Manual Step-by-Step
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-# 1. Deploy (creates namespace with ResourceQuota: 512Mi memory hard limit)
-kubectl apply -k scenarios/resource-quota-exhaustion/manifests    # Kind
-kubectl apply -k scenarios/resource-quota-exhaustion/overlays/ocp # OCP
-
-# 2. Wait for api-server to be healthy (1 replica, 128Mi — within quota)
-kubectl wait --for=condition=Available deploy/api-server -n demo-quota --timeout=120s
-
-# 3. Exhaust quota (scales to 3 replicas × 256Mi = 768Mi > 512Mi)
-bash scenarios/resource-quota-exhaustion/exhaust-quota.sh
-
-# 4. Observe FailedCreate events
-kubectl describe rs -n demo-quota | grep -A3 FailedCreate
-kubectl describe quota -n demo-quota
-
-# 5. Query Alertmanager for active alerts (~1-2 min for: duration)
-# Kind
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
-  amtool alert query alertname=KubeResourceQuotaExhausted --alertmanager.url=http://localhost:9093
-
-# OCP
-kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-  amtool alert query alertname=KubeResourceQuotaExhausted --alertmanager.url=http://localhost:9093
-
-# 6. Monitor pipeline
-kubectl get rr -n kubernaut-system -w -o wide
-# Expect: Completed with outcome=ManualReviewRequired
+export PLATFORM=ocp
+./scenarios/resource-quota-exhaustion/run.sh
 ```
 
-### 7. Inspect AI Analysis
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy
+
+```bash
+kubectl apply -k scenarios/resource-quota-exhaustion/manifests/
+```
+
+<details><summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/resource-quota-exhaustion/overlays/ocp/
+```
+
+</details>
+
+#### 2. Wait for healthy state
+
+```bash
+kubectl wait --for=condition=Available deploy/api-server -n demo-quota --timeout=120s
+```
+
+#### 3. Exhaust quota
+
+```bash
+bash scenarios/resource-quota-exhaustion/exhaust-quota.sh
+```
+
+#### 4. Observe FailedCreate
+
+```bash
+kubectl describe rs -n demo-quota | grep -A3 FailedCreate
+kubectl describe quota -n demo-quota
+```
+
+#### 5. Wait for alert
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+
+```bash
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubeResourceQuotaExhausted --alertmanager.url=http://localhost:9093
+```
+
+<details><summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubeResourceQuotaExhausted --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+#### 6. Monitor pipeline
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+Expect: Completed with outcome `ManualReviewRequired`.
+
+#### 7. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -154,6 +201,14 @@ Reason:      {.status.approvalContext.reason}
 Confidence:  {.status.approvalContext.confidenceLevel}
 '; echo
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
+```
+
+#### 8. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

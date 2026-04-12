@@ -4,11 +4,11 @@
 
 Demonstrates Kubernaut detecting an Istio-meshed workload with high error rates caused by a restrictive AuthorizationPolicy blocking legitimate traffic. The Istio sidecar returns 403 Forbidden for all inbound requests, causing service unavailability. Kubernaut automatically remediates by removing the blocking policy.
 
-**Signal**: `IstioHighDenyRate` / `IstioRequestsUnauthorized` -- from Istio sidecar metrics (`istio_requests_total` with `response_code="403"`)
-
-**Root cause**: Restrictive Istio AuthorizationPolicy with `action: DENY` and a catch-all rule, denying all inbound traffic
-
-**Remediation**: `fix-authz-policy-v1` workflow removes the blocking AuthorizationPolicy and restores traffic flow
+| | |
+|---|---|
+| **Signal** | `IstioHighDenyRate` / `IstioRequestsUnauthorized` -- from Istio sidecar metrics (`istio_requests_total` with `response_code="403"`) |
+| **Root cause** | Restrictive Istio AuthorizationPolicy with `action: DENY` and a catch-all rule, denying all inbound traffic |
+| **Remediation** | `fix-authz-policy-v1` workflow removes the blocking AuthorizationPolicy and restores traffic flow |
 
 ## Signal Flow
 
@@ -82,7 +82,6 @@ are Running and Ready.
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind (multi-node) or OCP 4.21+ with Kubernaut services deployed |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | Scraping Istio sidecar metrics (Kind: PodMonitor; OCP: ServiceMonitor via UWM) |
 | Istio | Kind: `istioctl install --set profile=demo -y`; OCP: OpenShift Service Mesh 3 (Sail operator) |
@@ -107,39 +106,70 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `fix-authz-policy-v1-runner` |
 | ClusterRoleBinding | `fix-authz-policy-v1-runner` |
 
-**Permissions**: `security.istio.io` authorizationpolicies (get, list, delete), core pods (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| security.istio.io | authorizationpolicies | get, list, delete |
+| core | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/mesh-routing-failure/run.sh
 ```
 
-## Manual Step-by-Step
+<details>
+<summary><strong>OCP</strong></summary>
 
-### 1. Install Istio (if not present)
+```bash
+export PLATFORM=ocp
+./scenarios/mesh-routing-failure/run.sh
+```
+
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Install Istio (if not present)
 
 ```bash
 istioctl install --set profile=demo -y
 kubectl wait --for=condition=Available deployment/istiod -n istio-system --timeout=300s
 ```
 
-### 2. Deploy workload
+#### 2. Deploy workload
 
 ```bash
-# Kind
 kubectl apply -k scenarios/mesh-routing-failure/manifests/
-
-# OCP
-kubectl apply -k scenarios/mesh-routing-failure/overlays/ocp
 
 kubectl wait --for=condition=Available deployment/api-server -n demo-mesh-failure --timeout=120s
 kubectl wait --for=condition=Available deployment/traffic-gen -n demo-mesh-failure --timeout=120s
 ```
 
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/mesh-routing-failure/overlays/ocp/
+
+kubectl wait --for=condition=Available deployment/api-server -n demo-mesh-failure --timeout=120s
+kubectl wait --for=condition=Available deployment/traffic-gen -n demo-mesh-failure --timeout=120s
+```
+
+</details>
+
 The namespace has `istio-injection: enabled`, so Istio automatically injects sidecars into all pods.
 
-### 3. Establish baseline
+#### 3. Establish baseline
 
 ```bash
 # Wait ~30s for healthy traffic between traffic-gen and api-server
@@ -147,7 +177,7 @@ kubectl get pods -n demo-mesh-failure
 # All pods should have 2/2 containers (app + istio-proxy)
 ```
 
-### 4. Inject failure
+#### 4. Inject failure
 
 ```bash
 bash scenarios/mesh-routing-failure/inject-deny-policy.sh
@@ -155,7 +185,7 @@ bash scenarios/mesh-routing-failure/inject-deny-policy.sh
 
 The script applies an Istio `AuthorizationPolicy` with `action: DENY` and a catch-all rule, causing the Istio sidecar to deny all inbound traffic with HTTP 403 Forbidden.
 
-### 5. Observe high error rate
+#### 5. Observe high error rate
 
 ```bash
 kubectl get pods -n demo-mesh-failure -w
@@ -164,26 +194,33 @@ kubectl exec -n demo-mesh-failure deploy/traffic-gen -- \
   curl -s -o /dev/null -w '%{http_code}' http://api-server:8080/
 ```
 
-### 6. Wait for alert and pipeline
+#### 6. Wait for alert and pipeline
+
+Alert fires after ~3 min of sustained 403 responses on Kind. To browse firing rules in Prometheus, port-forward `svc/kube-prometheus-stack-prometheus` in the `monitoring` namespace and open http://localhost:9090/alerts.
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
 
 ```bash
-# Alert fires after ~3 min of sustained 403 responses
-# Check: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
-#        then open http://localhost:9090/alerts
-
-# Query Alertmanager for active alerts
-# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=IstioHighDenyRate --alertmanager.url=http://localhost:9093
 
-# OCP
-kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-  amtool alert query alertname=IstioHighDenyRate --alertmanager.url=http://localhost:9093
-
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
-### 7. Inspect AI Analysis
+<details>
+<summary><strong>OCP (amtool)</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=IstioHighDenyRate --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+#### 7. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -207,13 +244,21 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-### 8. Verify remediation
+#### 8. Verify remediation
 
 ```bash
 kubectl get authorizationpolicies.security.istio.io -n demo-mesh-failure
 # deny-all-traffic should be removed
 kubectl get pods -n demo-mesh-failure
 # All pods should be Running and Ready (2/2)
+```
+
+#### 9. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

@@ -18,10 +18,12 @@ Upon approval, an Ansible/AWX playbook:
 3. ArgoCD syncs the migration
 4. Restores the database to the new PVC-backed instance
 
-**Signal**: `PredictedDiskPressure` -- proactive, `predict_linear()` projects disk exhaustion
-**SP normalization**: `PredictedDiskPressure` -> `DiskPressure` (`signalMode=proactive`)
-**Root cause**: PostgreSQL on emptyDir filling ephemeral storage
-**Remediation**: `migrate-emptydir-to-pvc-gitops-v1` (Ansible engine via AWX)
+| | |
+|---|---|
+| **Signal** | `PredictedDiskPressure` — proactive, `predict_linear()` projects disk exhaustion |
+| **SP normalization** | `PredictedDiskPressure` → `DiskPressure` (`signalMode=proactive`) |
+| **Root cause** | PostgreSQL on emptyDir filling ephemeral storage |
+| **Remediation** | `migrate-emptydir-to-pvc-gitops-v1` (Ansible engine via AWX) |
 
 ## Signal Flow
 
@@ -43,7 +45,6 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 | Component | Requirement |
 |-----------|-------------|
 | OCP cluster | Dedicated stress-worker node (~25 GB disk, label `scenario=disk-pressure`) |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics and `node-exporter` |
 | HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
@@ -130,9 +131,31 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `migrate-emptydir-to-pvc-gitops-v1-runner` |
 | ClusterRoleBinding | `migrate-emptydir-to-pvc-gitops-v1-runner` |
 
-**Permissions**: core nodes (get, list, patch, update), core pods (get, list), core secrets (get, list), core endpoints (get, list), core persistentvolumeclaims (get, list, create, delete), `apps` deployments (get, list), `batch` jobs (get, list, create, delete), `storage.k8s.io` storageclasses (get, list), `argoproj.io` applications (get, list), `kubernaut.ai` workflowexecutions (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| core | nodes | get, list, patch, update |
+| core | pods | get, list |
+| core | secrets | get, list |
+| core | endpoints | get, list |
+| core | persistentvolumeclaims | get, list, create, delete |
+| apps | deployments | get, list |
+| batch | jobs | get, list, create, delete |
+| storage.k8s.io | storageclasses | get, list |
+| argoproj.io | applications | get, list |
+| kubernaut.ai | workflowexecutions | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP focus**: This scenario is built for OpenShift (constrained workers, AWX/AAP,
+> cluster monitoring). Kind is not supported for the full proactive path. Use
+> `export PLATFORM=ocp` for automated runs when your helper scripts expect it.
+>
+> **Time estimate**: ~15–20 min (OCP, includes manual approval and AWX)
+
+### Automated Run
 
 ```bash
 # Full run (setup + inject + validate) -- recommended
@@ -143,6 +166,22 @@ scoped permissions (created automatically when workflows are seeded via
 ./scenarios/disk-pressure-emptydir/run.sh inject   # Start data growth (runs init.sql then calls stored procedure)
 ```
 
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+export PLATFORM=ocp
+./scenarios/disk-pressure-emptydir/run.sh all
+
+# Or step-by-step:
+export PLATFORM=ocp
+./scenarios/disk-pressure-emptydir/run.sh setup
+export PLATFORM=ocp
+./scenarios/disk-pressure-emptydir/run.sh inject
+```
+
+</details>
+
 > **Note**: The `setup` subcommand explicitly runs `init.sql` via `psql` (Step 5) to
 > create the `simulate_data_growth()` stored procedure. The Red Hat sclorg PostgreSQL
 > image does not auto-execute `/docker-entrypoint-initdb.d/*.sql` files like the
@@ -152,9 +191,9 @@ scoped permissions (created automatically when workflows are seeded via
 > **Remote execution:** When running scenarios over SSH, use `-tt` to force TTY
 > allocation for real-time output: `ssh -tt host "su - user -c './run.sh all'"`
 
-## Manual Step-by-Step
+### Manual Step-by-Step
 
-### 1. Deploy scenario resources
+#### 1. Deploy scenario resources
 
 ```bash
 kubectl apply -k scenarios/disk-pressure-emptydir/manifests/
@@ -162,14 +201,14 @@ kubectl wait --for=condition=Available deployment/postgres-emptydir \
   -n demo-diskpressure --timeout=120s
 ```
 
-### 2. Verify healthy state
+#### 2. Verify healthy state
 
 ```bash
 kubectl get pods -n demo-diskpressure
 kubectl exec -n demo-diskpressure deploy/postgres-emptydir -- pg_isready -U postgres
 ```
 
-### 3. Inject disk pressure
+#### 3. Inject disk pressure
 
 The stored procedure `simulate_data_growth(batch_size, iterations, sleep_ms)` must be
 called with parameters tuned to the target node's filesystem capacity. Writing too fast
@@ -191,28 +230,32 @@ command it prints and run it when you are ready:
 #     psql -U postgres -d postgres -c "CALL simulate_data_growth(128, 29520, 50);" &
 ```
 
-The rate is auto-tuned so `predict_linear()` fires with ~8 min margin before kubelet eviction,
-giving the full pipeline (LLM analysis, RAR approval, AWX dispatch, pg_dump, ArgoCD sync,
-pg_restore) enough time to complete before data loss.
+The rate is auto-tuned for fast alert trigger (~90s after data growth starts) while
+preserving enough margin (~6 min) for the Ansible playbook to complete pg_dump and
+the full GitOps migration before kubelet eviction.
 
-> **How it works:** The script targets a write rate that triggers the `PredictedDiskPressure`
-> alert at ~4 min while leaving ~8 min before kubelet eviction. It accounts for PostgreSQL's
-> ~2x disk amplification (tuple headers, WAL, TOAST) and clamps the rate based on the
-> filesystem size to avoid edge cases. See `run_inject()` in `run.sh` for the full algorithm.
+> **How it works:** The script targets a write rate that triggers the
+> `PredictedDiskPressure` alert at ~75s (`predict_linear(...[1m], 600) for 15s`)
+> while leaving ~6 min before kubelet eviction for the full pipeline.
+> See `run_inject()` in `run.sh` for details.
 
-### 4. Wait for alert and pipeline
+#### 4. Wait for alert and pipeline
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
+`PredictedDiskPressure` typically fires before kubelet eviction (~2–3 min).
 
 ```bash
-# PredictedDiskPressure alert fires before kubelet eviction (~2-3 min)
-
-# Query Alertmanager for active alerts (OCP only)
 kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=PredictedDiskPressure --alertmanager.url=http://localhost:9093
 
-kubectl get rr,sp,aia,rar,wfe,ea,notif -n kubernaut-system -w
+watch kubectl get rr,sp,aia,rar,wfe,ea,notif -n kubernaut-system
 ```
 
-### 5. Inspect AI Analysis
+#### 5. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -244,7 +287,7 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 6. Approve the remediation (RAR)
+#### 6. Approve the remediation (RAR)
 
 The LLM creates a RemediationApprovalRequest. Approve it to proceed:
 
@@ -254,7 +297,7 @@ kubectl patch "$RAR" -n kubernaut-system --type merge --subresource=status \
   -p '{"status":{"decision":"Approved","decidedBy":"kube:admin"}}'
 ```
 
-### 7. Verify remediation
+#### 7. Verify remediation
 
 ```bash
 # DiskPressure should never have materialized (proactive remediation)
@@ -266,6 +309,14 @@ kubectl get pvc -n demo-diskpressure
 # Database data should be intact
 kubectl exec -n demo-diskpressure deploy/postgres-emptydir -- \
   psql -U postgres -c "SELECT count(*) FROM events;"
+```
+
+#### 8. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Gitea-ArgoCD Webhook
@@ -309,9 +360,7 @@ The ArgoCD namespace and server label differ by platform:
 | Server label | `app.kubernetes.io/name=argocd-server` | `app.kubernetes.io/name=openshift-gitops-server` |
 
 ```bash
-# Set the ArgoCD namespace for your platform
-ARGOCD_NS="argocd"              # Kind
-ARGOCD_NS="openshift-gitops"    # OCP
+ARGOCD_NS="argocd"
 
 # 1. Verify Gitea ROOT_URL matches ArgoCD's repoURL
 GITEA_POD=$(kubectl get pods -n gitea -l app.kubernetes.io/name=gitea \
@@ -330,12 +379,34 @@ kubectl exec -n gitea "$GITEA_POD" -- \
   --header="Authorization: token <token>" 2>/dev/null | python3 -m json.tool
 
 # 4. Verify ArgoCD receives push events with the correct URL
-#    Kind:  -l app.kubernetes.io/name=argocd-server
-#    OCP:   -l app.kubernetes.io/name=openshift-gitops-server
-kubectl logs -n "$ARGOCD_NS" -l app.kubernetes.io/name=openshift-gitops-server \
+kubectl logs -n "$ARGOCD_NS" -l app.kubernetes.io/name=argocd-server \
   --tail=20 | grep "Received push event"
 # Expected URL: http://gitea-http.gitea:3000/kubernaut/demo-diskpressure-repo
 ```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+ARGOCD_NS="openshift-gitops"
+
+GITEA_POD=$(kubectl get pods -n gitea -l app.kubernetes.io/name=gitea \
+  -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n gitea "$GITEA_POD" -- \
+  grep ROOT_URL /data/gitea/conf/app.ini
+
+kubectl get secret argocd-secret -n "$ARGOCD_NS" \
+  -o jsonpath='{.data.webhook\.gitea\.secret}' | base64 -d && echo
+
+kubectl exec -n gitea "$GITEA_POD" -- \
+  wget -q -O - "http://localhost:3000/api/v1/repos/kubernaut/demo-diskpressure-repo/hooks" \
+  --header="Authorization: token <token>" 2>/dev/null | python3 -m json.tool
+
+kubectl logs -n "$ARGOCD_NS" -l app.kubernetes.io/name=openshift-gitops-server \
+  --tail=20 | grep "Received push event"
+```
+
+</details>
 
 ## Platform Notes
 
@@ -378,7 +449,7 @@ filesystem on the scenario worker node, using Claude Sonnet 4 as the LLM backend
 | Gitea push + ArgoCD sync | ~30s | Manifests pushed, ArgoCD synced on first attempt |
 | Pod readiness | ~3 min | nginx-cache has a 3 min init container for cache warm-up |
 | Data growth start | immediate | `simulate_data_growth()` with auto-tuned rate |
-| Alert fires | ~4 min | `PredictedDiskPressure` fires via `predict_linear` |
+| Alert fires | ~90s | `PredictedDiskPressure` fires via `predict_linear` |
 | Gateway -> SP -> AA | ~5s | SP normalizes to `DiskPressure` with `signalMode=proactive` |
 | AA completes | ~90s | LLM runs 19 tool calls, identifies PostgreSQL root cause |
 | RAR created | immediate | Human approval gate (confidence: 95%) |

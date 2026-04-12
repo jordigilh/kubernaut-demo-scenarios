@@ -12,10 +12,12 @@ stress allocator), causing OOMKills. Kubernaut remediates by increasing memory l
 but a background "external actor" script continuously reverts the limits back. After
 repeated failures, the Remediation Orchestrator (RO) detects the pattern.
 
-**Signal**: `ContainerOOMKilling` — container OOMKilled for >30 s
-**Root cause**: Memory limit (64 Mi) too restrictive for workload allocating 64 MB
-**Remediation**: `IncreaseMemoryLimits` (doubles to 128 Mi)
-**Interference**: External actor reverts limits to 64 Mi after each remediation
+| | |
+|---|---|
+| **Signal** | `ContainerOOMKilling` — container OOMKilled for >30 s |
+| **Root cause** | Memory limit (64 Mi) too restrictive for workload allocating 64 MB |
+| **Remediation** | `IncreaseMemoryLimits` (doubles to 128 Mi) |
+| **Interference** | External actor reverts limits to 64 Mi after each remediation |
 
 ## Signal Flow
 
@@ -88,9 +90,20 @@ memory-escalation scenario:
 | ClusterRole | `increase-memory-limits-v1-runner` |
 | ClusterRoleBinding | `increase-memory-limits-v1-runner` |
 
-**Permissions**: `apps` deployments (get, list, patch), core pods (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| `apps` | deployments | get, list, patch |
+| `core` | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+
+### Automated Run
 
 ```bash
 ./scenarios/resource-contention/run.sh
@@ -100,37 +113,75 @@ Options:
 - `--interactive` — pause at approval gate for manual decision
 - `--no-validate` — skip the automated validation pipeline
 
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+export PLATFORM=ocp
+./scenarios/resource-contention/run.sh
+```
+
+</details>
+
 The validate.sh checks the first cycle only (Completed/Remediated). The full
 multi-cycle escalation takes 15-20 minutes and can be observed manually.
 
-## Manual Step-by-Step
+### Manual Step-by-Step
+
+#### 1. Deploy
 
 ```bash
-# 1. Deploy
-kubectl apply -k scenarios/resource-contention/manifests       # Kind
-kubectl apply -k scenarios/resource-contention/overlays/ocp    # OCP
-
-# 2. Start external actor (background)
-bash scenarios/resource-contention/scripts/external-actor.sh &
-
-# 3. Observe OOMKills
-kubectl get pods -n demo-resource-contention -w
-
-# 4. Query Alertmanager for active alerts
-# Kind
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
-  amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
-
-# OCP
-kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-  amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
-
-# 5. Watch first remediation cycle
-kubectl get rr -n kubernaut-system -w -o wide
-# Expect: Analyzing → Executing → Verifying → Completed (Remediated)
+kubectl apply -k scenarios/resource-contention/manifests/
 ```
 
-### 6. Inspect AI Analysis
+<details><summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/resource-contention/overlays/ocp/
+```
+
+</details>
+
+#### 2. Start external actor
+
+```bash
+bash scenarios/resource-contention/scripts/external-actor.sh &
+```
+
+#### 3. Observe OOMKills
+
+```bash
+kubectl get pods -n demo-resource-contention -w
+```
+
+#### 4. Wait for alert
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+
+```bash
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
+```
+
+<details><summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+#### 5. Watch first remediation cycle
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+Expect: Analyzing → Executing → Verifying → Completed (Remediated).
+
+#### 6. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -154,7 +205,7 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-### 7. Watch external actor revert + subsequent cycles
+#### 7. Watch external actor revert + subsequent cycles
 
 ```bash
 # External actor log: "[external-actor] Reverting to original value..."
@@ -162,12 +213,20 @@ kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWork
 # Final: ManualReviewRequired
 ```
 
-### 8. Kill external actor and set proper limits
+#### 8. Kill external actor and set proper limits
 
 ```bash
 kill %1
 kubectl set resources deployment/contention-app -n demo-resource-contention \
   --limits=memory=256Mi --requests=memory=128Mi
+```
+
+#### 9. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

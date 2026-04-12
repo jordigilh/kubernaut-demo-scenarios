@@ -12,10 +12,12 @@ creates **1 RR** with an incrementing `occurrenceCount`.
 This proves Kubernaut doesn't waste LLM tokens, workflow executions, or human attention
 on duplicate incidents — a critical requirement for noisy production environments.
 
-**Signal**: `KubePodCrashLooping` — 5 pods crashing, same Deployment owner
-**Deduplication**: OwnerResolver fingerprint → `SHA256(namespace:deployment:api-gateway)`
-**Result**: 1 RR (not 5), `occurrenceCount >= 2`
-**Remediation**: `RollbackDeployment` restores previous healthy revision
+| | |
+|---|---|
+| **Signal** | `KubePodCrashLooping` — 5 pods crashing, same Deployment owner |
+| **Deduplication** | OwnerResolver fingerprint → `SHA256(namespace:deployment:api-gateway)` |
+| **Result** | 1 RR (not 5), `occurrenceCount >= 2` |
+| **Remediation** | `RollbackDeployment` restores previous healthy revision |
 
 ## Signal Flow
 
@@ -41,7 +43,6 @@ on duplicate incidents — a critical requirement for noisy production environme
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `rollback-deployment-v1` registered in DataStorage |
@@ -59,9 +60,23 @@ stuck-rollout scenario:
 | ClusterRole | `rollback-deployment-v1-runner` |
 | ClusterRoleBinding | `rollback-deployment-v1-runner` |
 
-**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resource | Verbs |
+|-----------|----------|-------|
+| `apps` | deployments | get, list, patch, update |
+| `apps` | replicasets | get, list |
+| core | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/duplicate-alert-suppression/run.sh
@@ -71,26 +86,44 @@ Options:
 - `--interactive` — pause at approval step for manual approval
 - `--no-validate` — skip the validation pipeline (deploy + inject only)
 
-## Manual Step-by-Step
-
-### 1. Deploy the workload
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-# Kind
-kubectl apply -k scenarios/duplicate-alert-suppression/manifests/
+export PLATFORM=ocp
+./scenarios/duplicate-alert-suppression/run.sh
+```
 
-# OCP
-kubectl apply -k scenarios/duplicate-alert-suppression/overlays/ocp
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy the workload
+
+```bash
+kubectl apply -k scenarios/duplicate-alert-suppression/manifests/
 
 kubectl wait --for=condition=Available deployment/api-gateway \
   -n demo-alert-storm --timeout=120s
 ```
 
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/duplicate-alert-suppression/overlays/ocp/
+
+kubectl wait --for=condition=Available deployment/api-gateway \
+  -n demo-alert-storm --timeout=120s
+```
+
+</details>
+
 This creates a 5-replica `api-gateway` Deployment running `demo-http-server:1.0.0`,
 a healthy ConfigMap, a Service, a ServiceMonitor, and a PrometheusRule that fires
 `KubePodCrashLooping` when `increase(kube_pod_container_status_restarts_total[10m]) > 3`.
 
-### 2. Verify healthy state
+#### 2. Verify healthy state
 
 ```bash
 kubectl get pods -n demo-alert-storm
@@ -102,7 +135,7 @@ kubectl get pods -n demo-alert-storm
 # api-gateway-dd576bb49-srk4g   1/1     Running   0          7s
 ```
 
-### 3. Inject bad configuration (all 5 pods crash)
+#### 3. Inject bad configuration (all 5 pods crash)
 
 ```bash
 bash scenarios/duplicate-alert-suppression/inject-bad-config.sh
@@ -117,7 +150,7 @@ kubectl get pods -n demo-alert-storm
 # 3 new pods in CrashLoopBackOff, 4 old pods still Running (rolling update)
 ```
 
-### 4. Wait for alert burst
+#### 4. Wait for alert burst
 
 Prometheus fires 5 individual `KubePodCrashLooping` alerts (one per pod).
 AlertManager groups them by namespace and sends 2+ webhook payloads to the Gateway.
@@ -130,19 +163,30 @@ kubectl get rr -n kubernaut-system -o wide
 # Only 1 RR for demo-alert-storm (not 5)
 ```
 
-### 5. Monitor the pipeline
+#### 5. Monitor the pipeline
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
 
 ```bash
-# Query Alertmanager for active alerts
-# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+```
 
-# OCP
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
 kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+```
 
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:
@@ -153,7 +197,7 @@ The LLM will:
 5. Consider a risk-averse `CrashLoopRollback` alternative (0.85) but reject it
 6. Auto-approve (policy does not require manual approval)
 
-### 6. Inspect AI Analysis
+#### 6. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -177,7 +221,7 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-### 7. Verify remediation and deduplication
+#### 7. Verify remediation and deduplication
 
 ```bash
 # All 5 pods recovered via a single rollback
@@ -192,6 +236,14 @@ kubectl get rr <RR_NAME> -n kubernaut-system \
 # No blocked duplicate RRs — dedup happened at fingerprint level
 kubectl get rr -n kubernaut-system -o wide | grep demo-alert-storm
 # Only 1 row
+```
+
+#### 8. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

@@ -6,16 +6,17 @@ A worker node becomes NotReady (simulated by pausing the Kind container with Pod
 Kubernaut detects the node failure, cordons it to prevent new scheduling, and drains
 existing workloads to healthy nodes.
 
-**Signal**: `KubeNodeNotReady` -- node in NotReady state for >1 min
-**Fault injection**: `podman pause <worker-node>` (stops kubelet heartbeat)
-**Remediation**: `kubectl cordon` + `kubectl drain`
+| | |
+|---|---|
+| **Signal** | `KubeNodeNotReady` -- node in NotReady state for >1 min |
+| **Fault injection** | `podman pause <worker-node>` (stops kubelet heartbeat) |
+| **Remediation** | `kubectl cordon` + `kubectl drain` |
 
 ## Prerequisites
 
 | Component | Requirement |
 |-----------|-------------|
 | Kind cluster | Multi-node with `kubernaut.ai/managed=true` label |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
 | Podman | Required to pause/unpause Kind node container |
@@ -38,34 +39,73 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `cordon-drain-v1-runner` |
 | ClusterRoleBinding | `cordon-drain-v1-runner` |
 
-**Permissions**: core nodes (get, list, patch, update), core pods (get, list), core pods/eviction (create)
+**Permissions**:
 
-## Automated Run
+| API group | Resource | Verbs |
+|-----------|----------|-------|
+| core | nodes | get, list, patch, update |
+| core | pods | get, list |
+| core | pods/eviction | create |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/node-notready/run.sh
 ```
 
-## Manual Step-by-Step
+### Manual Step-by-Step
 
-### 1. Deploy workload and simulate node failure
+#### 1. Deploy workload and simulate node failure
 
 Run `./scenarios/node-notready/run.sh --no-validate` through node pause, or apply manifests
 from `scenarios/node-notready/manifests/` and run `inject-node-failure.sh` as in `run.sh`.
 
-### 2. Wait for alert and watch pipeline
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/node-notready/overlays/ocp/
+```
+
+</details>
+
+#### 2. Wait for alert and watch pipeline
 
 After the `KubeNodeNotReady` alert fires (~1–2 min), watch Kubernaut resources:
 
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
 ```bash
-# Query Alertmanager for active alerts
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubeNodeNotReady --alertmanager.url=http://localhost:9093
-
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
-### 3. Inspect AI Analysis
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubeNodeNotReady --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+#### 3. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -97,7 +137,7 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 4. Approve the RAR (when using `--interactive`)
+#### 4. Approve the RAR (when using `--interactive`)
 
 ```bash
 kubectl get rar -n kubernaut-system
@@ -105,11 +145,19 @@ kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=stat
   -p '{"status":{"decision":"Approved","decidedBy":"operator"}}'
 ```
 
-### 5. Verify remediation
+#### 5. Verify remediation
 
 ```bash
 kubectl get nodes
 kubectl get pods -n demo-node -o wide
+```
+
+#### 6. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

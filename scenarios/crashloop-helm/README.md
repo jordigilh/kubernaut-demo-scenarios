@@ -11,9 +11,11 @@ via a Helm chart. HAPI's `get_resource_context` tool detects the
 cluster-context label. The LLM uses this to select the `HelmRollback` workflow
 instead of `RollbackDeployment` (`kubectl rollout undo`).
 
-**Signal**: `KubePodCrashLooping` — restart count increasing rapidly
-**Root cause**: Invalid nginx configuration injected via `helm upgrade`
-**Remediation**: `helm rollback` restores the previous healthy Helm revision
+| | |
+|---|---|
+| **Signal** | `KubePodCrashLooping` — restart count increasing rapidly |
+| **Root cause** | Invalid nginx configuration injected via `helm upgrade` |
+| **Remediation** | `helm rollback` restores the previous healthy Helm revision |
 
 ## Signal Flow
 
@@ -35,7 +37,6 @@ kube_pod_container_status_restarts_total increasing → KubePodCrashLooping aler
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
 | Helm 3 | Installed on the local machine |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `helm-rollback-v1` registered in DataStorage |
@@ -52,9 +53,26 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `helm-rollback-v1-runner` |
 | ClusterRoleBinding | `helm-rollback-v1-runner` |
 
-**Permissions**: Broad chart-operator role — `apps` deployments/replicasets/statefulsets/daemonsets (full CRUD), core services/configmaps/secrets/pods/serviceaccounts/pvcs (full CRUD), `batch` jobs/cronjobs (full CRUD), `networking.k8s.io` ingresses (full CRUD). Helm rollback re-applies the full release manifest.
+**Permissions**:
 
-## Automated Run
+Broad chart-operator role (Helm rollback re-applies the full release manifest):
+
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| `apps` | deployments, replicasets, statefulsets, daemonsets | full CRUD |
+| core | services, configmaps, secrets, pods, serviceaccounts, pvcs | full CRUD |
+| `batch` | jobs, cronjobs | full CRUD |
+| `networking.k8s.io` | ingresses | full CRUD |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/crashloop-helm/run.sh
@@ -64,38 +82,58 @@ Options:
 - `--interactive` — pause at approval step for manual approval
 - `--no-validate` — skip the validation pipeline (deploy + inject only)
 
-## Manual Step-by-Step
+<details>
+<summary><strong>OCP</strong></summary>
 
-### 1. Install the workload via Helm
+```bash
+export PLATFORM=ocp
+./scenarios/crashloop-helm/run.sh
+```
+
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Install the workload via Helm
 
 The scenario includes a local Helm chart in `scenarios/crashloop-helm/chart/` that
 deploys an nginx-based worker Deployment with 2 replicas.
 
 ```bash
-# Kind
 helm upgrade --install demo-crashloop-helm scenarios/crashloop-helm/chart \
   -n demo-crashloop-helm --create-namespace --wait --timeout 120s
+```
 
-# OCP (adds SCC-compatible securityContext)
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
 helm upgrade --install demo-crashloop-helm scenarios/crashloop-helm/chart \
   -n demo-crashloop-helm --create-namespace --wait --timeout 120s \
   -f scenarios/crashloop-helm/chart/values-ocp.yaml
 ```
 
-### 2. Deploy the alerting rule
+</details>
+
+#### 2. Deploy the alerting rule
 
 ```bash
-# Kind
 kubectl apply -k scenarios/crashloop-helm/manifests/
-
-# OCP
-kubectl apply -k scenarios/crashloop-helm/overlays/ocp
 ```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/crashloop-helm/overlays/ocp/
+```
+
+</details>
 
 This creates a `PrometheusRule` that fires `KubePodCrashLooping` when
 `increase(kube_pod_container_status_restarts_total[10m]) > 3` for 3 minutes.
 
-### 3. Verify healthy state
+#### 3. Verify healthy state
 
 ```bash
 kubectl get pods -n demo-crashloop-helm
@@ -108,7 +146,7 @@ helm history demo-crashloop-helm -n demo-crashloop-helm
 # 1         deployed  Install complete
 ```
 
-### 4. Inject bad configuration via helm upgrade
+#### 4. Inject bad configuration via helm upgrade
 
 ```bash
 bash scenarios/crashloop-helm/inject-bad-config.sh
@@ -122,7 +160,7 @@ Helm revision 2 with the broken config. Pods crash immediately on startup:
 nginx: [emerg] unknown directive "invalid_directive_that_breaks_nginx"
 ```
 
-### 5. Observe CrashLoopBackOff
+#### 5. Observe CrashLoopBackOff
 
 ```bash
 kubectl get pods -n demo-crashloop-helm
@@ -134,21 +172,33 @@ helm history demo-crashloop-helm -n demo-crashloop-helm
 # 2         deployed    Upgrade complete
 ```
 
-### 6. Wait for alert and pipeline
+#### 6. Wait for alert and pipeline
 
 The `KubePodCrashLooping` alert fires after the expression is true for 3 minutes
 (typically ~4-5 min after injection). Once it fires, the Kubernaut pipeline starts:
 
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
 ```bash
-# Query Alertmanager for active alerts
-# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
-# OCP:
-# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-#   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+```
 
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:
@@ -158,7 +208,7 @@ The LLM will:
 4. Select `HelmRollback` over `RollbackDeployment` because the workload is Helm-managed
 5. Request human approval (production environment, confidence 0.95)
 
-### 7. Inspect AI Analysis
+#### 7. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -190,7 +240,7 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 8. Verify remediation
+#### 8. Verify remediation
 
 After approval and workflow execution:
 
@@ -203,6 +253,14 @@ helm history demo-crashloop-helm -n demo-crashloop-helm
 # 1         superseded  Install complete
 # 2         superseded  Upgrade complete
 # 3         deployed    Rollback to 1
+```
+
+#### 9. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

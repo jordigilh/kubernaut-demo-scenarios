@@ -6,9 +6,11 @@ Same fault as #133 (cert-manager Certificate stuck NotReady) but cert-manager re
 
 **Key differentiator**: The LLM detects `gitOpsManaged=true` and `gitOpsTool=argocd` from the environment. It may select the GitOps-aware workflow (`fix-certificate-gitops-v1`) that reverts the bad commit, or the direct-fix workflow (`fix-certificate-v1`) that recreates the missing CA Secret. Both are valid remediations that restore certificate issuance. See [Observed Alternative](#observed-alternative-fixcertificate-direct-remediation) for details.
 
-**Signal**: `CertManagerCertNotReady` — from `certmanager_certificate_ready_status`  
-**Root cause**: Bad Git commit changed ClusterIssuer to reference non-existent CA Secret  
-**Remediation**: `fix-certificate-gitops-v1` workflow performs git revert
+| | |
+|---|---|
+| **Signal** | `CertManagerCertNotReady` — from `certmanager_certificate_ready_status` |
+| **Root cause** | Bad Git commit changed ClusterIssuer to reference non-existent CA Secret |
+| **Remediation** | `fix-certificate-gitops-v1` workflow performs git revert |
 
 ## Signal Flow
 
@@ -28,7 +30,6 @@ certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady ale
 | Component | Kind | OCP |
 |-----------|------|-----|
 | Cluster | `scenarios/kind-config-singlenode.yaml` | OpenShift 4.x cluster |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed | Same |
 | LLM backend | Real LLM (not mock) via HAPI | Same |
 | Prometheus | With cert-manager metrics | OCP monitoring stack |
 | cert-manager | Installed (run.sh installs if missing) | Same |
@@ -49,7 +50,12 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `fix-certificate-gitops-v1-runner` |
 | ClusterRoleBinding | `fix-certificate-gitops-v1-runner` |
 
-**Permissions**: `argoproj.io` applications (get, list), `cert-manager.io` certificates (get, list)
+**Permissions**:
+
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| argoproj.io | applications | get, list |
+| cert-manager.io | certificates | get, list |
 
 ## BDD Specification
 
@@ -92,15 +98,33 @@ Feature: cert-manager Certificate failure remediation via git revert (GitOps)
 - [ ] EM verifies Certificate is Ready
 - [ ] Full pipeline: Gateway -> RO -> SP -> AA -> WE -> EM
 
-## Automated Run
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/cert-failure-gitops/run.sh
 ```
 
-## Manual Step-by-Step
+<details>
+<summary><strong>OCP</strong></summary>
 
-### 1. Install Prerequisites
+```bash
+export PLATFORM=ocp
+./scenarios/cert-failure-gitops/run.sh
+```
+
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Install Prerequisites
 
 ```bash
 # cert-manager (run.sh installs via Helm automatically; for manual setup:)
@@ -114,7 +138,7 @@ helm upgrade --install cert-manager jetstack/cert-manager \
 ./scenarios/gitops/scripts/setup-argocd.sh
 ```
 
-### 2. Run the Scenario
+#### 2. Run the Scenario
 
 ```bash
 ./scenarios/cert-failure-gitops/run.sh
@@ -122,21 +146,33 @@ helm upgrade --install cert-manager jetstack/cert-manager \
 
 The script will: create CA, push manifests to Gitea, deploy ArgoCD Application, establish baseline, inject failure via bad git push, and wait for the pipeline.
 
-### 3. Observe Pipeline
+#### 3. Observe Pipeline
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
 
 ```bash
-# Query Alertmanager for active alerts
-# Kind:
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
-# OCP:
-# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-#   amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
-
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
-### 4. Inspect AI Analysis
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+#### 4. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -168,17 +204,25 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 5. Verify Remediation
+#### 5. Verify Remediation
 
 ```bash
 kubectl get certificate -n demo-cert-gitops
 # demo-app-cert should show Ready=True after workflow completes
 ```
 
-### 6. Cleanup
+#### 6. Cleanup
 
 ```bash
 ./scenarios/cert-failure-gitops/cleanup.sh
+```
+
+#### 7. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Workflow Details

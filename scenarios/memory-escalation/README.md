@@ -11,10 +11,12 @@ applying the same ineffective remedy.
 
 **Key differentiator**: The platform knows when to *stop* automating and hand off to a human.
 
-**Signal**: `ContainerOOMKilling` — container terminated with OOMKilled reason
-**Root cause**: Unbounded memory allocation (simulated leak) in ml-worker
-**Cycle 1 remediation**: `IncreaseMemoryLimits` or `GracefulRestart` (model-dependent)
-**Escalation**: `ManualReviewRequired` after 2–3 cycles (see [Escalation Paths](#escalation-paths))
+| | |
+|---|---|
+| **Signal** | `ContainerOOMKilling` — container terminated with OOMKilled reason |
+| **Root cause** | Unbounded memory allocation (simulated leak) in ml-worker |
+| **Cycle 1 remediation** | `IncreaseMemoryLimits` or `GracefulRestart` (model-dependent) |
+| **Escalation** | `ManualReviewRequired` after 2–3 cycles (see [Escalation Paths](#escalation-paths)) |
 
 ## Escalation Paths
 
@@ -103,7 +105,6 @@ Path C (N cycles — alternate workflow, Sonnet 4.6):
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `increase-memory-limits-v1` registered in DataStorage |
@@ -121,9 +122,22 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `increase-memory-limits-v1-runner` |
 | ClusterRoleBinding | `increase-memory-limits-v1-runner` |
 
-**Permissions**: `apps` deployments (get, list, patch), core pods (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| `apps` | deployments | get, list, patch |
+| core | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/memory-escalation/run.sh
@@ -133,17 +147,32 @@ Options:
 - `--interactive` — pause at approval step for manual approval
 - `--no-validate` — skip the validation pipeline (deploy only)
 
-## Manual Step-by-Step
-
-### 1. Deploy the workload
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-# Kind
-kubectl apply -k scenarios/memory-escalation/manifests/
+export PLATFORM=ocp
+./scenarios/memory-escalation/run.sh
+```
 
-# OCP
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy the workload
+
+```bash
+kubectl apply -k scenarios/memory-escalation/manifests/
+```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
 kubectl apply -k scenarios/memory-escalation/overlays/ocp
 ```
+
+</details>
 
 This creates:
 - A single-replica `ml-worker` Deployment (busybox) that writes 8 Mi every second to
@@ -152,7 +181,7 @@ This creates:
 - A `PrometheusRule` that fires `ContainerOOMKilling` when
   `kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} > 0` for 30 s
 
-### 2. Observe initial OOMKill
+#### 2. Observe initial OOMKill
 
 The container hits 64 Mi in approximately 8 seconds and is OOM-killed:
 
@@ -162,21 +191,32 @@ kubectl get pods -n demo-memory-escalation
 # ml-worker-6f4947654f-xxxxx  0/1     OOMKilled   1 (5s ago)   20s
 ```
 
-### 3. Wait for Cycle 1 pipeline
+#### 3. Wait for Cycle 1 pipeline
 
 The `ContainerOOMKilling` alert fires after 30 s. The full pipeline completes in ~4 min:
 
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
 ```bash
-# Query Alertmanager for active alerts
-# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
+```
 
-# OCP
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
 kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
+```
 
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:
@@ -187,7 +227,7 @@ The LLM will:
    GracefulRestart due to the `whenNotToUse` memory leak exclusion
 4. Request human approval (critical severity in production environment)
 
-### 4. Inspect AI Analysis
+#### 4. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -219,7 +259,7 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 5. Approve remediation
+#### 5. Approve remediation
 
 ```bash
 # Find and approve the RAR
@@ -228,7 +268,7 @@ kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=stat
   -p '{"status":{"decision":"Approved","decidedBy":"human"}}'
 ```
 
-### 6. Observe Cycle 1 result
+#### 6. Observe Cycle 1 result
 
 After approval, the WFE increases the memory limit and restarts the pod:
 
@@ -244,7 +284,7 @@ kubectl get pods -n demo-memory-escalation
 The EA evaluates effectiveness and records `healthScore: 0` — the OOMKill recurred,
 meaning the remediation was technically successful but *ineffective*.
 
-### 7. Observe escalation (Cycle 2+)
+#### 7. Observe escalation (Cycle 2+)
 
 When the OOMKill recurs, a new RR is created. The outcome depends on which
 escalation path the platform takes (see [Escalation Paths](#escalation-paths)):
@@ -279,6 +319,14 @@ kubectl get rr -n kubernaut-system -o wide
 
 The automated `validate.sh` accepts multi-cycle recurrence (3+ RRs) as sufficient
 proof that the platform detected the recurring issue, pending the kubernaut#616 fix.
+
+#### 8. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
+```
 
 ## Known Issues
 

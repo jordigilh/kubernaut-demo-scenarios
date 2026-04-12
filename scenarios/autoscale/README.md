@@ -49,7 +49,12 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `provision-node-v1-runner` |
 | ClusterRoleBinding | `provision-node-v1-runner` |
 
-**Permissions**: core configmaps (get, list, create, update), core pods (get, list)
+**Permissions**:
+
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| core | configmaps | get, list, create, update |
+| core | pods | get, list |
 
 ## BDD Specification
 
@@ -83,11 +88,29 @@ Feature: Cluster Autoscaling via Node Provisioning
       And EffectivenessAssessment confirms all pods are Running
 ```
 
-## Automated Execution
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~15 min (Kind)
+
+### Automated Run
 
 ```bash
 ./scenarios/autoscale/run.sh
 ```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+export PLATFORM=ocp
+./scenarios/autoscale/run.sh
+```
+
+</details>
 
 This script:
 1. Deploys the namespace, workload, and Prometheus rules
@@ -95,7 +118,12 @@ This script:
 3. Queries allocatable memory and computes a replica count that exceeds node capacity
 4. Scales the deployment to trigger Pending pods
 
-## Manual Step-by-Step
+### Manual Step-by-Step
+
+> [!NOTE]
+> The commands below default to Kind. For OCP, replace `kubectl apply -f scenarios/autoscale/manifests/`
+> with `kubectl apply -k scenarios/autoscale/overlays/ocp/`, and use the OCP amtool command variant
+> shown in the dropdown below.
 
 ```bash
 # 1. Verify cluster has control-plane + 1 worker
@@ -132,10 +160,20 @@ kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=KubePodSchedulingFailed --alertmanager.url=http://localhost:9093
 
 # 9. Watch Kubernaut pipeline
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
-### 10. Inspect AI Analysis
+<details>
+<summary><strong>OCP (amtool)</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubePodSchedulingFailed --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+#### 10. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -167,14 +205,22 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 11. Verify remediation
+#### 11. Verify remediation
 
 ```bash
 kubectl get nodes                          # 3rd node visible
 kubectl get pods -n demo-autoscale -o wide # distributed across nodes
 ```
 
-### 12. Cleanup
+#### 12. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
+```
+
+#### 13. Cleanup
 
 ```bash
 kill $PROVISIONER_PID

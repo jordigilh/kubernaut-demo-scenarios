@@ -24,8 +24,10 @@ warning that the situation is benign housekeeping; the warning-aware Rego policy
 selecting the cleanup workflow — orphaned PVCs from completed batch jobs are a valid
 cleanup target, and the LLM proceeds without hesitation.
 
-**Signal**: `KubePersistentVolumeClaimOrphaned` — >3 bound PVCs in namespace for >3 min
-**Severity**: `warning` / root cause severity `low`
+| | |
+|---|---|
+| **Signal** | `KubePersistentVolumeClaimOrphaned` — >3 bound PVCs in namespace for >3 min |
+| **Severity** | `warning` / root cause severity `low` |
 
 ## Signal Flow
 
@@ -127,9 +129,22 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `cleanup-pvc-v1-runner` |
 | ClusterRoleBinding | `cleanup-pvc-v1-runner` |
 
-**Permissions**: core persistentvolumeclaims (get, list, delete), core pods (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| core | persistentvolumeclaims | get, list, delete |
+| core | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/orphaned-pvc-no-action/run.sh
@@ -139,43 +154,94 @@ Options:
 - `--interactive` — pause at approval gate for manual approve/reject
 - `--no-validate` — skip the automated validation pipeline
 
-## Manual Step-by-Step
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-# 1. Patch approval policy with warning-aware Rego (backs up current policy)
+export PLATFORM=ocp
+./scenarios/orphaned-pvc-no-action/run.sh
+```
+
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Patch approval policy with warning-aware Rego (backs up current policy)
+
+```bash
 kubectl get configmap aianalysis-policies -n kubernaut-system \
   -o jsonpath='{.data.approval\.rego}' > /tmp/approval-rego-backup
 kubectl patch configmap aianalysis-policies -n kubernaut-system --type=merge \
   -p "{\"data\":{\"approval.rego\":$(cat scenarios/orphaned-pvc-no-action/rego/approval-warnings.rego | jq -Rs .)}}"
 kubectl rollout restart deployment/aianalysis-controller -n kubernaut-system
 kubectl rollout status deployment/aianalysis-controller -n kubernaut-system --timeout=60s
-
-# 2. Deploy (base manifests use staging; overlays/ocp for OpenShift)
-# Kind
-kubectl apply -k scenarios/orphaned-pvc-no-action/manifests
-
-# OCP
-kubectl apply -k scenarios/orphaned-pvc-no-action/overlays/ocp
-
-# 3. Wait for deployment
-kubectl wait --for=condition=Available deploy/data-processor -n demo-orphaned-pvc --timeout=120s
-
-# 4. Inject orphaned PVCs
-PLATFORM=ocp bash scenarios/orphaned-pvc-no-action/inject-orphan-pvcs.sh
-
-# 5. Wait for alert (~3 min for: duration)
-# Kind:
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
-  amtool alert query alertname=KubePersistentVolumeClaimOrphaned --alertmanager.url=http://localhost:9093
-# OCP:
-# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-#   amtool alert query alertname=KubePersistentVolumeClaimOrphaned --alertmanager.url=http://localhost:9093
-
-# 6. Monitor pipeline
-kubectl get rr -n kubernaut-system -w -o wide
 ```
 
-### 7. Inspect AI Analysis
+#### 2. Deploy (base manifests use staging; overlays/ocp for OpenShift)
+
+```bash
+kubectl apply -k scenarios/orphaned-pvc-no-action/manifests
+```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/orphaned-pvc-no-action/overlays/ocp/
+```
+
+</details>
+
+#### 3. Wait for deployment
+
+```bash
+kubectl wait --for=condition=Available deploy/data-processor -n demo-orphaned-pvc --timeout=120s
+```
+
+#### 4. Inject orphaned PVCs
+
+```bash
+bash scenarios/orphaned-pvc-no-action/inject-orphan-pvcs.sh
+```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+PLATFORM=ocp bash scenarios/orphaned-pvc-no-action/inject-orphan-pvcs.sh
+```
+
+</details>
+
+#### 5. Wait for alert (~3 min `for:` duration)
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
+```bash
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePersistentVolumeClaimOrphaned --alertmanager.url=http://localhost:9093
+```
+
+<details>
+<summary><strong>OCP (amtool)</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubePersistentVolumeClaimOrphaned --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+#### 6. Monitor pipeline
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+#### 7. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -212,6 +278,14 @@ Path outcomes after monitoring:
 - **Path A**: RR → Completed (`NoActionRequired`)
 - **Path B**: RR → `AwaitingApproval` → reject/approve via RAR patch
 - **Path C**: RR → Completed (`Remediated`) — PVCs cleaned up
+
+#### 8. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
+```
 
 ## Cleanup
 

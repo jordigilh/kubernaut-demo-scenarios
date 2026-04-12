@@ -9,9 +9,11 @@
 Demonstrates Kubernaut detecting a CrashLoopBackOff caused by a bad configuration
 change and performing an automatic rollback to the previous working revision.
 
-**Signal**: `KubePodCrashLooping` -- restart count increasing rapidly
-**Root cause**: Invalid demo-http-server configuration deployed via ConfigMap swap
-**Remediation**: `kubectl rollout undo` restores the previous healthy revision
+| | |
+|---|---|
+| **Signal** | `KubePodCrashLooping` -- restart count increasing rapidly |
+| **Root cause** | Invalid demo-http-server configuration deployed via ConfigMap swap |
+| **Remediation** | `kubectl rollout undo` restores the previous healthy revision |
 
 ## Signal Flow
 
@@ -29,7 +31,6 @@ kube_pod_container_status_restarts_total increasing → KubePodCrashLooping aler
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `crashloop-rollback-v1` registered in DataStorage |
@@ -46,34 +47,75 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `crashloop-rollback-v1-runner` |
 | ClusterRoleBinding | `crashloop-rollback-v1-runner` |
 
-**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resource | Verbs |
+|-----------|----------|-------|
+| `apps` | deployments | get, list, patch, update |
+| `apps` | replicasets | get, list |
+| core | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/crashloop/run.sh
 ```
 
-## Manual Step-by-Step
-
-### 1. Deploy the healthy workload
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-kubectl apply -f scenarios/crashloop/manifests/namespace.yaml
-kubectl apply -f scenarios/crashloop/manifests/configmap.yaml
-kubectl apply -f scenarios/crashloop/manifests/deployment.yaml
-kubectl apply -f scenarios/crashloop/manifests/prometheus-rule.yaml
+export PLATFORM=ocp
+./scenarios/crashloop/run.sh
+```
+
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy the healthy workload
+
+```bash
+kubectl apply -k scenarios/crashloop/manifests/
 kubectl wait --for=condition=Available deployment/worker -n demo-crashloop --timeout=120s
 ```
 
-### 2. Verify healthy state
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/crashloop/overlays/ocp/
+kubectl wait --for=condition=Available deployment/worker -n demo-crashloop --timeout=120s
+```
+
+</details>
+
+#### 2. Verify healthy state
 
 ```bash
 kubectl get pods -n demo-crashloop
 # All pods should be Running with 0 restarts
 ```
 
-### 3. Inject bad configuration
+<details>
+<summary>Expected output</summary>
+
+```
+NAME                      READY   STATUS    RESTARTS   AGE
+worker-6b8c9f4d5-x2k7p   1/1     Running   0          45s
+```
+
+</details>
+
+#### 3. Inject bad configuration
 
 ```bash
 bash scenarios/crashloop/inject-bad-config.sh
@@ -82,32 +124,56 @@ bash scenarios/crashloop/inject-bad-config.sh
 The script creates a `worker-config-bad` ConfigMap with an `invalid_directive` that causes demo-http-server to exit
 and patches the deployment to reference it. Pods will crash on startup.
 
-### 4. Observe CrashLoopBackOff
+#### 4. Observe CrashLoopBackOff
 
 ```bash
 kubectl get pods -n demo-crashloop -w
 # Pods cycle: Error -> CrashLoopBackOff -> Error -> ...
 ```
 
-### 5. Wait for alert and pipeline
+<details>
+<summary>Expected output</summary>
 
-```bash
-# Alert fires after >3 restarts in 10 min (~2-3 min)
-# Check: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
-#        then open http://localhost:9090/alerts
-
-# Query Alertmanager for active alerts
-# Kind:
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
-  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
-# OCP:
-# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-#   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
-
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
+```
+NAME                      READY   STATUS             RESTARTS      AGE
+worker-7f4a8b3c1-q9m2p   0/1     CrashLoopBackOff   3 (30s ago)   2m
 ```
 
-### 6. Inspect AI Analysis
+</details>
+
+#### 5. Wait for alert and pipeline
+
+The alert fires after >3 restarts in 10 min (~2-3 min).
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
+Query Alertmanager for active alerts:
+
+```bash
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+Watch Kubernaut pipeline progression:
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+#### 6. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -128,7 +194,7 @@ Rationale:   {.status.selectedWorkflow.rationale}
 '; echo
 
 # Alternative workflows considered
-kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
+kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}'
 
 # Approval context and investigation narrative
 kubectl get $AIA -n kubernaut-system -o jsonpath='
@@ -139,12 +205,42 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 7. Verify remediation
+#### 7. Verify remediation
 
 ```bash
 kubectl get pods -n demo-crashloop
 # All pods Running/Ready with no recent restarts
 kubectl rollout history deployment/worker -n demo-crashloop
+```
+
+<details>
+<summary>Expected output</summary>
+
+```
+NAME                      READY   STATUS    RESTARTS   AGE
+worker-6b8c9f4d5-x2k7p   1/1     Running   0          60s
+```
+
+</details>
+
+<details>
+<summary>Troubleshooting</summary>
+
+| Symptom | Likely cause | Fix |
+|---------|-------------|-----|
+| Alert doesn't fire after 5 min | Prometheus not scraping kube-state-metrics | `kubectl get servicemonitor -A` and check targets in Prometheus UI |
+| Pipeline stalls at SP | Gateway didn't forward the alert | Check Gateway logs: `kubectl logs -n kubernaut-system deploy/kubernaut-gateway` |
+| WFE stays `Pending` | ServiceAccount missing or RBAC misconfigured | Verify SA exists: `kubectl get sa crashloop-rollback-v1-runner -n kubernaut-workflows` |
+| Rollback didn't happen | WFE job failed | Check job logs: `kubectl logs -n kubernaut-workflows -l kubernaut.ai/workflow-execution --tail=50` |
+
+</details>
+
+#### 8. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

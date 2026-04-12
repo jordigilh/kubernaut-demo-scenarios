@@ -10,11 +10,11 @@ Demonstrates how Kubernaut handles the **same incident** (CrashLoopBackOff) acro
 namespaces with different risk tolerances, producing different workflow selections and
 approval flows running in parallel.
 
-**Signal**: `KubePodCrashLooping` — restart count increasing rapidly in both namespaces
-**Root cause**: Invalid application configuration deployed via ConfigMap swap
-**Remediation**:
-- Team Alpha (staging, high risk tolerance) → `restart-pods-v1` (rolling restart, auto-approved)
-- Team Beta (production, low risk tolerance) → `crashloop-rollback-risk-v1` (full rollback, manual approval)
+| | |
+|---|---|
+| **Signal** | `KubePodCrashLooping` — restart count increasing rapidly in both namespaces |
+| **Root cause** | Invalid application configuration deployed via ConfigMap swap |
+| **Remediation** | **Team Alpha** (staging, high risk tolerance) → `restart-pods-v1` (rolling restart, auto-approved); **Team Beta** (production, low risk tolerance) → `crashloop-rollback-risk-v1` (full rollback, manual approval) |
 
 ## Signal Flow
 
@@ -45,7 +45,6 @@ Team Alpha (demo-team-alpha, staging):                Team Beta (demo-team-beta,
 | Component | Kind | OCP |
 |-----------|------|-----|
 | Cluster | Kind cluster | OCP 4.x with `openshift.io/cluster-monitoring` support |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed | Same |
 | LLM backend | Real LLM (not mock) via HAPI | Same |
 | Prometheus | kube-prometheus-stack with kube-state-metrics | OCP built-in monitoring (`openshift-monitoring`) |
 | Workflow catalog | `restart-pods-v1` and `crashloop-rollback-risk-v1` registered | Same |
@@ -66,11 +65,31 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `restart-pods-v1-runner` |
 | ClusterRoleBinding | `restart-pods-v1-runner` |
 
-**Permissions** (`crashloop-rollback-risk-v1-runner`): `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+**Permissions** (`crashloop-rollback-risk-v1-runner`):
 
-**Permissions** (`restart-pods-v1-runner`): `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| apps | deployments | get, list, patch, update |
+| apps | replicasets | get, list |
+| core | pods | get, list |
 
-## Automated Run
+**Permissions** (`restart-pods-v1-runner`):
+
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| apps | deployments | get, list, patch, update |
+| apps | replicasets | get, list |
+| core | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/concurrent-cross-namespace/run.sh
@@ -81,7 +100,17 @@ Options:
 - `--interactive`: waits for manual approval via Slack or CLI
 - `--no-validate`: skips the validation pipeline
 
-## Pipeline Timeline (OCP observed)
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+export PLATFORM=ocp
+./scenarios/concurrent-cross-namespace/run.sh
+```
+
+</details>
+
+### Pipeline Timeline (OCP observed)
 
 > **Note**: In this run, both teams received the same workflow (`RollbackDeployment`)
 > because the SP policy overwrite bug ([#78](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/78))
@@ -109,9 +138,9 @@ Options:
 | Both RRs → Completed/Remediated | T+12:00 | EM graceful degradation |
 | **Total** | **~12 min** | |
 
-## Manual Step-by-Step
+### Manual Step-by-Step
 
-### 1. Patch the SP policy with risk-tolerance custom labels
+#### 1. Patch the SP policy with risk-tolerance custom labels
 
 The scenario requires a custom SignalProcessing Rego policy that extracts the
 `kubernaut.ai/risk-tolerance` namespace label into `customLabels`.
@@ -126,27 +155,32 @@ kubectl rollout restart deployment/signalprocessing-controller -n kubernaut-syst
 kubectl rollout status deployment/signalprocessing-controller -n kubernaut-system --timeout=60s
 ```
 
-### 2. Register risk-tolerance-aware workflows
+#### 2. Register risk-tolerance-aware workflows
 
 ```bash
 kubectl apply -f deploy/remediation-workflows/concurrent-cross-namespace/ -n kubernaut-system
 ```
 
-### 3. Deploy both team workloads
+#### 3. Deploy both team workloads
 
 ```bash
-# Kind:
 kubectl apply -k scenarios/concurrent-cross-namespace/manifests/
+```
 
-# OCP:
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
 kubectl apply -k scenarios/concurrent-cross-namespace/overlays/ocp/
 ```
+
+</details>
 
 This creates two namespaces:
 - `demo-team-alpha` — labeled `kubernaut.ai/environment=staging`, `kubernaut.ai/risk-tolerance=high`
 - `demo-team-beta` — labeled `kubernaut.ai/environment=production`, `kubernaut.ai/risk-tolerance=low`
 
-### 4. Verify healthy state
+#### 4. Verify healthy state
 
 ```bash
 kubectl wait --for=condition=Available deployment/worker -n demo-team-alpha --timeout=120s
@@ -165,7 +199,7 @@ worker-68b54dc69c-68krq   1/1     Running   0          5s
 worker-68b54dc69c-7ppr9   1/1     Running   0          5s
 ```
 
-### 5. Establish baseline and inject bad config
+#### 5. Establish baseline and inject bad config
 
 ```bash
 sleep 20  # healthy baseline
@@ -176,7 +210,7 @@ The script creates a `worker-config-bad` ConfigMap with an `invalid_directive` f
 namespaces and patches the deployments to reference it. The demo-http-server detects this
 on startup and exits with `[emerg]`, causing all pods to crash.
 
-### 6. Observe CrashLoopBackOff in both namespaces
+#### 6. Observe CrashLoopBackOff in both namespaces
 
 ```bash
 kubectl get pods -n demo-team-alpha
@@ -195,21 +229,32 @@ worker-68b54dc69c-68krq   1/1     Running            0             66s
 worker-68b54dc69c-7ppr9   1/1     Running            0             66s
 ```
 
-### 7. Wait for alerts and parallel pipelines
+#### 7. Wait for alerts and parallel pipelines
 
 Alerts fire after >3 restarts in 10 min (~3 min with `for: 3m`):
 
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
 ```bash
-# Query Alertmanager for active alerts
-# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+```
 
-# OCP
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
 kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
+```
 
-kubectl get remediationrequest -n kubernaut-system -w
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 ```
@@ -234,7 +279,7 @@ Root cause analysis (from AA):
 > Contributing factors: Invalid configuration directive, Bad ConfigMap
 > deployment, Rolling update with malformed config
 
-### 8. Inspect AI Analysis
+#### 8. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -266,7 +311,7 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 9. Approve Team Beta (if not using --auto-approve)
+#### 9. Approve Team Beta (if not using --auto-approve)
 
 ```bash
 # Find the RAR:
@@ -278,7 +323,7 @@ kubectl patch remediationapprovalrequest "$RAR_NAME" -n kubernaut-system \
   -p '{"status":{"decision":"Approved","decidedBy":"admin","decisionMessage":"Manual approval"}}'
 ```
 
-### 10. Verify remediation
+#### 10. Verify remediation
 
 ```bash
 kubectl get pods -n demo-team-alpha
@@ -296,7 +341,7 @@ worker-68b54dc69c-7ppr9   1/1     Running   0          12m
 ```
 
 ```bash
-kubectl get remediationrequest -n kubernaut-system
+kubectl get rr -n kubernaut-system
 ```
 
 ```
@@ -315,6 +360,14 @@ kubectl get aianalysis -n kubernaut-system
 NAME                          PHASE       CONFIDENCE   APPROVAL REQUIRED   AGE
 ai-rr-3428160586f8-2ea0a4c6   Completed   0.95         true                7m    # Beta: production
 ai-rr-df3cf7f0a467-f1574ae8   Completed   0.9          false               7m    # Alpha: staging
+```
+
+#### 11. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Pipeline Path (Parallel)

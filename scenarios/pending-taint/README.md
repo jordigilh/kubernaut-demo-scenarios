@@ -6,16 +6,17 @@ A worker node has a `maintenance=scheduled:NoSchedule` taint that blocks pod sch
 Pods targeting that node via `nodeSelector` remain stuck in Pending. Kubernaut's LLM
 investigates, identifies the taint as the root cause, and removes it.
 
-**Signal**: `KubePodNotScheduled` -- pods Pending for >3 min
-**Root cause**: Node taint blocking scheduling
-**Remediation**: `kubectl taint nodes <node> maintenance-`
+| | |
+|---|---|
+| **Signal** | `KubePodNotScheduled` -- pods Pending for >3 min |
+| **Root cause** | Node taint blocking scheduling |
+| **Remediation** | `kubectl taint nodes <node> maintenance-` |
 
 ## Prerequisites
 
 | Component | Requirement |
 |-----------|-------------|
 | Kind cluster | Multi-node with `kubernaut.ai/demo-taint-target=true` label on one worker |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `remove-taint-v1` registered in DataStorage |
@@ -32,39 +33,98 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `remove-taint-v1-runner` |
 | ClusterRoleBinding | `remove-taint-v1-runner` |
 
-**Permissions**: core nodes (get, list, patch, update), core pods (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resource | Verbs |
+|-----------|----------|-------|
+| core | nodes | get, list, patch, update |
+| core | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/pending-taint/run.sh
 ```
 
-## Manual Step-by-Step
+<details>
+<summary><strong>OCP</strong></summary>
 
-### 1. Apply taint and deploy workload
+```bash
+export PLATFORM=ocp
+./scenarios/pending-taint/run.sh
+```
 
-Follow `./scenarios/pending-taint/run.sh --no-validate` (taint + deploy), or run the full
-script and use `--interactive` to pause at approval.
+</details>
 
-### 2. Wait for alert and watch pipeline
+### Manual Step-by-Step
+
+#### 1. Apply taint and deploy workload
+
+First, apply the maintenance taint to the designated worker node (the node must
+already have the `kubernaut.ai/demo-taint-target=true` label):
+
+```bash
+bash scenarios/pending-taint/inject-taint.sh
+```
+
+Then deploy the workload (pods will remain Pending because of the taint):
+
+```bash
+kubectl apply -k scenarios/pending-taint/manifests/
+kubectl get pods -n demo-taint
+# batch-processor pods should show Pending
+```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/pending-taint/overlays/ocp/
+kubectl get pods -n demo-taint
+# batch-processor pods should show Pending
+```
+
+</details>
+
+#### 2. Wait for alert and watch pipeline
 
 After the `KubePodNotScheduled` alert fires (~3 min), watch Kubernaut resources:
 
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
 ```bash
 # Query Alertmanager for active alerts
-# Kind
+
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubePodNotScheduled --alertmanager.url=http://localhost:9093
-
-# OCP
-kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-  amtool alert query alertname=KubePodNotScheduled --alertmanager.url=http://localhost:9093
-
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
-### 3. Inspect AI Analysis
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubePodNotScheduled --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+#### 3. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -96,7 +156,7 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 4. Approve the RAR (when using `--interactive`)
+#### 4. Approve the RAR (when using `--interactive`)
 
 ```bash
 kubectl get rar -n kubernaut-system
@@ -104,11 +164,19 @@ kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=stat
   -p '{"status":{"decision":"Approved","decidedBy":"operator"}}'
 ```
 
-### 5. Verify remediation
+#### 5. Verify remediation
 
 ```bash
 kubectl get pods -n demo-taint
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .spec.taints[*]}{.key}={.value}:{.effect}{" "}{end}{"\n"}{end}'
+```
+
+#### 6. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

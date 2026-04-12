@@ -91,9 +91,23 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `proactive-rollback-v1-runner` |
 | ClusterRoleBinding | `proactive-rollback-v1-runner` |
 
-**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| apps | deployments | get, list, patch, update |
+| apps | replicasets | get, list |
+| core | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 bash scenarios/slo-burn/run.sh                # interactive — pauses at approval gate
@@ -107,43 +121,82 @@ bash scenarios/slo-burn/run.sh --no-validate   # deploy + inject only, skip pipe
 | `--auto-approve` | Same but patches RAR automatically |
 | `--no-validate` | Deploy + inject only; useful for manual observation |
 
-## Manual Step-by-Step
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-# 1. Deploy namespace, ConfigMap, API gateway, traffic-gen, blackbox, and Prometheus rules
-#    Kind:
-kubectl apply -k scenarios/slo-burn/manifests/
-#    OCP:
-kubectl apply -k scenarios/slo-burn/overlays/ocp/
+export PLATFORM=ocp
+bash scenarios/slo-burn/run.sh
+```
 
-# 2. Wait for pods
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy namespace, ConfigMap, API gateway, traffic-gen, blackbox, and Prometheus rules
+
+```bash
+kubectl apply -k scenarios/slo-burn/manifests/
+```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/slo-burn/overlays/ocp/
+```
+
+</details>
+
+#### 2. Wait for pods
+
+```bash
 kubectl wait --for=condition=Available deployment/api-gateway \
   deployment/blackbox-exporter deployment/traffic-gen \
   -n demo-slo --timeout=60s
-
-# 3. Establish healthy baseline (~30s)
-sleep 30
-
-# 4. Inject bad config
-bash scenarios/slo-burn/inject-bad-config.sh
-
-# 5. Watch error rate climb
-#    Prometheus: job:api_gateway:error_rate_5m should go to ~1.0
-#    Alert fires after 3 min for: duration
-
-# 6. Query Alertmanager for active alerts
-# Kind:
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
-  amtool alert query alertname=ErrorBudgetBurn --alertmanager.url=http://localhost:9093
-# OCP:
-# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-#   amtool alert query alertname=ErrorBudgetBurn --alertmanager.url=http://localhost:9093
-
-# 7. Watch pipeline
-kubectl get rr,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
-### 8. Inspect AI Analysis
+#### 3. Establish healthy baseline (~30s)
+
+```bash
+sleep 30
+```
+
+#### 4. Inject bad config
+
+```bash
+bash scenarios/slo-burn/inject-bad-config.sh
+```
+
+#### 5. Watch error rate climb
+
+Prometheus: `job:api_gateway:error_rate_5m` should approach ~1.0. The alert fires after the 3-minute `for:` duration.
+
+#### 6. Query Alertmanager and watch the pipeline
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
+```bash
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=ErrorBudgetBurn --alertmanager.url=http://localhost:9093
+
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+<details>
+<summary><strong>OCP (amtool)</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=ErrorBudgetBurn --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+#### 7. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -175,18 +228,33 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
+#### 8. Approve when prompted (production environment)
+
 ```bash
-# 9. Approve when prompted (production environment)
 kubectl patch remediationapprovalrequest <RAR> -n kubernaut-system \
   --type merge --subresource status \
   -p '{"status":{"decision":"Approved","decidedBy":"<you>","decidedAt":"<now>"}}'
+```
 
-# 10. Verify rollback
+#### 9. Verify rollback
+
+```bash
 kubectl rollout history deployment/api-gateway -n demo-slo
 kubectl get pods -n demo-slo
+```
 
-# 11. Cleanup
+#### 10. Cleanup
+
+```bash
 bash scenarios/slo-burn/cleanup.sh
+```
+
+#### 11. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Pipeline Timeline (OCP observed)

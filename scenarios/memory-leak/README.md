@@ -9,9 +9,11 @@ graceful rolling restart that resets memory before the crash occurs.
 
 **Key differentiator**: The pod never crashes. Kubernaut acts on a *prediction*, not a symptom.
 
-**Signal**: `ContainerMemoryExhaustionPredicted` — `predict_linear()` projects OOM within 30 min
-**Root cause**: `leaker` sidecar writes ~1 MB every 5 s to a memory-backed emptyDir
-**Remediation**: `kubectl rollout restart` resets memory to baseline
+| | |
+|---|---|
+| **Signal** | `ContainerMemoryExhaustionPredicted` — `predict_linear()` projects OOM within 30 min |
+| **Root cause** | `leaker` sidecar writes ~1 MB every 5 s to a memory-backed emptyDir |
+| **Remediation** | `kubectl rollout restart` resets memory to baseline |
 
 ## Signal Flow
 
@@ -35,7 +37,6 @@ predict_linear(container_memory_working_set_bytes[5m], 1800)
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With cAdvisor scraping and kube-state-metrics |
 | Workflow catalog | `graceful-restart-v1` registered in DataStorage |
@@ -53,9 +54,23 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `graceful-restart-v1-runner` |
 | ClusterRoleBinding | `graceful-restart-v1-runner` |
 
-**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resource | Verbs |
+|-----------|----------|-------|
+| `apps` | deployments | get, list, patch, update |
+| `apps` | replicasets | get, list |
+| core | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/memory-leak/run.sh
@@ -65,25 +80,40 @@ Options:
 - `--interactive` — pause at approval step for manual approval
 - `--no-validate` — skip the validation pipeline (deploy + inject only)
 
-## Manual Step-by-Step
-
-### 1. Deploy the workload
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-# Kind
+export PLATFORM=ocp
+./scenarios/memory-leak/run.sh
+```
+
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy the workload
+
+```bash
 kubectl apply -k scenarios/memory-leak/manifests/
-
-# OCP
-kubectl apply -k scenarios/memory-leak/overlays/ocp
-
 kubectl wait --for=condition=Available deployment/leaky-app -n demo-memory-leak --timeout=120s
 ```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/memory-leak/overlays/ocp/
+kubectl wait --for=condition=Available deployment/leaky-app -n demo-memory-leak --timeout=120s
+```
+
+</details>
 
 The deployment creates 2 replicas, each with:
 - **app** container: nginx serving health checks
 - **leaker** sidecar: writes 1 MB to a memory-backed emptyDir every 5 seconds (~12 MB/min)
 
-### 2. Verify healthy state
+#### 2. Verify healthy state
 
 ```bash
 kubectl get pods -n demo-memory-leak
@@ -92,7 +122,7 @@ kubectl get pods -n demo-memory-leak
 # leaky-app-5df747bb-9llc5    2/2     Running   0          6s
 ```
 
-### 3. Observe memory growth
+#### 3. Observe memory growth
 
 ```bash
 watch kubectl top pods -n demo-memory-leak --containers
@@ -102,33 +132,38 @@ The leaker container's memory climbs linearly at ~12 MB/min. The container has a
 192 Mi memory limit, giving approximately 16 minutes before OOM under normal
 conditions.
 
-### 4. Wait for the proactive alert
+#### 4. Wait for the proactive alert
 
 The `ContainerMemoryExhaustionPredicted` alert fires once `predict_linear()` projects
 the leaker container will exceed its 192 Mi limit within 30 minutes. This typically
 takes **3-4 minutes** of trend data on OCP (5-7 minutes on Kind due to slower
 scrape intervals).
 
-```bash
-# Check alert status via Prometheus UI
-kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
-# open http://localhost:9090/alerts
+> [!NOTE]
+> **OCP timing**: On OCP, `predict_linear()` may need 3-5 minutes of trend data
+> before the alert fires, depending on cAdvisor scrape interval.
 
-# Query Alertmanager for active alerts
-# Kind:
+```bash
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=ContainerMemoryExhaustionPredicted --alertmanager.url=http://localhost:9093
-# OCP:
-# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-#   amtool alert query alertname=ContainerMemoryExhaustionPredicted --alertmanager.url=http://localhost:9093
 ```
 
-### 5. Monitor the Kubernaut pipeline
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=ContainerMemoryExhaustionPredicted --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+#### 5. Monitor the Kubernaut pipeline
 
 Once the alert fires, the full pipeline completes in ~3-4 minutes:
 
 ```bash
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:
@@ -138,7 +173,7 @@ The LLM will:
 4. Select `GracefulRestart` workflow (confidence 0.9) — a rolling restart resets memory
 5. Auto-approve (warning severity does not require human approval per Rego policy)
 
-### 6. Inspect AI Analysis
+#### 6. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -162,7 +197,7 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-### 7. Verify remediation
+#### 7. Verify remediation
 
 After the workflow execution completes:
 
@@ -180,6 +215,14 @@ Note: The leaker sidecar resumes allocating memory after restart. In a real-worl
 scenario, the root cause fix (removing the leak) would be a separate action. The
 `validate.sh` script patches out the leaker sidecar after remediation to prevent
 the alert from re-firing.
+
+#### 8. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
+```
 
 ## Cleanup
 

@@ -4,9 +4,11 @@
 
 Demonstrates Kubernaut detecting service connectivity loss caused by a deny-all NetworkPolicy blocking ingress traffic. A traffic-generator pod's readiness probe fails when it cannot reach the target service, triggering a `KubeDeploymentReplicasMismatch` alert. Remediation removes the offending deny-all NetworkPolicy and connectivity is restored.
 
-**Signal**: `KubeDeploymentReplicasMismatch` -- from `kube_deployment_status_replicas_unavailable` > 0 on traffic-gen
-**Root cause**: Deny-all NetworkPolicy blocks all ingress; readiness probes fail
-**Remediation**: `fix-network-policy-v1` workflow removes the offending deny-all policy
+| | |
+|---|---|
+| **Signal** | `KubeDeploymentReplicasMismatch` -- from `kube_deployment_status_replicas_unavailable` > 0 on traffic-gen |
+| **Root cause** | Deny-all NetworkPolicy blocks all ingress; readiness probes fail |
+| **Remediation** | `fix-network-policy-v1` workflow removes the offending deny-all policy |
 
 ## Signal Flow
 
@@ -27,8 +29,7 @@ deny-all NetworkPolicy blocks inter-pod traffic
 
 | Component | Requirement |
 |-----------|-------------|
-| Kind cluster | `scenarios/kind-config-singlenode.yaml` |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
+| Cluster | Kind or OCP with Kubernaut services deployed |
 | LLM backend | Real LLM (or mock) via HAPI |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `fix-network-policy-v1` registered in DataStorage |
@@ -45,21 +46,44 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `fix-network-policy-v1-runner` |
 | ClusterRoleBinding | `fix-network-policy-v1-runner` |
 
-**Permissions**: `networking.k8s.io` networkpolicies (get, list, delete), `apps` deployments (get, list)
+**Permissions**:
+
+| API group | Resource | Verbs |
+|-----------|----------|-------|
+| `networking.k8s.io` | networkpolicies | get, list, delete |
+| `apps` | deployments | get, list |
 
 ## Detected Label
 
 - **networkIsolated**: `true` -- indicates NetworkPolicy is blocking traffic; remediation removes the offending policy
 
-## Automated Run
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/network-policy-block/run.sh
 ```
 
-## Manual Step-by-Step
+<details>
+<summary><strong>OCP</strong></summary>
 
-### 1. Deploy scenario resources
+```bash
+export PLATFORM=ocp
+./scenarios/network-policy-block/run.sh
+```
+
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy scenario resources
 
 ```bash
 kubectl apply -f scenarios/network-policy-block/manifests/namespace.yaml
@@ -68,7 +92,16 @@ kubectl apply -f scenarios/network-policy-block/manifests/networkpolicy-allow.ya
 kubectl apply -f scenarios/network-policy-block/manifests/prometheus-rule.yaml
 ```
 
-### 2. Wait for deployment to be healthy
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/network-policy-block/overlays/ocp/
+```
+
+</details>
+
+#### 2. Wait for deployment to be healthy
 
 ```bash
 kubectl wait --for=condition=Available deployment/web-frontend -n demo-netpol --timeout=120s
@@ -76,7 +109,7 @@ kubectl wait --for=condition=Available deployment/traffic-gen -n demo-netpol --t
 kubectl get pods -n demo-netpol
 ```
 
-### 3. Inject deny-all NetworkPolicy
+#### 3. Inject deny-all NetworkPolicy
 
 ```bash
 bash scenarios/network-policy-block/inject-deny-all-netpol.sh
@@ -84,26 +117,36 @@ bash scenarios/network-policy-block/inject-deny-all-netpol.sh
 
 The script applies a deny-all NetworkPolicy that blocks all ingress traffic. The traffic-gen readiness probe (curl to web-frontend:8080) will fail, making the pod NotReady.
 
-### 4. Wait for alert and pipeline
+#### 4. Wait for alert and pipeline
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
 
 ```bash
 # Alert fires after ~3 min of unavailable replicas
-# Check: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
-#        then open http://localhost:9090/alerts
-
 # Query Alertmanager for active alerts
-# Kind
+
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubeDeploymentReplicasMismatch --alertmanager.url=http://localhost:9093
-
-# OCP
-kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-  amtool alert query alertname=KubeDeploymentReplicasMismatch --alertmanager.url=http://localhost:9093
-
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
-### 5. Inspect AI Analysis
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubeDeploymentReplicasMismatch --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+#### 5. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -127,13 +170,21 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-### 6. Verify remediation
+#### 6. Verify remediation
 
 ```bash
 kubectl get networkpolicies -n demo-netpol
 kubectl get pods -n demo-netpol
 # deny-all-ingress should be removed, all pods Running and Ready
 # traffic-gen should be Ready (readiness probe recovered)
+```
+
+#### 7. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

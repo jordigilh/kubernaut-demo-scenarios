@@ -65,9 +65,9 @@ This creates a `selfsigned-issuer` ClusterIssuer used by the chart's TLS configu
 
 | Operator | Required for | Install from |
 |----------|-------------|-------------|
-| OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible) | OperatorHub |
+| OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir) | OperatorHub |
 | OpenShift Service Mesh (OSSM) | mesh-routing-failure | OperatorHub |
-| AWX/AAP | disk-pressure-emptydir, memory-limits-gitops-ansible | `awx-helper.sh` (AAP: `aap-helper.sh` + license) |
+| AWX/AAP | disk-pressure-emptydir | `awx-helper.sh` (AAP: `aap-helper.sh` + license) |
 
 > **Note:** OCP provides Prometheus, AlertManager, and metrics-server via the built-in cluster monitoring stack. These do not need separate installation.
 
@@ -258,7 +258,7 @@ kubectl taint nodes <control-plane-node> node-role.kubernetes.io/control-plane:N
 |------|---------|
 | `--create-cluster` | Delete and recreate the Kind cluster from scratch |
 | `--skip-infra` | Skip optional infrastructure (cert-manager, Istio, Gitea, ArgoCD) |
-| `--with-awx` | Install AWX (required for OCP-only Ansible-engine scenarios: `disk-pressure-emptydir`, `memory-limits-gitops-ansible`) |
+| `--with-awx` | Install AWX (required for OCP-only Ansible-engine scenario: `disk-pressure-emptydir`) |
 | `--kind-config PATH` | Custom Kind cluster config (default: `scenarios/kind-config-multinode.yaml`) |
 | `--chart-version VER` | Pin Helm chart version (e.g. `1.1.0-rc1`); required for pre-release tags |
 
