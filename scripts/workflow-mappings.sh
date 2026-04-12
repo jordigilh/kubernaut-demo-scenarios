@@ -27,4 +27,5 @@ WORKFLOWS=(
     "network-policy-block:fix-network-policy-job"
     "resource-contention:increase-memory-limits-job"
     "disk-pressure-emptydir:migrate-emptydir-to-pvc-gitops"
+    "concurrent-cross-namespace:hotfix-config-job"
 )

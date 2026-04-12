@@ -14,7 +14,7 @@ approval flows running in parallel.
 |---|---|
 | **Signal** | `KubePodCrashLooping` — restart count increasing rapidly in both namespaces |
 | **Root cause** | Invalid application configuration deployed via ConfigMap swap |
-| **Remediation** | **Team Alpha** (staging, high risk tolerance) → `restart-pods-v1` (rolling restart, auto-approved); **Team Beta** (production, low risk tolerance) → `crashloop-rollback-risk-v1` (full rollback, manual approval) |
+| **Remediation** | **Team Alpha** (staging, high risk tolerance) → `hotfix-config-v1` (patches ConfigMap in-place, auto-approved); **Team Beta** (production, low risk tolerance) → `crashloop-rollback-risk-v1` (full rollback, manual approval) |
 
 ## Signal Flow
 
@@ -27,17 +27,17 @@ Team Alpha (demo-team-alpha, staging):                Team Beta (demo-team-beta,
   → Gateway                                             → Gateway
   → SP (environment=staging, P1,                        → SP (environment=production, P0,
        customLabels: risk_tolerance=high)                     customLabels: risk_tolerance=low)
-  → AA selects restart-pods-v1                          → AA selects crashloop-rollback-risk-v1
+  → AA selects hotfix-config-v1                         → AA selects crashloop-rollback-risk-v1
   → Rego auto-approves (staging)                        → Rego requires manual approval (production)
-  → WE: kubectl rollout restart                         → WE: kubectl rollout undo (after approval)
+  → WE: patch ConfigMap + rollout restart               → WE: kubectl rollout undo (after approval)
   → EM verifies pods healthy                            → EM verifies pods healthy
 ```
 
 ## Key Mechanism
 
 1. **SignalProcessing Rego policy** maps namespace label `kubernaut.ai/risk-tolerance` into `customLabels` (`risk_tolerance`).
-2. **DataStorage** scores workflows by `customLabels` match — `restart-pods-v1` scores higher for `risk_tolerance=high`, `crashloop-rollback-risk-v1` scores higher for `risk_tolerance=low`.
-3. **LLM** selects the workflow that aligns with each team's risk tolerance.
+2. **DataStorage** scores workflows by `customLabels` match — `hotfix-config-v1` (`PatchConfiguration`) scores higher for `risk_tolerance=high`, `crashloop-rollback-risk-v1` (`RollbackDeployment`) scores higher for `risk_tolerance=low`.
+3. **LLM** selects the workflow that aligns with each team's risk tolerance. Both workflows genuinely fix the persistent ConfigMap error but with different risk profiles: hotfix patches in-place (fast, surgical) vs. rollback reverts to a known-good revision (safe, thorough).
 4. **Approval Rego policy** auto-approves staging environments (`kubernaut.ai/environment=staging`) and requires manual approval for production (`kubernaut.ai/environment=production`).
 
 ## Prerequisites
@@ -47,7 +47,7 @@ Team Alpha (demo-team-alpha, staging):                Team Beta (demo-team-beta,
 | Cluster | Kind cluster | OCP 4.x with `openshift.io/cluster-monitoring` support |
 | LLM backend | Real LLM (not mock) via HAPI | Same |
 | Prometheus | kube-prometheus-stack with kube-state-metrics | OCP built-in monitoring (`openshift-monitoring`) |
-| Workflow catalog | `restart-pods-v1` and `crashloop-rollback-risk-v1` registered | Same |
+| Workflow catalog | `hotfix-config-v1` and `crashloop-rollback-risk-v1` registered | Same |
 | Container image | `quay.io/kubernaut-cicd/demo-http-server:1.0.0` | Same (platform-neutral) |
 
 ### Workflow RBAC
@@ -58,22 +58,23 @@ scoped permissions (created automatically when workflows are seeded via
 
 | Resource | Name |
 |----------|------|
+| ServiceAccount | `hotfix-config-v1-runner` (in `kubernaut-workflows`) |
+| ClusterRole | `hotfix-config-v1-runner` |
+| ClusterRoleBinding | `hotfix-config-v1-runner` |
 | ServiceAccount | `crashloop-rollback-risk-v1-runner` (in `kubernaut-workflows`) |
 | ClusterRole | `crashloop-rollback-risk-v1-runner` |
 | ClusterRoleBinding | `crashloop-rollback-risk-v1-runner` |
-| ServiceAccount | `restart-pods-v1-runner` (in `kubernaut-workflows`) |
-| ClusterRole | `restart-pods-v1-runner` |
-| ClusterRoleBinding | `restart-pods-v1-runner` |
 
-**Permissions** (`crashloop-rollback-risk-v1-runner`):
+**Permissions** (`hotfix-config-v1-runner`) -- broader scope (patches live ConfigMaps):
 
 | API group | Resources | Verbs |
 |-----------|-----------|-------|
 | apps | deployments | get, list, patch, update |
 | apps | replicasets | get, list |
 | core | pods | get, list |
+| core | configmaps | get, list, patch, update |
 
-**Permissions** (`restart-pods-v1-runner`):
+**Permissions** (`crashloop-rollback-risk-v1-runner`):
 
 | API group | Resources | Verbs |
 |-----------|-----------|-------|
@@ -110,32 +111,25 @@ export PLATFORM=ocp
 
 </details>
 
-### Pipeline Timeline (OCP observed)
-
-> **Note**: In this run, both teams received the same workflow (`RollbackDeployment`)
-> because the SP policy overwrite bug ([#78](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/78))
-> prevented `risk_tolerance` custom labels from being enriched. Once #78 is fixed,
-> Alpha should receive `restart-pods-v1` and Beta should receive `crashloop-rollback-risk-v1`.
+### Pipeline Timeline (expected)
 
 | Event | Wall clock | Delta |
 |-------|-----------|-------|
-| Deploy both teams | T+0:00 | — |
+| Deploy both teams | T+0:00 | -- |
 | Healthy baseline | T+0:20 | 20 s |
-| Inject bad config (both namespaces) | T+0:20 | — |
+| Inject bad config (both namespaces) | T+0:20 | -- |
 | Pods enter CrashLoopBackOff | T+0:50 | 30 s |
 | KubePodCrashLooping alerts fire | T+3:20 | `for: 3m` |
-| Alpha RR created | T+5:38 | Alert → Gateway |
-| Beta RR created | T+5:23 | Alert → Gateway |
-| SP completes (Alpha: staging/P1) | T+5:38 | Immediate |
-| SP completes (Beta: production/P0) | T+5:23 | Immediate |
-| AA completes (Alpha: RollbackDeployment, conf 0.9) | T+7:08 | 91 s investigation |
-| AA completes (Beta: RollbackDeployment, conf 0.95) | T+6:53 | 90 s investigation |
-| Alpha auto-approved (staging Rego policy) | T+7:08 | Immediate |
-| Beta awaiting manual approval | T+6:53 | — |
-| Beta manually approved | T+9:15 | — |
-| WFE completes (both rollback) | T+10:00 | ~45 s job execution |
-| EM verifying (stuck — [#79](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/79)) | T+10:00 | HTTP/HTTPS mismatch |
-| Both RRs → Completed/Remediated | T+12:00 | EM graceful degradation |
+| Both RRs created | T+5:30 | Alert -> Gateway |
+| SP completes (Alpha: staging/P1, risk_tolerance=high) | T+5:30 | Immediate |
+| SP completes (Beta: production/P0, risk_tolerance=low) | T+5:30 | Immediate |
+| AA completes (Alpha: PatchConfiguration/hotfix-config-v1) | T+7:00 | ~90 s investigation |
+| AA completes (Beta: RollbackDeployment/crashloop-rollback-risk-v1) | T+7:00 | ~90 s investigation |
+| Alpha auto-approved (staging Rego policy) | T+7:00 | Immediate |
+| Beta awaiting manual approval | T+7:00 | -- |
+| Beta manually approved | T+9:00 | -- |
+| WFE completes (Alpha: CM patch + restart; Beta: rollback) | T+10:00 | ~45 s job execution |
+| Both RRs -> Completed/Remediated | T+12:00 | EM verification |
 | **Total** | **~12 min** | |
 
 ### Manual Step-by-Step
@@ -372,10 +366,10 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 
 ## Pipeline Path (Parallel)
 
-| Team  | Environment | Priority | Approval | Workflow | Action |
-|-------|-------------|----------|----------|----------|--------|
-| Alpha | staging     | P1       | auto     | `restart-pods-v1` | Rolling restart (faster, simpler) |
-| Beta  | production  | P0       | manual   | `crashloop-rollback-risk-v1` | Full rollback (safer, thorough) |
+| Team  | Environment | Priority | Approval | Workflow | ActionType | Action |
+|-------|-------------|----------|----------|----------|------------|--------|
+| Alpha | staging     | P1       | auto     | `hotfix-config-v1` | `PatchConfiguration` | Patch ConfigMap in-place + rollout restart (faster, surgical) |
+| Beta  | production  | P0       | manual   | `crashloop-rollback-risk-v1` | `RollbackDeployment` | Full rollback to known-good revision (safer, thorough) |
 
 ## Platform Notes
 
@@ -397,8 +391,8 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 Given a cluster with Kubernaut services and a real LLM backend
   And Prometheus is scraping kube-state-metrics
   And the SP policy includes risk-tolerance custom labels extraction
-  And "restart-pods-v1" (customLabels: risk_tolerance=high) is registered
-  And "crashloop-rollback-risk-v1" (customLabels: risk_tolerance=low) is registered
+  And "hotfix-config-v1" (actionType: PatchConfiguration, customLabels: risk_tolerance=high) is registered
+  And "crashloop-rollback-risk-v1" (actionType: RollbackDeployment, customLabels: risk_tolerance=low) is registered
   And namespace "demo-team-alpha" has labels environment=staging, risk-tolerance=high
   And namespace "demo-team-beta" has labels environment=production, risk-tolerance=low
   And both "worker" deployments are running healthily
@@ -410,8 +404,8 @@ When a bad ConfigMap is deployed in both namespaces simultaneously
 Then Kubernaut processes both alerts in parallel
   And SP classifies Alpha as staging/P1 with customLabels {risk_tolerance: [high]}
   And SP classifies Beta as production/P0 with customLabels {risk_tolerance: [low]}
-  And AA selects restart-pods-v1 for Alpha (high risk tolerance match)
-  And AA selects crashloop-rollback-risk-v1 for Beta (low risk tolerance match)
+  And AA selects hotfix-config-v1 for Alpha (high risk tolerance, PatchConfiguration)
+  And AA selects crashloop-rollback-risk-v1 for Beta (low risk tolerance, RollbackDeployment)
   And Alpha is auto-approved by Rego policy (staging environment)
   And Beta requires manual approval by Rego policy (production environment)
   And after approval, both WorkflowExecutions complete successfully
@@ -426,8 +420,8 @@ Then Kubernaut processes both alerts in parallel
 - [ ] Alerts fire within 2-3 minutes of first crash per namespace
 - [ ] SP classifies Alpha as staging/P1 and Beta as production/P0
 - [ ] SP enriches both with correct `risk_tolerance` custom labels
-- [ ] LLM selects `restart-pods-v1` for Alpha (high risk tolerance)
-- [ ] LLM selects `crashloop-rollback-risk-v1` for Beta (low risk tolerance)
+- [ ] LLM selects `hotfix-config-v1` for Alpha (high risk tolerance, PatchConfiguration)
+- [ ] LLM selects `crashloop-rollback-risk-v1` for Beta (low risk tolerance, RollbackDeployment)
 - [ ] Alpha is auto-approved; Beta requires manual approval
 - [ ] Both remediations execute successfully in parallel
 - [ ] All pods become Running/Ready after remediation
@@ -440,4 +434,15 @@ Then Kubernaut processes both alerts in parallel
 
 ## Known Issues
 
-None.
+- **Sonnet 4.6 LLM boundary**: The previous `restart-pods-v1` workflow (rolling restart) was correctly
+  rejected by Sonnet 4.6 for persistent ConfigMap faults ("restart won't fix a bad config"). The
+  redesign (Option D) replaces it with `hotfix-config-v1` (PatchConfiguration) which fixes the config
+  in-place, giving the LLM two genuinely valid strategies with different risk profiles.
+
+## Future Improvements (v1.3)
+
+- **LLM-parameterized hotfix**: The current `hotfix-config-v1` remediate script hardcodes the
+  configuration pattern to fix (`invalid_directive`). In a generic production scenario, the LLM's
+  root cause analysis already identifies the faulty key/value -- this should flow into the workflow
+  via additional parameters (`CONFIG_KEY`, `BAD_PATTERN`, `REPLACEMENT_VALUE`) so the hotfix script
+  can fix arbitrary configuration errors without scenario-specific knowledge.

@@ -2,8 +2,8 @@
 # Concurrent Cross-Namespace Demo -- Automated Runner
 # Scenario #172: Two teams, same issue, different risk tolerance -> different workflows
 #
-# Team Alpha (high risk tolerance) -> restart-pods-v1 (simpler, faster)
-# Team Beta  (low risk tolerance)  -> crashloop-rollback-v1 (safer, more thorough)
+# Team Alpha (high risk tolerance) -> hotfix-config-v1 (patches ConfigMap in-place, faster)
+# Team Beta  (low risk tolerance)  -> crashloop-rollback-risk-v1 (full rollback, safer)
 #
 # The risk_tolerance rules are injected into policy.rego at runtime (#216).
 #
@@ -82,8 +82,16 @@ kubectl rollout restart deployment/signalprocessing-controller -n "${PLATFORM_NS
 kubectl rollout status deployment/signalprocessing-controller -n "${PLATFORM_NS}" --timeout=60s
 echo ""
 
-# Step 0c: Register risk-tolerance-aware workflows as RemediationWorkflow CRDs
-echo "==> Step 0c: Applying RemediationWorkflow CRDs..."
+# Step 0c: Remove stale restart-pods-v1 (replaced by hotfix-config-v1 in Option D redesign)
+echo "==> Step 0c: Removing stale restart-pods-v1 workflow (if present)..."
+kubectl delete remediationworkflow restart-pods-v1 -n "${PLATFORM_NS}" --ignore-not-found 2>/dev/null || true
+kubectl delete clusterrolebinding restart-pods-v1-runner --ignore-not-found 2>/dev/null || true
+kubectl delete clusterrole restart-pods-v1-runner --ignore-not-found 2>/dev/null || true
+kubectl delete serviceaccount restart-pods-v1-runner -n "${WE_NAMESPACE:-kubernaut-workflows}" --ignore-not-found 2>/dev/null || true
+echo ""
+
+# Step 0d: Register risk-tolerance-aware workflows as RemediationWorkflow CRDs
+echo "==> Step 0d: Applying RemediationWorkflow CRDs..."
 for yaml_file in "${REPO_ROOT}/deploy/remediation-workflows/concurrent-cross-namespace/"*.yaml; do
     _apply_workflow_yaml "$yaml_file" "${PLATFORM_NS}"
 done
@@ -120,14 +128,14 @@ echo "  Expected:"
 echo "    Team Alpha (staging, high risk tolerance):"
 echo "      -> Auto-approved (environment=staging)"
 echo "      -> SP enriches with customLabels: {risk_tolerance: [high]}"
-echo "      -> DataStorage boosts restart-pods-v1 (customLabels match)"
-echo "      -> LLM selects restart-pods-v1 (simpler, aligns with risk tolerance)"
+echo "      -> DataStorage boosts hotfix-config-v1 (customLabels match)"
+echo "      -> LLM selects hotfix-config-v1 (patches ConfigMap in-place, faster)"
 echo ""
 echo "    Team Beta (production, low risk tolerance):"
 echo "      -> Requires manual approval (environment=production)"
 echo "      -> SP enriches with customLabels: {risk_tolerance: [low]}"
-echo "      -> DataStorage boosts crashloop-rollback-v1 (customLabels match)"
-echo "      -> LLM selects crashloop-rollback-v1 (safer, more thorough)"
+echo "      -> DataStorage boosts crashloop-rollback-risk-v1 (customLabels match)"
+echo "      -> LLM selects crashloop-rollback-risk-v1 (full rollback, safer)"
 echo ""
 # Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then

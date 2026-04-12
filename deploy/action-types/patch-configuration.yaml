@@ -1,0 +1,12 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: ActionType
+metadata:
+  name: patch-configuration
+  namespace: kubernaut-system
+spec:
+  name: PatchConfiguration
+  description:
+    what: "Patch a faulty ConfigMap or configuration resource in-place to fix a configuration error without rolling back the deployment."
+    whenToUse: "When the root cause is a specific, identifiable configuration error in a mounted ConfigMap, and the fix is deterministic. Prioritizes speed over safety by modifying live resources."
+    whenNotToUse: "When the root cause is unclear, when multiple configuration resources may be affected, or when a full rollback to a known-good revision is preferred for safety."
+    preconditions: "The faulty configuration resource is identified and the correction can be applied programmatically."
