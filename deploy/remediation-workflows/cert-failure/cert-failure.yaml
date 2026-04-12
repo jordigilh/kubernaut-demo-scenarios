@@ -48,7 +48,7 @@ metadata:
 spec:
   # Fix Certificate Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #133 -- cert-manager Certificate NotReady -> recreate CA Secret
-  version: "1.2.2"
+  version: "1.2.3"
   description:
     what: "Recreates the CA Secret backing a cert-manager ClusterIssuer to restore certificate issuance"
     whenToUse: "When a cert-manager Certificate is stuck in NotReady because the CA Secret has been deleted or corrupted"
@@ -65,12 +65,13 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:980bb4bff650398c8c39f6fc4eacdf3deffbf3e93ef3d310c3e224415793c1d9
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:d723273b82d743d1baab14ea498be55547c6b8d5f2a2e5d884844af33f953da4
+    serviceAccountName: fix-certificate-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
-      required: false
-      description: "Namespace of the affected Certificate. Optional for cluster-scoped targets (e.g. ClusterIssuer); discovered automatically when not provided."
+      required: true
+      description: "Namespace of the affected workload"
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true
@@ -79,20 +80,8 @@ spec:
       type: string
       required: true
       description: "Kind of the affected Kubernetes resource (e.g., Deployment)"
-    - name: CERTIFICATE_NAME
-      type: string
-      required: true
-      description: "Name of the cert-manager Certificate to fix"
-    - name: ISSUER_NAME
-      type: string
-      required: true
-      description: "Name of the ClusterIssuer backing the certificate"
-    - name: CA_SECRET_NAME
-      type: string
-      required: true
-      description: "Name of the CA Secret to recreate"
     - name: CA_SECRET_NAMESPACE
       type: string
       required: false
-      description: "Namespace of the CA Secret"
+      description: "Namespace where the CA Secret lives (defaults to cert-manager)"
       default: "cert-manager"

@@ -63,6 +63,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/provision-node-job@sha256:8a105e4f7e40c152b74f1599a0d021a42c2f810a715317c7f7a024961862d152
+    serviceAccountName: provision-node-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

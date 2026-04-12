@@ -21,11 +21,16 @@ GIT_USERNAME=$(cat "${SECRET_DIR}/username")
 GIT_PASSWORD=$(cat "${SECRET_DIR}/password")
 
 echo "=== Phase 0: Discover ArgoCD Application ==="
-# Auto-detect ArgoCD namespace: openshift-gitops (OCP) or argocd (Kind)
-if kubectl get namespace openshift-gitops &>/dev/null; then
-  ARGOCD_NS="openshift-gitops"
-else
-  ARGOCD_NS="argocd"
+ARGOCD_NS=""
+for ns in openshift-gitops argocd; do
+  if kubectl get applications.argoproj.io -n "$ns" -o name &>/dev/null 2>&1; then
+    ARGOCD_NS="$ns"
+    break
+  fi
+done
+if [ -z "${ARGOCD_NS}" ]; then
+  echo "ERROR: No ArgoCD Applications found in openshift-gitops or argocd namespaces"
+  exit 1
 fi
 echo "ArgoCD namespace: ${ARGOCD_NS}"
 ARGO_APP_JSON=$(kubectl get applications.argoproj.io -n "$ARGOCD_NS" -o json)

@@ -66,6 +66,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/cordon-drain-job@sha256:1af6588035313b1ec66dad26146e54eb1da4c9576ed3c185d6c3c1ff00e9d57f
+    serviceAccountName: cordon-drain-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

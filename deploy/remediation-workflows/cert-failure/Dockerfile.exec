@@ -5,7 +5,7 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 ARG TARGETARCH
 ARG KUBECTL_VERSION=v1.31.4
 
-RUN microdnf install -y openssl && microdnf clean all
+RUN microdnf install -y openssl gawk grep coreutils-single && microdnf clean all
 
 RUN curl -fsSL -o /usr/local/bin/kubectl \
     "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
