@@ -6,9 +6,11 @@ Demonstrates Kubernaut detecting a cert-manager Certificate stuck in NotReady be
 backing the ClusterIssuer has been deleted, and performing automatic remediation by recreating
 the CA Secret to restore certificate issuance.
 
-**Signal**: `CertManagerCertNotReady` -- from `certmanager_certificate_ready_status`
-**Root cause**: CA Secret deleted; ClusterIssuer cannot sign certificates
-**Remediation**: `fix-certificate-v1` workflow recreates the CA Secret
+| | |
+|---|---|
+| **Signal** | `CertManagerCertNotReady` -- from `certmanager_certificate_ready_status` |
+| **Root cause** | CA Secret deleted; ClusterIssuer cannot sign certificates |
+| **Remediation** | `fix-certificate-v1` workflow recreates the CA Secret |
 
 ## Signal Flow
 
@@ -50,17 +52,41 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `fix-certificate-v1-runner` |
 | ClusterRoleBinding | `fix-certificate-v1-runner` |
 
-**Permissions**: `cert-manager.io` certificates (get, list), `cert-manager.io` clusterissuers (get, list), core secrets (get, list, create, update, delete)
+**Permissions**:
 
-## Automated Run
+| API group | Resource | Verbs |
+|-----------|----------|-------|
+| `cert-manager.io` | certificates | get, list |
+| `cert-manager.io` | clusterissuers | get, list |
+| core | secrets | get, list, create, update, delete |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/cert-failure/run.sh
 ```
 
-## Manual Step-by-Step
+<details>
+<summary><strong>OCP</strong></summary>
 
-### 1. Install cert-manager (if not present)
+```bash
+export PLATFORM=ocp
+./scenarios/cert-failure/run.sh
+```
+
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Install cert-manager (if not present)
 
 cert-manager must be pre-installed before running this scenario. `setup-demo-cluster.sh`
 handles this automatically. For manual setup:
@@ -72,7 +98,7 @@ helm upgrade --install cert-manager jetstack/cert-manager \
   --set crds.enabled=true --wait --timeout 3m
 ```
 
-### 2. Generate CA and deploy scenario resources
+#### 2. Generate CA and deploy scenario resources
 
 ```bash
 # Generate self-signed CA (run.sh does this automatically)
@@ -92,7 +118,51 @@ kubectl apply -f scenarios/cert-failure/manifests/deployment.yaml
 kubectl apply -f scenarios/cert-failure/manifests/prometheus-rule.yaml
 ```
 
-### 3. Verify healthy state
+<details>
+<summary><strong>OCP</strong></summary>
+
+Label the `cert-manager` namespace so OCP Prometheus discovers its ServiceMonitors,
+and grant the `prometheus-k8s` SA read access to cert-manager endpoints:
+
+```bash
+kubectl label ns cert-manager openshift.io/cluster-monitoring=true --overwrite
+
+kubectl apply -f - <<'EOF'
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-k8s-cert-manager
+  namespace: cert-manager
+rules:
+  - apiGroups: [""]
+    resources: ["services", "endpoints", "pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-k8s-cert-manager
+  namespace: cert-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s-cert-manager
+subjects:
+  - kind: ServiceAccount
+    name: prometheus-k8s
+    namespace: openshift-monitoring
+EOF
+```
+
+Then deploy:
+
+```bash
+kubectl apply -k scenarios/cert-failure/overlays/ocp/
+```
+
+</details>
+
+#### 3. Verify healthy state
 
 ```bash
 kubectl get certificate -n demo-cert-failure
@@ -101,7 +171,7 @@ kubectl get pods -n demo-cert-failure
 # All pods should be Running
 ```
 
-### 4. Inject failure
+#### 4. Inject failure
 
 ```bash
 bash scenarios/cert-failure/inject-broken-issuer.sh
@@ -111,32 +181,41 @@ The script deletes the `demo-ca-key-pair` Secret in cert-manager namespace and t
 certificate re-issuance. cert-manager will fail to issue because the ClusterIssuer
 can no longer sign.
 
-### 5. Observe Certificate NotReady
+#### 5. Observe Certificate NotReady
 
 ```bash
 kubectl get certificate -n demo-cert-failure -w
 # Certificate status will show Ready=False
 ```
 
-### 6. Wait for alert and pipeline
+#### 6. Wait for alert and pipeline
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
+```bash
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+  amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
+```
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
+```
+
+</details>
 
 ```bash
 # Alert fires after 2 min of NotReady
-# Check: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 &
-#        then open http://localhost:9090/alerts
-
-# Query Alertmanager for active alerts
-# Kind:
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
-  amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
-# OCP:
-# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-#   amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
-
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
-### 7. Inspect AI Analysis
+#### 7. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -160,13 +239,21 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-### 8. Verify remediation
+#### 8. Verify remediation
 
 ```bash
 kubectl get certificate -n demo-cert-failure
 # Certificate should show Ready=True after workflow completes
 kubectl get secret demo-ca-key-pair -n cert-manager
 # CA Secret should exist (recreated by workflow)
+```
+
+#### 9. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

@@ -63,6 +63,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/remove-taint-job@sha256:55d1aae7f025637280730f092f19472db38e55c4584dba09b7b7ed3a9e2e1c63
+    serviceAccountName: remove-taint-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

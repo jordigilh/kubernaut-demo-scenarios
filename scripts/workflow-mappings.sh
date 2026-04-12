@@ -26,6 +26,6 @@ WORKFLOWS=(
     "statefulset-pvc-failure:fix-statefulset-pvc-job"
     "network-policy-block:fix-network-policy-job"
     "resource-contention:increase-memory-limits-job"
-    "memory-limits-gitops-ansible:increase-memory-limits-gitops-ansible"
     "disk-pressure-emptydir:migrate-emptydir-to-pvc-gitops"
+    "concurrent-cross-namespace:hotfix-config-job"
 )

@@ -933,7 +933,7 @@ elif [ "${PLATFORM:-kind}" = "ocp" ]; then
 else
     _MOUNTPOINT="/"
 fi
-_EXPR="predict_linear(node_filesystem_avail_bytes{mountpoint=\"${_MOUNTPOINT}\", instance=~\"${_INSTANCE_RE}\"}[3m], 1200) < 0"
+_EXPR="predict_linear(node_filesystem_avail_bytes{mountpoint=\"${_MOUNTPOINT}\", instance=~\"${_INSTANCE_RE}\"}[1m], 600) < 0"
 echo "  Patching PrometheusRule: mountpoint=${_MOUNTPOINT}, instance=~${_INSTANCE_RE}"
 kubectl get prometheusrule demo-diskpressure-rules -n "${NAMESPACE}" -o json \
   | python3 -c "
@@ -1051,20 +1051,13 @@ echo "==> Target node: ${NODE}"
 # ── Dynamic rate calculation based on node filesystem capacity ──────────
 # Get disk stats directly from the postgres pod (on the target node).
 #
-# PrometheusRule: predict_linear(v[3m], 1200) < 0 for 1m
-#   W=180s (window), H=1200s (horizon), F=60s (for clause)
-#   Desired margin = 480s (8 min -- enough for LLM ~2m + approve + AWX +
-#   pg_dump + ArgoCD sync + pg_restore)
+# PrometheusRule: predict_linear(v[1m], 600) < 0 for 15s
+#   W=60s (window), H=600s (horizon), F=15s (for clause)
+#   Desired margin = 300s (5 min -- enough for pg_dump + GitOps + restore)
 #
-# Two rate strategies:
-#   Case A (window-limited): write fast so the [3m] window is the
-#     bottleneck.  Alert fires at W+F=4 min regardless of disk size.
-#     R = usable / (W + F + margin)
-#     Feasible when R > avail / (W + H)
-#
-#   Case B (slope-limited): write at the minimum rate that yields the
-#     desired margin.  Slower but always feasible.
-#     R = threshold / (H - F - margin)
+# Strategy: fill fast enough for predict_linear to fire within ~75s
+# (W + F) but slow enough to leave ~6 min margin for the Ansible playbook.
+# R = usable / (W + F + margin) gives alert at ~75s with safe margin.
 #
 # We prefer Case A (faster) and fall back to Case B.
 
@@ -1088,33 +1081,19 @@ if [ "$USABLE_MB" -lt "$MIN_USABLE_MB" ]; then
     exit 1
 fi
 
-# W=180, H=1200, F=60, margin=480  (all in seconds)
+# W=60, H=600, F=15, margin=300  (all in seconds)
 # PostgreSQL disk amplification: ~2x (tuple headers, WAL, TOAST)
 PG_AMP=2
 
 RATE_MB_S=$(awk "BEGIN {
-    avail=${AVAIL_MB}; usable=${USABLE_MB}; threshold=${THRESHOLD_MB}
-    W=180; H=1200; F=60; margin=480
+    avail=${AVAIL_MB}; usable=${USABLE_MB}
+    W=60; H=600; F=15; margin=300
 
-    r_fast = usable / (W + F + margin)   # Case A
-    r_min  = avail / (W + H)             # min for prediction < 0 during window
-    r_slow = threshold / (H - F - margin) # Case B
-
-    if (r_fast > r_min) {
-        r = r_fast  # Case A: alert at W+F = 4 min
-    } else {
-        r = r_slow  # Case B: slower but safe
-    }
-    if (usable < 1024) {
-        if (r < 0.1) r = 0.1
-        if (r > 5) r = 5
-    } else if (usable < 10240) {
-        if (r < 1.5) r = 1.5
-        if (r > 5) r = 5
-    } else {
-        if (r < 5) r = 5
-        if (r > 60) r = 60
-    }
+    r = usable / (W + F + margin)
+    r_min = avail / (W + H)
+    if (r < r_min) r = r_min
+    if (r < 2) r = 2
+    if (r > 15) r = 15
     printf \"%.1f\", r
 }")
 
@@ -1124,11 +1103,11 @@ ITERATIONS=$(awk "BEGIN { print int(${USABLE_MB}*1024/${BATCH_SIZE})+1000 }")
 
 # Estimate timing (minutes)
 EST_ALERT_MIN=$(awk "BEGIN {
-    r=${RATE_MB_S}*60; W=3; H=20; F=1
-    t_slope = ${AVAIL_MB}/r - H + F
+    r=${RATE_MB_S}*60; W=1; H=10; F=0.25
     t_window = W + F
+    t_slope = ${AVAIL_MB}/r - H + F
     t = (t_slope > t_window) ? t_slope : t_window
-    printf \"%.0f\", t
+    printf \"%.1f\", t
 }")
 EST_EVICT_MIN=$(awk "BEGIN { printf \"%.0f\", ${USABLE_MB}/(${RATE_MB_S}*60) }")
 

@@ -96,9 +96,9 @@ If you already have a cluster, install the platform manually.
 >
 > | Operator | Required for |
 > |----------|-------------|
-> | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible) |
+> | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir) |
 > | OpenShift Service Mesh (OSSM) | mesh-routing-failure |
-> | AWX/AAP | disk-pressure-emptydir, memory-limits-gitops-ansible |
+> | AWX/AAP | disk-pressure-emptydir |
 >
 > **AWX/AAP setup:** After installing the AWX or AAP operator, run the helper script
 > to configure the controller, job templates, credentials (including Gitea for GitOps
@@ -192,7 +192,7 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
 > kubectl rollout status deployment/gateway -n kubernaut-system --timeout=5m
 > ```
 
-**Ansible-engine scenarios (disk-pressure-emptydir, memory-limits-gitops-ansible):** If you plan
+**Ansible-engine scenarios (disk-pressure-emptydir):** If you plan
 to run scenarios that use AWX/AAP, add the ansible engine values to your install command.
 Replace `<aap-or-awx-url>`, `<token-secret>`, and `<namespace>` with your actual values
 (the helper scripts from the prerequisites section configure these automatically):
@@ -324,8 +324,8 @@ but this matrix lets you plan ahead:
 
 | Infrastructure | Scenarios | Setup |
 |----------------|-----------|-------|
-| **Gitea + ArgoCD** | gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible | Option A: `--with-gitea --with-argocd`. Option B: see [Setup Guide](docs/setup.md). |
-| **AWX/AAP + Ansible engine** | disk-pressure-emptydir, memory-limits-gitops-ansible | `bash scripts/awx-helper.sh` (or `aap-helper.sh`). Configures operator, job templates, and WE controller Ansible engine. |
+| **Gitea + ArgoCD** | gitops-drift, cert-failure-gitops, disk-pressure-emptydir | Option A: `--with-gitea --with-argocd`. Option B: see [Setup Guide](docs/setup.md). |
+| **AWX/AAP + Ansible engine** | disk-pressure-emptydir | `bash scripts/awx-helper.sh` (or `aap-helper.sh`). Configures operator, job templates, and WE controller Ansible engine. |
 | **cert-manager** | cert-failure, cert-failure-gitops | OCP: `openshift-cert-manager-operator` from OperatorHub. Kind: installed by `setup-demo-cluster.sh`. |
 | **Istio / Service Mesh** | mesh-routing-failure | OCP: OpenShift Service Mesh (OSSM) from OperatorHub. Kind: `--with-istio`. |
 | **metrics-server** | autoscale, hpa-maxed | Built-in on OCP. Kind: installed by `setup-demo-cluster.sh`. |
@@ -342,7 +342,7 @@ statefulset-pvc-failure, stuck-rollout) require only the base Kubernaut platform
 | Guide | Description |
 |-------|-------------|
 | **[Setup Guide](docs/setup.md)** | Prerequisites, LLM providers (Vertex AI, Anthropic, OpenAI, local), bootstrap flags, Slack notifications |
-| **[Scenario Catalog](docs/scenarios.md)** | All 24 scenarios with alerts, fault injection, and remediation details |
+| **[Scenario Catalog](docs/scenarios.md)** | All 23 scenarios with alerts, fault injection, and remediation details |
 | **[Verification and Cleanup](docs/verification.md)** | Inspect pipeline status, monitoring, per-scenario cleanup, teardown |
 | **[Troubleshooting](docs/troubleshooting.md)** | Common issues and fixes |
 | **[Building Workflow Images](docs/building.md)** | For contributors rebuilding scenario OCI images |

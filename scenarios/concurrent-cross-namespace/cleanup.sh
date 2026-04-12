@@ -10,6 +10,14 @@ disable_prometheus_toolset || true
 
 echo "==> Cleaning up Concurrent Cross-Namespace demo..."
 
+# Remove scenario-specific workflow CRDs and RBAC (including stale restart-pods-v1)
+for _wf in hotfix-config-v1 restart-pods-v1 crashloop-rollback-risk-v1; do
+  kubectl delete remediationworkflow "$_wf" -n "${PLATFORM_NS}" --ignore-not-found 2>/dev/null || true
+  kubectl delete clusterrolebinding "${_wf}-runner" --ignore-not-found 2>/dev/null || true
+  kubectl delete clusterrole "${_wf}-runner" --ignore-not-found 2>/dev/null || true
+  kubectl delete serviceaccount "${_wf}-runner" -n "${WE_NAMESPACE:-kubernaut-workflows}" --ignore-not-found 2>/dev/null || true
+done
+
 for NS in demo-team-alpha demo-team-beta; do
   kubectl delete -f "${SCRIPT_DIR}/manifests/${NS#demo-}/prometheus-rule.yaml" --ignore-not-found 2>/dev/null || true
   kubectl delete namespace "${NS}" --ignore-not-found --wait=false

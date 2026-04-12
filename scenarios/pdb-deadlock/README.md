@@ -8,9 +8,11 @@ the replica count, leaving zero allowed disruptions and blocking all voluntary e
 When an SRE initiates `kubectl drain` for maintenance, the drain hangs indefinitely.
 Kubernaut detects the deadlock, relaxes the PDB, and the drain completes.
 
-**Detected label**: `pdbProtected: "true"` -- LLM context includes PDB configuration
-**Signal**: `KubePodDisruptionBudgetAtLimit` -- PDB at 0 allowed disruptions for >3 min
-**Remediation**: Patch PDB `minAvailable` from 2 to 1, unblocking the drain
+| | |
+|---|---|
+| **Detected label** | `pdbProtected: "true"` — LLM context includes PDB configuration |
+| **Signal** | `KubePodDisruptionBudgetAtLimit` — PDB at 0 allowed disruptions for >3 min |
+| **Remediation** | Patch PDB `minAvailable` from 2 to 1, unblocking the drain |
 
 ## Why This Scenario Matters
 
@@ -49,11 +51,23 @@ single-node validation as a future expansion.
 
 | Component | Requirement |
 |-----------|-------------|
-| Kind cluster | Multi-node with worker (`kind-config-multinode.yaml`) |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
+| Cluster | Kind (multi-node) or OCP with Kubernaut services deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `relax-pdb-v1` registered in DataStorage |
+
+### OCP-specific prerequisites
+
+The deployment uses `nodeSelector: kubernaut.ai/managed=true`. On OCP, label
+your worker nodes before running this scenario:
+
+```bash
+kubectl label node <worker-1> kubernaut.ai/managed=true
+kubectl label node <worker-2> kubernaut.ai/managed=true
+```
+
+At least two labeled workers are needed: one to drain, and one (or more) for
+pods to reschedule onto.
 
 ### Kind-specific prerequisites
 
@@ -92,29 +106,58 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `relax-pdb-v1-runner` |
 | ClusterRoleBinding | `relax-pdb-v1-runner` |
 
-**Permissions**: `policy` poddisruptionbudgets (get, list, patch)
+**Permissions**:
 
-## Automated Run
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| `policy` | poddisruptionbudgets | get, list, patch |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/pdb-deadlock/run.sh
 ```
 
-## Manual Step-by-Step
-
-### 1. Deploy the workload with restrictive PDB
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-# Kind
+export PLATFORM=ocp
+./scenarios/pdb-deadlock/run.sh
+```
+
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy the workload with restrictive PDB
+
+```bash
 kubectl apply -k scenarios/pdb-deadlock/manifests/
+```
 
-# OCP
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
 kubectl apply -k scenarios/pdb-deadlock/overlays/ocp
+```
 
+</details>
+
+```bash
 kubectl wait --for=condition=Available deployment/payment-service -n demo-pdb --timeout=120s
 ```
 
-### 2. Verify PDB state and pod placement
+#### 2. Verify PDB state and pod placement
 
 ```bash
 kubectl get pdb -n demo-pdb
@@ -123,13 +166,13 @@ kubectl get pods -n demo-pdb -o wide
 # Both pods should be on the worker node
 ```
 
-### 3. Drain the worker node (will be blocked by PDB)
+#### 3. Drain the worker node (will be blocked by PDB)
 
 ```bash
 bash scenarios/pdb-deadlock/inject-drain.sh
 ```
 
-### 4. Observe the deadlock
+#### 4. Observe the deadlock
 
 ```bash
 kubectl get nodes
@@ -138,24 +181,35 @@ kubectl get pods -n demo-pdb
 # All pods still Running on the worker (PDB blocks eviction)
 ```
 
-### 5. Wait for alert and pipeline
+#### 5. Wait for alert and pipeline
 
 The `KubePodDisruptionBudgetAtLimit` alert fires after 3 minutes at 0 allowed disruptions.
 
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
 ```bash
-# Query Alertmanager for active alerts
-# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubePodDisruptionBudgetAtLimit --alertmanager.url=http://localhost:9093
-
-# OCP
-kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-  amtool alert query alertname=KubePodDisruptionBudgetAtLimit --alertmanager.url=http://localhost:9093
-
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system -w
 ```
 
-### 6. Inspect AI Analysis
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubePodDisruptionBudgetAtLimit --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+```
+
+#### 6. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -187,7 +241,7 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 7. Verify remediation
+#### 7. Verify remediation
 
 ```bash
 kubectl get pdb -n demo-pdb
@@ -196,6 +250,14 @@ kubectl get nodes
 # Worker node drain should complete (SchedulingDisabled)
 kubectl get pods -n demo-pdb -o wide
 # Pods should be Running on the control-plane node
+```
+
+#### 8. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

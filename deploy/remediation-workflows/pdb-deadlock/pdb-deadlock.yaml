@@ -63,6 +63,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:03cc2412831d8a632d89bc6260f8faadd34398c17a3102e2b123dcea8f49f5ff
+    serviceAccountName: relax-pdb-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

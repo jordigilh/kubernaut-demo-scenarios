@@ -7,10 +7,12 @@ contextually remediate an HPA that has hit its `maxReplicas` ceiling during a
 traffic spike. The LLM knows an HPA exists and patches it to temporarily raise
 the ceiling, allowing the autoscaler to absorb the load.
 
-**Detected label**: `hpaEnabled: true` — LLM context includes HPA configuration
-**Signal**: `KubeHpaMaxedOut` — HPA at maxReplicas for >3 min
-**Root cause**: CPU utilization 4x above target with maxReplicas too low
-**Remediation**: Patch HPA to increase `maxReplicas` from 3 to 5
+| | |
+|---|---|
+| **Detected label** | `hpaEnabled: true` — LLM context includes HPA configuration |
+| **Signal** | `KubeHpaMaxedOut` — HPA at maxReplicas for >3 min |
+| **Root cause** | CPU utilization 4x above target with maxReplicas too low |
+| **Remediation** | Patch HPA to increase `maxReplicas` from 3 to 5 |
 
 ## Signal Flow
 
@@ -37,7 +39,6 @@ CPU stress → HPA scales to maxReplicas (3) → can't scale further
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics scraping |
 | metrics-server | Required for HPA CPU metrics (built-in on OCP) |
@@ -56,9 +57,22 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `patch-hpa-v1-runner` |
 | ClusterRoleBinding | `patch-hpa-v1-runner` |
 
-**Permissions**: `autoscaling` horizontalpodautoscalers (get, list, patch), `apps` deployments (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resources | Verbs |
+|-----------|-----------|-------|
+| `autoscaling` | horizontalpodautoscalers | get, list, patch |
+| `apps` | deployments | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/hpa-maxed/run.sh
@@ -68,17 +82,36 @@ Options:
 - `--interactive` — pause at approval step for manual approval
 - `--no-validate` — skip the validation pipeline (deploy + inject only)
 
-## Manual Step-by-Step
-
-### 1. Deploy the workload with HPA
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-# Kind
+export PLATFORM=ocp
+./scenarios/hpa-maxed/run.sh
+```
+
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy the workload with HPA
+
+```bash
 kubectl apply -k scenarios/hpa-maxed/manifests/
+```
 
-# OCP (uses nginx-unprivileged on port 8080)
+On OCP, apply the overlay (nginx-unprivileged on port 8080):
+
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
 kubectl apply -k scenarios/hpa-maxed/overlays/ocp/
+```
 
+</details>
+
+```bash
 kubectl wait --for=condition=Available deployment/api-frontend -n demo-hpa --timeout=120s
 ```
 
@@ -86,7 +119,7 @@ This creates a 2-replica `api-frontend` Deployment with:
 - CPU request: 50m / limit: 100m
 - HPA targeting 50% CPU utilization, minReplicas=2, maxReplicas=3
 
-### 2. Verify HPA
+#### 2. Verify HPA
 
 ```bash
 kubectl get hpa -n demo-hpa
@@ -94,7 +127,7 @@ kubectl get hpa -n demo-hpa
 # api-frontend   Deployment/api-frontend   cpu: <low>/50%   2         3         2
 ```
 
-### 3. Inject CPU load
+#### 3. Inject CPU load
 
 ```bash
 bash scenarios/hpa-maxed/inject-load.sh
@@ -103,7 +136,7 @@ bash scenarios/hpa-maxed/inject-load.sh
 The script runs `yes > /dev/null` inside each pod (3 processes per pod) to saturate
 CPU. When HPA scales to 3 replicas, the script re-stresses the new pod.
 
-### 4. Watch HPA scale to ceiling
+#### 4. Watch HPA scale to ceiling
 
 ```bash
 kubectl get hpa -n demo-hpa -w
@@ -111,24 +144,35 @@ kubectl get hpa -n demo-hpa -w
 # CPU utilization remains high (200%+ of target)
 ```
 
-### 5. Wait for alert
+#### 5. Wait for alert
 
 The `KubeHpaMaxedOut` alert fires when `currentReplicas == maxReplicas` for 3 minutes.
 Typical time from injection: ~5 min on Kind, ~3-5 min on OCP.
 
-### 6. Monitor the pipeline
+#### 6. Monitor the pipeline
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
 
 ```bash
-# Query Alertmanager for active alerts
-# Kind
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubeHpaMaxedOut --alertmanager.url=http://localhost:9093
+```
 
-# OCP
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
 kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
   amtool alert query alertname=KubeHpaMaxedOut --alertmanager.url=http://localhost:9093
+```
 
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:
@@ -138,7 +182,7 @@ The LLM will:
 4. Select `PatchHPA` workflow with `NEW_MAX_REPLICAS=5`
 5. Auto-approve (warning severity, policy does not require manual review)
 
-### 7. Inspect AI Analysis
+#### 7. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -162,7 +206,7 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-### 8. Verify remediation
+#### 8. Verify remediation
 
 After the workflow execution completes:
 
@@ -177,6 +221,14 @@ kubectl get pods -n demo-hpa
 
 The `validate.sh` script kills the CPU stress processes during the Verifying phase,
 allowing HPA to naturally scale back down and the alert to resolve.
+
+#### 9. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
+```
 
 ## Cleanup
 

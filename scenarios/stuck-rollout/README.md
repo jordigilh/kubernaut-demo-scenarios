@@ -12,9 +12,11 @@ both `RollbackDeployment` (confidence 0.95) and an alternative `CrashLoopRollbac
 workflow (confidence 0.75), correctly preferring the former because the pods are in
 `ImagePullBackOff`, not `CrashLoopBackOff`.
 
-**Signal**: `KubeDeploymentRolloutStuck` — Progressing condition is False for >1 min
-**Root cause**: Non-existent image tag `quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist`
-**Remediation**: `kubectl rollout undo` restores previous working revision
+| | |
+|---|---|
+| **Signal** | `KubeDeploymentRolloutStuck` — Progressing condition is False for >1 min |
+| **Root cause** | Non-existent image tag `quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist` |
+| **Remediation** | `kubectl rollout undo` restores previous working revision |
 
 ## Signal Flow
 
@@ -28,7 +30,7 @@ kube_deployment_status_condition{condition="Progressing",status="false"} == 1
     → Contributing factors: invalid tag, config error in spec, rolling update blocking
     → Selected: RollbackDeployment (confidence 0.95)
     → Alternative considered: CrashLoopRollback (0.75, rejected — wrong failure mode)
-    → Approval: required (production environment, critical severity)
+    → Approval: may be required (production environment, critical severity)
   → WorkflowExecution: kubectl rollout undo deployment/checkout-api
   → Effectiveness Monitor: healthScore=1 (all 3 replicas Running)
 ```
@@ -38,7 +40,6 @@ kube_deployment_status_condition{condition="Progressing",status="false"} == 1
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| Kubernaut services | Gateway, SP, AA, RO, WE, EM deployed |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `rollback-deployment-v1` registered in DataStorage |
@@ -55,9 +56,23 @@ scoped permissions (created automatically when workflows are seeded via
 | ClusterRole | `rollback-deployment-v1-runner` |
 | ClusterRoleBinding | `rollback-deployment-v1-runner` |
 
-**Permissions**: `apps` deployments (get, list, patch, update), `apps` replicasets (get, list), core pods (get, list)
+**Permissions**:
 
-## Automated Run
+| API group | Resource | Verbs |
+|-----------|----------|-------|
+| `apps` | deployments | get, list, patch, update |
+| `apps` | replicasets | get, list |
+| core | pods | get, list |
+
+## Running the Scenario
+
+> [!TIP]
+> **OCP users**: This walkthrough defaults to Kind. Look for the **OCP** dropdowns
+> on steps that differ. For automated runs, prefix with `export PLATFORM=ocp`.
+>
+> **Time estimate**: ~10 min (Kind) · ~15 min (OCP)
+
+### Automated Run
 
 ```bash
 ./scenarios/stuck-rollout/run.sh
@@ -67,25 +82,43 @@ Options:
 - `--interactive` — pause at approval step for manual approval
 - `--no-validate` — skip the validation pipeline (deploy + inject only)
 
-## Manual Step-by-Step
-
-### 1. Deploy the workload
+<details>
+<summary><strong>OCP</strong></summary>
 
 ```bash
-# Kind
-kubectl apply -k scenarios/stuck-rollout/manifests/
+export PLATFORM=ocp
+./scenarios/stuck-rollout/run.sh
+```
 
-# OCP
-kubectl apply -k scenarios/stuck-rollout/overlays/ocp
+</details>
+
+### Manual Step-by-Step
+
+#### 1. Deploy the workload
+
+```bash
+kubectl apply -k scenarios/stuck-rollout/manifests/
 
 kubectl wait --for=condition=Available deployment/checkout-api \
   -n demo-rollout --timeout=120s
 ```
 
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl apply -k scenarios/stuck-rollout/overlays/ocp/
+
+kubectl wait --for=condition=Available deployment/checkout-api \
+  -n demo-rollout --timeout=120s
+```
+
+</details>
+
 This creates a 3-replica `checkout-api` Deployment running `quay.io/kubernaut-cicd/demo-http-server:1.0.0`,
 a Service, and a PrometheusRule.
 
-### 2. Verify healthy state
+#### 2. Verify healthy state
 
 ```bash
 kubectl get pods -n demo-rollout
@@ -95,11 +128,11 @@ kubectl get pods -n demo-rollout
 # checkout-api-84b5c88cd4-qxjvx   1/1     Running   0          6s
 ```
 
-### 3. Establish baseline (15 s)
+#### 3. Establish baseline (15 s)
 
 Wait briefly for Prometheus to capture the healthy state before fault injection.
 
-### 4. Inject bad image
+#### 4. Inject bad image
 
 ```bash
 bash scenarios/stuck-rollout/inject-bad-image.sh
@@ -117,7 +150,7 @@ kubectl get pods -n demo-rollout
 # checkout-api-xxxxxxxxxx-yyyyy   0/1     ImagePullBackOff    0          30s
 ```
 
-### 5. Wait for alert
+#### 5. Wait for alert
 
 The `KubeDeploymentRolloutStuck` alert requires two conditions:
 1. `progressDeadlineSeconds` exceeded (120 s) — Kubernetes sets `Progressing=False`
@@ -130,18 +163,43 @@ kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:909
 # open http://localhost:9090/alerts
 ```
 
-### 6. Monitor the pipeline
+<details>
+<summary><strong>OCP</strong></summary>
+
+On OCP, Prometheus is exposed via a Route. Open the **Observe → Alerting** page in
+the OpenShift console, or port-forward to `thanos-querier`:
 
 ```bash
-# Query Alertmanager for active alerts
-# Kind:
+kubectl port-forward -n openshift-monitoring svc/thanos-querier 9090:9091
+# open http://localhost:9090
+```
+
+</details>
+
+#### 6. Monitor the pipeline
+
+> [!NOTE]
+> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
+> due to the default 30s kube-state-metrics scrape interval and Alertmanager
+> group_wait settings.
+
+```bash
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
   amtool alert query alertname=KubeDeploymentRolloutStuck --alertmanager.url=http://localhost:9093
-# OCP:
-# kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
-#   amtool alert query alertname=KubeDeploymentRolloutStuck --alertmanager.url=http://localhost:9093
+```
 
-kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
+<details>
+<summary><strong>OCP</strong></summary>
+
+```bash
+kubectl exec -n openshift-monitoring alertmanager-main-0 -- \
+  amtool alert query alertname=KubeDeploymentRolloutStuck --alertmanager.url=http://localhost:9093
+```
+
+</details>
+
+```bash
+watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:
@@ -151,7 +209,7 @@ The LLM will:
 4. Select `RollbackDeployment` (confidence 0.95) over `CrashLoopRollback` (0.75)
 5. Request human approval (critical severity in production)
 
-### 7. Inspect AI Analysis
+#### 7. Inspect AI Analysis
 
 ```bash
 # Get the latest AIA resource
@@ -183,15 +241,30 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-### 8. Approve and verify remediation
+#### 8. Approve (if required) and verify remediation
+
+> [!NOTE]
+> The LLM may or may not request human approval depending on its confidence and
+> the assessed risk. Check the AIA output above: if `Approval: true`, a
+> `RemediationApprovalRequest` (RAR) will be created and the pipeline pauses
+> until you approve it. If `Approval: false`, the pipeline continues
+> automatically and you can skip the approval step below.
 
 ```bash
-# Approve the RAR
+# Check whether approval is pending
 kubectl get rar -n kubernaut-system
+```
+
+If a RAR exists, approve it:
+
+```bash
 kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=status \
   -p '{"status":{"decision":"Approved","decidedBy":"human"}}'
+```
 
-# After approval:
+Verify remediation:
+
+```bash
 kubectl get pods -n demo-rollout
 # All 3 replicas Running with quay.io/kubernaut-cicd/demo-http-server:1.0.0 (no ImagePullBackOff pods)
 
@@ -199,6 +272,14 @@ kubectl rollout history deployment/checkout-api -n demo-rollout
 # REVISION  CHANGE-CAUSE
 # 2         <none>        (bad image)
 # 3         <none>        (rollback to revision 1)
+```
+
+#### 9. View notifications
+
+```bash
+kubectl get notif -n kubernaut-system --sort-by=.metadata.creationTimestamp
+NOTIF=$(kubectl get notif -n kubernaut-system -o name --sort-by=.metadata.creationTimestamp | tail -1)
+kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ```
 
 ## Cleanup

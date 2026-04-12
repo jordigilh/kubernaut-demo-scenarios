@@ -8,14 +8,6 @@ resources:
   - istio-service.yaml
   - istio-servicemonitor.yaml
 patches:
-  # Category A: Namespace label for OCP cluster monitoring
-  - target:
-      kind: Namespace
-      name: demo-mesh-failure
-    patch: |
-      - op: add
-        path: /metadata/labels/openshift.io~1cluster-monitoring
-        value: "true"
   # Remove the base PodMonitor — replaced by ServiceMonitor above.
   # OSSM 3 native sidecars (init containers) don't expose named ports that
   # PodMonitor can discover.

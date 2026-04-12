@@ -63,6 +63,7 @@ spec:
   execution:
     engine: job
     bundle: quay.io/kubernaut-cicd/test-workflows/cleanup-pvc-job@sha256:4d207e41af564b683e13b6e759aba6ccd9fbf7509134644f01251351d5028d5b
+    serviceAccountName: cleanup-pvc-v1-runner
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

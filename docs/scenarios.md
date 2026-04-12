@@ -2,7 +2,7 @@
 
 # Scenario Catalog
 
-24 scenarios are available, organized by category. Each scenario deploys into its own namespace and can be run independently.
+23 scenarios are available, organized by category. Each scenario deploys into its own namespace and can be run independently.
 
 For the formal specification of scenario structure, deliverables, and authoring guidelines, see [BR-PLATFORM-002: Demo Scenario Specification](https://github.com/jordigilh/kubernaut/blob/main/docs/requirements/BR-PLATFORM-002-demo-scenario-specification.md).
 
@@ -25,8 +25,8 @@ Some scenarios require additional components beyond the base platform. All depen
 | [**Istio**](https://istio.io/latest/docs/setup/getting-started/) | mesh-routing-failure | Service mesh control plane |
 | [**blackbox-exporter**](https://github.com/prometheus/blackbox_exporter) | slo-burn | HTTP probe metrics (probe_success) |
 | [**Helm CLI**](https://helm.sh/docs/intro/install/) | crashloop-helm | Helm-managed release rollback |
-| [**ArgoCD**](https://argo-cd.readthedocs.io/en/stable/getting_started/) + [**Gitea**](https://gitea.io/) | gitops-drift, cert-failure-gitops, disk-pressure-emptydir, memory-limits-gitops-ansible | GitOps delivery + Git repository |
-| [**AWX/AAP**](https://ansible.readthedocs.io/projects/awx-operator/en/latest/) | disk-pressure-emptydir, memory-limits-gitops-ansible | Ansible automation (AWX recommended; AAP supported with license) |
+| [**ArgoCD**](https://argo-cd.readthedocs.io/en/stable/getting_started/) + [**Gitea**](https://gitea.io/) | gitops-drift, cert-failure-gitops, disk-pressure-emptydir | GitOps delivery + Git repository |
+| [**AWX/AAP**](https://ansible.readthedocs.io/projects/awx-operator/en/latest/) | disk-pressure-emptydir | Ansible automation (AWX recommended; AAP supported with license) |
 
 Each scenario's `README.md` lists its specific prerequisites.
 
@@ -99,10 +99,3 @@ The **Environment** column indicates which platforms each scenario supports:
 | [**concurrent-cross-namespace**](../scenarios/concurrent-cross-namespace/) | `KubePodCrashLooping` (x2) | Bad config in two namespaces | Concurrent pipelines with cross-namespace rego policy | Both |
 | [**resource-contention**](../scenarios/resource-contention/) | `OOMKilled` | External actor reverts remediation | Detects ineffective chain via spec drift, escalates to human review | Both |
 
-## Unvalidated
-
-These scenarios have scaffolding (manifests, run.sh, workflow) but have **not been validated end-to-end** on any platform. Do not rely on them until they are promoted to a category above.
-
-| Scenario | Signal / Alert | Fault Injection | Remediation | Blocker | Environment |
-|----------|---------------|-----------------|-------------|---------|-------------|
-| [**memory-limits-gitops-ansible**](../scenarios/memory-limits-gitops-ansible/) | `ContainerOOMKilling` | OOMKill on GitOps-managed deployment | Ansible/AWX updates limits in Git, ArgoCD syncs | Requires ArgoCD + AWX; not tested on Kind or OCP ([PR #341 tracker](https://github.com/jordigilh/kubernaut/pull/341)) | OCP |
