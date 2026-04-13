@@ -151,7 +151,7 @@ kubectl describe quota -n demo-quota
 > **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
 
 ```bash
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=KubeResourceQuotaExhausted --alertmanager.url=http://localhost:9093
 ```
 
@@ -210,20 +210,20 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Deployment cannot scale because namespace ResourceQuota CPU/memory limits are exhausted. New pods fail to schedule with "exceeded quota" errors. |
+| **Root Cause** | Deployment cannot scale because namespace ResourceQuota CPU/memory limits are exhausted. New pods fail at admission with FailedCreate events (never reach Pending). |
 | **Severity** | high |
 | **Target Resource** | ResourceQuota/demo-quota (ns: demo-quota) |
-| **Workflow Selected** | adjust-resource-quota-v1 |
+| **Workflow Selected** | ManualReviewRequired (no matching workflow) |
 | **Confidence** | 0.85–0.95 |
-| **Approval** | required (production environment) |
+| **Approval** | n/a — escalated to ManualReviewRequired before approval gate |
 
 **Key Reasoning Chain:**
 
-1. Detects pods in Pending state with quota exceeded events.
-2. Identifies ResourceQuota as the constraint preventing scheduling.
-3. Selects quota adjustment workflow to increase limits.
+1. Detects ReplicaSet desired > ready with FailedCreate events due to quota rejection.
+2. Identifies ResourceQuota as the constraint preventing pod creation.
+3. No registered workflow can adjust namespace quotas, so the pipeline escalates to ManualReviewRequired.
 
-> **Why this matters**: Demonstrates the LLM identifying infrastructure quota constraints as the root cause of scheduling failures, rather than blaming the workload.
+> **Why this matters**: Demonstrates the LLM correctly identifying infrastructure quota constraints as the root cause, and the platform gracefully escalating when no automated remediation is available.
 
 #### 8. View notifications
 

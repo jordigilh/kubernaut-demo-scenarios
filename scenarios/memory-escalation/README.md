@@ -202,7 +202,7 @@ The `ContainerOOMKilling` alert fires after 30 s. The full pipeline completes in
 > group_wait settings.
 
 ```bash
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=ContainerOOMKilling --alertmanager.url=http://localhost:9093
 ```
 

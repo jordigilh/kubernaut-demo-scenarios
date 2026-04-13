@@ -249,9 +249,9 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | Pod worker-7667c7d4f7-h6tzh is in CrashLoopBackOff due to an invalid nginx configuration directive in the mounted ConfigMap worker-config. The nginx container fails to start with exit code 1, preventing the deployment rollout from completing. |
 | **Severity** | critical |
-| **Target Resource** | Deployment/web-frontend (ns: demo-crashloop-helm) |
+| **Target Resource** | Deployment/worker (ns: demo-crashloop-helm) |
 | **Workflow Selected** | helm-rollback-v1 |
-| **Confidence** | 0.85 |
+| **Confidence** | 0.85–0.98 |
 | **Approval** | required (production environment) |
 
 **Key Reasoning Chain:**
