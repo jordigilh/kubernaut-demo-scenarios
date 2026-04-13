@@ -48,6 +48,8 @@ if [ -n "${ORIGINAL_B64}" ]; then
 fi
 kubectl rollout restart deployment/signalprocessing-controller -n "${PLATFORM_NS}" 2>/dev/null || true
 
+restore_production_approval || true
+
 restart_alertmanager
 
 echo "==> Cleanup complete."

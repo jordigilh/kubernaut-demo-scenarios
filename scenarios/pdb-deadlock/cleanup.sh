@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 disable_prometheus_toolset || true
+restore_production_approval || true
 
 echo "==> Cleaning up PDB Deadlock demo..."
 
