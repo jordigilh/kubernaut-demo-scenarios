@@ -244,6 +244,27 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Istio AuthorizationPolicy 'deny-all-traffic' is blocking all traffic in demo-mesh-failure namespace, causing 100% deny rate with HTTP 403 responses. |
+| **Severity** | critical |
+| **Target Resource** | AuthorizationPolicy/deny-all-traffic (ns: demo-mesh-failure) |
+| **Workflow Selected** | fix-authz-policy-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | not required (staging, high confidence) |
+
+**Key Reasoning Chain:**
+
+1. Detects IstioHighDenyRate alert from elevated RBAC deny metrics.
+2. Identifies restrictive AuthorizationPolicy as the cause.
+3. Selects authorization policy fix to restore service mesh routing.
+
+> **Why this matters**: Demonstrates the LLM understanding Istio service mesh concepts and tracing traffic failures to AuthorizationPolicy misconfigurations rather than application-level issues.
+
 #### 8. Verify remediation
 
 ```bash

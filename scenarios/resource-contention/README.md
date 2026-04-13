@@ -205,6 +205,27 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Container memory limit (64Mi) is insufficient for the stress test workload that allocates exactly 64MB of memory, causing immediate OOMKill events and CrashLoopBackOff. |
+| **Severity** | high |
+| **Target Resource** | Deployment/contention-app (ns: demo-resource-contention) |
+| **Workflow Selected** | increase-memory-limits-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | not required (staging, high confidence) |
+
+**Key Reasoning Chain:**
+
+1. Detects KubePodNotScheduled events with insufficient resource messages.
+2. Analyzes node resource availability vs. pod requests.
+3. Selects resource adjustment or descheduling to free capacity.
+
+> **Why this matters**: Shows the LLM analyzing cluster-wide resource pressure and selecting appropriate capacity management workflows.
+
 #### 7. Watch external actor revert + subsequent cycles
 
 ```bash

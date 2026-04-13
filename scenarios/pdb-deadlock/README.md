@@ -13,6 +13,7 @@ Kubernaut detects the deadlock, relaxes the PDB, and the drain completes.
 | **Detected label** | `pdbProtected: "true"` — LLM context includes PDB configuration |
 | **Signal** | `KubePodDisruptionBudgetAtLimit` — PDB at 0 allowed disruptions for >3 min |
 | **Remediation** | Patch PDB `minAvailable` from 2 to 1, unblocking the drain |
+| **Approval** | **Required** — production environment (`run.sh` enforces deterministic approval) |
 
 ## Why This Scenario Matters
 
@@ -191,7 +192,7 @@ The `KubePodDisruptionBudgetAtLimit` alert fires after 3 minutes at 0 allowed di
 > group_wait settings.
 
 ```bash
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=KubePodDisruptionBudgetAtLimit --alertmanager.url=http://localhost:9093
 ```
 
@@ -240,6 +241,28 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 '; echo
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | PodDisruptionBudget payment-service-pdb is configured with minAvailable=2, matching the exact replica count of the payment-service deployment (2 pods). This creates disruptionsAllowed=0, meaning no voluntary disruptions can proceed. |
+| **Severity** | critical |
+| **Target Resource** | PodDisruptionBudget/payment-service-pdb (ns: demo-pdb) |
+| **Workflow Selected** | relax-pdb-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | required (production environment) |
+
+**Key Reasoning Chain:**
+
+1. Observes deployment replica mismatch between desired and available.
+2. Identifies PDB with minAvailable blocking eviction of old pods.
+3. Recognizes this as a PDB deadlock, not a resource or config issue.
+4. Selects PDB patch to temporarily allow rollout to proceed.
+
+> **Why this matters**: Shows the LLM reasoning beyond surface-level pod failures to identify infrastructure constraints (PDB) as the root cause.
 
 #### 7. Verify remediation
 

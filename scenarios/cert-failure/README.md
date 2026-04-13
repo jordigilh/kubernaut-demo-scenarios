@@ -196,7 +196,7 @@ kubectl get certificate -n demo-cert-failure -w
 > group_wait settings.
 
 ```bash
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=CertManagerCertNotReady --alertmanager.url=http://localhost:9093
 ```
 
@@ -238,6 +238,28 @@ Rationale:   {.status.selectedWorkflow.rationale}
 # Alternative workflows considered
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | The CertManagerCertNotReady alert is caused by a missing CA Secret 'demo-ca-key-pair' that the ClusterIssuer requires to sign certificates. The ClusterIssuer cannot initialize properly without this secret, preventing certificate issuance. |
+| **Severity** | critical |
+| **Target Resource** | Certificate/demo-app-cert (ns: demo-cert-failure) |
+| **Workflow Selected** | fix-certificate-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | not required (staging, high confidence) |
+
+**Key Reasoning Chain:**
+
+1. Detects CertManagerCertNotReady alert.
+2. Traces certificate failure to ClusterIssuer configuration.
+3. Identifies the specific problem: CA Secret reference doesn't exist.
+4. Selects direct certificate fix workflow.
+
+> **Why this matters**: Shows the LLM tracing certificate issuance failures through the cert-manager trust chain (Certificate → ClusterIssuer → CA Secret).
 
 #### 8. Verify remediation
 

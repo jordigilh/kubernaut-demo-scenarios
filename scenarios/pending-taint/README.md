@@ -16,7 +16,7 @@ investigates, identifies the taint as the root cause, and removes it.
 
 | Component | Requirement |
 |-----------|-------------|
-| Kind cluster | Multi-node with `kubernaut.ai/demo-taint-target=true` label on one worker |
+| Kind cluster | Multi-node (the inject script auto-labels a worker with `kubernaut.ai/demo-taint-target=true` if no node has it) |
 | LLM backend | Real LLM (not mock) via HAPI |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `remove-taint-v1` registered in DataStorage |
@@ -68,8 +68,8 @@ export PLATFORM=ocp
 
 #### 1. Apply taint and deploy workload
 
-First, apply the maintenance taint to the designated worker node (the node must
-already have the `kubernaut.ai/demo-taint-target=true` label):
+First, apply the maintenance taint to a worker node. The inject script auto-labels
+a worker with `kubernaut.ai/demo-taint-target=true` if no node has the label yet:
 
 ```bash
 bash scenarios/pending-taint/inject-taint.sh
@@ -106,7 +106,7 @@ After the `KubePodNotScheduled` alert fires (~3 min), watch Kubernaut resources:
 ```bash
 # Query Alertmanager for active alerts
 
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=KubePodNotScheduled --alertmanager.url=http://localhost:9093
 ```
 
@@ -155,6 +155,27 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 '; echo
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Pod cannot be scheduled because the only node matching its node selector has a maintenance taint (maintenance=scheduled:NoSchedule) that prevents scheduling. |
+| **Severity** | high |
+| **Target Resource** | Node/kubernaut-demo-worker (ns: ) |
+| **Workflow Selected** | remove-taint-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | required (sensitive resource kind: Node) |
+
+**Key Reasoning Chain:**
+
+1. Detects Pending pod with unmet scheduling constraints.
+2. Identifies NoSchedule taint on the target node preventing scheduling.
+3. Selects taint removal as the appropriate remediation.
+
+> **Why this matters**: Demonstrates the LLM's ability to analyze scheduling constraints and identify node-level taints as the root cause of pod scheduling failures.
 
 #### 4. Approve the RAR (when using `--interactive`)
 

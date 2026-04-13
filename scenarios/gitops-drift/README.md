@@ -369,6 +369,28 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Pod web-frontend is in CrashLoopBackOff due to an invalid configuration directive 'invalid_directive: true' in the app-config ConfigMap. The demo-http-server application detects this invalid directive and exits with error code 1, causing continuous restart failures. |
+| **Severity** | high |
+| **Target Resource** | Deployment/web-frontend (ns: demo-gitops) |
+| **Workflow Selected** | git-revert-v2 |
+| **Confidence** | 0.90 |
+| **Approval** | not required (staging, high confidence) |
+
+**Key Reasoning Chain:**
+
+1. Detects CrashLoopBackOff with config parse error in logs.
+2. Traces crash to ConfigMap `app-config` with invalid directive.
+3. Detects ArgoCD annotations identifying this as a GitOps-managed environment.
+4. Selects `git-revert` over `kubectl rollback` because direct cluster changes would be overwritten by ArgoCD sync.
+
+> **Why this matters**: Shows the LLM's critical ability to detect GitOps management (ArgoCD) and select the correct remediation path — reverting the git commit rather than directly rolling back the Kubernetes resource.
+
 #### 8. Verify Remediation
 
 ```bash

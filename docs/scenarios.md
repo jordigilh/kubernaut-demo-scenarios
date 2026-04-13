@@ -41,61 +41,71 @@ The **Environment** column indicates which platforms each scenario supports:
 | **Kind** | Runs only on Kind (Linux and macOS) |
 | **Kind (macOS)** | Runs only on Kind under macOS; Linux bare-metal Kind hits gateway payload limits due to high host memory |
 
+## Approval Legend
+
+The **Approval** column indicates whether the scenario enforces a manual approval gate before remediation executes. This makes the scenario deterministic regardless of LLM confidence.
+
+| Value | Meaning |
+|-------|---------|
+| **Production** | `run.sh` patches the Rego policy so production environments *always* require manual approval (confidence-independent). Restored by `cleanup.sh`. |
+| **Sensitive** | Approval is triggered by the default Rego rule `is_sensitive_resource` (Node, StatefulSet). No policy patch needed. |
+| — | Auto-approved (staging or non-sensitive resource). |
+
 ## Workload Health
 
-| Scenario | Signal / Alert | Fault Injection | Remediation | Environment |
-|----------|---------------|-----------------|-------------|-------------|
-| [**crashloop**](../scenarios/crashloop/) | `KubePodCrashLooping` | Bad config causes restarts >3 in 10m | Rollback to last working revision | Both |
-| [**crashloop-helm**](../scenarios/crashloop-helm/) | `KubePodCrashLooping` | CrashLoop on Helm-managed release | `helm rollback` to previous revision | Both |
-| [**memory-leak**](../scenarios/memory-leak/) | `ContainerMemoryExhaustionPredicted` | Linear memory growth predicted to OOM | Graceful restart (rolling) | Both |
-| [**stuck-rollout**](../scenarios/stuck-rollout/) | `KubeDeploymentRolloutStuck` | Non-existent image tag | `kubectl rollout undo` | Both |
-| [**slo-burn**](../scenarios/slo-burn/) | `ErrorBudgetBurn` | Blackbox probe error rate >1.44% | Proactive rollback | Both |
-| [**memory-escalation**](../scenarios/memory-escalation/) | `ContainerMemoryHigh` | Memory usage exceeds threshold | Increase memory limits | Both |
+| Scenario | Signal / Alert | Fault Injection | Remediation | Approval | Environment |
+|----------|---------------|-----------------|-------------|----------|-------------|
+| [**crashloop**](../scenarios/crashloop/) | `KubePodCrashLooping` | Bad config causes restarts >3 in 10m | Rollback to last working revision | Production | Both |
+| [**crashloop-helm**](../scenarios/crashloop-helm/) | `KubePodCrashLooping` | CrashLoop on Helm-managed release | `helm rollback` to previous revision | Production | Both |
+| [**memory-leak**](../scenarios/memory-leak/) | `ContainerMemoryExhaustionPredicted` | Linear memory growth predicted to OOM | Graceful restart (rolling) | — | Both |
+| [**stuck-rollout**](../scenarios/stuck-rollout/) | `KubeDeploymentRolloutStuck` | Non-existent image tag | `kubectl rollout undo` | Production | Both |
+| [**slo-burn**](../scenarios/slo-burn/) | `ErrorBudgetBurn` | Blackbox probe error rate >1.44% | Proactive rollback | Production | Both |
+| [**memory-escalation**](../scenarios/memory-escalation/) | `ContainerMemoryHigh` | Memory usage exceeds threshold | Increase memory limits | Production | Both |
 
 ## Autoscaling and Resources
 
-| Scenario | Signal / Alert | Fault Injection | Remediation | Environment |
-|----------|---------------|-----------------|-------------|-------------|
-| [**hpa-maxed**](../scenarios/hpa-maxed/) | `KubeHpaMaxedOut` | CPU load drives HPA to ceiling | Patch `maxReplicas` +2 | Both |
-| [**pdb-deadlock**](../scenarios/pdb-deadlock/) | `KubePodDisruptionBudgetAtLimit` | PDB blocks all disruptions | Relax PDB `minAvailable` | Both |
-| [**autoscale**](../scenarios/autoscale/) | `KubePodSchedulingFailed` | Pods Pending (resource exhaustion) | Provision additional node | Kind (macOS) |
+| Scenario | Signal / Alert | Fault Injection | Remediation | Approval | Environment |
+|----------|---------------|-----------------|-------------|----------|-------------|
+| [**hpa-maxed**](../scenarios/hpa-maxed/) | `KubeHpaMaxedOut` | CPU load drives HPA to ceiling | Patch `maxReplicas` +2 | — | Both |
+| [**pdb-deadlock**](../scenarios/pdb-deadlock/) | `KubePodDisruptionBudgetAtLimit` | PDB blocks all disruptions | Relax PDB `minAvailable` | Production | Both |
+| [**autoscale**](../scenarios/autoscale/) | `KubePodSchedulingFailed` | Pods Pending (resource exhaustion) | Provision additional node | — | Kind (macOS) |
 
 ## Infrastructure
 
-| Scenario | Signal / Alert | Fault Injection | Remediation | Environment |
-|----------|---------------|-----------------|-------------|-------------|
-| [**pending-taint**](../scenarios/pending-taint/) | `KubePodNotScheduled` | NoSchedule taint on node | Remove taint | Both |
-| [**node-notready**](../scenarios/node-notready/) | `KubeNodeNotReady` | Node failure simulation | Cordon + drain node | Kind |
-| [**orphaned-pvc-no-action**](../scenarios/orphaned-pvc-no-action/) | `KubePersistentVolumeClaimOrphaned` | Orphaned PVCs accumulate | No action (no workflow seeded) | Both |
-| [**statefulset-pvc-failure**](../scenarios/statefulset-pvc-failure/) | `KubeStatefulSetReplicasMismatch` | PVC binding failure | Fix StatefulSet PVC | Both |
+| Scenario | Signal / Alert | Fault Injection | Remediation | Approval | Environment |
+|----------|---------------|-----------------|-------------|----------|-------------|
+| [**pending-taint**](../scenarios/pending-taint/) | `KubePodNotScheduled` | NoSchedule taint on node | Remove taint | Sensitive | Both |
+| [**node-notready**](../scenarios/node-notready/) | `KubeNodeNotReady` | Node failure simulation | Cordon + drain node | Sensitive | Kind |
+| [**orphaned-pvc-no-action**](../scenarios/orphaned-pvc-no-action/) | `KubePersistentVolumeClaimOrphaned` | Orphaned PVCs accumulate | No action (no workflow seeded) | — | Both |
+| [**statefulset-pvc-failure**](../scenarios/statefulset-pvc-failure/) | `KubeStatefulSetReplicasMismatch` | PVC binding failure | Fix StatefulSet PVC | Sensitive | Both |
 
 ## Network and Service Mesh
 
-| Scenario | Signal / Alert | Fault Injection | Remediation | Environment |
-|----------|---------------|-----------------|-------------|-------------|
-| [**network-policy-block**](../scenarios/network-policy-block/) | `KubePodCrashLooping` / `KubeDeploymentReplicasMismatch` | Deny-all NetworkPolicy | Fix NetworkPolicy rules | Both |
-| [**mesh-routing-failure**](../scenarios/mesh-routing-failure/) | `IstioHighDenyRate` / `IstioRequestsUnauthorized` | Restrictive Istio AuthorizationPolicy | Fix AuthorizationPolicy | Both |
+| Scenario | Signal / Alert | Fault Injection | Remediation | Approval | Environment |
+|----------|---------------|-----------------|-------------|----------|-------------|
+| [**network-policy-block**](../scenarios/network-policy-block/) | `KubePodCrashLooping` / `KubeDeploymentReplicasMismatch` | Deny-all NetworkPolicy | Fix NetworkPolicy rules | — | Both |
+| [**mesh-routing-failure**](../scenarios/mesh-routing-failure/) | `IstioHighDenyRate` / `IstioRequestsUnauthorized` | Restrictive Istio AuthorizationPolicy | Fix AuthorizationPolicy | — | Both |
 
 ## GitOps
 
-| Scenario | Signal / Alert | Fault Injection | Remediation | Environment |
-|----------|---------------|-----------------|-------------|-------------|
-| [**gitops-drift**](../scenarios/gitops-drift/) | `KubePodCrashLooping` | Bad commit via ArgoCD | `git revert` offending commit | Both |
-| [**cert-failure-gitops**](../scenarios/cert-failure-gitops/) | `CertManagerCertNotReady` | Certificate NotReady (GitOps) | `git revert` cert config ([analysis](https://jordigilh.github.io/kubernaut-docs/use-cases/multi-path-remediation/)) | Both |
-| [**disk-pressure-emptydir**](../scenarios/disk-pressure-emptydir/) | `PredictedDiskPressure` (proactive) | PostgreSQL on emptyDir fills disk | Ansible/AWX: pg\_dump, PVC migration commit to Git, ArgoCD sync, pg\_restore | OCP |
+| Scenario | Signal / Alert | Fault Injection | Remediation | Approval | Environment |
+|----------|---------------|-----------------|-------------|----------|-------------|
+| [**gitops-drift**](../scenarios/gitops-drift/) | `KubePodCrashLooping` | Bad commit via ArgoCD | `git revert` offending commit | — | Both |
+| [**cert-failure-gitops**](../scenarios/cert-failure-gitops/) | `CertManagerCertNotReady` | Certificate NotReady (GitOps) | `git revert` cert config ([analysis](https://jordigilh.github.io/kubernaut-docs/use-cases/multi-path-remediation/)) | — | Both |
+| [**disk-pressure-emptydir**](../scenarios/disk-pressure-emptydir/) | `PredictedDiskPressure` (proactive) | PostgreSQL on emptyDir fills disk | Ansible/AWX: pg\_dump, PVC migration commit to Git, ArgoCD sync, pg\_restore | Production | OCP |
 
 ## Certificates
 
-| Scenario | Signal / Alert | Fault Injection | Remediation | Environment |
-|----------|---------------|-----------------|-------------|-------------|
-| [**cert-failure**](../scenarios/cert-failure/) | `CertManagerCertNotReady` | cert-manager Certificate NotReady | Fix Certificate resource | Both |
+| Scenario | Signal / Alert | Fault Injection | Remediation | Approval | Environment |
+|----------|---------------|-----------------|-------------|----------|-------------|
+| [**cert-failure**](../scenarios/cert-failure/) | `CertManagerCertNotReady` | cert-manager Certificate NotReady | Fix Certificate resource | — | Both |
 
 ## Platform Behavior
 
-| Scenario | Signal / Alert | Fault Injection | Behavior Tested | Environment |
-|----------|---------------|-----------------|-----------------|-------------|
-| [**duplicate-alert-suppression**](../scenarios/duplicate-alert-suppression/) | `KubePodCrashLooping` | Bad config (same as crashloop) | Deduplication suppresses duplicate RRs | Both |
-| [**resource-quota-exhaustion**](../scenarios/resource-quota-exhaustion/) | `KubeResourceQuotaExhausted` | Exhaust namespace ResourceQuota | Pipeline handles quota-blocked scenarios ([analysis](https://jordigilh.github.io/kubernaut-docs/use-cases/remediation-history-feedback/)) | Both |
-| [**concurrent-cross-namespace**](../scenarios/concurrent-cross-namespace/) | `KubePodCrashLooping` (x2) | Bad config in two namespaces | Concurrent pipelines with cross-namespace rego policy | Both |
-| [**resource-contention**](../scenarios/resource-contention/) | `OOMKilled` | External actor reverts remediation | Detects ineffective chain via spec drift, escalates to human review | Both |
+| Scenario | Signal / Alert | Fault Injection | Behavior Tested | Approval | Environment |
+|----------|---------------|-----------------|-----------------|----------|-------------|
+| [**duplicate-alert-suppression**](../scenarios/duplicate-alert-suppression/) | `KubePodCrashLooping` | Bad config (same as crashloop) | Deduplication suppresses duplicate RRs | — | Both |
+| [**resource-quota-exhaustion**](../scenarios/resource-quota-exhaustion/) | `KubeResourceQuotaExhausted` | Exhaust namespace ResourceQuota | Pipeline handles quota-blocked scenarios ([analysis](https://jordigilh.github.io/kubernaut-docs/use-cases/remediation-history-feedback/)) | Production | Both |
+| [**concurrent-cross-namespace**](../scenarios/concurrent-cross-namespace/) | `KubePodCrashLooping` (x2) | Bad config in two namespaces | Concurrent pipelines with cross-namespace rego policy | Production | Both |
+| [**resource-contention**](../scenarios/resource-contention/) | `OOMKilled` | External actor reverts remediation | Detects ineffective chain via spec drift, escalates to human review | — | Both |
 
