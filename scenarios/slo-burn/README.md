@@ -69,7 +69,7 @@ clear-cut and warrants a direct rollback.
 
 - Kubernetes / OpenShift cluster with Prometheus Operator (CRD: Probe, PrometheusRule)
 - Kubernaut services deployed with HAPI configured for a real LLM backend
-- HolmesGPT Prometheus toolset (auto-enabled by `run.sh`, reverted by `cleanup.sh` — [manual enablement](../../docs/prometheus-toolset.md))
+- Kubernaut Agent Prometheus toolset (auto-enabled by `run.sh`, reverted by `cleanup.sh` — [manual enablement](../../docs/prometheus-toolset.md))
 - `RollbackDeployment` action type registered
 - `crashloop-rollback-v1` (or equivalent) workflow in the catalog
 

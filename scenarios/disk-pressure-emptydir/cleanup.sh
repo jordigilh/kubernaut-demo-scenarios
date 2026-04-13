@@ -10,7 +10,7 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up DiskPressure emptyDir demo..."
 
-echo "==> Disabling HolmesGPT Prometheus toolset..."
+echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 
 # Delete ArgoCD Application first (stops sync loop).

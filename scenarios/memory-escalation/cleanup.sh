@@ -8,7 +8,7 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up Memory Escalation demo..."
 
-echo "==> Disabling HolmesGPT Prometheus toolset..."
+echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 restore_production_approval || true
 

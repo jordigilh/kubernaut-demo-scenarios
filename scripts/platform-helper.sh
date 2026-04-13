@@ -390,10 +390,10 @@ ensure_platform() {
 
     local llm_flags=""
     if [ -f "${SDK_CONFIG}" ]; then
-        llm_flags="--set-file holmesgptApi.sdkConfigContent=${SDK_CONFIG}"
+        llm_flags="--set-file kubernautAgent.sdkConfigContent=${SDK_CONFIG}"
         echo "  SDK config loaded from ${SDK_CONFIG}"
     elif [ -n "${KUBERNAUT_LLM_PROVIDER:-}" ] && [ -n "${KUBERNAUT_LLM_MODEL:-}" ]; then
-        llm_flags="--set holmesgptApi.llm.provider=${KUBERNAUT_LLM_PROVIDER} --set holmesgptApi.llm.model=${KUBERNAUT_LLM_MODEL}"
+        llm_flags="--set kubernautAgent.llm.provider=${KUBERNAUT_LLM_PROVIDER} --set kubernautAgent.llm.model=${KUBERNAUT_LLM_MODEL}"
         echo "  LLM quickstart: provider=${KUBERNAUT_LLM_PROVIDER} model=${KUBERNAUT_LLM_MODEL}"
     else
         echo "  WARNING: No LLM config found."
@@ -463,7 +463,7 @@ seed_scenario_workflow() {
 # Create secrets that must exist before Helm install (#243):
 #   - postgresql-secret (PostgreSQL + DataStorage credentials)
 #   - valkey-secret     (Valkey/Redis credentials)
-#   - llm-credentials   (VertexAI ADC for holmesgpt-api)
+#   - llm-credentials   (VertexAI ADC for kubernaut-agent)
 #   - slack-webhook     (notification credential store, issue #104)
 # Also labels the namespace for Helm adoption if it was pre-created.
 #
@@ -532,7 +532,7 @@ _ensure_pre_install_secrets() {
                 -n "${PLATFORM_NS}" \
                 --from-literal=VERTEXAI_PROJECT="${project}" \
                 --from-literal=VERTEXAI_LOCATION="${region}" \
-                --from-literal=GOOGLE_APPLICATION_CREDENTIALS="/etc/holmesgpt/credentials/application_default_credentials.json" \
+                --from-literal=GOOGLE_APPLICATION_CREDENTIALS="/etc/kubernaut-agent/credentials/application_default_credentials.json" \
                 --from-file=application_default_credentials.json="${adc_file}" \
                 --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
         fi
@@ -560,13 +560,13 @@ _check_llm_credentials() {
         echo "    cp credentials/vertex-ai-example.yaml my-llm-credentials.yaml"
         echo "    # Edit with your provider credentials"
         echo "    kubectl apply -f my-llm-credentials.yaml"
-        echo "    kubectl rollout restart deployment/holmesgpt-api -n ${PLATFORM_NS}"
+        echo "    kubectl rollout restart deployment/kubernaut-agent -n ${PLATFORM_NS}"
         echo ""
     fi
 }
 
 # ── Prometheus toolset management ────────────────────────────────────────────
-# Enable/disable the Prometheus toolset in the HolmesGPT SDK config.
+# Enable/disable the Prometheus toolset in the Kubernaut Agent SDK config.
 #
 # Strategy: update the local ~/.kubernaut/sdk-config.yaml file first, then
 # re-apply the full ConfigMap content with Helm ownership annotations so that
@@ -575,7 +575,7 @@ _check_llm_credentials() {
 
 _sdk_configmap_name() {
     kubectl get configmap -n "${PLATFORM_NS}" -o name 2>/dev/null \
-      | grep -o 'holmesgpt-sdk-config[^ ]*' | head -1 || true
+      | grep -o 'kubernaut-agent-sdk-config[^ ]*' | head -1 || true
 }
 
 _prom_url_for_platform() {
@@ -615,7 +615,7 @@ _apply_sdk_config_to_cluster() {
     local cm_name
     cm_name=$(_sdk_configmap_name)
     if [ -z "$cm_name" ]; then
-        echo "  WARNING: HolmesGPT SDK ConfigMap not found in cluster."
+        echo "  WARNING: Kubernaut Agent SDK ConfigMap not found in cluster."
         return 1
     fi
 
@@ -632,8 +632,8 @@ _apply_sdk_config_to_cluster() {
           app.kubernetes.io/managed-by=Helm -o yaml \
       | kubectl apply --server-side --force-conflicts -f - >/dev/null 2>&1
 
-    kubectl rollout restart deployment/holmesgpt-api -n "${PLATFORM_NS}" >/dev/null 2>&1
-    kubectl rollout status deployment/holmesgpt-api -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
+    kubectl rollout restart deployment/kubernaut-agent -n "${PLATFORM_NS}" >/dev/null 2>&1
+    kubectl rollout status deployment/kubernaut-agent -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
 }
 
 enable_prometheus_toolset() {
@@ -641,17 +641,17 @@ enable_prometheus_toolset() {
     prom_url=$(_prom_url_for_platform)
 
     # On OCP, HAPI's SA needs cluster-monitoring-view to query prometheus-k8s.
-    # The chart creates "holmesgpt-api-monitoring-view" when both
-    # holmesgptApi.prometheus.enabled and ocpMonitoringRbac are true.
+    # The chart creates "kubernaut-agent-monitoring-view" when both
+    # kubernautAgent.prometheus.enabled and ocpMonitoringRbac are true.
     # We check for both the chart-managed and legacy binding names as a
     # safety net for older installs (kubernaut#574).
     if [ "${PLATFORM:-}" = "ocp" ]; then
-        if ! kubectl get clusterrolebinding holmesgpt-api-monitoring-view &>/dev/null \
+        if ! kubectl get clusterrolebinding kubernaut-agent-monitoring-view &>/dev/null \
            && ! kubectl get clusterrolebinding holmesgpt-monitoring-view &>/dev/null; then
             local hapi_sa
-            hapi_sa=$(kubectl get sa -n "${PLATFORM_NS}" -l app=holmesgpt-api \
-                -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "holmesgpt-api-sa")
-            kubectl create clusterrolebinding holmesgpt-api-monitoring-view \
+            hapi_sa=$(kubectl get sa -n "${PLATFORM_NS}" -l app=kubernaut-agent \
+                -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "kubernaut-agent-sa")
+            kubectl create clusterrolebinding kubernaut-agent-monitoring-view \
                 --clusterrole=cluster-monitoring-view \
                 --serviceaccount="${PLATFORM_NS}:${hapi_sa}" 2>/dev/null || true
             echo "  Prometheus RBAC: granted cluster-monitoring-view to ${hapi_sa}."
@@ -699,7 +699,7 @@ json.dump(role, sys.stdout)
         local cm_name
         cm_name=$(_sdk_configmap_name)
         if [ -z "$cm_name" ]; then
-            echo "  WARNING: HolmesGPT SDK ConfigMap not found; cannot enable Prometheus toolset."
+            echo "  WARNING: Kubernaut Agent SDK ConfigMap not found; cannot enable Prometheus toolset."
             echo "  Enable manually in ~/.kubernaut/sdk-config.yaml under toolsets.prometheus/metrics."
             return 0
         fi
@@ -737,8 +737,8 @@ toolsets:
 
         kubectl patch "configmap/${cm_name}" -n "${PLATFORM_NS}" --type merge \
           -p "{\"data\":{\"sdk-config.yaml\":$(echo "$current" | jq -Rs .)}}" >/dev/null 2>&1
-        kubectl rollout restart deployment/holmesgpt-api -n "${PLATFORM_NS}" >/dev/null 2>&1
-        kubectl rollout status deployment/holmesgpt-api -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
+        kubectl rollout restart deployment/kubernaut-agent -n "${PLATFORM_NS}" >/dev/null 2>&1
+        kubectl rollout status deployment/kubernaut-agent -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
         echo "  Prometheus toolset enabled via SDK ConfigMap (no local file)."
     fi
 }
@@ -772,8 +772,8 @@ disable_prometheus_toolset() {
         current=$(echo "$current" | sed '/prometheus\/metrics:/{n;s/enabled: true/enabled: false/;}')
         kubectl patch "configmap/${cm_name}" -n "${PLATFORM_NS}" --type merge \
           -p "{\"data\":{\"sdk-config.yaml\":$(echo "$current" | jq -Rs .)}}" >/dev/null 2>&1
-        kubectl rollout restart deployment/holmesgpt-api -n "${PLATFORM_NS}" >/dev/null 2>&1
-        kubectl rollout status deployment/holmesgpt-api -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
+        kubectl rollout restart deployment/kubernaut-agent -n "${PLATFORM_NS}" >/dev/null 2>&1
+        kubectl rollout status deployment/kubernaut-agent -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
         echo "  Prometheus toolset disabled via SDK ConfigMap."
     fi
 }

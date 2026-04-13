@@ -424,15 +424,15 @@ Gitea access uses the OCP Route automatically when available. No manual steps re
 **OCP prerequisites**: OpenShift GitOps operator must be installed from OperatorHub. AWX is deployed via `scripts/awx-helper.sh` (or AAP via `aap-helper.sh` with a Red Hat subscription). See [docs/setup.md](../../docs/setup.md).
 
 **Prometheus RBAC (OCP):** The chart creates the `cluster-monitoring-view`
-ClusterRoleBinding for HAPI when `holmesgptApi.prometheus.enabled` and
+ClusterRoleBinding for the Kubernaut Agent when `kubernautAgent.prometheus.enabled` and
 `ocpMonitoringRbac` are both `true` (default in `helm/kubernaut-ocp-values.yaml`).
 `run.sh` also creates the binding as a safety net if it does not exist. For manual
 installs without the OCP values file:
 
 ```bash
-kubectl create clusterrolebinding holmesgpt-monitoring-view \
+kubectl create clusterrolebinding kubernaut-agent-monitoring-view \
   --clusterrole=cluster-monitoring-view \
-  --serviceaccount=kubernaut-system:holmesgpt-api-sa
+  --serviceaccount=kubernaut-system:kubernaut-agent-sa
 ```
 
 Without this, HAPI loads the Prometheus toolset but cannot execute queries (401

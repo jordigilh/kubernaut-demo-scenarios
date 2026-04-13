@@ -2,7 +2,7 @@
 # Capture a golden transcript from the most recent HAPI investigation session.
 #
 # Extracts the LLM dialog (tool calls, AI responses, workflow selection) from
-# the holmesgpt-api logs and the AIAnalysis CR, then writes a structured JSON
+# the kubernaut-agent logs and the AIAnalysis CR, then writes a structured JSON
 # file suitable for Mock LLM validation (see issue #296).
 #
 # Usage:
@@ -114,7 +114,7 @@ print(json.dumps(result, indent=2))
 
 # Capture HAPI logs for this session (filter out health probes)
 echo "  Extracting HAPI logs for session $SESSION_ID..."
-HAPI_LOGS=$(kubectl logs -n "$NS" deployment/holmesgpt-api --tail=10000 2>/dev/null \
+HAPI_LOGS=$(kubectl logs -n "$NS" deployment/kubernaut-agent --tail=10000 2>/dev/null \
     | grep -v '/ready\|/health\|readiness_check\|health_check\|Timer tick\|Timer-based\|audit-store\|HAPI FLUSH\|DD-AUDIT' \
     | grep -E "$SESSION_ID|AI:\[/bold|Running tool #|Finished #|list_available_actions|list_workflows|get_workflow|get_namespaced_resource|LiteLLM completion|Wrapper: Completed|Investigation Tasks|incident_analysis_started|phase[123]_|workflow_selection" \
     || echo "")

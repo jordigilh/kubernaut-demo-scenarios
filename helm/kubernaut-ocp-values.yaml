@@ -36,12 +36,12 @@ effectivenessmonitor:
     tlsCaFile: "/etc/ssl/em/service-ca.crt"
     ocpMonitoringRbac: true
 
-# HolmesGPT API: Prometheus integration for LLM investigation context (1.1.0-rc3+).
+# Kubernaut Agent: Prometheus integration for LLM investigation context.
 # Grants cluster-monitoring-view RBAC and injects the OCP service-serving CA.
 # When using quickstart LLM config (--set llm.provider/model), the chart auto-
 # configures the prometheus/metrics toolset. With sdkConfigContent or
 # existingSdkConfigMap, add the prometheus toolset to your SDK config manually.
-holmesgptApi:
+kubernautAgent:
   prometheus:
     enabled: true
     url: "https://prometheus-k8s.openshift-monitoring.svc:9091"

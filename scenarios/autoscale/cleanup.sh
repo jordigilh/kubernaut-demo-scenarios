@@ -8,7 +8,7 @@ echo "==> Cleaning up Cluster Autoscaling demo..."
 
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
-echo "==> Disabling HolmesGPT Prometheus toolset..."
+echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 
 # Kill any running provisioner agent

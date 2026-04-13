@@ -6,9 +6,9 @@
 #
 # Usage:
 #   ./rebuild-scenario.sh --scenario crashloop                             # workflow only
-#   ./rebuild-scenario.sh --scenario crashloop --services aianalysis,holmesgpt-api  # workflow + services
+#   ./rebuild-scenario.sh --scenario crashloop --services aianalysis,kubernaut-agent  # workflow + services
 #   ./rebuild-scenario.sh --scenario crashloop --seed                      # workflow + register in DataStorage
-#   ./rebuild-scenario.sh --services aianalysis,holmesgpt-api              # services only (no workflow)
+#   ./rebuild-scenario.sh --services aianalysis,kubernaut-agent              # services only (no workflow)
 #   ./rebuild-scenario.sh --scenario crashloop --workflow-only             # explicit: workflow, no services
 #   ./rebuild-scenario.sh --scenario crashloop --local                     # local build (no push)
 #
@@ -80,7 +80,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Available services: datastorage gateway aianalysis authwebhook notification"
             echo "                    remediationorchestrator signalprocessing workflowexecution"
-            echo "                    effectivenessmonitor holmesgpt-api"
+            echo "                    effectivenessmonitor kubernaut-agent"
             exit 0
             ;;
         *)
