@@ -426,6 +426,11 @@ ensure_platform() {
         policy_flags="${policy_flags} --set-file aianalysis.policies.content=${aa_policy}"
     fi
 
+    # Do NOT use --wait: the chart has a post-install migration hook that must
+    # run before datastorage becomes ready. --wait blocks until all pods are
+    # ready, creating a deadlock (datastorage needs migration → migration is
+    # post-install → post-install waits for --wait → --wait waits for datastorage).
+    # Instead, let Helm finish (hooks run), then poll via wait_platform_ready().
     helm upgrade --install kubernaut "${CHART_REF}" \
         --namespace "${PLATFORM_NS}" \
         --create-namespace \
@@ -435,7 +440,7 @@ ensure_platform() {
         ${policy_flags} \
         --set demoContent.enabled=false \
         --skip-crds \
-        --wait --timeout 10m
+        --timeout 10m
 
     echo "  Kubernaut platform installed in ${PLATFORM_NS}."
     wait_platform_ready
