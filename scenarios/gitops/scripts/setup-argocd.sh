@@ -30,6 +30,28 @@ if [ "$PLATFORM" = "ocp" ]; then
         exit 1
     fi
     echo "  Namespace '${ARGOCD_NAMESPACE}' exists."
+
+    # OpenShift GitOps restricts the default AppProject to its own namespace.
+    # Demo scenarios need to deploy to demo-* namespaces, so patch the project
+    # to allow all destinations (same as Kind). Without this, ArgoCD silently
+    # refuses to sync Applications targeting namespaces outside openshift-gitops.
+    echo "==> Patching default AppProject for demo namespace access..."
+    kubectl apply -f - <<APPPROJ
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: default
+  namespace: ${ARGOCD_NAMESPACE}
+spec:
+  description: Default project
+  sourceRepos: ['*']
+  destinations:
+    - namespace: '*'
+      server: '*'
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'
+APPPROJ
 else
     echo "==> Installing ArgoCD (full) in namespace ${ARGOCD_NAMESPACE}..."
 
