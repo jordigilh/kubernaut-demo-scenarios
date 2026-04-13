@@ -273,6 +273,28 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Orphaned PVCs from completed batch jobs exist in the namespace. Five PVCs (batch-output-job-1 through batch-output-job-5) remain after their parent Job resources were deleted. The data-processor deployment is unaffected and operating normally. |
+| **Severity** | low |
+| **Target Resource** | PersistentVolumeClaim/batch-output-job-1 (ns: demo-orphaned-pvc) |
+| **Workflow Selected** | cleanup-pvc-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | not required (auto-approved) |
+
+**Key Reasoning Chain:**
+
+1. Detects KubePersistentVolumeClaimOrphaned alert for five PVCs.
+2. Confirms the PVCs belong to completed batch jobs that have been deleted.
+3. Verifies the main `data-processor` deployment is unaffected and running normally.
+4. Selects `cleanup-pvc-v1` to remove the orphaned PVCs since they are no longer needed.
+
+> **Why this matters**: Shows the LLM correctly distinguishing between PVCs that are actively in use (dangerous to delete) and PVCs orphaned by completed jobs (safe to clean up). The scenario name includes "no-action" because the *deployment* needs no remediation — only the orphaned storage is addressed.
+
 Path outcomes after monitoring:
 
 - **Path A**: RR → Completed (`NoActionRequired`)

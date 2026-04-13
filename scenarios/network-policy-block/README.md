@@ -128,7 +128,7 @@ The script applies a deny-all NetworkPolicy that blocks all ingress traffic. The
 # Alert fires after ~3 min of unavailable replicas
 # Query Alertmanager for active alerts
 
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=KubeDeploymentReplicasMismatch --alertmanager.url=http://localhost:9093
 ```
 
@@ -169,6 +169,27 @@ Rationale:   {.status.selectedWorkflow.rationale}
 # Alternative workflows considered
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Traffic-gen deployment has 0/1 available replicas due to readiness probe failures caused by a deny-all NetworkPolicy blocking ingress traffic to the web-frontend service. |
+| **Severity** | critical |
+| **Target Resource** | Deployment/traffic-gen (ns: demo-netpol) |
+| **Workflow Selected** | fix-network-policy-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | not required (staging, high confidence) |
+
+**Key Reasoning Chain:**
+
+1. Detects probe failures and connection timeouts to the application.
+2. Identifies a restrictive NetworkPolicy blocking all ingress.
+3. Selects network policy fix workflow to restore connectivity.
+
+> **Why this matters**: Demonstrates the LLM's ability to correlate application unreachability with NetworkPolicy restrictions rather than blaming the application itself.
 
 #### 6. Verify remediation
 

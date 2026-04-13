@@ -777,3 +777,77 @@ disable_prometheus_toolset() {
         echo "  Prometheus toolset disabled via SDK ConfigMap."
     fi
 }
+
+# ── Production approval enforcement ──────────────────────────────────────────
+# The default approval.rego only requires manual approval for production
+# environments when confidence is below 0.8. Since LLM confidence varies
+# between runs, production scenarios that expect deterministic approval gates
+# call force_production_approval to remove the confidence condition.
+#
+# The original policy is saved as a base64 annotation so that
+# restore_production_approval (called from cleanup.sh) can put it back.
+#
+# Idempotent: calling force twice without a restore in between is safe —
+# the annotation preserves the original, not the already-patched version.
+
+force_production_approval() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    echo "==> Enforcing deterministic production approval policy..."
+
+    local current_rego existing_b64
+    existing_b64=$(kubectl get configmap aianalysis-policies -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-approval-rego}' 2>/dev/null || echo "")
+
+    if [ -n "${existing_b64}" ]; then
+        current_rego=$(echo "${existing_b64}" | base64 -d)
+        kubectl patch configmap aianalysis-policies -n "${ns}" --type=merge \
+          -p "{\"data\":{\"approval.rego\":$(echo "${current_rego}" | jq -Rs .)}}"
+    else
+        current_rego=$(kubectl get configmap aianalysis-policies -n "${ns}" \
+          -o jsonpath='{.data.approval\.rego}')
+    fi
+
+    kubectl annotate configmap aianalysis-policies -n "${ns}" \
+      "kubernaut.ai/original-approval-rego=$(echo "${current_rego}" | base64)" --overwrite
+
+    local patched
+    patched=$(python3 -c "
+import sys, re
+text = sys.stdin.read()
+text = re.sub(
+    r'require_approval if \{\s*\n\s*is_production\s*\n\s*not is_high_confidence\s*\n\}',
+    'require_approval if { is_production }',
+    text
+)
+text = re.sub(
+    r'(risk_factors contains \{\"score\": 70, \"reason\": \"Production environment requires manual approval\"\} if \{)\s*\n\s*is_production\s*\n\s*not is_high_confidence\s*\n\}',
+    r'\1\n    is_production\n}',
+    text
+)
+print(text, end='')
+" <<< "${current_rego}")
+
+    kubectl patch configmap aianalysis-policies -n "${ns}" --type=merge \
+      -p "{\"data\":{\"approval.rego\":$(echo "${patched}" | jq -Rs .)}}"
+    kubectl rollout restart deployment/aianalysis-controller -n "${ns}"
+    kubectl rollout status deployment/aianalysis-controller -n "${ns}" --timeout=60s
+    echo "  Approval policy patched: production environments always require manual approval."
+}
+
+restore_production_approval() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local saved_b64
+    saved_b64=$(kubectl get configmap aianalysis-policies -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-approval-rego}' 2>/dev/null || echo "")
+    if [ -z "${saved_b64}" ]; then
+        return 0
+    fi
+    local original
+    original=$(echo "${saved_b64}" | base64 -d)
+    kubectl patch configmap aianalysis-policies -n "${ns}" --type=merge \
+      -p "{\"data\":{\"approval.rego\":$(echo "${original}" | jq -Rs .)}}"
+    kubectl annotate configmap aianalysis-policies -n "${ns}" \
+      "kubernaut.ai/original-approval-rego-" 2>/dev/null || true
+    kubectl rollout restart deployment/aianalysis-controller -n "${ns}" 2>/dev/null || true
+    echo "  Approval policy restored to original."
+}

@@ -16,6 +16,7 @@ instead of `RollbackDeployment` (`kubectl rollout undo`).
 | **Signal** | `KubePodCrashLooping` — restart count increasing rapidly |
 | **Root cause** | Invalid nginx configuration injected via `helm upgrade` |
 | **Remediation** | `helm rollback` restores the previous healthy Helm revision |
+| **Approval** | **Required** — production environment (`run.sh` enforces deterministic approval) |
 
 ## Signal Flow
 
@@ -183,7 +184,7 @@ The `KubePodCrashLooping` alert fires after the expression is true for 3 minutes
 > group_wait settings.
 
 ```bash
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
 ```
 
@@ -239,6 +240,27 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 '; echo
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Pod worker-7667c7d4f7-h6tzh is in CrashLoopBackOff due to an invalid nginx configuration directive in the mounted ConfigMap worker-config. The nginx container fails to start with exit code 1, preventing the deployment rollout from completing. |
+| **Severity** | critical |
+| **Target Resource** | Deployment/web-frontend (ns: demo-crashloop-helm) |
+| **Workflow Selected** | helm-rollback-v1 |
+| **Confidence** | 0.85 |
+| **Approval** | required (production environment) |
+
+**Key Reasoning Chain:**
+
+1. Identifies CrashLoopBackOff from invalid config.
+2. Detects Helm release annotations on the deployment.
+3. Selects Helm-specific rollback (not kubectl rollback) to maintain Helm release history integrity.
+
+> **Why this matters**: Shows the LLM distinguishing between kubectl-managed and Helm-managed deployments, selecting the appropriate remediation path.
 
 #### 8. Verify remediation
 

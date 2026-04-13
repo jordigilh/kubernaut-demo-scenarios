@@ -14,6 +14,7 @@ change and performing an automatic rollback to the previous working revision.
 | **Signal** | `KubePodCrashLooping` -- restart count increasing rapidly |
 | **Root cause** | Invalid demo-http-server configuration deployed via ConfigMap swap |
 | **Remediation** | `kubectl rollout undo` restores the previous healthy revision |
+| **Approval** | **Required** — production environment (`run.sh` enforces deterministic approval) |
 
 ## Signal Flow
 
@@ -153,7 +154,7 @@ The alert fires after >3 restarts in 10 min (~2-3 min).
 Query Alertmanager for active alerts:
 
 ```bash
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
 ```
 
@@ -204,6 +205,27 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 '; echo
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Pod worker-77784c6cf7-fwmgv is in CrashLoopBackOff due to invalid configuration directive in ConfigMap worker-config-bad. The application fails startup validation and exits with code 1. Deployment is stuck in rolling update with 1 crashing pod from new ReplicaSet while 2 healthy pods from previous ReplicaSet maintain service availability. |
+| **Severity** | critical |
+| **Target Resource** | Deployment/worker (ns: demo-crashloop) |
+| **Workflow Selected** | crashloop-rollback-v1 |
+| **Confidence** | 0.90 |
+| **Approval** | required (production environment) |
+
+**Key Reasoning Chain:**
+
+1. Detects CrashLoopBackOff with exit code 1 indicating config error.
+2. Traces crash to recently updated ConfigMap containing invalid directive.
+3. Identifies rollback as appropriate since previous revision was healthy.
+
+> **Why this matters**: Demonstrates the LLM's ability to trace a pod crash to a ConfigMap root cause (signal resource != RCA resource) and select rollback over restart.
 
 #### 7. Verify remediation
 

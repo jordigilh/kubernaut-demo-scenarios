@@ -16,6 +16,7 @@ applying the same ineffective remedy.
 | **Signal** | `ContainerOOMKilling` — container terminated with OOMKilled reason |
 | **Root cause** | Unbounded memory allocation (simulated leak) in ml-worker |
 | **Cycle 1 remediation** | `IncreaseMemoryLimits` or `GracefulRestart` (model-dependent) |
+| **Approval** | **Required** — production environment (`run.sh` enforces deterministic approval) |
 | **Escalation** | `ManualReviewRequired` after 2–3 cycles (see [Escalation Paths](#escalation-paths)) |
 
 ## Escalation Paths
@@ -258,6 +259,27 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 '; echo
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Pod ml-worker is experiencing repeated OOM kills due to insufficient memory limits. The container has a 64Mi memory limit but runs a workload that writes 8MB/second to /dev/shm, causing it to exceed the limit within ~8 seconds and get OOMKilled with exit code 137. |
+| **Severity** | critical |
+| **Target Resource** | Deployment/ml-worker (ns: demo-memory-escalation) |
+| **Workflow Selected** | increase-memory-limits-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | required (production environment) |
+
+**Key Reasoning Chain:**
+
+1. Detects recurring OOMKill events.
+2. Reviews remediation history showing prior attempts.
+3. On later cycles, acknowledges ineffective prior remediations and may escalate to manual review.
+
+> **Why this matters**: Demonstrates the multi-cycle remediation pattern where the LLM must learn from previous ineffective attempts and eventually escalate rather than repeating the same fix.
 
 #### 5. Approve remediation
 

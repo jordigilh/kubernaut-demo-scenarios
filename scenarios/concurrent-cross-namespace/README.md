@@ -15,6 +15,7 @@ approval flows running in parallel.
 | **Signal** | `KubePodCrashLooping` — restart count increasing rapidly in both namespaces |
 | **Root cause** | Invalid application configuration deployed via ConfigMap swap |
 | **Remediation** | **Team Alpha** (staging, high risk tolerance) → `hotfix-config-v1` (patches ConfigMap in-place, auto-approved); **Team Beta** (production, low risk tolerance) → `crashloop-rollback-risk-v1` (full rollback, manual approval) |
+| **Approval** | **Team Beta: Required** — production environment (`run.sh` enforces deterministic approval); Team Alpha: auto-approved (staging) |
 
 ## Signal Flow
 
@@ -304,6 +305,44 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 '; echo
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+This scenario has TWO parallel pipelines with different outcomes:
+
+**Team Alpha (staging, high risk tolerance):**
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Pod worker is in CrashLoopBackOff due to an invalid configuration directive in ConfigMap worker-config-bad. The application fails to start with error '[emerg] invalid directive found in config.yaml — aborting'. |
+| **Severity** | critical → P1 (staging) |
+| **Target Resource** | Deployment/worker (ns: demo-team-alpha) |
+| **Workflow Selected** | hotfix-config-v1 (patches ConfigMap in-place) |
+| **Confidence** | 0.90 |
+| **Approval** | not required (staging, auto-approved by Rego) |
+
+**Team Beta (production, low risk tolerance):**
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Deployment rollout failed due to invalid configuration directive in ConfigMap worker-config-bad. The new revision mounts a faulty ConfigMap containing 'invalid_directive: true' which causes the application to abort on startup with exit code 1. Previous revision uses the correct ConfigMap and remains healthy. |
+| **Severity** | critical → P0 (production) |
+| **Target Resource** | Deployment/worker (ns: demo-team-beta) |
+| **Workflow Selected** | crashloop-rollback-risk-v1 (full rollback) |
+| **Confidence** | 0.95 |
+| **Approval** | required (production environment) |
+
+**Key Reasoning Chain:**
+
+1. Both namespaces have the same technical fault.
+2. SP enriches each with `customLabels: {risk_tolerance: high/low}` from namespace labels.
+3. DataStorage boosts different workflows based on risk tolerance match.
+4. Alpha gets the fast, surgical hotfix; Beta gets the safe, conservative rollback.
+5. Rego auto-approves staging but requires manual approval for production.
+
+> **Why this matters**: The definitive demonstration of Kubernaut's context-aware remediation — same incident, different business context, different automated decisions.
 
 #### 9. Approve Team Beta (if not using --auto-approve)
 

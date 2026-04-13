@@ -82,16 +82,20 @@ kubectl rollout restart deployment/signalprocessing-controller -n "${PLATFORM_NS
 kubectl rollout status deployment/signalprocessing-controller -n "${PLATFORM_NS}" --timeout=60s
 echo ""
 
-# Step 0c: Remove stale restart-pods-v1 (replaced by hotfix-config-v1 in Option D redesign)
-echo "==> Step 0c: Removing stale restart-pods-v1 workflow (if present)..."
+# Step 0c: Production environments always require manual approval (centralized helper).
+force_production_approval
+echo ""
+
+# Step 0d: Remove stale restart-pods-v1 (replaced by hotfix-config-v1 in Option D redesign)
+echo "==> Step 0d: Removing stale restart-pods-v1 workflow (if present)..."
 kubectl delete remediationworkflow restart-pods-v1 -n "${PLATFORM_NS}" --ignore-not-found 2>/dev/null || true
 kubectl delete clusterrolebinding restart-pods-v1-runner --ignore-not-found 2>/dev/null || true
 kubectl delete clusterrole restart-pods-v1-runner --ignore-not-found 2>/dev/null || true
 kubectl delete serviceaccount restart-pods-v1-runner -n "${WE_NAMESPACE:-kubernaut-workflows}" --ignore-not-found 2>/dev/null || true
 echo ""
 
-# Step 0d: Register risk-tolerance-aware workflows as RemediationWorkflow CRDs
-echo "==> Step 0d: Applying RemediationWorkflow CRDs..."
+# Step 0e: Register risk-tolerance-aware workflows as RemediationWorkflow CRDs
+echo "==> Step 0e: Applying RemediationWorkflow CRDs..."
 for yaml_file in "${REPO_ROOT}/deploy/remediation-workflows/concurrent-cross-namespace/"*.yaml; do
     _apply_workflow_yaml "$yaml_file" "${PLATFORM_NS}"
 done

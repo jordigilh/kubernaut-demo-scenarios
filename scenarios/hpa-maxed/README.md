@@ -206,6 +206,27 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | HPA api-frontend has reached its maximum replica limit of 3 but CPU utilization remains at 199% (99m actual vs 50m request), significantly above the 50% target threshold. The HPA cannot scale further due to maxReplicas constraint, creating a capacity bottleneck. |
+| **Severity** | high |
+| **Target Resource** | HorizontalPodAutoscaler/api-frontend (ns: demo-hpa) |
+| **Workflow Selected** | patch-hpa-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | not required (staging, high confidence) |
+
+**Key Reasoning Chain:**
+
+1. Detects KubeHpaMaxedOut alert — HPA at maximum replicas.
+2. Confirms CPU utilization still above target threshold.
+3. Selects HPA max increase to allow further scaling headroom.
+
+> **Why this matters**: Demonstrates the LLM understanding autoscaling constraints and selecting a workflow that adjusts the scaling ceiling rather than the application itself.
+
 #### 8. Verify remediation
 
 After the workflow execution completes:

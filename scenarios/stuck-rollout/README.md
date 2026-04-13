@@ -17,6 +17,7 @@ workflow (confidence 0.75), correctly preferring the former because the pods are
 | **Signal** | `KubeDeploymentRolloutStuck` — Progressing condition is False for >1 min |
 | **Root cause** | Non-existent image tag `quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist` |
 | **Remediation** | `kubectl rollout undo` restores previous working revision |
+| **Approval** | **Required** — production environment (`run.sh` enforces deterministic approval) |
 
 ## Signal Flow
 
@@ -184,7 +185,7 @@ kubectl port-forward -n openshift-monitoring svc/thanos-querier 9090:9091
 > group_wait settings.
 
 ```bash
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=KubeDeploymentRolloutStuck --alertmanager.url=http://localhost:9093
 ```
 
@@ -240,6 +241,27 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 '; echo
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Deployment rollout stuck due to non-existent container image tag causing ImagePullBackOff and ProgressDeadlineExceeded. Previous revision with working image is healthy and providing partial service with 2/3 replicas available. |
+| **Severity** | critical |
+| **Target Resource** | Deployment/checkout-api (ns: demo-rollout) |
+| **Workflow Selected** | rollback-deployment-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | required (production environment, critical severity) |
+
+**Key Reasoning Chain:**
+
+1. Identifies deployment with mismatched replica counts between old and new ReplicaSets.
+2. Recognizes this as a stuck rollout rather than a simple crash.
+3. Selects rollback to restore the last known-good revision.
+
+> **Why this matters**: Demonstrates the LLM's ability to distinguish a stuck rollout from a simple crash and select rollback rather than restart.
 
 #### 8. Approve (if required) and verify remediation
 

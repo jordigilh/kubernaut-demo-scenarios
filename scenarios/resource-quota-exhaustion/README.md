@@ -13,6 +13,7 @@ policy constraint that cannot be resolved by any available workflow and escalate
 | **Signal** | `KubeResourceQuotaExhausted` — ReplicaSet desired > ready for >1 min |
 | **Root cause** | Namespace memory quota (512 Mi) cannot accommodate both old pods (384 Mi used) and new pods (256 Mi each × 3 replicas = 768 Mi requested) |
 | **Outcome** | `ManualReviewRequired` — no workflow matches; human must increase quota or scale down |
+| **Approval** | **Required** — production environment (`run.sh` enforces deterministic approval) |
 
 > **v1.2.0 note**: The LLM now receives ResourceQuota details (limits, usage) from
 > the `LabelDetector`, making Path A (direct escalation) the dominant path. The LLM
@@ -202,6 +203,27 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 '; echo
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Deployment cannot scale because namespace ResourceQuota CPU/memory limits are exhausted. New pods fail to schedule with "exceeded quota" errors. |
+| **Severity** | high |
+| **Target Resource** | ResourceQuota/demo-quota (ns: demo-quota) |
+| **Workflow Selected** | adjust-resource-quota-v1 |
+| **Confidence** | 0.85–0.95 |
+| **Approval** | required (production environment) |
+
+**Key Reasoning Chain:**
+
+1. Detects pods in Pending state with quota exceeded events.
+2. Identifies ResourceQuota as the constraint preventing scheduling.
+3. Selects quota adjustment workflow to increase limits.
+
+> **Why this matters**: Demonstrates the LLM identifying infrastructure quota constraints as the root cause of scheduling failures, rather than blaming the workload.
 
 #### 8. View notifications
 

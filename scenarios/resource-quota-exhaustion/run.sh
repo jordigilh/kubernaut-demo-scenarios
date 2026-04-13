@@ -47,6 +47,7 @@ echo ""
 # Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
 echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
 enable_prometheus_toolset
+force_production_approval
 echo ""
 
 ensure_clean_slate "${NAMESPACE}"

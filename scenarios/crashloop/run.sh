@@ -29,6 +29,7 @@ require_demo_ready
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 enable_prometheus_toolset
+force_production_approval
 
 echo "============================================="
 echo " CrashLoopBackOff Remediation Demo (#120)"
