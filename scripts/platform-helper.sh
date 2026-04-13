@@ -808,7 +808,7 @@ force_production_approval() {
     fi
 
     kubectl annotate configmap aianalysis-policies -n "${ns}" \
-      "kubernaut.ai/original-approval-rego=$(echo "${current_rego}" | base64)" --overwrite
+      "kubernaut.ai/original-approval-rego=$(echo "${current_rego}" | base64 | tr -d '\n')" --overwrite
 
     local patched
     patched=$(python3 -c "

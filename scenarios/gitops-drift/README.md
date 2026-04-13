@@ -326,7 +326,7 @@ Query Alertmanager for active alerts:
 > group_wait settings.
 
 ```bash
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093
 ```
 

@@ -169,7 +169,7 @@ bash scenarios/statefulset-pvc-failure/inject-pvc-issue.sh
 > group_wait settings.
 
 ```bash
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=KubeStatefulSetReplicasMismatch --alertmanager.url=http://localhost:9093
 ```
 

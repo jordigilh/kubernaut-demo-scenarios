@@ -204,7 +204,7 @@ Alert fires after ~3 min of sustained 403 responses on Kind. To browse firing ru
 > group_wait settings.
 
 ```bash
-kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -c alertmanager -- \
   amtool alert query alertname=IstioHighDenyRate --alertmanager.url=http://localhost:9093
 
 watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
