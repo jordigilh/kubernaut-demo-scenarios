@@ -11,7 +11,8 @@ disable_prometheus_toolset || true
 
 echo "==> Cleaning up cert-manager GitOps demo..."
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/argocd-application.yaml" --ignore-not-found
+argocd_ns=$(get_argocd_namespace)
+kubectl delete application demo-cert-gitops -n "$argocd_ns" --ignore-not-found
 kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 kubectl delete -f "${SCRIPT_DIR}/manifests/servicemonitor.yaml" --ignore-not-found
 kubectl delete namespace demo-cert-gitops --ignore-not-found

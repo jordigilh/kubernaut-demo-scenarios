@@ -219,8 +219,29 @@ local argocd_ns
 argocd_ns=$(get_argocd_namespace)
 local argocd_svc
 argocd_svc=$(get_argocd_server_svc)
-local webhook_url="http://${argocd_svc}.${argocd_ns}.svc.cluster.local/api/webhook"
+local webhook_url
+if [ "$PLATFORM" = "ocp" ]; then
+    webhook_url="https://openshift-gitops-server.${argocd_ns}.svc/api/webhook"
+else
+    webhook_url="http://${argocd_svc}.${argocd_ns}.svc.cluster.local/api/webhook"
+fi
 local gitea_api="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}"
+
+# On OCP, ArgoCD uses TLS. Configure Gitea to skip certificate verification
+# so webhook delivery succeeds (same pattern as disk-pressure-emptydir).
+if [ "$PLATFORM" = "ocp" ]; then
+    local current_wh_cfg
+    current_wh_cfg=$(kubectl get secret gitea-inline-config -n "${GITEA_NAMESPACE}" \
+      -o jsonpath='{.data.webhook}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    if ! echo "$current_wh_cfg" | grep -q "SKIP_TLS_VERIFY"; then
+        kubectl patch secret gitea-inline-config -n "${GITEA_NAMESPACE}" --type=merge \
+          -p '{"stringData":{"webhook":"SKIP_TLS_VERIFY=true\nALLOWED_HOST_LIST=*"}}' 2>/dev/null
+        kubectl rollout restart deployment/gitea -n "${GITEA_NAMESPACE}" 2>/dev/null
+        kubectl rollout status deployment/gitea -n "${GITEA_NAMESPACE}" --timeout=120s 2>/dev/null
+        echo "  Gitea SKIP_TLS_VERIFY configured for OCP webhook delivery."
+    fi
+fi
+
 local existing_hooks
 existing_hooks=$(curl -sf "${gitea_api}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" 2>/dev/null || echo "[]")
 if ! echo "${existing_hooks}" | grep -q "${webhook_url}"; then
