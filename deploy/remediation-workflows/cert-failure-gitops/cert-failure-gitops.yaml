@@ -65,7 +65,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-gitops-job@sha256:b8a84337dbcf1a2055c76e1a16b47460a9751fbc5b3b0f849bd6ac4565b19e2e
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-gitops-job@sha256:ec0da9e32cdd6e1457aa0f18dccb39b3ca840e2b6a73a3ba1d1435c36255f6fa
     serviceAccountName: fix-certificate-gitops-v1-runner
 
   dependencies:
