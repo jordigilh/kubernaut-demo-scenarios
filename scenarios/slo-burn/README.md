@@ -58,7 +58,7 @@ at the observed rate.
 | Confidence | 0.9 |
 | Selected Workflow | `RollbackDeployment` (crashloop-rollback-v1) |
 | Alternative | `crashloop-rollback-risk-v1` (confidence 0.75) — risk-averse variant |
-| Approval | Required — production environment |
+| Approval | **Required** — production environment (`run.sh` enforces deterministic approval) |
 | Contributing Factors | Misconfigured application configuration, Bad ConfigMap deployment |
 
 The LLM correctly identifies `api-config-bad` as the root cause and selects
@@ -227,6 +227,27 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 '; echo
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
+
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | ErrorBudgetBurn caused by misconfigured ConfigMap 'api-config-bad' that returns HTTP 500 errors for all API endpoints. The deployment was recently updated to use this faulty ConfigMap instead of the working 'api-config' ConfigMap. Traffic generator is continuously receiving 500 responses, causing SLO degradation. |
+| **Severity** | high |
+| **Target Resource** | Deployment/api-gateway (ns: demo-slo) |
+| **Workflow Selected** | proactive-rollback-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | required (production environment) |
+
+**Key Reasoning Chain:**
+
+1. Detects ErrorBudgetBurn alert based on error rate SLI.
+2. Identifies recent deployment change correlating with error rate increase.
+3. Selects proactive rollback to restore the last known-good revision before the error budget is fully exhausted.
+
+> **Why this matters**: Shows the LLM handling proactive SLO-based signals (not just crash/failure signals) and correlating error budget burn with recent deployment changes.
 
 #### 8. Approve when prompted (production environment)
 

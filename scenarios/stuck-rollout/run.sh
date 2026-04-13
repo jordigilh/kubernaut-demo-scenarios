@@ -27,6 +27,7 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 require_demo_ready
+force_production_approval
 
 echo "============================================="
 echo " Stuck Rollout Demo (#130)"

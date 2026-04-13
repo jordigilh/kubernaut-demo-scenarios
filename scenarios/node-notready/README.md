@@ -137,6 +137,28 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Node in NotReady state due to kubelet communication failure. All node conditions show Unknown status with NodeStatusUnknown reason. TLS handshake timeouts confirm network connectivity issues. |
+| **Severity** | critical |
+| **Target Resource** | Node/kubernaut-demo-worker (ns: ) |
+| **Workflow Selected** | cordon-drain-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | required (sensitive resource kind: Node) |
+
+**Key Reasoning Chain:**
+
+1. Detects KubeNodeNotReady alert with node conditions all Unknown.
+2. Identifies unreachable taints applied by node controller.
+3. Confirms kubelet stopped posting status (TLS handshake timeouts).
+4. Selects cordon-drain to prevent new scheduling and evacuate workloads to healthy nodes.
+
+> **Why this matters**: Shows the LLM handling node-level failures with appropriate caution — the approval policy automatically requires human review for Node resources, regardless of confidence.
+
 #### 4. Approve the RAR (when using `--interactive`)
 
 ```bash

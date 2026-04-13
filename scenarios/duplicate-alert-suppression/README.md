@@ -221,6 +221,28 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Pod crashes due to invalid configuration directive 'invalid_directive: true' in ConfigMap gateway-config-bad. Application fails to parse config file and exits with code 1, causing CrashLoopBackOff. |
+| **Severity** | critical |
+| **Target Resource** | Deployment/api-gateway (ns: demo-alert-storm) |
+| **Workflow Selected** | crashloop-rollback-v1 |
+| **Confidence** | 0.90 |
+| **Approval** | not required (staging, high confidence) |
+
+**Key Reasoning Chain:**
+
+1. Detects CrashLoopBackOff from invalid config.
+2. Traces crash to ConfigMap with bad directive.
+3. Selects appropriate fix workflow.
+4. **Key**: When duplicate alerts fire for the same root cause, the platform suppresses redundant RemediationRequests — only the first alert triggers the pipeline.
+
+> **Why this matters**: Shows both the LLM's config-crash diagnosis and the platform's duplicate alert suppression mechanism preventing redundant remediation attempts.
+
 #### 7. Verify remediation and deduplication
 
 ```bash

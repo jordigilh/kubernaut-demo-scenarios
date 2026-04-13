@@ -204,6 +204,28 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Missing CA Secret configuration in ClusterIssuer. The demo-selfsigned-ca-gitops ClusterIssuer references a nonexistent CA Secret named 'nonexistent-ca-secret', preventing certificate issuance for demo-app-cert. |
+| **Severity** | high |
+| **Target Resource** | Certificate/demo-app-cert (ns: demo-cert-gitops) |
+| **Workflow Selected** | fix-certificate-gitops-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | not required (staging, high confidence) |
+
+**Key Reasoning Chain:**
+
+1. Detects CertManagerCertNotReady alert.
+2. Traces certificate failure to ClusterIssuer referencing nonexistent CA Secret.
+3. Detects ArgoCD management of the cert-manager resources.
+4. Selects GitOps-aware certificate fix (git revert of broken ClusterIssuer commit).
+
+> **Why this matters**: Combines cert-manager trust chain analysis with GitOps awareness — the LLM must reason through Certificate → ClusterIssuer → CA Secret AND recognize the ArgoCD management context.
+
 #### 5. Verify Remediation
 
 ```bash

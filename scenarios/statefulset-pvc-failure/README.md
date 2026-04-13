@@ -223,6 +223,28 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | StatefulSet kv-store has 2/3 replicas ready because pod kv-store-2 is stuck in Pending status due to PVC data-kv-store-2 referencing non-existent StorageClass 'broken-storage-class'. The PVC cannot be provisioned, preventing pod scheduling. |
+| **Severity** | critical |
+| **Target Resource** | StatefulSet/kv-store (ns: demo-statefulset) |
+| **Workflow Selected** | fix-statefulset-pvc-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | required (sensitive resource kind: StatefulSet) |
+
+**Key Reasoning Chain:**
+
+1. Detects StatefulSet with unavailable replicas.
+2. Identifies PVC binding failure as the root cause.
+3. Recognizes StatefulSet workloads require careful handling.
+4. Selects PVC fix workflow appropriate for stateful workloads.
+
+> **Why this matters**: Demonstrates the LLM handling stateful workloads with appropriate caution, including mandatory manual approval for sensitive resource types.
+
 #### 7. Approve the RAR
 
 ```bash

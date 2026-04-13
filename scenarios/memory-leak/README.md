@@ -197,6 +197,27 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
+#### Expected LLM Reasoning (v1.2 baseline)
+
+When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Intentional memory leak simulation in leaker container writing 1MB files every 5 seconds to memory-backed emptyDir volume, creating linear unbounded memory growth that will exhaust the 192Mi container limit and 256Mi volume limit. |
+| **Severity** | critical |
+| **Target Resource** | Deployment/leaky-app (ns: demo-memory-leak) |
+| **Workflow Selected** | graceful-restart-v1 |
+| **Confidence** | 0.95 |
+| **Approval** | not required (staging, high confidence) |
+
+**Key Reasoning Chain:**
+
+1. Detects ContainerOOMKilling alert with OOMKilled termination reason.
+2. Analyzes memory usage pattern relative to configured limits.
+3. Selects memory limits increase to provide immediate relief.
+
+> **Why this matters**: Shows the LLM diagnosing OOM events and selecting resource limit adjustment. Note: for true memory leaks with unbounded growth, the LLM should eventually escalate to manual review after repeated ineffective remediations.
+
 #### 7. Verify remediation
 
 After the workflow execution completes:
