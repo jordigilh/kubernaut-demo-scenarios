@@ -160,8 +160,8 @@ For **Kind** with quickstart (env vars):
 helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-kind-values.yaml \
-    --set holmesgptApi.llm.provider=$KUBERNAUT_LLM_PROVIDER \
-    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL
+    --set kubernautAgent.llm.provider=$KUBERNAUT_LLM_PROVIDER \
+    --set kubernautAgent.llm.model=$KUBERNAUT_LLM_MODEL
 ```
 
 For **OCP** with quickstart (env vars):
@@ -170,8 +170,8 @@ For **OCP** with quickstart (env vars):
 helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-ocp-values.yaml \
-    --set holmesgptApi.llm.provider=$KUBERNAUT_LLM_PROVIDER \
-    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL
+    --set kubernautAgent.llm.provider=$KUBERNAUT_LLM_PROVIDER \
+    --set kubernautAgent.llm.model=$KUBERNAUT_LLM_MODEL
 ```
 
 For **either platform** with advanced config (SDK config file from Step 3):
@@ -180,7 +180,7 @@ For **either platform** with advanced config (SDK config file from Step 3):
 helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-<kind|ocp>-values.yaml \
-    --set-file holmesgptApi.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml
+    --set-file kubernautAgent.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml
 ```
 
 > **Do not use `--wait`:** The chart includes a post-install database migration
@@ -266,7 +266,7 @@ cp credentials/anthropic-example.yaml my-llm-credentials.yaml   # Anthropic
 
 # Edit with your actual API key, then apply:
 kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
+kubectl rollout restart deployment/kubernaut-agent -n kubernaut-system
 ```
 
 ### 6. Run a scenario and watch it work

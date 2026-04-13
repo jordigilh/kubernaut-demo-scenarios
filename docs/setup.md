@@ -87,7 +87,7 @@ Kubernaut uses an LLM to analyze Kubernetes issues and select remediation workfl
 The v1.1.0 chart offers two configuration paths:
 
 - **Quickstart** (Anthropic, OpenAI) -- set `KUBERNAUT_LLM_PROVIDER` and `KUBERNAUT_LLM_MODEL` environment variables. The chart auto-generates a minimal SDK config.
-- **SDK config file** (Vertex AI, Azure, local models, toolsets, MCP) -- copy `helm/sdk-config.yaml.example` to `~/.kubernaut/sdk-config.yaml` and edit it. The bootstrap passes it via `--set-file holmesgptApi.sdkConfigContent=...`.
+- **SDK config file** (Vertex AI, Azure, local models, toolsets, MCP) -- copy `helm/sdk-config.yaml.example` to `~/.kubernaut/sdk-config.yaml` and edit it. The bootstrap passes it via `--set-file kubernautAgent.sdkConfigContent=...`.
 
 In both cases, API credentials are provided separately as a Kubernetes Secret (`credentials/<provider>-example.yaml`), applied to the cluster after bootstrap.
 
@@ -122,12 +122,12 @@ gcloud auth application-default login
 cp credentials/vertex-ai-example.yaml my-llm-credentials.yaml
 # Edit my-llm-credentials.yaml with your GCP project ID
 kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
+kubectl rollout restart deployment/kubernaut-agent -n kubernaut-system
 ```
 
 **Verify:**
 ```bash
-kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
+kubectl logs -l app=kubernaut-agent -n kubernaut-system --tail=20
 # Look for "LLM provider initialized" or similar startup message
 ```
 
@@ -146,12 +146,12 @@ No SDK config file is needed -- the chart generates a minimal config from these 
 cp credentials/anthropic-example.yaml my-llm-credentials.yaml
 # Edit my-llm-credentials.yaml with your Anthropic API key from https://console.anthropic.com/
 kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
+kubectl rollout restart deployment/kubernaut-agent -n kubernaut-system
 ```
 
 **Verify:**
 ```bash
-kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
+kubectl logs -l app=kubernaut-agent -n kubernaut-system --tail=20
 ```
 
 ### OpenAI
@@ -167,12 +167,12 @@ export KUBERNAUT_LLM_MODEL=gpt-4o
 cp credentials/openai-example.yaml my-llm-credentials.yaml
 # Edit my-llm-credentials.yaml with your OpenAI API key from https://platform.openai.com/
 kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
+kubectl rollout restart deployment/kubernaut-agent -n kubernaut-system
 ```
 
 **Verify:**
 ```bash
-kubectl logs -l app=holmesgpt-api -n kubernaut-system --tail=20
+kubectl logs -l app=kubernaut-agent -n kubernaut-system --tail=20
 ```
 
 ### Local Models (OpenAI-compatible)
@@ -211,7 +211,7 @@ llm:
 **Verify:**
 ```bash
 # Confirm the model server is reachable from inside the cluster
-kubectl exec -it deploy/holmesgpt-api -n kubernaut-system -- \
+kubectl exec -it deploy/kubernaut-agent -n kubernaut-system -- \
   curl -s http://host.docker.internal:11434/v1/models | head -20
 ```
 
@@ -323,7 +323,7 @@ Apply your LLM credentials Secret (see the provider-specific instructions above)
 
 ```bash
 kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
+kubectl rollout restart deployment/kubernaut-agent -n kubernaut-system
 ```
 
 ## Run a Scenario
@@ -394,17 +394,17 @@ On OCP, this requires HAPI's ServiceAccount to have `cluster-monitoring-view` fo
 querying the OCP Prometheus service.
 
 **Option A (chart-managed):** The OCP values file (`helm/kubernaut-ocp-values.yaml`)
-ships with `holmesgptApi.prometheus.enabled: true` and `ocpMonitoringRbac: true`.
+ships with `kubernautAgent.prometheus.enabled: true` and `ocpMonitoringRbac: true`.
 When the chart is installed with these values, it creates the ClusterRoleBinding
 automatically. No manual action needed.
 
 **Option B (manual install):** If you installed the chart without the OCP values file
-or with `holmesgptApi.prometheus.enabled: false`, create the binding manually:
+or with `kubernautAgent.prometheus.enabled: false`, create the binding manually:
 
 ```bash
-kubectl create clusterrolebinding holmesgpt-monitoring-view \
+kubectl create clusterrolebinding kubernaut-agent-monitoring-view \
   --clusterrole=cluster-monitoring-view \
-  --serviceaccount=kubernaut-system:holmesgpt-api-sa
+  --serviceaccount=kubernaut-system:kubernaut-agent-sa
 ```
 
 Scenario scripts that call `enable_prometheus_toolset()` also create this binding

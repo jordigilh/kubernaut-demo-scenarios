@@ -8,7 +8,7 @@ echo "==> Cleaning up SLO Error Budget Burn demo..."
 
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
-echo "==> Disabling HolmesGPT Prometheus toolset..."
+echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 restore_production_approval || true
 

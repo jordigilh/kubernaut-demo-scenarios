@@ -19,7 +19,7 @@ nodes:
   - containerPort: 30081
     hostPort: 30081
     protocol: TCP
-  # HolmesGPT API (LLM integration, debugging) - Per DD-TEST-001
+  # Kubernaut Agent (LLM integration, debugging) - Per DD-TEST-001
   - containerPort: 30088
     hostPort: 8088
     protocol: TCP

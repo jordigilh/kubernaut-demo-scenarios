@@ -11,7 +11,7 @@ PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 
 echo "==> Cleaning up Resource Contention demo..."
 
-echo "==> Disabling HolmesGPT Prometheus toolset..."
+echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 
 echo "==> Purging pipeline CRDs targeting ${NAMESPACE}..."

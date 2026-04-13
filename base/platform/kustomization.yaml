@@ -12,5 +12,5 @@ resources:
   - aianalysis.yaml
   - workflowexecution.yaml
   - notification.yaml
-  - holmesgpt-api.yaml
+  - kubernaut-agent.yaml
   - effectivenessmonitor.yaml

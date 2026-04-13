@@ -67,8 +67,8 @@ data:
       healthProbeAddr: ":8081"
       leaderElection: false
       leaderElectionId: "aianalysis.kubernaut.ai"
-    holmesgpt:
-      url: "http://holmesgpt-api:8080"
+    agent:
+      url: "http://kubernaut-agent:8080"
       timeout: "180s"
       sessionPollInterval: "15s"
     datastorage:
@@ -120,11 +120,11 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: holmesgpt-api-client
+  name: kubernaut-agent-client
 rules:
   - apiGroups: [""]
     resources: ["services"]
-    resourceNames: ["holmesgpt-api"]
+    resourceNames: ["kubernaut-agent"]
     verbs: ["create", "get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -135,7 +135,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: holmesgpt-api-client
+  name: kubernaut-agent-client
 subjects:
   - kind: ServiceAccount
     name: aianalysis-controller
