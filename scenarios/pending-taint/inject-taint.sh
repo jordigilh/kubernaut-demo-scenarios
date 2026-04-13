@@ -4,12 +4,17 @@
 # on the other untainted worker.
 set -euo pipefail
 
-TARGET_NODE=$(kubectl get nodes -l kubernaut.ai/demo-taint-target=true -o name | head -1)
+TARGET_NODE=$(kubectl get nodes -l kubernaut.ai/demo-taint-target=true -o name 2>/dev/null | head -1)
 
 if [ -z "$TARGET_NODE" ]; then
-  echo "ERROR: No worker node with label kubernaut.ai/demo-taint-target=true found."
-  echo "Label a worker first: kubectl label node <worker> kubernaut.ai/demo-taint-target=true"
-  exit 1
+  echo "  No node with label kubernaut.ai/demo-taint-target=true found. Auto-labeling a worker..."
+  WORKER=$(kubectl get nodes --no-headers -l '!node-role.kubernetes.io/control-plane' -o name 2>/dev/null | head -1)
+  if [ -z "$WORKER" ]; then
+    echo "ERROR: No worker nodes available to label."
+    exit 1
+  fi
+  kubectl label "$WORKER" kubernaut.ai/demo-taint-target=true
+  TARGET_NODE="$WORKER"
 fi
 
 echo "==> Adding NoSchedule taint to ${TARGET_NODE}..."
