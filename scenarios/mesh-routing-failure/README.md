@@ -15,7 +15,7 @@ Demonstrates Kubernaut detecting an Istio-meshed workload with high error rates 
 ```
 Istio sidecar metrics: istio_requests_total (response_code=403) > 0 for 3m
   → IstioHighDenyRate / IstioRequestsUnauthorized alert
-  → Gateway → SP → AA (HAPI + LLM)
+  → Gateway → SP → AA (KA + LLM)
   → LLM detects serviceMesh label, diagnoses AuthorizationPolicy block
   → Selects FixAuthorizationPolicy workflow (fix-authz-policy-v1)
   → RO → WE (remove deny-all AuthorizationPolicy)
@@ -82,7 +82,7 @@ are Running and Ready.
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind (multi-node) or OCP 4.21+ with Kubernaut services deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | Scraping Istio sidecar metrics (Kind: PodMonitor; OCP: ServiceMonitor via UWM) |
 | Istio | Kind: `istioctl install --set profile=demo -y`; OCP: OpenShift Service Mesh 3 (Sail operator) |
 | User-workload monitoring (OCP) | Required for scraping ServiceMonitors in user namespaces. The `run.sh` script enables this automatically by applying `cluster-monitoring-config` in `openshift-monitoring`. |
@@ -307,7 +307,7 @@ Feature: Istio Mesh Routing Failure remediation
 
   Then Kubernaut Gateway receives the alert via Alertmanager webhook
     And Signal Processing enriches the signal with business labels
-    And AI Analysis (HAPI + LLM) diagnoses AuthorizationPolicy as root cause
+    And AI Analysis (KA + LLM) diagnoses AuthorizationPolicy as root cause
     And the LLM selects the "FixAuthorizationPolicy" workflow (fix-authz-policy-v1)
     And Remediation Orchestrator creates a WorkflowExecution
     And Workflow Execution removes the deny-all AuthorizationPolicy

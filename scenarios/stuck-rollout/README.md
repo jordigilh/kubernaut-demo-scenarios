@@ -26,7 +26,7 @@ kube_deployment_status_condition{condition="Progressing",status="false"} == 1
   → KubeDeploymentRolloutStuck alert (severity: critical, for: 1m)
   → AlertManager webhook → Gateway → RemediationRequest
   → Signal Processing
-  → AI Analysis (HAPI + Claude Sonnet 4 on Vertex AI)
+  → AI Analysis (KA + Claude Sonnet 4 on Vertex AI)
     → Root cause: invalid image tag causing ImagePullBackOff
     → Contributing factors: invalid tag, config error in spec, rolling update blocking
     → Selected: RollbackDeployment (confidence 0.95)
@@ -41,7 +41,7 @@ kube_deployment_status_condition{condition="Progressing",status="false"} == 1
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `rollback-deployment-v1` registered in DataStorage |
 
@@ -344,7 +344,7 @@ Feature: Stuck rollout remediation via deployment rollback
 
     Then Gateway receives the alert via AlertManager webhook
       And Signal Processing enriches with severity=critical
-      And HAPI diagnoses stuck rollout from invalid image tag
+      And KA diagnoses stuck rollout from invalid image tag
       And contributing factors include: invalid tag, config error, rolling update blocking
       And the LLM selects RollbackDeployment (confidence 0.95)
       And an alternative CrashLoopRollback is considered but rejected (0.75)

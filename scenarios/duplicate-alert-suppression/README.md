@@ -28,7 +28,7 @@ on duplicate incidents — a critical requirement for noisy production environme
   → Single fingerprint: SHA256(demo-alert-storm:deployment:api-gateway)
   → 1 RemediationRequest (occurrenceCount increments per webhook)
   → Signal Processing
-  → AI Analysis (HAPI + Claude Sonnet 4 on Vertex AI)
+  → AI Analysis (KA + Claude Sonnet 4 on Vertex AI)
     → Root cause: invalid directive in ConfigMap gateway-config-bad
     → Contributing factors: bad config, recent deployment change, no config validation
     → Selected: RollbackDeployment (confidence 0.95)
@@ -43,7 +43,7 @@ on duplicate incidents — a critical requirement for noisy production environme
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `rollback-deployment-v1` registered in DataStorage |
 
@@ -323,7 +323,7 @@ Feature: Duplicate alert suppression via OwnerResolver fingerprinting
       And a single fingerprint is computed for all 5 alerts
       And exactly 1 RemediationRequest is created (not 5)
       And the RR's deduplication.occurrenceCount reflects webhook deliveries
-      And HAPI diagnoses invalid config directive in gateway-config-bad
+      And KA diagnoses invalid config directive in gateway-config-bad
       And the LLM selects RollbackDeployment (confidence 0.95)
       And auto-approval is granted (no manual review required)
       And WorkflowExecution rolls back the deployment

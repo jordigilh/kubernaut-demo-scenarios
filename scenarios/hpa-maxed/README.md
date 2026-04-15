@@ -22,7 +22,7 @@ CPU stress → HPA scales to maxReplicas (3) → can't scale further
   → KubeHpaMaxedOut alert (severity: warning, for: 3m)
   → AlertManager webhook → Gateway → RemediationRequest
   → Signal Processing
-  → AI Analysis (HAPI + Claude Sonnet 4 on Vertex AI)
+  → AI Analysis (KA + Claude Sonnet 4 on Vertex AI)
     → Detected labels: hpaEnabled=true
     → Root cause: maxReplicas ceiling too low, CPU at 200% of target
     → Contributing factors: HPA limit too low, utilization 4x target, no headroom
@@ -39,11 +39,11 @@ CPU stress → HPA scales to maxReplicas (3) → can't scale further
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics scraping |
 | metrics-server | Required for HPA CPU metrics (built-in on OCP) |
 | Workflow catalog | `patch-hpa-v1` registered in DataStorage |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
+| KA Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 
 ### Workflow RBAC
 
@@ -289,7 +289,7 @@ Feature: HPA ceiling remediation via detected labels
 
     Then Gateway receives the alert via AlertManager webhook
       And Signal Processing enriches the signal
-      And HAPI detects hpaEnabled=true from deployment context
+      And KA detects hpaEnabled=true from deployment context
       And the LLM reads HPA configuration and CPU metrics
       And the LLM selects PatchHPA (confidence 0.95)
       And parameters include NEW_MAX_REPLICAS=5

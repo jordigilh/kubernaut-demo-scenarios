@@ -56,7 +56,7 @@ Feature: GitOps drift remediation via git revert
     Then Prometheus fires "KubePodCrashLooping" alert for namespace "demo-gitops"
       And Gateway creates a RemediationRequest
       And Signal Processing enriches with namespace labels (environment=staging, criticality=high)
-      And HAPI LabelDetector detects "gitOpsManaged=true" from ArgoCD annotations
+      And KA LabelDetector detects "gitOpsManaged=true" from ArgoCD annotations
       And the LLM traces the crash to ConfigMap "app-config" (RCA resource != signal resource)
       And the LLM selects "GitRevertCommit" workflow (not "RollbackDeployment")
       And Remediation Orchestrator creates WorkflowExecution
@@ -70,7 +70,7 @@ Feature: GitOps drift remediation via git revert
 - [ ] Gitea + ArgoCD deployed and managing `demo-gitops` namespace
 - [ ] Bad ConfigMap commit causes CrashLoopBackOff
 - [ ] SP enriches signal with business classification from namespace labels
-- [ ] HAPI detects `gitOpsManaged=true` from ArgoCD annotations (DD-HAPI-018)
+- [ ] KA detects `gitOpsManaged=true` from ArgoCD annotations (DD-HAPI-018)
 - [ ] LLM identifies ConfigMap as root cause (signal != RCA)
 - [ ] LLM selects `GitRevertCommit` workflow over `RollbackDeployment`
 - [ ] WE Job performs `git revert` in Gitea repository

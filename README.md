@@ -161,7 +161,9 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-kind-values.yaml \
     --set kubernautAgent.llm.provider=$KUBERNAUT_LLM_PROVIDER \
-    --set kubernautAgent.llm.model=$KUBERNAUT_LLM_MODEL
+    --set kubernautAgent.llm.model=$KUBERNAUT_LLM_MODEL \
+    --set-file signalprocessing.policies.content=deploy/defaults/signalprocessing-policy.rego \
+    --set-file aianalysis.policies.content=deploy/defaults/approval-policy.rego
 ```
 
 For **OCP** with quickstart (env vars):
@@ -171,7 +173,9 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-ocp-values.yaml \
     --set kubernautAgent.llm.provider=$KUBERNAUT_LLM_PROVIDER \
-    --set kubernautAgent.llm.model=$KUBERNAUT_LLM_MODEL
+    --set kubernautAgent.llm.model=$KUBERNAUT_LLM_MODEL \
+    --set-file signalprocessing.policies.content=deploy/defaults/signalprocessing-policy.rego \
+    --set-file aianalysis.policies.content=deploy/defaults/approval-policy.rego
 ```
 
 For **either platform** with advanced config (SDK config file from Step 3):
@@ -180,8 +184,14 @@ For **either platform** with advanced config (SDK config file from Step 3):
 helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-<kind|ocp>-values.yaml \
-    --set-file kubernautAgent.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml
+    --set-file kubernautAgent.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml \
+    --set-file signalprocessing.policies.content=deploy/defaults/signalprocessing-policy.rego \
+    --set-file aianalysis.policies.content=deploy/defaults/approval-policy.rego
 ```
+
+> **Rego policies are required:** As of v1.3, the chart no longer bundles default Rego policies.
+> You must provide both `signalprocessing.policies.content` and `aianalysis.policies.content`
+> via `--set-file`. Reference policies are available in `deploy/defaults/`.
 
 > **Do not use `--wait`:** The chart includes a post-install database migration
 > job. `--wait` blocks until all pods are ready, but the authwebhook pod depends
@@ -219,7 +229,16 @@ Replace `<aap-or-awx-url>`, `<token-secret>`, and `<namespace>` with your actual
 > **Re-install / upgrade:** If upgrading from a previous version or re-installing after `helm uninstall`,
 > add `--skip-crds` to avoid CRD field manager conflicts. See [Troubleshooting](docs/troubleshooting.md#helm-upgrade-fails-with-crd-field-manager-conflict) for details.
 
-The chart seeds ActionTypes and RemediationWorkflows automatically (`demoContent.enabled: true` by default). No manual seeding needed.
+**Step B2b: Seed ActionTypes and RemediationWorkflows.** As of v1.3, the chart no longer bundles demo content. Wait for the authwebhook to be ready, then apply from this repo:
+
+```bash
+kubectl rollout status deployment/authwebhook -n kubernaut-system --timeout=120s
+kubectl apply -f deploy/action-types/ -n kubernaut-system
+for dir in deploy/remediation-workflows/*/; do kubectl apply -f "$dir"; done
+```
+
+> **Ordering matters:** The authwebhook validates CRs on admission (`failurePolicy: Fail`).
+> If applied before the webhook is ready, the API server will reject them.
 
 **Step B3: Configure AlertManager to route alerts to the Gateway.**
 
@@ -329,7 +348,7 @@ but this matrix lets you plan ahead:
 | **cert-manager** | cert-failure, cert-failure-gitops | OCP: `openshift-cert-manager-operator` from OperatorHub. Kind: installed by `setup-demo-cluster.sh`. |
 | **Istio / Service Mesh** | mesh-routing-failure | OCP: OpenShift Service Mesh (OSSM) from OperatorHub. Kind: `--with-istio`. |
 | **metrics-server** | autoscale, hpa-maxed | Built-in on OCP. Kind: installed by `setup-demo-cluster.sh`. |
-| **HAPI Prometheus toolset** | autoscale, hpa-maxed, memory-leak, memory-escalation, slo-burn, disk-pressure-emptydir, resource-contention, resource-quota-exhaustion | Auto-enabled by `run.sh`. [Manual enablement](docs/prometheus-toolset.md). |
+| **KA Prometheus toolset** | autoscale, hpa-maxed, memory-leak, memory-escalation, slo-burn, disk-pressure-emptydir, resource-contention, resource-quota-exhaustion | Auto-enabled by `run.sh`. [Manual enablement](docs/prometheus-toolset.md). |
 | **Podman (Kind only)** | node-notready | Kind-only scenario. Not supported on OCP (#287). |
 
 Scenarios not listed above (crashloop, crashloop-helm, duplicate-alert-suppression,

@@ -17,7 +17,7 @@ existing workloads to healthy nodes.
 | Component | Requirement |
 |-----------|-------------|
 | Kind cluster | Multi-node with `kubernaut.ai/managed=true` label |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Podman | Required to pause/unpause Kind node container |
 | Workflow catalog | `cordon-drain-v1` registered in DataStorage |

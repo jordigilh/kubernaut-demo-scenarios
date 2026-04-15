@@ -16,7 +16,7 @@ the CA Secret to restore certificate issuance.
 
 ```
 certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady alert
-  → Gateway → SP → AA (HAPI + real LLM)
+  → Gateway → SP → AA (KA + real LLM)
   → LLM diagnoses missing CA Secret causing Certificate NotReady
   → Selects FixCertificate workflow
   → RO → WE (recreate CA Secret, trigger re-issuance)
@@ -28,7 +28,7 @@ certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady ale
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With cert-manager metrics |
 | cert-manager | Pre-installed (via `setup-demo-cluster.sh` or manually) |
 | Workflow catalog | `fix-certificate-v1` registered in DataStorage |
@@ -300,7 +300,7 @@ When the CA Secret backing the ClusterIssuer is deleted
 
 Then Kubernaut Gateway receives the alert via Alertmanager webhook
   And Signal Processing enriches the signal with business labels
-  And AI Analysis (HAPI + LLM) diagnoses missing CA Secret as root cause
+  And AI Analysis (KA + LLM) diagnoses missing CA Secret as root cause
   And the LLM selects the "FixCertificate" workflow (fix-certificate-v1)
   And Remediation Orchestrator creates a WorkflowExecution
   And Workflow Execution recreates the CA Secret and triggers re-issuance

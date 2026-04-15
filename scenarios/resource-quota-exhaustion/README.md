@@ -29,7 +29,7 @@ Deployment scaled (3 replicas × 256Mi) → exceeds 512Mi quota
 → ReplicaSet FailedCreate (pods never reach Pending)
 → kube-state-metrics (spec_replicas > ready_replicas)
 → Prometheus (for: 1m) → AlertManager → Gateway webhook
-→ RR → SP → AA (HAPI/LLM)
+→ RR → SP → AA (KA/LLM)
 → no_matching_workflows → ManualReviewRequired
 → ManualReviewNotification sent
 ```
@@ -72,10 +72,10 @@ capability — the LLM learns from the failed first attempt.
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Workflows | No specific workflow needed (scenario proves escalation) |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
+| KA Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 
 ### Workflow RBAC
 
@@ -267,7 +267,7 @@ Feature: Resource Quota Exhaustion — policy constraint escalation
     When the deployment is scaled to 3 replicas with 256Mi each (768Mi > 512Mi)
       And the new ReplicaSet receives FailedCreate events (quota exceeded)
       And the KubeResourceQuotaExhausted alert fires
-    Then the alert flows through Gateway → SP → AA (HAPI)
+    Then the alert flows through Gateway → SP → AA (KA)
       And the LLM identifies this as a policy constraint (ResourceQuota)
       And no matching workflow is found
       And AA sets needsHumanReview to true with reason "no_matching_workflows"

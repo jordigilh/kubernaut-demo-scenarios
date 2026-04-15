@@ -23,7 +23,7 @@ predict_linear(container_memory_working_set_bytes[5m], 1800)
   → ContainerMemoryExhaustionPredicted alert (severity: warning)
   → AlertManager webhook → Gateway → RemediationRequest
   → Signal Processing (severity=warning, env=production)
-  → AI Analysis (HAPI + Claude Sonnet 4 on Vertex AI)
+  → AI Analysis (KA + Claude Sonnet 4 on Vertex AI)
     → LLM identifies linear memory growth in "leaker" container
     → Contributing factors: continuous allocation, memory-backed emptyDir, unbounded writes
     → Selects GracefulRestart workflow (confidence 0.9)
@@ -37,10 +37,10 @@ predict_linear(container_memory_working_set_bytes[5m], 1800)
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With cAdvisor scraping and kube-state-metrics |
 | Workflow catalog | `graceful-restart-v1` registered in DataStorage |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
+| KA Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 
 ### Workflow RBAC
 
@@ -280,7 +280,7 @@ Feature: Proactive memory exhaustion remediation
 
     Then Gateway receives the alert via AlertManager webhook
       And Signal Processing enriches with severity=warning
-      And HAPI diagnoses linear memory growth in the "leaker" container
+      And KA diagnoses linear memory growth in the "leaker" container
       And contributing factors include: continuous allocation, memory-backed emptyDir
       And the LLM selects GracefulRestart workflow (confidence 0.9)
       And Rego policy auto-approves (warning severity, no human review required)

@@ -386,11 +386,11 @@ This adds a webhook route for `demo-*` namespace alerts and `KubeNodeNotReady` t
 
 > **Note:** The `alertmanager-main` Secret is managed by the cluster monitoring operator. If you later reconfigure cluster monitoring, you may need to re-apply this patch.
 
-### HAPI Prometheus Access (OCP)
+### KA Prometheus Access (OCP)
 
-The `prometheus/metrics` toolset gives HAPI's LLM access to real-time Prometheus
+The `prometheus/metrics` toolset gives KA's LLM access to real-time Prometheus
 metrics during AI analysis (e.g., disk growth rates via `node_filesystem_avail_bytes`).
-On OCP, this requires HAPI's ServiceAccount to have `cluster-monitoring-view` for
+On OCP, this requires KA's ServiceAccount to have `cluster-monitoring-view` for
 querying the OCP Prometheus service.
 
 **Option A (chart-managed):** The OCP values file (`helm/kubernaut-ocp-values.yaml`)

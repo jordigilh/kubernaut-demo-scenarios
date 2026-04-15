@@ -21,7 +21,7 @@ PVC failure (non-existent StorageClass), and selects the `FixStatefulSetPVC` wor
 ```
 kube_statefulset_status_replicas_ready < kube_statefulset_status_replicas for 3m
 → KubeStatefulSetReplicasMismatch alert
-→ Gateway → SP → AA (HAPI + LLM)
+→ Gateway → SP → AA (KA + LLM)
 → LLM detects stateful=true, diagnoses PVC failure (broken StorageClass)
 → Selects FixStatefulSetPVC (confidence 0.95)
 → Rego: is_sensitive_resource (StatefulSet) → AwaitingApproval
@@ -75,7 +75,7 @@ default StorageClass, and the pod recovers.
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | StorageClass | Cluster default (Kind: `standard`, OCP: `ocs-storagecluster-ceph-rbd`) |
 | Workflow | `fix-statefulset-pvc-v1` (shipped with demo content) |

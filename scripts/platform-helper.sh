@@ -420,7 +420,7 @@ ensure_platform() {
     local sp_policy="${REPO_ROOT}/deploy/defaults/signalprocessing-policy.rego"
     local aa_policy="${REPO_ROOT}/deploy/defaults/approval-policy.rego"
     if [ -f "$sp_policy" ]; then
-        policy_flags="--set-file signalprocessing.policy=${sp_policy}"
+        policy_flags="--set-file signalprocessing.policies.content=${sp_policy}"
     fi
     if [ -f "$aa_policy" ]; then
         policy_flags="${policy_flags} --set-file aianalysis.policies.content=${aa_policy}"
@@ -438,7 +438,6 @@ ensure_platform() {
         ${llm_flags} \
         ${version_flag} \
         ${policy_flags} \
-        --set demoContent.enabled=false \
         --skip-crds \
         --timeout 10m
 
@@ -645,21 +644,18 @@ enable_prometheus_toolset() {
     local prom_url
     prom_url=$(_prom_url_for_platform)
 
-    # On OCP, HAPI's SA needs cluster-monitoring-view to query prometheus-k8s.
+    # On OCP, KA's SA needs cluster-monitoring-view to query prometheus-k8s.
     # The chart creates "kubernaut-agent-monitoring-view" when both
     # kubernautAgent.prometheus.enabled and ocpMonitoringRbac are true.
-    # We check for both the chart-managed and legacy binding names as a
-    # safety net for older installs (kubernaut#574).
     if [ "${PLATFORM:-}" = "ocp" ]; then
-        if ! kubectl get clusterrolebinding kubernaut-agent-monitoring-view &>/dev/null \
-           && ! kubectl get clusterrolebinding holmesgpt-monitoring-view &>/dev/null; then
-            local hapi_sa
-            hapi_sa=$(kubectl get sa -n "${PLATFORM_NS}" -l app=kubernaut-agent \
+        if ! kubectl get clusterrolebinding kubernaut-agent-monitoring-view &>/dev/null; then
+            local ka_sa
+            ka_sa=$(kubectl get sa -n "${PLATFORM_NS}" -l app=kubernaut-agent \
                 -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "kubernaut-agent-sa")
             kubectl create clusterrolebinding kubernaut-agent-monitoring-view \
                 --clusterrole=cluster-monitoring-view \
-                --serviceaccount="${PLATFORM_NS}:${hapi_sa}" 2>/dev/null || true
-            echo "  Prometheus RBAC: granted cluster-monitoring-view to ${hapi_sa}."
+                --serviceaccount="${PLATFORM_NS}:${ka_sa}" 2>/dev/null || true
+            echo "  Prometheus RBAC: granted cluster-monitoring-view to ${ka_sa}."
         fi
 
         # The chart's kubernaut-alertmanager-view ClusterRole uses nonResourceURLs,

@@ -20,7 +20,7 @@ change and performing an automatic rollback to the previous working revision.
 
 ```
 kube_pod_container_status_restarts_total increasing → KubePodCrashLooping alert
-  → Gateway → SP → AA (HAPI + real LLM)
+  → Gateway → SP → AA (KA + real LLM)
   → LLM diagnoses bad config causing CrashLoopBackOff
   → Selects GracefulRestart (rollback) workflow
   → RO → WE (kubectl rollout undo)
@@ -32,7 +32,7 @@ kube_pod_container_status_restarts_total increasing → KubePodCrashLooping aler
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `crashloop-rollback-v1` registered in DataStorage |
 
@@ -286,7 +286,7 @@ When a bad ConfigMap is deployed that causes demo-http-server to fail on startup
 
 Then Kubernaut Gateway receives the alert via Alertmanager webhook
   And Signal Processing enriches the signal with business labels
-  And AI Analysis (HAPI + LLM) diagnoses CrashLoopBackOff from bad configuration
+  And AI Analysis (KA + LLM) diagnoses CrashLoopBackOff from bad configuration
   And the LLM selects the "GracefulRestart" workflow (crashloop-rollback-v1)
   And Remediation Orchestrator creates a WorkflowExecution
   And Workflow Execution rolls back the deployment to the previous revision
