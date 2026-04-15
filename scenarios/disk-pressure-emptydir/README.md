@@ -31,7 +31,7 @@ Upon approval, an Ansible/AWX playbook:
 predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
   -> PredictedDiskPressure alert (proactive)
   -> Gateway -> SP (normalizes to DiskPressure, signalMode=proactive)
-  -> AA (HAPI + LLM, proactive prompt: "predict & prevent")
+  -> AA (KA + LLM, proactive prompt: "predict & prevent")
   -> LLM detects emptyDir anti-pattern + gitOpsTool label
   -> Selects MigrateEmptyDirToPVC workflow
   -> RO creates RAR (human approval gate)
@@ -45,9 +45,9 @@ predict_linear(node_filesystem_avail_bytes[3m], 1200) < 0  for 1m
 | Component | Requirement |
 |-----------|-------------|
 | OCP cluster | Dedicated stress-worker node (~25 GB disk, label `scenario=disk-pressure`) |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics and `node-exporter` |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
+| KA Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 | AWX/AAP | `scripts/awx-helper.sh` (or `aap-helper.sh` with Red Hat subscription) |
 | Gitea + ArgoCD | Deployed via `scenarios/gitops/scripts/setup-gitea.sh` and `scenarios/gitops/scripts/setup-argocd.sh` |
 | Gitea webhook | Automated by `run.sh setup` (see [Gitea-ArgoCD Webhook](#gitea-argocd-webhook)) |
@@ -435,7 +435,7 @@ kubectl create clusterrolebinding kubernaut-agent-monitoring-view \
   --serviceaccount=kubernaut-system:kubernaut-agent-sa
 ```
 
-Without this, HAPI loads the Prometheus toolset but cannot execute queries (401
+Without this, KA loads the Prometheus toolset but cannot execute queries (401
 from Prometheus). The LLM still functions using kubectl-based investigation, but
 lacks real-time metrics for disk growth rate analysis.
 
@@ -479,7 +479,7 @@ The LLM correctly identified PostgreSQL as the root cause using 19 tool calls:
 6. Walked the 3-step workflow discovery protocol -> selected `MigrateEmptyDirToPVC`
 
 > **Note on Prometheus metrics**: `run.sh` enables the `prometheus/metrics` toolset
-> but HAPI may not use it in every analysis. In the observed rc14 run, the LLM
+> but KA may not use it in every analysis. In the observed rc14 run, the LLM
 > relied on kubectl inspection (pod specs, logs, configmaps) rather than Prometheus
 > queries. The Prometheus toolset provides additional signal (disk growth rates via
 > `node_filesystem_avail_bytes`) which can help disambiguate when multiple pods
@@ -524,7 +524,7 @@ The AAP job template is missing the K8s credential. This happens when:
 
 **Fix:** `bash scripts/aap-helper.sh --configure-only`
 
-### HAPI pod CrashLoopBackOff after install
+### KA pod CrashLoopBackOff after install
 
 Check logs for `FATAL: No LLM credentials found for provider 'vertex_ai'`.
 The `llm-credentials` secret requires specific keys depending on the provider.
@@ -572,7 +572,7 @@ Feature: DiskPressure emptyDir Migration via GitOps + Ansible (Proactive)
       And the PredictedDiskPressure alert fires (proactive, before eviction)
 
     Then SP classifies signal as proactive (signalMode=proactive, signalName=DiskPressure)
-      And HAPI uses proactive investigation prompt ("predict & prevent")
+      And KA uses proactive investigation prompt ("predict & prevent")
       And the LLM detects the emptyDir anti-pattern and gitOpsTool label
       And the LLM selects MigrateEmptyDirToPVC workflow
       And RO creates a RemediationApprovalRequest (human gate)
@@ -589,7 +589,7 @@ Feature: DiskPressure emptyDir Migration via GitOps + Ansible (Proactive)
 - [ ] PostgreSQL runs on emptyDir and grows data steadily
 - [ ] PredictedDiskPressure alert fires (proactive, before kubelet eviction)
 - [ ] SP classifies signal as proactive (signalMode=proactive)
-- [ ] HAPI uses proactive investigation prompt
+- [ ] KA uses proactive investigation prompt
 - [ ] LLM identifies emptyDir anti-pattern as root cause
 - [ ] RAR is created for human approval
 - [ ] Ansible/AWX playbook executes after approval

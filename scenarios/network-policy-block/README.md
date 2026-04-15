@@ -17,7 +17,7 @@ deny-all NetworkPolicy blocks inter-pod traffic
   → traffic-gen readiness probe fails (curl to web-frontend times out)
   → traffic-gen becomes NotReady (kube_deployment_status_replicas_unavailable > 0)
   → KubeDeploymentReplicasMismatch alert fires after 3 min
-  → Gateway → SP → AA (HAPI + LLM)
+  → Gateway → SP → AA (KA + LLM)
   → LLM detects networkIsolated=true, diagnoses NetworkPolicy block
   → Selects FixNetworkPolicy workflow
   → RO → WE (delete deny-all NetworkPolicy)
@@ -30,7 +30,7 @@ deny-all NetworkPolicy blocks inter-pod traffic
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (or mock) via HAPI |
+| LLM backend | Real LLM (or mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `fix-network-policy-v1` registered in DataStorage |
 

@@ -46,7 +46,7 @@ Team Alpha (demo-team-alpha, staging):                Team Beta (demo-team-beta,
 | Component | Kind | OCP |
 |-----------|------|-----|
 | Cluster | Kind cluster | OCP 4.x with `openshift.io/cluster-monitoring` support |
-| LLM backend | Real LLM (not mock) via HAPI | Same |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent | Same |
 | Prometheus | kube-prometheus-stack with kube-state-metrics | OCP built-in monitoring (`openshift-monitoring`) |
 | Workflow catalog | `hotfix-config-v1` and `crashloop-rollback-risk-v1` registered | Same |
 | Container image | `quay.io/kubernaut-cicd/demo-http-server:1.0.0` | Same (platform-neutral) |

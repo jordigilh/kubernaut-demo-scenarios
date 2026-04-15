@@ -68,7 +68,7 @@ clear-cut and warrants a direct rollback.
 ## Prerequisites
 
 - Kubernetes / OpenShift cluster with Prometheus Operator (CRD: Probe, PrometheusRule)
-- Kubernaut services deployed with HAPI configured for a real LLM backend
+- Kubernaut services deployed with KA configured for a real LLM backend
 - Kubernaut Agent Prometheus toolset (auto-enabled by `run.sh`, reverted by `cleanup.sh` — [manual enablement](../../docs/prometheus-toolset.md))
 - `RollbackDeployment` action type registered
 - `crashloop-rollback-v1` (or equivalent) workflow in the catalog

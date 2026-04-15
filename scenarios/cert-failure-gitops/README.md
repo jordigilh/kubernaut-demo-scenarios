@@ -16,8 +16,8 @@ Same fault as #133 (cert-manager Certificate stuck NotReady) but cert-manager re
 
 ```
 certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady alert
-  → Gateway → SP → AA (HAPI + real LLM)
-  → HAPI LabelDetector detects gitOpsManaged=true, gitOpsTool=argocd
+  → Gateway → SP → AA (KA + real LLM)
+  → KA LabelDetector detects gitOpsManaged=true, gitOpsTool=argocd
   → LLM diagnoses broken ClusterIssuer (bad commit) as root cause
   → LLM selects fix-certificate-gitops-v1 (git-based fix) over fix-certificate-v1 (kubectl)
   → RO → WE Job (git revert HEAD, push to Gitea)
@@ -30,7 +30,7 @@ certmanager_certificate_ready_status == 0 for 2m → CertManagerCertNotReady ale
 | Component | Kind | OCP |
 |-----------|------|-----|
 | Cluster | `scenarios/kind-config-singlenode.yaml` | OpenShift 4.x cluster |
-| LLM backend | Real LLM (not mock) via HAPI | Same |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent | Same |
 | Prometheus | With cert-manager metrics | OCP monitoring stack |
 | cert-manager | Installed (run.sh installs if missing) | Same |
 | Gitea | Via `scenarios/gitops/scripts/setup-gitea.sh` | Same (adds OCP-compatible securityContext) |
@@ -75,7 +75,7 @@ Feature: cert-manager Certificate failure remediation via git revert (GitOps)
     Then Prometheus fires "CertManagerCertNotReady" alert for namespace "demo-cert-gitops"
       And Gateway creates a RemediationRequest
       And Signal Processing enriches with namespace labels (environment=production, criticality=high)
-      And HAPI LabelDetector detects "gitOpsManaged=true" and "gitOpsTool=argocd"
+      And KA LabelDetector detects "gitOpsManaged=true" and "gitOpsTool=argocd"
       And the LLM traces the Certificate NotReady to broken ClusterIssuer (bad Git commit)
       And the LLM selects "fix-certificate-gitops-v1" workflow (not "fix-certificate-v1")
       And Remediation Orchestrator creates WorkflowExecution
@@ -90,7 +90,7 @@ Feature: cert-manager Certificate failure remediation via git revert (GitOps)
 - [ ] Certificate and ClusterIssuer are GitOps-managed (synced from Gitea)
 - [ ] Bad ClusterIssuer commit causes Certificate to become NotReady
 - [ ] SP enriches signal with business classification from namespace labels
-- [ ] HAPI detects `gitOpsManaged=true` and `gitOpsTool=argocd` (DD-HAPI-018)
+- [ ] KA detects `gitOpsManaged=true` and `gitOpsTool=argocd` (DD-HAPI-018)
 - [ ] LLM identifies broken ClusterIssuer (bad commit) as root cause
 - [ ] LLM selects `fix-certificate-gitops-v1` (git revert) over `fix-certificate-v1` (kubectl)
 - [ ] WE Job performs `git revert` in Gitea repository
@@ -299,7 +299,7 @@ awareness.
 
 ### Recurrence Behavior
 
-When the problem was re-triggered (Secret deleted again), HAPI's `get_resource_context`
+When the problem was re-triggered (Secret deleted again), KA's `get_resource_context`
 tool queried DataStorage and returned the remediation history for the resource
 (`history_count=5`), including the previous successful `FixCertificate` outcome with
 verified effectiveness scores. The LLM chose the same approach (`FixCertificate`,

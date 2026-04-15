@@ -2,7 +2,7 @@
 #
 # Deploy via Helm:
 #   helm install kubernaut kubernaut/kubernaut \
-#     --set-file signalprocessing.policy=deploy/defaults/signalprocessing-policy.rego
+#     --set-file signalprocessing.policies.content=deploy/defaults/signalprocessing-policy.rego
 #
 # Input schema (type-safe from Go):
 #   input.namespace.name         string

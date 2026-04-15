@@ -17,7 +17,7 @@ investigates, identifies the taint as the root cause, and removes it.
 | Component | Requirement |
 |-----------|-------------|
 | Kind cluster | Multi-node (the inject script auto-labels a worker with `kubernaut.ai/demo-taint-target=true` if no node has it) |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `remove-taint-v1` registered in DataStorage |
 

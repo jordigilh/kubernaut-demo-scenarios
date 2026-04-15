@@ -34,7 +34,7 @@ cleanup target, and the LLM proceeds without hesitation.
 ```
 Batch jobs complete → PVCs remain (orphaned) → kube-state-metrics
 → Prometheus (count bound PVCs > 3 for 3m) → AlertManager
-→ Gateway webhook → RR created → SP → AA (HAPI/LLM)
+→ Gateway webhook → RR created → SP → AA (KA/LLM)
 → Path A: NoActionRequired (auto-complete)
 → Path B: CleanupPVC selected + warning → Rego llm_warns_no_remediation → AwaitingApproval
 → Path C: CleanupPVC selected, no warnings → WFE → Remediated
@@ -111,7 +111,7 @@ LLM ambivalence independently of the environment guard.
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | StorageClass | `standard` (Kind) or cluster default (OCP) |
 | Workflow catalog | `cleanup-pvc-v1` present (shipped with demo content) |
@@ -353,7 +353,7 @@ Feature: Orphaned PVC — LLM judgment with available workflow
   Scenario: Path A — LLM determines no action needed
     When 5 orphaned PVCs from simulated completed batch jobs are created
       And the KubePersistentVolumeClaimOrphaned alert fires (>3 bound PVCs for 3 min)
-    Then the alert flows through Gateway → SP → AA (HAPI)
+    Then the alert flows through Gateway → SP → AA (KA)
       And the LLM selects no workflow (empty workflowId)
       And AA phase is Completed or Failed (v1.2: Failed when no workflow matched)
       And RO marks the RR as Completed with outcome NoActionRequired or ManualReviewRequired
@@ -363,7 +363,7 @@ Feature: Orphaned PVC — LLM judgment with available workflow
   Scenario: Path B — LLM selects workflow but warns (human-in-the-loop)
     When 5 orphaned PVCs from simulated completed batch jobs are created
       And the KubePersistentVolumeClaimOrphaned alert fires (>3 bound PVCs for 3 min)
-    Then the alert flows through Gateway → SP → AA (HAPI)
+    Then the alert flows through Gateway → SP → AA (KA)
       And the LLM selects CleanupPVC with warnings ["Alert not actionable — no remediation warranted"]
       And Rego policy evaluates llm_warns_no_remediation → require_approval
       And approvalReason is "LLM warning: no remediation warranted"
@@ -374,7 +374,7 @@ Feature: Orphaned PVC — LLM judgment with available workflow
   Scenario: Path C — LLM selects workflow without warnings (automated cleanup)
     When 5 orphaned PVCs from simulated completed batch jobs are created
       And the KubePersistentVolumeClaimOrphaned alert fires (>3 bound PVCs for 3 min)
-    Then the alert flows through Gateway → SP → AA (HAPI)
+    Then the alert flows through Gateway → SP → AA (KA)
       And the LLM selects CleanupPVC with no warnings
       And a WorkflowExecution is created and completes
       And RO marks the RR as Completed with outcome Remediated

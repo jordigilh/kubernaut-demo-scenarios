@@ -6,7 +6,7 @@ Demonstrates Kubernaut detecting a CrashLoopBackOff caused by a bad `helm upgrad
 and performing an automatic `helm rollback` to the previous healthy revision.
 
 The key differentiator from scenario #120 (crashloop) is that the workload is deployed
-via a Helm chart. HAPI's `get_resource_context` tool detects the
+via a Helm chart. KA's `get_resource_context` tool detects the
 `app.kubernetes.io/managed-by: Helm` label and surfaces `helmManaged: true` as a
 cluster-context label. The LLM uses this to select the `HelmRollback` workflow
 instead of `RollbackDeployment` (`kubectl rollout undo`).
@@ -24,7 +24,7 @@ instead of `RollbackDeployment` (`kubectl rollout undo`).
 kube_pod_container_status_restarts_total increasing → KubePodCrashLooping alert
   → AlertManager webhook → Gateway → RemediationRequest
   → Signal Processing (severity=critical, env=production, P0)
-  → AI Analysis (HAPI + Claude Sonnet 4 on Vertex AI)
+  → AI Analysis (KA + Claude Sonnet 4 on Vertex AI)
     → LLM detects helmManaged=true from deployment labels
     → LLM selects HelmRollback workflow (not RollbackDeployment)
   → Remediation Orchestrator → Approval Request (confidence 0.95)
@@ -38,7 +38,7 @@ kube_pod_container_status_restarts_total increasing → KubePodCrashLooping aler
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
 | Helm 3 | Installed on the local machine |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `helm-rollback-v1` registered in DataStorage |
 
@@ -307,7 +307,7 @@ Feature: Helm-managed CrashLoopBackOff remediation
 
     Then Gateway receives the alert via AlertManager webhook
       And Signal Processing enriches with severity=critical, environment=production, P0
-      And HAPI detects helmManaged=true from deployment labels
+      And KA detects helmManaged=true from deployment labels
       And the LLM diagnoses bad ConfigMap from nginx error logs
       And the LLM selects HelmRollback workflow (not RollbackDeployment)
       And Remediation Orchestrator requests human approval (confidence 0.95)
@@ -321,7 +321,7 @@ Feature: Helm-managed CrashLoopBackOff remediation
 - [ ] Helm chart deploys worker with `app.kubernetes.io/managed-by: Helm` label
 - [ ] `helm upgrade` with bad nginx config causes CrashLoopBackOff
 - [ ] PrometheusRule fires KubePodCrashLooping (>3 restarts in 10m, `for: 3m`)
-- [ ] HAPI detects `helmManaged=true` and surfaces it as cluster context
+- [ ] KA detects `helmManaged=true` and surfaces it as cluster context
 - [ ] LLM selects `HelmRollback` action type (not `RollbackDeployment`)
 - [ ] WE Job runs `helm rollback` to the previous healthy revision
 - [ ] Helm history shows revision 3 as "Rollback to 1"

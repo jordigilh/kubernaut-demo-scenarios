@@ -384,7 +384,7 @@ echo ""
 echo "==> Checking prerequisites..."
 _check_prerequisites
 
-# Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
+# Enable KA Prometheus toolset for this scenario (kubernaut#473, #108).
 # Also ensures cluster-monitoring-view RBAC on OCP (kubernaut#574).
 echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
 enable_prometheus_toolset
@@ -1141,7 +1141,7 @@ echo ""
 echo "  Expected flow (proactive, BR-SP-106):"
 echo "    1. PredictedDiskPressure alert fires (predict_linear, before kubelet eviction)"
 echo "    2. SP classifies as proactive, normalizes signal to DiskPressure"
-echo "    3. HAPI uses proactive prompt (predict & prevent, not RCA)"
+echo "    3. KA uses proactive prompt (predict & prevent, not RCA)"
 echo "    4. AI detects emptyDir antipattern + ArgoCD management"
 echo "    5. AI selects MigrateEmptyDirToPVC workflow"
 echo "    6. RAR created -- human approval required"

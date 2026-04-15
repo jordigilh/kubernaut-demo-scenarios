@@ -37,7 +37,7 @@ llm:
   temperature: 0.7
 
 # -- Toolsets (optional)
-# See: https://holmesgpt.dev/data-sources/builtin-toolsets/
+# See: https://docs.kubernaut.ai/toolsets/
 #
 # IMPORTANT: Do NOT hardcode prometheus_url here. The scenario scripts call
 # enable_prometheus_toolset() which injects the correct platform-aware URL

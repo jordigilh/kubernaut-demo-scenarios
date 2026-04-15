@@ -53,7 +53,7 @@ single-node validation as a future expansion.
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind (multi-node) or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `relax-pdb-v1` registered in DataStorage |
 

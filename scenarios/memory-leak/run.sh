@@ -38,7 +38,7 @@ echo " Proactive Memory Exhaustion Demo (#129)"
 echo "============================================="
 echo ""
 
-# Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
+# Enable KA Prometheus toolset for this scenario (kubernaut#473, #108).
 echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
 enable_prometheus_toolset
 echo ""

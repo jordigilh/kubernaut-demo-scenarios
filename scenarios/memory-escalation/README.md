@@ -72,7 +72,7 @@ kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} > 0
   → ContainerOOMKilling alert (severity: critical, for: 30s)
   → AlertManager webhook → Gateway → RemediationRequest
   → Signal Processing
-  → AI Analysis (HAPI + LLM on Vertex AI)
+  → AI Analysis (KA + LLM on Vertex AI)
     → Root cause: memory limit too low for workload (64 Mi, consumes 8 Mi/s)
     → Contributing factors: memory-backed emptyDir, predictable growth
     → Selects IncreaseMemoryLimits or GracefulRestart (model-dependent)
@@ -106,10 +106,10 @@ Path C (N cycles — alternate workflow, Sonnet 4.6):
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `increase-memory-limits-v1` registered in DataStorage |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
+| KA Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 
 ### Workflow RBAC
 
@@ -398,7 +398,7 @@ Feature: Diminishing returns detection and escalation
 
     Then Cycle 1 begins:
       And Gateway creates a RemediationRequest
-      And HAPI diagnoses OOMKill from insufficient limits
+      And KA diagnoses OOMKill from insufficient limits
       And the LLM selects IncreaseMemoryLimits or GracefulRestart (model-dependent)
       And Approval is required (production environment, critical severity)
       And after approval, WFE executes the selected workflow
@@ -409,7 +409,7 @@ Feature: Diminishing returns detection and escalation
 
     Then one of three escalation paths occurs:
       # Path A (LLM-driven, 2 cycles — Sonnet 4):
-      And HAPI reviews prior history and infers ineffectiveness
+      And KA reviews prior history and infers ineffectiveness
       And the LLM declines to select a workflow (WorkflowResolutionFailed)
       And the RR outcome is ManualReviewRequired
       # Path B (RO guard-driven — blocked by kubernaut#616):

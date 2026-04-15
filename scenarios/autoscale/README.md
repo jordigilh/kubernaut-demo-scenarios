@@ -32,7 +32,7 @@ The WE Job runs **unprivileged inside Kubernetes**. It writes a scale request an
 
 - Kind cluster created with `overlays/kind/kind-cluster-config.yaml` (multi-node: control-plane + 1 worker)
 - Podman available on the host (used by the provisioner agent)
-- Kubernaut services deployed with HAPI configured for a real LLM backend
+- Kubernaut services deployed with KA configured for a real LLM backend
 - Kubernaut Agent Prometheus toolset (auto-enabled by `run.sh`, reverted by `cleanup.sh` — [manual enablement](../../docs/prometheus-toolset.md))
 - `ProvisionNode` action type registered in DataStorage (migration 026)
 - `provision-node-v1` workflow registered in the workflow catalog
