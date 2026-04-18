@@ -45,6 +45,7 @@ apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: rollback-deployment-v1
+  namespace: kubernaut-system
 spec:
   # Rollback Deployment Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #130 -- Stuck rollout -> rollback to previous revision

@@ -53,6 +53,7 @@ apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: helm-rollback-v1
+  namespace: kubernaut-system
 spec:
   # Helm Rollback Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #135 -- Helm-managed CrashLoopBackOff -> helm rollback

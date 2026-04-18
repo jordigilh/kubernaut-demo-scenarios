@@ -45,6 +45,7 @@ apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: fix-statefulset-pvc-v1
+  namespace: kubernaut-system
 spec:
   # Fix StatefulSet PVC Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #137 -- StatefulSet PVC deleted -> pod stuck Pending -> recreate PVC

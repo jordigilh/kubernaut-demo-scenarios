@@ -42,6 +42,7 @@ apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: fix-network-policy-v1
+  namespace: kubernaut-system
 spec:
   # Fix NetworkPolicy Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #138 -- Deny-all NetworkPolicy blocks traffic -> remove offending policy

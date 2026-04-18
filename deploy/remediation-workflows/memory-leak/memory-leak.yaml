@@ -45,6 +45,7 @@ apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: graceful-restart-v1
+  namespace: kubernaut-system
 spec:
   # Graceful Restart Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #129 -- Proactive memory exhaustion -> graceful restart

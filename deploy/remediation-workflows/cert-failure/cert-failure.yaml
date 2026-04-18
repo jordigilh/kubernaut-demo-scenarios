@@ -45,6 +45,7 @@ apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: fix-certificate-v1
+  namespace: kubernaut-system
 spec:
   # Fix Certificate Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #133 -- cert-manager Certificate NotReady -> recreate CA Secret

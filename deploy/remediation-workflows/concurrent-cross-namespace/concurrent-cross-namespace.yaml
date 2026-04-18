@@ -48,6 +48,7 @@ apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: hotfix-config-v1
+  namespace: kubernaut-system
 spec:
   version: "1.0.1"
   description:

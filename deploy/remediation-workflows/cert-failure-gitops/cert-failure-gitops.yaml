@@ -42,6 +42,7 @@ apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: fix-certificate-gitops-v1
+  namespace: kubernaut-system
 spec:
   # Fix Certificate (GitOps) Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #134 -- GitOps-managed Certificate failure -> git revert

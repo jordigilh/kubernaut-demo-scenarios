@@ -42,6 +42,7 @@ apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: cleanup-pvc-v1
+  namespace: kubernaut-system
 spec:
   # Cleanup PVC Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #121 -- Orphaned PVCs consuming disk -> cleanup

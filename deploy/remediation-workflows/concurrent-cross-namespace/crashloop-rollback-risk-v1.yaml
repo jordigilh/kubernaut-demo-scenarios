@@ -45,6 +45,7 @@ apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
   name: crashloop-rollback-risk-v1
+  namespace: kubernaut-system
 spec:
   version: "1.2.3"
   description:
