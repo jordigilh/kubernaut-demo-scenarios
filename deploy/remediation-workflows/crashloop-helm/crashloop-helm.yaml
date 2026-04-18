@@ -57,7 +57,7 @@ metadata:
 spec:
   # Helm Rollback Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #135 -- Helm-managed CrashLoopBackOff -> helm rollback
-  version: "1.2.4"
+  version: "1.2.5"
   description:
     what: "Rolls back a Helm release to its previous revision to recover from CrashLoopBackOff caused by a bad configuration change deployed via helm upgrade"
     whenToUse: "When a Helm-managed deployment enters CrashLoopBackOff immediately after a helm upgrade, and the previous Helm revision was healthy"
@@ -77,7 +77,7 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:39bbe87303903b89f29b2406bea5294efc57735d7926d03abc30bf01356b3c18
+    bundle: quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:e951e0433a5f62b8a04b9f20f374ed31ca05025eff32aa5fa7a8a3764bca05ab
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
