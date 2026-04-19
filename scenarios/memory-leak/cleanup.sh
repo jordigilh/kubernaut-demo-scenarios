@@ -8,6 +8,9 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up Memory Leak demo..."
 
+echo "==> Restoring EM configuration..."
+restore_em || true
+
 echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 
