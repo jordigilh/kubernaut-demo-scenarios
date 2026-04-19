@@ -49,7 +49,7 @@ metadata:
 spec:
   # Fix Certificate Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #133 -- cert-manager Certificate NotReady -> recreate CA Secret
-  version: "1.2.4"
+  version: "1.2.6"
   description:
     what: "Recreates the CA Secret backing a cert-manager ClusterIssuer to restore certificate issuance"
     whenToUse: "When a cert-manager Certificate is stuck in NotReady because the CA Secret has been deleted or corrupted"
@@ -66,7 +66,8 @@ spec:
   
   execution:
     engine: job
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:4bf47998d11b949b3602609a0955c66b75aa4a867829fd6656d4dac22afc197d
+    serviceAccountName: fix-certificate-v1-runner
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:c10b9c9aabc7844279c1380eb807040b9fcb233294e58c6955200c6c78fc7e55
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

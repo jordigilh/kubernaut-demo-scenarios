@@ -1,6 +1,15 @@
 #!/bin/sh
 set -e
 
+# Workaround for kubernaut#693: resolve ReplicaSet name -> Deployment name
+if ! kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" >/dev/null 2>&1; then
+  OWNER=$(kubectl get replicaset "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE"     -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}' 2>/dev/null || true)
+  if [ -n "$OWNER" ]; then
+    echo "WARN: '$TARGET_RESOURCE_NAME' is a ReplicaSet, resolved to Deployment '$OWNER' (kubernaut#693)"
+    TARGET_RESOURCE_NAME="$OWNER"
+  fi
+fi
+
 echo "=== Phase 1: Validate ==="
 CURRENT_REV=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   -o jsonpath='{.metadata.annotations.deployment\.kubernetes\.io/revision}')
