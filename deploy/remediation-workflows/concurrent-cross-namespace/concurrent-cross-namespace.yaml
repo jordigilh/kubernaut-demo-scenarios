@@ -50,7 +50,7 @@ metadata:
   name: hotfix-config-v1
   namespace: kubernaut-system
 spec:
-  version: "1.0.3"
+  version: "1.3.0"
   description:
     what: "Patches a faulty ConfigMap in-place to remove an invalid configuration directive, then performs a rolling restart to apply the fix without reverting the deployment revision"
     whenToUse: "When a deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap and the signal carries risk_tolerance=high. This in-place patch approach prioritizes recovery speed -- it fixes the live configuration directly rather than rolling back to a previous revision. Best for staging environments or teams that accept the risk of modifying live resources for faster recovery."

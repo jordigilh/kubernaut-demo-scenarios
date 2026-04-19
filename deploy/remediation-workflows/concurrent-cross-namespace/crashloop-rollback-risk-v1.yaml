@@ -47,7 +47,7 @@ metadata:
   name: crashloop-rollback-risk-v1
   namespace: kubernaut-system
 spec:
-  version: "1.2.4"
+  version: "1.3.0"
   description:
     what: "Rolls back a deployment to its previous healthy revision to recover from CrashLoopBackOff caused by a bad configuration or image change"
     whenToUse: "When a deployment enters CrashLoopBackOff and the signal carries risk_tolerance=low. This full rollback approach prioritizes safety over speed -- it reverts to a known-good revision rather than attempting a restart with the current (potentially broken) configuration. Best for teams that require guaranteed recovery with minimal risk."
