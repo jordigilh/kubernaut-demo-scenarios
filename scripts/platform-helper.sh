@@ -529,8 +529,8 @@ _ensure_pre_install_secrets() {
     local adc_file="${HOME}/.config/gcloud/application_default_credentials.json"
     if [ -f "${adc_file}" ] && [ -f "${SDK_CONFIG}" ]; then
         local project region
-        project=$(grep 'gcp_project_id' "${SDK_CONFIG}" | awk -F'"' '{print $2}')
-        region=$(grep 'gcp_region' "${SDK_CONFIG}" | awk -F'"' '{print $2}')
+        project=$(grep -E 'gcp_project_id|vertex_project' "${SDK_CONFIG}" | head -1 | awk -F'"' '{print $2}') || true
+        region=$(grep -E 'gcp_region|vertex_location' "${SDK_CONFIG}" | head -1 | awk -F'"' '{print $2}') || true
         if [ -n "${project}" ] && [ -n "${region}" ]; then
             kubectl create secret generic llm-credentials \
                 -n "${PLATFORM_NS}" \

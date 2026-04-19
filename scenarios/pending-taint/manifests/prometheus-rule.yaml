@@ -13,7 +13,7 @@ spec:
     - alert: KubePodNotScheduled
       expr: |
         kube_pod_status_phase{namespace="demo-taint", phase="Pending"} == 1
-      for: 3m
+      for: 30s
       labels:
         severity: warning
       annotations:

@@ -21,7 +21,7 @@ spec:
     - alert: ErrorBudgetBurn
       expr: |
         job:api_gateway:error_rate_5m > (0.001 * 14.4)
-      for: 3m
+      for: 30s
       labels:
         severity: critical
         deployment: api-gateway

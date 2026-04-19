@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Exhaust ResourceQuota by scaling deployment beyond quota limits.
 #
-# Patches the deployment template to require 256Mi per pod (up from 128Mi)
-# and sets replicas=3. The template change creates a new ReplicaSet, but
-# the old RS pods (128Mi each) still consume quota. With 384Mi already used
-# the new RS cannot create a single 256Mi pod (384+256=640 > 512Mi quota).
-# The new RS shows spec_replicas>0 but status_replicas=0 (FailedCreate).
+# The deployment starts at 1 replica × 256Mi (within the 512Mi quota).
+# Scaling to 3 replicas requests 768Mi total, exceeding the quota.
+# Because this is a pure scale-up (no template change), there is no
+# new ReplicaSet and no previous revision to rollback to -- the LLM
+# must recognise this as a capacity/policy constraint and escalate.
 set -euo pipefail
 
 NAMESPACE="demo-quota"
@@ -14,20 +14,16 @@ echo "==> Current ResourceQuota usage:"
 kubectl describe quota namespace-quota -n "${NAMESPACE}"
 echo ""
 
-echo "==> Scaling api-server to 3 replicas with 256Mi each (768Mi > 512Mi quota)..."
-kubectl patch deployment api-server -n "${NAMESPACE}" --type=json -p '[
-  {"op": "replace", "path": "/spec/replicas", "value": 3},
-  {"op": "replace", "path": "/spec/template/spec/containers/0/resources/requests/memory", "value": "256Mi"},
-  {"op": "replace", "path": "/spec/template/spec/containers/0/resources/limits/memory", "value": "256Mi"}
-]'
+echo "==> Scaling api-server from 1 to 3 replicas (3 × 256Mi = 768Mi > 512Mi quota)..."
+kubectl scale deployment api-server -n "${NAMESPACE}" --replicas=3
 
-echo "==> Waiting for ReplicaSet to fail creating pods..."
+echo "==> Waiting for FailedCreate events..."
 sleep 10
 
-echo "==> Pod status (old RS pods running, new RS stuck at FailedCreate):"
+echo "==> Pod status (only 1-2 pods can fit within quota):"
 kubectl get pods -n "${NAMESPACE}"
 echo ""
-echo "==> ReplicaSet status (new RS has 0 ready):"
+echo "==> ReplicaSet status:"
 kubectl get rs -n "${NAMESPACE}"
 echo ""
 echo "==> Events showing quota exhaustion:"
