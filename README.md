@@ -66,7 +66,7 @@ See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) g
 <details>
 <summary><strong>Option A: New Kind cluster</strong> (recommended for first-time users)</summary>
 
-This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys the Kubernaut platform, and seeds the workflow catalog. Takes ~10 minutes on first run:
+This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys the Kubernaut platform, and seeds the workflow catalog post-install (ActionTypes and RemediationWorkflows are applied after the authwebhook is ready). Takes ~10 minutes on first run:
 
 ```bash
 ./scripts/setup-demo-cluster.sh
@@ -333,7 +333,7 @@ Prometheus alert fires (KubePodCrashLooping)
   -> Notification delivers the final result including effectiveness assessment
 ```
 
-Each of the 24 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
+Each of the 23 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
 
 ## Scenario Prerequisites Matrix
 

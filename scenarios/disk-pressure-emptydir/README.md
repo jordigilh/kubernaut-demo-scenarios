@@ -105,11 +105,12 @@ if not d.get('results'):
 kill %1 2>/dev/null
 ```
 
-> **Why the order matters:** The Helm post-install hook seeds workflows at install
-> time, but skips `migrate-emptydir-to-pvc-gitops-v1` when `gitea-repo-creds` is
-> absent (the workflow declares it as a dependency). Running `aap-helper.sh` before
-> the scenario ensures the Ansible engine is registered in WE, and `run.sh setup`
-> creates `gitea-repo-creds` and seeds the workflow if it was skipped earlier.
+> **Why the order matters:** As of v1.3, workflows are seeded post-install from this
+> repo (not bundled in the Helm chart). The bootstrap script skips
+> `migrate-emptydir-to-pvc-gitops-v1` when `gitea-repo-creds` is absent (the workflow
+> declares it as a dependency). Running `aap-helper.sh` before the scenario ensures
+> the Ansible engine is registered in WE, and `run.sh setup` creates
+> `gitea-repo-creds` and seeds the workflow if it was skipped earlier.
 
 > **Common failure: stale AAP credentials.** If you uninstall/reinstall the Kubernaut
 > platform or delete the `aap` namespace, the AAP credential IDs become stale.

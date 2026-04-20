@@ -231,7 +231,7 @@ This takes ~10 minutes on first run and performs the following steps:
 2. **Monitoring stack** -- Installs kube-prometheus-stack (Prometheus, AlertManager, Grafana, kube-state-metrics) and the Kubernaut Grafana dashboard
 3. **Infrastructure dependencies** -- cert-manager, metrics-server, Istio, blackbox-exporter, Gitea, ArgoCD
 4. **Kubernaut platform** -- Pre-creates required Secrets (`postgresql-secret`, `valkey-secret`, `llm-credentials`, `slack-webhook`), then installs the Helm chart (from OCI registry, or local sibling if present), including CRDs and all 10 platform services
-5. **Workflow catalog** -- Seeds ActionType CRDs and registers all scenario workflows in DataStorage
+5. **Workflow catalog** (post-install) -- Waits for the authwebhook to become ready, then applies ActionType CRDs and RemediationWorkflow definitions from this repo. As of v1.3, these are no longer bundled in the Helm chart.
 
 Every step is idempotent -- you can safely re-run the script if it fails partway through.
 
