@@ -99,11 +99,13 @@ kind: Namespace
 metadata:
   name: ${NAMESPACE}
   labels:
+    kubernaut.ai/managed: "true"
     kubernaut.ai/environment: staging
     kubernaut.ai/business-unit: platform
     kubernaut.ai/service-owner: sre-team
     kubernaut.ai/criticality: high
     kubernaut.ai/sla-tier: tier-2
+    kubernaut.ai/component: web-frontend
 $([ "$PLATFORM" = "ocp" ] && echo '    openshift.io/cluster-monitoring: "true"')
 $([ "$PLATFORM" = "ocp" ] && echo '    argocd.argoproj.io/managed-by: openshift-gitops')
 NS_EOF

@@ -9,3 +9,4 @@ metadata:
     kubernaut.ai/criticality: critical
     kubernaut.ai/managed: "true"
     kubernaut.ai/sla-tier: tier-1
+    kubernaut.ai/component: api-server

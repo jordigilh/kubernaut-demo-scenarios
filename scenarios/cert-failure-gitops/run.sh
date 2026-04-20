@@ -108,6 +108,7 @@ metadata:
     kubernaut.ai/service-owner: platform-team
     kubernaut.ai/criticality: high
     kubernaut.ai/sla-tier: tier-1
+    kubernaut.ai/component: certificate-manager
 $([ "$PLATFORM" = "ocp" ] && echo '    openshift.io/cluster-monitoring: "true"')
 $([ "$PLATFORM" = "ocp" ] && echo '    argocd.argoproj.io/managed-by: openshift-gitops')
 MANIFEST

@@ -10,3 +10,4 @@ metadata:
     kubernaut.ai/criticality: medium
     kubernaut.ai/sla-tier: tier-2
     kubernaut.ai/risk-tolerance: high
+    kubernaut.ai/component: backend-api
