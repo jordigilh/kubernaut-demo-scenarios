@@ -52,7 +52,7 @@ spec:
   version: "1.3.0"
   description:
     what: "Recreates the CA Secret backing a cert-manager ClusterIssuer to restore certificate issuance"
-    whenToUse: "When a cert-manager Certificate is stuck in NotReady because the CA Secret has been deleted or corrupted"
+    whenToUse: "When a cert-manager Certificate is stuck in NotReady because the CA Secret has been deleted or corrupted. The target resource MUST be the namespaced Certificate (not the ClusterIssuer) so that TARGET_RESOURCE_NAMESPACE is set correctly."
     whenNotToUse: "When the Certificate failure is caused by DNS validation issues or incorrect certificate spec rather than a missing CA"
     preconditions: "cert-manager is installed and the ClusterIssuer exists but cannot sign due to a missing or corrupted CA Secret"
   
@@ -67,20 +67,20 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-certificate-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:c10b9c9aabc7844279c1380eb807040b9fcb233294e58c6955200c6c78fc7e55
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:0e8fc3229e3d2a1e8bcb9444a0f9a2be727232758beaa0e584326afbe77b3320
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
       required: true
-      description: "Namespace of the affected workload"
+      description: "Namespace of the affected Certificate resource. Must be non-empty — target the namespaced Certificate, not the cluster-scoped ClusterIssuer."
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true
-      description: "Name of the affected Kubernetes resource (e.g., the Deployment)"
+      description: "Name of the affected cert-manager Certificate (e.g., demo-app-cert)"
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the affected Kubernetes resource (e.g., Deployment)"
+      description: "Kind of the affected resource — should be Certificate (or the Deployment that depends on the certificate)"
     - name: CA_SECRET_NAMESPACE
       type: string
       required: false

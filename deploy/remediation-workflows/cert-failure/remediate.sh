@@ -1,9 +1,25 @@
 #!/bin/sh
 set -e
 
-: "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
 : "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
 CA_SECRET_NAMESPACE="${CA_SECRET_NAMESPACE:-cert-manager}"
+TARGET_RESOURCE_KIND="${TARGET_RESOURCE_KIND:-Certificate}"
+
+if [ -z "${TARGET_RESOURCE_NAMESPACE}" ] && [ "${TARGET_RESOURCE_KIND}" = "ClusterIssuer" ]; then
+  echo "Target is a ClusterIssuer (cluster-scoped). Searching for Certificates referencing ${TARGET_RESOURCE_NAME}..."
+  DISCOVERED=$(kubectl get certificates --all-namespaces \
+    -o jsonpath='{range .items[*]}{.metadata.namespace} {.spec.issuerRef.name} {.spec.issuerRef.kind}{"\n"}{end}' 2>/dev/null \
+    | grep "${TARGET_RESOURCE_NAME}" | grep -i "ClusterIssuer" | head -1 | awk '{print $1}')
+  if [ -n "${DISCOVERED}" ]; then
+    echo "Discovered Certificate namespace: ${DISCOVERED}"
+    TARGET_RESOURCE_NAMESPACE="${DISCOVERED}"
+  else
+    echo "ERROR: ClusterIssuer targeted but no Certificate referencing '${TARGET_RESOURCE_NAME}' found"
+    exit 1
+  fi
+fi
+
+: "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
 
 echo "=== Phase 1: Discover ==="
 echo "Scanning namespace ${TARGET_RESOURCE_NAMESPACE} for NotReady Certificates..."
