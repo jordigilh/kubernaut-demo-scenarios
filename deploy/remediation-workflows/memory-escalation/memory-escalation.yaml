@@ -58,7 +58,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [production, staging]
-    component: "*"
+    component: "deployment"
     priority: "*"
   
   execution:
@@ -77,7 +77,7 @@ spec:
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the Kubernetes resource (e.g., Deployment)"
+      description: "Must be Deployment"
     - name: MEMORY_INCREASE_FACTOR
       type: string
       required: false

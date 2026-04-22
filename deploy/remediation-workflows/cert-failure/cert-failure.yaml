@@ -61,7 +61,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [production, staging, "*"]
-    component: "*"
+    component: "certificate"
     priority: "*"
   
   execution:
@@ -76,11 +76,11 @@ spec:
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true
-      description: "Name of the affected workload (auto-filled by KA, e.g., the Deployment name)"
+      description: "Name of the Certificate or ClusterIssuer to fix"
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the affected workload (auto-filled by KA, e.g., Deployment)"
+      description: "Must be Certificate or ClusterIssuer"
     - name: ISSUER_NAME
       type: string
       required: true

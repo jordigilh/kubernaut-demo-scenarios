@@ -58,7 +58,7 @@ spec:
   labels:
     severity: [low, medium, critical]
     environment: [production, staging]
-    component: "*"
+    component: "persistentvolumeclaim"
     priority: "*"
   
   execution:
@@ -73,7 +73,7 @@ spec:
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the Kubernetes resource (e.g., PersistentVolumeClaim)"
+      description: "Must be PersistentVolumeClaim"
     - name: LABEL_SELECTOR
       type: string
       required: false

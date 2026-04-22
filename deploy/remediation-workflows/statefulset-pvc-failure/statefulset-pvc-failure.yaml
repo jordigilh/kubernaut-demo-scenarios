@@ -61,7 +61,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [production, staging]
-    component: "*"
+    component: "statefulset"
     priority: "*"
   
   detectedLabels:
@@ -83,7 +83,7 @@ spec:
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the Kubernetes resource (e.g., StatefulSet)"
+      description: "Must be StatefulSet"
     - name: TARGET_PVC
       type: string
       required: false

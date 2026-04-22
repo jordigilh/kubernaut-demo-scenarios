@@ -58,7 +58,7 @@ spec:
   labels:
     severity: [low, medium, high, critical]
     environment: [production, staging]
-    component: "*"
+    component: "horizontalpodautoscaler"
     priority: "*"
   
   detectedLabels:
@@ -80,7 +80,7 @@ spec:
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the Kubernetes resource (e.g., HorizontalPodAutoscaler)"
+      description: "Must be HorizontalPodAutoscaler"
     - name: NEW_MAX_REPLICAS
       type: integer
       required: false

@@ -1,28 +1,36 @@
 #!/bin/sh
 set -e
 
-# Workaround for kubernaut#693: resolve ReplicaSet name -> Deployment name
-if ! kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" >/dev/null 2>&1; then
-  OWNER=$(kubectl get replicaset "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE"     -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}' 2>/dev/null || true)
-  if [ -n "$OWNER" ]; then
-    echo "WARN: '$TARGET_RESOURCE_NAME' is a ReplicaSet, resolved to Deployment '$OWNER' (kubernaut#693)"
-    TARGET_RESOURCE_NAME="$OWNER"
-  fi
-fi
+NS="$TARGET_RESOURCE_NAMESPACE"
+CM_NAME="$TARGET_RESOURCE_NAME"
 
 echo "=== Phase 1: Validate ==="
-echo "Checking deployment/$TARGET_RESOURCE_NAME in namespace $TARGET_RESOURCE_NAMESPACE..."
 
-CM_NAME=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
-  -o jsonpath='{.spec.template.spec.volumes[0].configMap.name}')
-echo "Mounted ConfigMap: $CM_NAME"
-
-if [ -z "$CM_NAME" ]; then
-  echo "ERROR: No ConfigMap volume found on deployment/$TARGET_RESOURCE_NAME"
-  exit 1
+if [ "$TARGET_RESOURCE_KIND" = "Deployment" ]; then
+  echo "Target is a Deployment ($CM_NAME). Resolving mounted ConfigMap..."
+  DEPLOY_NAME="$CM_NAME"
+  CM_NAME=$(kubectl get "deployment/$DEPLOY_NAME" -n "$NS" \
+    -o jsonpath='{.spec.template.spec.volumes[0].configMap.name}')
+  if [ -z "$CM_NAME" ]; then
+    echo "ERROR: No ConfigMap volume found on deployment/$DEPLOY_NAME"
+    exit 1
+  fi
+  echo "Resolved ConfigMap: $CM_NAME"
+else
+  echo "Target is ConfigMap/$CM_NAME in namespace $NS"
+  echo "Looking up Deployment that mounts this ConfigMap..."
+  DEPLOY_NAME=$(kubectl get deployments -n "$NS" -o json | \
+    jq -r --arg cm "$CM_NAME" \
+      '.items[] | select(.spec.template.spec.volumes[]? | .configMap?.name == $cm) | .metadata.name' \
+    | head -1) || true
+  if [ -z "$DEPLOY_NAME" ]; then
+    echo "ERROR: No Deployment found mounting ConfigMap/$CM_NAME in namespace $NS"
+    exit 1
+  fi
+  echo "Found Deployment: $DEPLOY_NAME"
 fi
 
-CONFIG_DATA=$(kubectl get "configmap/$CM_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
+CONFIG_DATA=$(kubectl get "configmap/$CM_NAME" -n "$NS" \
   -o jsonpath='{.data.config\.yaml}')
 
 if [ -z "$CONFIG_DATA" ]; then
@@ -42,18 +50,17 @@ echo "Patching ConfigMap $CM_NAME to remove faulty configuration..."
 
 FIXED_CONFIG=$(echo "$CONFIG_DATA" | grep -v "invalid_directive")
 
-kubectl patch "configmap/$CM_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
+kubectl patch "configmap/$CM_NAME" -n "$NS" \
   --type=merge -p "{\"data\":{\"config.yaml\":$(echo "$FIXED_CONFIG" | jq -Rs .)}}"
 
-echo "ConfigMap patched. Restarting deployment to pick up fixed config..."
-kubectl rollout restart "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE"
+echo "ConfigMap patched. Restarting deployment/$DEPLOY_NAME to pick up fixed config..."
+kubectl rollout restart "deployment/$DEPLOY_NAME" -n "$NS"
 
 echo "Waiting for rollout to complete..."
-kubectl rollout status "deployment/$TARGET_RESOURCE_NAME" \
-  -n "$TARGET_RESOURCE_NAMESPACE" --timeout=120s
+kubectl rollout status "deployment/$DEPLOY_NAME" -n "$NS" --timeout=120s
 
 echo "=== Phase 3: Verify ==="
-NEW_CONFIG=$(kubectl get "configmap/$CM_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
+NEW_CONFIG=$(kubectl get "configmap/$CM_NAME" -n "$NS" \
   -o jsonpath='{.data.config\.yaml}')
 
 if echo "$NEW_CONFIG" | grep -q "invalid_directive"; then
@@ -61,14 +68,14 @@ if echo "$NEW_CONFIG" | grep -q "invalid_directive"; then
   exit 1
 fi
 
-READY=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
+READY=$(kubectl get "deployment/$DEPLOY_NAME" -n "$NS" \
   -o jsonpath='{.status.readyReplicas}')
-DESIRED=$(kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
+DESIRED=$(kubectl get "deployment/$DEPLOY_NAME" -n "$NS" \
   -o jsonpath='{.spec.replicas}')
 echo "Replicas: ${READY:-0}/$DESIRED ready"
 
 if [ "${READY:-0}" = "$DESIRED" ] && [ -n "$DESIRED" ]; then
-  echo "=== SUCCESS: ConfigMap hotfixed in-place ($CM_NAME), deployment restarted, all replicas ready ==="
+  echo "=== SUCCESS: ConfigMap hotfixed in-place ($CM_NAME), deployment/$DEPLOY_NAME restarted, all replicas ready ==="
 else
   echo "WARNING: Not all replicas ready after hotfix (${READY:-0}/$DESIRED)"
   exit 1

@@ -55,7 +55,7 @@ spec:
   labels:
     severity: [low, medium, high, critical]
     environment: [production, staging]
-    component: "*"
+    component: "poddisruptionbudget"
     priority: "*"
   
   detectedLabels:
@@ -77,4 +77,4 @@ spec:
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the Kubernetes resource (e.g., PodDisruptionBudget)"
+      description: "Must be PodDisruptionBudget"

@@ -69,7 +69,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [production, staging, "*"]
-    component: "*"
+    component: "deployment"
     priority: "*"
   
   detectedLabels:
@@ -87,8 +87,8 @@ spec:
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true
-      description: "Name of the affected Kubernetes resource (e.g., the Deployment)"
+      description: "Name of the Deployment to roll back via Helm"
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the Kubernetes resource (e.g., Deployment)"
+      description: "Must be Deployment"

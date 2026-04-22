@@ -61,7 +61,7 @@ spec:
   labels:
     severity: [critical]
     environment: [production, staging, "*"]
-    component: "*"
+    component: "node"
     priority: "*"
   
   execution:
@@ -80,4 +80,4 @@ spec:
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the Kubernetes resource (e.g., Node)"
+      description: "Must be Node"

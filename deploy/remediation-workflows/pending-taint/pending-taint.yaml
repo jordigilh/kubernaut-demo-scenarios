@@ -58,7 +58,7 @@ spec:
   labels:
     severity: [low, medium, high, critical]
     environment: [production, staging, "*"]
-    component: "*"
+    component: "node"
     priority: "*"
   
   execution:
@@ -73,11 +73,11 @@ spec:
     - name: TARGET_RESOURCE_NAME
       type: string
       required: true
-      description: "Name of the affected workload (auto-filled by KA — not the node name)"
+      description: "Name of the affected Deployment (RCA target; use NODE_NAME for the tainted node)"
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the affected workload (auto-filled by KA, e.g., Deployment)"
+      description: "Must be Deployment (the affected workload, not the Node)"
     - name: TAINT_KEY
       type: string
       required: true

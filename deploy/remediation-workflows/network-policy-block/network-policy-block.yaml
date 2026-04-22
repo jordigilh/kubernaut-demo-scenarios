@@ -58,7 +58,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [production, staging, "*"]
-    component: "*"
+    component: "networkpolicy"
     priority: "*"
   
   detectedLabels:
@@ -80,7 +80,7 @@ spec:
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Kind of the affected Kubernetes resource (e.g., Deployment)"
+      description: "Must be Deployment"
     - name: POLICY_NAME
       type: string
       required: false
