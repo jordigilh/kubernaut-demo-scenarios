@@ -38,6 +38,8 @@ def _normalize_workflow(raw: Any) -> str | None:
     if isinstance(raw, str):
         return raw
     if isinstance(raw, dict):
+        if raw.get("workflowName"):
+            return raw["workflowName"]
         bundle = raw.get("executionBundle", "")
         if "/" in bundle:
             image_part = bundle.rsplit("/", 1)[-1]

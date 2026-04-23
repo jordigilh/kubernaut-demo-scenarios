@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
-# Capture a golden transcript from the most recent KA investigation session.
+# DEPRECATED: Use capture-eval.sh instead (see #333).
 #
+# This script extracts LLM dialog from kubernaut-agent *logs* using regex,
+# which breaks whenever KA's log format changes (Go structured logging, Rich
+# markup, etc.). capture-eval.sh replaces it with a DB-backed approach that
+# reads from the audit_events table, which has stable schema and 7-year
+# retention.
+#
+# This file is kept for reference only. New captures should use:
+#   bash scripts/capture-eval.sh [--rr NAME] [--scenario NAME] [--output DIR]
+#
+# Original description:
+# Capture a golden transcript from the most recent KA investigation session.
 # Extracts the LLM dialog (tool calls, AI responses, workflow selection) from
 # the kubernaut-agent logs and the AIAnalysis CR, then writes a structured JSON
 # file suitable for Mock LLM validation (see issue #296).
 #
-# Usage:
+# Usage (legacy):
 #   bash scripts/capture-transcript.sh [--rr NAME] [--output DIR]
 #
 # If --rr is omitted, the most recent RemediationRequest is used.
