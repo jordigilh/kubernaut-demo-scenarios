@@ -184,7 +184,7 @@ ensure_grafana_dashboard() {
 }
 
 # ── cert-manager ─────────────────────────────────────────────────────────────
-# Used by: cert-failure, cert-failure-gitops
+# Used by: cert-failure
 ensure_cert_manager() {
     if helm status cert-manager -n cert-manager &>/dev/null; then
         echo "  cert-manager already installed."

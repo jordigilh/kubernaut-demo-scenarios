@@ -20,7 +20,6 @@ WORKFLOWS=(
     "node-notready:cordon-drain-job"
     "stuck-rollout:rollback-deployment-job"
     "cert-failure:fix-certificate-job"
-    "cert-failure-gitops:fix-certificate-gitops-job"
     "crashloop-helm:helm-rollback-job"
     "mesh-routing-failure:fix-authz-policy-job"
     "statefulset-pvc-failure:fix-statefulset-pvc-job"

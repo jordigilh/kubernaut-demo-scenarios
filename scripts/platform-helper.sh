@@ -139,6 +139,21 @@ restart_alertmanager() {
     kubectl rollout status statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring --timeout=60s
 }
 
+# Delete all pipeline CRDs (RR, SP, AIA, WFE, EA, RAR, Notif) from kubernaut-system.
+# Call this from cleanup.sh after deleting the scenario namespace so that stale
+# resources from previous runs don't interfere with subsequent scenarios.
+purge_pipeline_crds() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    echo "==> Purging pipeline CRDs from ${ns}..."
+    kubectl delete remediationrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete signalprocessings --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete aianalyses --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete workflowexecutions --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete effectivenessassessments --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete remediationapprovalrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete notificationrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
+}
+
 # Silence a specific alert in AlertManager (platform-aware).
 silence_alert() {
     local alert_name="$1"
@@ -625,6 +640,14 @@ _apply_sdk_config_to_cluster() {
 
     local content
     content=$(cat "$file")
+
+    local cluster_content
+    cluster_content=$(kubectl get "configmap/${cm_name}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.data.sdk-config\.yaml}' 2>/dev/null || true)
+
+    if [ "$content" = "$cluster_content" ]; then
+        return 0
+    fi
 
     kubectl create configmap "${cm_name}" -n "${PLATFORM_NS}" \
         --from-literal="sdk-config.yaml=${content}" \

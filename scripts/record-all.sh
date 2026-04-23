@@ -73,9 +73,8 @@ fi
 # ── Group C: GitOps (Gitea + ArgoCD) ────────────────────
 if [ "${GROUP_FILTER}" = "ALL" ] || [ "${GROUP_FILTER}" = "C" ]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  GROUP C — GitOps (2 scenarios)"
+  echo "  GROUP C — GitOps (1 scenario)"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  record_scenario cert-failure-gitops
   record_scenario gitops-drift
 fi
 
