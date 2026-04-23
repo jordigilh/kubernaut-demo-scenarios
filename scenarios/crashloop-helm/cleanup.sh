@@ -16,4 +16,6 @@ kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-fo
 helm uninstall demo-crashloop-helm -n demo-crashloop-helm 2>/dev/null || true
 kubectl delete namespace demo-crashloop-helm --ignore-not-found
 
+purge_pipeline_crds
+
 echo "==> Cleanup complete."

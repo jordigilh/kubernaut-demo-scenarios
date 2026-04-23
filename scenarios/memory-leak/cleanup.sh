@@ -25,13 +25,6 @@ done
 echo "==> Silencing stale alerts in AlertManager..."
 silence_alert "ContainerMemoryExhaustionPredicted" "demo-memory-leak" "2m"
 
-PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
-echo "==> Cleaning up stale platform resources..."
-kubectl delete remediationrequests --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl delete notificationrequests --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl delete aianalyses --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl delete remediationapprovalrequests --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl exec -n "$PLATFORM_NS" deploy/postgresql -- psql -U slm_user -d action_history \
-  -c "DELETE FROM audit_events WHERE event_data->>'target_resource' LIKE 'demo-memory-leak%';" 2>/dev/null || true
+purge_pipeline_crds
 
 echo "==> Cleanup complete."

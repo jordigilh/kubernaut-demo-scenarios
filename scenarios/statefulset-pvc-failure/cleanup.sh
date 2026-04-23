@@ -26,4 +26,6 @@ done
 
 restart_alertmanager
 
+purge_pipeline_crds
+
 echo "==> Cleanup complete."
