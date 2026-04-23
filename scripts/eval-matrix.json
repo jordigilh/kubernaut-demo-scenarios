@@ -29,7 +29,7 @@
       "signal": "KubeDeploymentRolloutStuck"
     },
     "memory-escalation": {
-      "expected_bundle": "increase-memory-limits-v1",
+      "expected_bundle": ["increase-memory-limits-v1", "crashloop-rollback-v1"],
       "expected_outcome": "Remediated",
       "expected_severity": "critical",
       "expected_target_kind": "Deployment",
@@ -40,7 +40,7 @@
       "needs_human_review": false,
       "human_review_reason": null,
       "signal": "ContainerOOMKilling",
-      "_note": "Cycle 1 only. Cycle 2 escalates to ManualReviewRequired (separate entry)."
+      "_note": "Transcript may capture any cycle. Cycle 1 selects increase-memory-limits-v1, Cycle 2+ escalates to crashloop-rollback-v1."
     },
     "memory-escalation-cycle2": {
       "expected_bundle": null,
@@ -173,10 +173,11 @@
       "expected_aa_phase": "Completed",
       "confidence_floor": 0.77,
       "confidence_expected": 0.92,
-      "approval_expected": false,
+      "approval_expected": true,
       "needs_human_review": false,
       "human_review_reason": null,
-      "signal": "KubePodSchedulingFailed"
+      "signal": "KubePodSchedulingFailed",
+      "_note": "Production namespace — approval required by policy."
     },
     "node-notready": {
       "expected_bundle": "cordon-drain-v1",
