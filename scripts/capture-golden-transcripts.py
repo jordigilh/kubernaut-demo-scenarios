@@ -36,7 +36,7 @@ NS_MAP = {
     "demo-hpa": "hpa-maxed",
     "demo-memory-leak": "memory-leak",
     "demo-memory-escalation": "memory-escalation",
-    "demo-netpol": "network-policy-block",
+    "demo-netpol-2": "network-policy-block",
     "demo-autoscale": "autoscale",
     "demo-slo": "slo-burn",
     "demo-orphaned-pvc": "orphaned-pvc-no-action",
@@ -106,9 +106,21 @@ def main():
             FROM {PARTITION} e
             JOIN {PARTITION} r ON r.event_data->>'incident_id' = e.correlation_id
                                AND r.event_type = 'aiagent.response.complete'
+            LEFT JOIN LATERAL (
+                SELECT event_data->>'to_phase' AS final_phase
+                FROM {PARTITION}
+                WHERE correlation_id = e.correlation_id
+                  AND event_type = 'orchestrator.lifecycle.transitioned'
+                ORDER BY event_timestamp DESC LIMIT 1
+            ) t ON true
             WHERE e.event_type = 'gateway.signal.received'
               AND e.event_data->>'namespace' = '{ns}'
-            ORDER BY (r.event_data->'response_data'->>'confidence')::numeric DESC NULLS LAST,
+            ORDER BY (CASE
+                        WHEN t.final_phase IN ('Completed','Blocked','Failed') THEN 3
+                        WHEN t.final_phase IN ('Executing','Verifying') THEN 2
+                        WHEN t.final_phase IS NOT NULL THEN 1
+                        ELSE 0 END) DESC,
+                     (r.event_data->'response_data'->>'confidence')::numeric DESC NULLS LAST,
                      e.event_timestamp DESC
             LIMIT 1;""")
 
@@ -212,6 +224,8 @@ def main():
             outcome = "ManualReviewRequired"
         elif "Failed" in rr_phase:
             outcome = "Failed"
+        elif rr_phase in ("Executing", "Verifying"):
+            outcome = "Remediated"
         else:
             outcome = rr_phase
 

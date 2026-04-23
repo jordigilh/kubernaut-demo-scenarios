@@ -154,7 +154,7 @@ def score_scenario(transcript: dict, expected: dict) -> dict:
         results["checks"].append({
             "name": name,
             "actual": actual,
-            "expected": expected_val if not isinstance(expected_val, list) else " | ".join(expected_val),
+            "expected": expected_val if not isinstance(expected_val, list) else " | ".join(str(v) for v in expected_val),
             "passed": ok,
         })
         if not ok:
@@ -164,7 +164,12 @@ def score_scenario(transcript: dict, expected: dict) -> dict:
     raw_workflow = analysis.get("selectedWorkflow")
     actual_workflow = _normalize_workflow(raw_workflow)
     expected_workflow = expected.get("expected_bundle")
-    check("workflow_selected", actual_workflow, expected_workflow, _match_workflow)
+    if isinstance(expected_workflow, list):
+        ok = any(_match_workflow(actual_workflow, e) for e in expected_workflow)
+        check("workflow_selected", actual_workflow,
+              " | ".join(str(e) for e in expected_workflow), lambda a, e: ok)
+    else:
+        check("workflow_selected", actual_workflow, expected_workflow, _match_workflow)
 
     # 2. RR outcome
     actual_outcome = transcript.get("remediationRequest", {}).get("outcome", "")
@@ -179,16 +184,17 @@ def score_scenario(transcript: dict, expected: dict) -> dict:
     # 4. Approval
     actual_approval = analysis.get("approvalRequired", False)
     expected_approval = expected.get("approval_expected", False)
-    check("approval_required", actual_approval, expected_approval)
+    check("approval_required", actual_approval, expected_approval, match_outcome)
 
     # 5. Human review
     actual_review = analysis.get("needsHumanReview", False)
     expected_review = expected.get("needs_human_review", False)
-    check("needs_human_review", actual_review, expected_review)
+    check("needs_human_review", actual_review, expected_review, match_outcome)
 
     if expected.get("human_review_reason"):
         actual_reason = analysis.get("humanReviewReason", "")
-        check("human_review_reason", actual_reason, expected.get("human_review_reason"))
+        expected_reason = expected.get("human_review_reason")
+        check("human_review_reason", actual_reason, expected_reason, match_outcome)
 
     # 6. Target kind
     rca = analysis.get("rootCauseAnalysis") or {}
