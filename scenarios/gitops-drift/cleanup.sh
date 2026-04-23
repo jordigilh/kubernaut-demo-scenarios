@@ -65,6 +65,8 @@ kubectl delete application web-frontend -n "$argocd_ns" --ignore-not-found
 kubectl delete prometheusrule kubernaut-gitops-drift-rules -n "${NAMESPACE}" --ignore-not-found
 kubectl delete namespace "${NAMESPACE}" --ignore-not-found
 
+purge_pipeline_crds
+
 echo "==> Cleanup complete."
 echo "    Note: Gitea and ArgoCD are left running for reuse by other scenarios."
 echo "    To remove them: kubectl delete namespace gitea $(get_argocd_namespace)"

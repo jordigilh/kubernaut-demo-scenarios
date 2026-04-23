@@ -12,7 +12,7 @@ spec:
     - alert: IstioHighDenyRate
       expr: |
         sum by (namespace)(rate(istio_requests_total{namespace="demo-mesh-failure", response_code="403"}[5m])) > 0
-      for: 3m
+      for: 30s
       labels:
         severity: critical
       annotations:
@@ -27,7 +27,7 @@ spec:
     - alert: IstioRequestsUnauthorized
       expr: |
         sum by (namespace)(rate(istio_requests_total{namespace="demo-mesh-failure", response_code="403"}[2m])) > 0.1
-      for: 3m
+      for: 30s
       labels:
         severity: critical
       annotations:

@@ -1,19 +1,19 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: hotfix-config-v1-runner
+  name: hotfix-config-production-v1-runner
   namespace: kubernaut-workflows
   labels:
     kubernaut.ai/workflow-runner: "true"
-    kubernaut.ai/workflow: hotfix-config-v1
+    kubernaut.ai/workflow: hotfix-config-production-v1
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: hotfix-config-v1-runner
+  name: hotfix-config-production-v1-runner
   labels:
     kubernaut.ai/workflow-runner: "true"
-    kubernaut.ai/workflow: hotfix-config-v1
+    kubernaut.ai/workflow: hotfix-config-production-v1
 rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
@@ -31,46 +31,46 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: hotfix-config-v1-runner
+  name: hotfix-config-production-v1-runner
   labels:
     kubernaut.ai/workflow-runner: "true"
-    kubernaut.ai/workflow: hotfix-config-v1
+    kubernaut.ai/workflow: hotfix-config-production-v1
 subjects:
   - kind: ServiceAccount
-    name: hotfix-config-v1-runner
+    name: hotfix-config-production-v1-runner
     namespace: kubernaut-workflows
 roleRef:
   kind: ClusterRole
-  name: hotfix-config-v1-runner
+  name: hotfix-config-production-v1-runner
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
-  name: hotfix-config-v1
+  name: hotfix-config-production-v1
   namespace: kubernaut-system
 spec:
-  version: "1.3.0"
+  version: "1.0.0"
   description:
     what: "Patches a faulty ConfigMap in-place to remove an invalid configuration directive, then restarts the owning Deployment so pods load the corrected configuration"
-    whenToUse: "When a Deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap and the signal carries risk_tolerance=high. The target resource may be the ConfigMap itself or the Deployment that mounts it. Prefer this over rollback when the ConfigMap content is the root cause, because a deployment rollback only masks the problem -- the poisoned ConfigMap remains in the cluster and will re-trigger crashes if pods are rescheduled. In-place patching eliminates the root cause permanently. Best for staging environments or teams that accept the risk of modifying live resources for faster, definitive recovery."
-    whenNotToUse: "When the environment is GitOps-managed (ArgoCD/Flux detected) -- an in-place patch will be overwritten by the next GitOps sync, use GitRevertCommit instead. Also do not use when risk_tolerance=low, when the configuration error cannot be identified programmatically, or when a clean rollback to a known-good revision is preferred for maximum safety."
+    whenToUse: "When a Deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap and the signal carries risk_tolerance=low. The target resource may be the ConfigMap itself or the Deployment that mounts it. Prefer this over rollback when the RCA identifies a ConfigMap as the root cause, because a deployment rollback does not modify the ConfigMap -- the poisoned ConfigMap remains in the cluster and will re-trigger crashes if pods are rescheduled. In-place patching eliminates the root cause permanently. This workflow is designed for production environments where the configuration error is clearly identifiable and the fix is deterministic."
+    whenNotToUse: "When the configuration error cannot be identified programmatically, when the root cause is a bad image or pod spec change rather than a ConfigMap, or when a clean rollback to a known-good revision is preferred. In those cases, use a full deployment rollback."
     preconditions: "A Deployment mounts a ConfigMap as a volume, and the ConfigMap contains an identifiable invalid directive that can be removed to restore health."
 
   actionType: PatchConfiguration
 
   labels:
     severity: [critical, high]
-    environment: [staging]
+    environment: [production]
     component: [configmap, deployment]
     priority: "*"
 
   customLabels:
-    risk_tolerance: "high"
+    risk_tolerance: "low"
 
   execution:
     engine: job
-    serviceAccountName: hotfix-config-v1-runner
+    serviceAccountName: hotfix-config-production-v1-runner
     bundle: quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:00121d62f62142d3d4700fc73b43d9b1c16e563dd088cd35290c7913906fdc5d
 
   parameters:

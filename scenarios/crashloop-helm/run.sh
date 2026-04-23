@@ -56,6 +56,7 @@ metadata:
     kubernaut.ai/service-owner: backend-team
     kubernaut.ai/criticality: high
     kubernaut.ai/sla-tier: tier-1
+    kubernaut.ai/component: backend-api
 NSEOF
 HELM_VALUES_ARGS=""
 if [ "$PLATFORM" = "ocp" ]; then

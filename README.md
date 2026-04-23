@@ -66,7 +66,7 @@ See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) g
 <details>
 <summary><strong>Option A: New Kind cluster</strong> (recommended for first-time users)</summary>
 
-This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys the Kubernaut platform, and seeds the workflow catalog. Takes ~10 minutes on first run:
+This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys the Kubernaut platform, and seeds the workflow catalog post-install (ActionTypes and RemediationWorkflows are applied after the authwebhook is ready). Takes ~10 minutes on first run:
 
 ```bash
 ./scripts/setup-demo-cluster.sh
@@ -96,7 +96,7 @@ If you already have a cluster, install the platform manually.
 >
 > | Operator | Required for |
 > |----------|-------------|
-> | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir) |
+> | OpenShift GitOps | GitOps scenarios (gitops-drift, disk-pressure-emptydir) |
 > | OpenShift Service Mesh (OSSM) | mesh-routing-failure |
 > | AWX/AAP | disk-pressure-emptydir |
 >
@@ -160,8 +160,10 @@ For **Kind** with quickstart (env vars):
 helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-kind-values.yaml \
-    --set holmesgptApi.llm.provider=$KUBERNAUT_LLM_PROVIDER \
-    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL
+    --set kubernautAgent.llm.provider=$KUBERNAUT_LLM_PROVIDER \
+    --set kubernautAgent.llm.model=$KUBERNAUT_LLM_MODEL \
+    --set-file signalprocessing.policies.content=deploy/defaults/signalprocessing-policy.rego \
+    --set-file aianalysis.policies.content=deploy/defaults/approval-policy.rego
 ```
 
 For **OCP** with quickstart (env vars):
@@ -170,8 +172,10 @@ For **OCP** with quickstart (env vars):
 helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-ocp-values.yaml \
-    --set holmesgptApi.llm.provider=$KUBERNAUT_LLM_PROVIDER \
-    --set holmesgptApi.llm.model=$KUBERNAUT_LLM_MODEL
+    --set kubernautAgent.llm.provider=$KUBERNAUT_LLM_PROVIDER \
+    --set kubernautAgent.llm.model=$KUBERNAUT_LLM_MODEL \
+    --set-file signalprocessing.policies.content=deploy/defaults/signalprocessing-policy.rego \
+    --set-file aianalysis.policies.content=deploy/defaults/approval-policy.rego
 ```
 
 For **either platform** with advanced config (SDK config file from Step 3):
@@ -180,8 +184,14 @@ For **either platform** with advanced config (SDK config file from Step 3):
 helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
     -n kubernaut-system --create-namespace \
     --values helm/kubernaut-<kind|ocp>-values.yaml \
-    --set-file holmesgptApi.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml
+    --set-file kubernautAgent.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml \
+    --set-file signalprocessing.policies.content=deploy/defaults/signalprocessing-policy.rego \
+    --set-file aianalysis.policies.content=deploy/defaults/approval-policy.rego
 ```
+
+> **Rego policies are required:** As of v1.3, the chart no longer bundles default Rego policies.
+> You must provide both `signalprocessing.policies.content` and `aianalysis.policies.content`
+> via `--set-file`. Reference policies are available in `deploy/defaults/`.
 
 > **Do not use `--wait`:** The chart includes a post-install database migration
 > job. `--wait` blocks until all pods are ready, but the authwebhook pod depends
@@ -219,7 +229,16 @@ Replace `<aap-or-awx-url>`, `<token-secret>`, and `<namespace>` with your actual
 > **Re-install / upgrade:** If upgrading from a previous version or re-installing after `helm uninstall`,
 > add `--skip-crds` to avoid CRD field manager conflicts. See [Troubleshooting](docs/troubleshooting.md#helm-upgrade-fails-with-crd-field-manager-conflict) for details.
 
-The chart seeds ActionTypes and RemediationWorkflows automatically (`demoContent.enabled: true` by default). No manual seeding needed.
+**Step B2b: Seed ActionTypes and RemediationWorkflows.** As of v1.3, the chart no longer bundles demo content. Wait for the authwebhook to be ready, then apply from this repo:
+
+```bash
+kubectl rollout status deployment/authwebhook -n kubernaut-system --timeout=120s
+kubectl apply -f deploy/action-types/ -n kubernaut-system
+for dir in deploy/remediation-workflows/*/; do kubectl apply -f "$dir"; done
+```
+
+> **Ordering matters:** The authwebhook validates CRs on admission (`failurePolicy: Fail`).
+> If applied before the webhook is ready, the API server will reject them.
 
 **Step B3: Configure AlertManager to route alerts to the Gateway.**
 
@@ -266,7 +285,7 @@ cp credentials/anthropic-example.yaml my-llm-credentials.yaml   # Anthropic
 
 # Edit with your actual API key, then apply:
 kubectl apply -f my-llm-credentials.yaml
-kubectl rollout restart deployment/holmesgpt-api -n kubernaut-system
+kubectl rollout restart deployment/kubernaut-agent -n kubernaut-system
 ```
 
 ### 6. Run a scenario and watch it work
@@ -314,7 +333,7 @@ Prometheus alert fires (KubePodCrashLooping)
   -> Notification delivers the final result including effectiveness assessment
 ```
 
-Each of the 24 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
+Each of the 22 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
 
 ## Scenario Prerequisites Matrix
 
@@ -324,12 +343,12 @@ but this matrix lets you plan ahead:
 
 | Infrastructure | Scenarios | Setup |
 |----------------|-----------|-------|
-| **Gitea + ArgoCD** | gitops-drift, cert-failure-gitops, disk-pressure-emptydir | Option A: `--with-gitea --with-argocd`. Option B: see [Setup Guide](docs/setup.md). |
+| **Gitea + ArgoCD** | gitops-drift, disk-pressure-emptydir | Option A: `--with-gitea --with-argocd`. Option B: see [Setup Guide](docs/setup.md). |
 | **AWX/AAP + Ansible engine** | disk-pressure-emptydir | `bash scripts/awx-helper.sh` (or `aap-helper.sh`). Configures operator, job templates, and WE controller Ansible engine. |
-| **cert-manager** | cert-failure, cert-failure-gitops | OCP: `openshift-cert-manager-operator` from OperatorHub. Kind: installed by `setup-demo-cluster.sh`. |
+| **cert-manager** | cert-failure | OCP: `openshift-cert-manager-operator` from OperatorHub. Kind: installed by `setup-demo-cluster.sh`. |
 | **Istio / Service Mesh** | mesh-routing-failure | OCP: OpenShift Service Mesh (OSSM) from OperatorHub. Kind: `--with-istio`. |
 | **metrics-server** | autoscale, hpa-maxed | Built-in on OCP. Kind: installed by `setup-demo-cluster.sh`. |
-| **HAPI Prometheus toolset** | autoscale, hpa-maxed, memory-leak, memory-escalation, slo-burn, disk-pressure-emptydir, resource-contention, resource-quota-exhaustion | Auto-enabled by `run.sh`. [Manual enablement](docs/prometheus-toolset.md). |
+| **KA Prometheus toolset** | autoscale, hpa-maxed, memory-leak, memory-escalation, slo-burn, disk-pressure-emptydir, resource-contention, resource-quota-exhaustion | Auto-enabled by `run.sh`. [Manual enablement](docs/prometheus-toolset.md). |
 | **Podman (Kind only)** | node-notready | Kind-only scenario. Not supported on OCP (#287). |
 
 Scenarios not listed above (crashloop, crashloop-helm, duplicate-alert-suppression,
@@ -342,7 +361,7 @@ statefulset-pvc-failure, stuck-rollout) require only the base Kubernaut platform
 | Guide | Description |
 |-------|-------------|
 | **[Setup Guide](docs/setup.md)** | Prerequisites, LLM providers (Vertex AI, Anthropic, OpenAI, local), bootstrap flags, Slack notifications |
-| **[Scenario Catalog](docs/scenarios.md)** | All 23 scenarios with alerts, fault injection, and remediation details |
+| **[Scenario Catalog](docs/scenarios.md)** | All 22 scenarios with alerts, fault injection, and remediation details |
 | **[Verification and Cleanup](docs/verification.md)** | Inspect pipeline status, monitoring, per-scenario cleanup, teardown |
 | **[Troubleshooting](docs/troubleshooting.md)** | Common issues and fixes |
 | **[Building Workflow Images](docs/building.md)** | For contributors rebuilding scenario OCI images |

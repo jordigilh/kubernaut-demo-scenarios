@@ -47,8 +47,8 @@ echo " OOMKill -> Fix -> External Revert -> Repeat -> Escalate"
 echo "============================================="
 echo ""
 
-# Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
-echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
+# Enable KA Prometheus toolset for this scenario (kubernaut#473, #108).
+echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
 enable_prometheus_toolset
 echo ""
 

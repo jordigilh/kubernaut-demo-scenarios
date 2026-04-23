@@ -4,5 +4,9 @@ metadata:
   name: demo-resource-contention
   labels:
     kubernaut.ai/managed: "true"
-    kubernaut.ai/demo: "resource-contention"
     kubernaut.ai/environment: staging
+    kubernaut.ai/business-unit: engineering
+    kubernaut.ai/service-owner: backend-team
+    kubernaut.ai/criticality: high
+    kubernaut.ai/sla-tier: tier-1
+    kubernaut.ai/component: backend-api

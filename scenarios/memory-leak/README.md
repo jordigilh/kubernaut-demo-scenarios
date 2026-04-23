@@ -23,7 +23,7 @@ predict_linear(container_memory_working_set_bytes[5m], 1800)
   → ContainerMemoryExhaustionPredicted alert (severity: warning)
   → AlertManager webhook → Gateway → RemediationRequest
   → Signal Processing (severity=warning, env=production)
-  → AI Analysis (HAPI + Claude Sonnet 4 on Vertex AI)
+  → AI Analysis (KA + Claude Sonnet 4 on Vertex AI)
     → LLM identifies linear memory growth in "leaker" container
     → Contributing factors: continuous allocation, memory-backed emptyDir, unbounded writes
     → Selects GracefulRestart workflow (confidence 0.9)
@@ -37,10 +37,10 @@ predict_linear(container_memory_working_set_bytes[5m], 1800)
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With cAdvisor scraping and kube-state-metrics |
 | Workflow catalog | `graceful-restart-v1` registered in DataStorage |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
+| KA Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 
 ### Workflow RBAC
 
@@ -197,26 +197,64 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Intentional memory leak simulation in leaker container writing 1MB files every 5 seconds to memory-backed emptyDir volume, creating linear unbounded memory growth that will exhaust the 192Mi container limit and 256Mi volume limit. |
-| **Severity** | critical |
+| **Root Cause** | The `leaker` sidecar container is deliberately writing 1MB/5s of random data to a RAM-backed emptyDir volume (`medium: Memory`), causing continuous memory growth that will exhaust its 192Mi limit and trigger an OOMKill. |
+| **Severity** | high |
 | **Target Resource** | Deployment/leaky-app (ns: demo-memory-leak) |
 | **Workflow Selected** | graceful-restart-v1 |
-| **Confidence** | 0.95 |
-| **Approval** | not required (staging, high confidence) |
+| **Confidence** | 0.78 |
+| **Approval** | not required (non-production) |
+| **Rationale** | GracefulRestart buys time (~16 min per cycle) by resetting the tmpfs state, but the root cause is a persistent misconfiguration. Confidence capped at 0.78 because the leak will resume after restart. |
 
 **Key Reasoning Chain:**
 
-1. Detects ContainerOOMKilling alert with OOMKilled termination reason.
-2. Analyzes memory usage pattern relative to configured limits.
-3. Selects memory limits increase to provide immediate relief.
+1. Describes the crashing pod, checks events and `kubectl_top_pods` for memory trend.
+2. Fetches Deployment by name (`kubectl_get_by_name`), checks `kubectl_memory_requests_namespace`.
+3. Identifies the leaker sidecar writing to memory-backed emptyDir as the root cause.
+4. Selects GracefulRestart as a time-buying measure, explicitly noting the confidence cap.
 
-> **Why this matters**: Shows the LLM diagnosing OOM events and selecting resource limit adjustment. Note: for true memory leaks with unbounded growth, the LLM should eventually escalate to manual review after repeated ineffective remediations.
+> **Why this matters**: Shows the LLM reasoning about *predictive* alerts (pre-crash, not post-crash) and selecting a proactive intervention. The reduced confidence (0.78 vs typical 0.95+) demonstrates the LLM's awareness that the fix is temporary.
+
+#### LLM Investigation Trace (v1.3)
+
+The table below shows the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
+
+**Phase 1 — Root Cause Analysis** (4 LLM turns, ~40 000 tokens, ~45 s)
+
+| Turn | Tool calls | Tokens | What happened |
+|------|-----------|--------|---------------|
+| 1 | `todo_write` (plan) | — | Planned 7-step investigation |
+| 2 | `kubectl_describe(Pod/…)`, `kubectl_events(Pod/…)`, `kubectl_top_pods`, **`kubectl_get_by_name(Deployment/leaky-app)`**, `kubectl_memory_requests_namespace`, `get_namespaced_resource_context(…)` | — | 6 parallel tool calls: full picture in one turn |
+| 3 | `todo_write` | — | Prepared RCA submission |
+| 4 | *submit_result (RCA)* | — | Root cause: leaker sidecar, unbounded memory growth |
+
+**Phase 2 — Workflow Selection** (8 LLM turns, ~64 000 tokens, ~50 s)
+
+| Turn | Tool calls | Tokens | What happened |
+|------|-----------|--------|---------------|
+| 5-6 | `list_available_actions` (pages 1-2) | — | Identified `GracefulRestart` ActionType |
+| 7 | `list_workflows(GracefulRestart)` | — | Found `graceful-restart-v1` |
+| 8 | `get_workflow(graceful-restart-v1)` | — | Reviewed workflow definition |
+| 9 | *submit_result (workflow)* | — | Selected graceful-restart-v1 (0.78 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 104 482 |
+| **Total tool calls** | 20 (5 K8s + 1 metrics + 1 context + 2 catalog + 2 workflow + 9 planning) |
+| **LLM turns** | 12 |
+| **Wall-clock time** | ~95 s |
+
+> **Note**: Turn 2 used 6 parallel tool calls — the most efficient RCA phase
+> observed so far. The LLM gathered pods, events, memory usage, deployment spec,
+> namespace memory requests, and resource context in a single round-trip.
 
 #### 7. Verify remediation
 
@@ -280,7 +318,7 @@ Feature: Proactive memory exhaustion remediation
 
     Then Gateway receives the alert via AlertManager webhook
       And Signal Processing enriches with severity=warning
-      And HAPI diagnoses linear memory growth in the "leaker" container
+      And KA diagnoses linear memory growth in the "leaker" container
       And contributing factors include: continuous allocation, memory-backed emptyDir
       And the LLM selects GracefulRestart workflow (confidence 0.9)
       And Rego policy auto-approves (warning severity, no human review required)

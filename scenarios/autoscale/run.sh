@@ -48,8 +48,8 @@ echo ""
 # Step 0: Clean up stale alerts/RRs from any previous run (#193)
 ensure_clean_slate "${NAMESPACE}"
 
-# Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
-echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
+# Enable KA Prometheus toolset for this scenario (kubernaut#473, #108).
+echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
 enable_prometheus_toolset
 echo ""
 

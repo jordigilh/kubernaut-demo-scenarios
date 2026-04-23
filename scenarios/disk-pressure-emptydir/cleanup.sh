@@ -10,7 +10,7 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up DiskPressure emptyDir demo..."
 
-echo "==> Disabling HolmesGPT Prometheus toolset..."
+echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 
 # Delete ArgoCD Application first (stops sync loop).
@@ -38,12 +38,7 @@ for node in $(kubectl get nodes -o jsonpath='{range .items[?(@.spec.unschedulabl
     kubectl uncordon "${node}" 2>/dev/null || true
 done
 
-echo "==> Cleaning up stale platform resources..."
-kubectl delete remediationrequests --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl delete notificationrequests --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl delete aianalyses --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl delete remediationapprovalrequests --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl delete workflowexecutions --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
+purge_pipeline_crds
 
 echo "==> Waiting for namespace deletion to complete..."
 while kubectl get ns "${NAMESPACE}" &>/dev/null; do

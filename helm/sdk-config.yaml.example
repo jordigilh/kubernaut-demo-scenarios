@@ -1,7 +1,7 @@
-# HolmesGPT SDK Configuration
+# Kubernaut Agent SDK Configuration
 #
 # This file configures the LLM provider, toolsets, and MCP servers for
-# Kubernaut's AI analysis service (HolmesGPT).
+# Kubernaut's AI analysis service (Kubernaut Agent).
 #
 # Usage (pick one):
 #
@@ -9,22 +9,22 @@
 #     cp helm/sdk-config.yaml.example ~/.kubernaut/sdk-config.yaml
 #     # Edit with your provider details
 #     helm install kubernaut charts/kubernaut/ \
-#       --set-file holmesgptApi.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml
+#       --set-file kubernautAgent.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml
 #
 #   Option B -- Pre-created ConfigMap (production):
-#     kubectl create configmap holmesgpt-sdk-config \
+#     kubectl create configmap kubernaut-agent-sdk-config \
 #       --from-file=sdk-config.yaml=~/.kubernaut/sdk-config.yaml -n kubernaut-system
 #     helm install kubernaut charts/kubernaut/ \
-#       --set holmesgptApi.existingSdkConfigMap=holmesgpt-sdk-config
+#       --set kubernautAgent.existingSdkConfigMap=kubernaut-agent-sdk-config
 #
 # Note: For simple setups (OpenAI, Anthropic) you can skip this file entirely
 # and use the quickstart flags instead:
 #   helm install kubernaut charts/kubernaut/ \
-#     --set holmesgptApi.llm.provider=anthropic \
-#     --set holmesgptApi.llm.model=claude-sonnet-4-20250514
+#     --set kubernautAgent.llm.provider=anthropic \
+#     --set kubernautAgent.llm.model=claude-sonnet-4-20250514
 
 # -- LLM provider configuration (required)
-# Credentials are sourced from the K8s Secret referenced by holmesgptApi.llm.credentialsSecretName
+# Credentials are sourced from the K8s Secret referenced by kubernautAgent.llm.credentialsSecretName
 llm:
   provider: ""       # "openai", "anthropic", "azure", "vertex_ai", "bedrock", etc.
   model: ""          # e.g., "gpt-4o", "claude-sonnet-4-20250514", "gemini-2.0-flash"
@@ -37,25 +37,25 @@ llm:
   temperature: 0.7
 
 # -- Toolsets (optional)
-# See: https://holmesgpt.dev/data-sources/builtin-toolsets/
+# See: https://docs.kubernaut.ai/toolsets/
 #
 # IMPORTANT: Do NOT hardcode prometheus_url here. The scenario scripts call
 # enable_prometheus_toolset() which injects the correct platform-aware URL
 # (Kind vs OCP) into the SDK ConfigMap at runtime. If you include a
-# prometheus_url below, it will override the chart's holmesgptApi.prometheus.url
+# prometheus_url below, it will override the chart's kubernautAgent.prometheus.url
 # and may point to the wrong service.
 #
 # If you must set it manually:
 #   Kind:  http://kube-prometheus-stack-prometheus.monitoring.svc:9090
 #   OCP:   https://prometheus-k8s.openshift-monitoring.svc:9091
-#          (also set prometheus_ssl_ca_file: "/etc/ssl/hapi/service-ca.crt")
+#          (also set prometheus_ssl_ca_file: "/etc/ssl/ka/service-ca.crt")
 #
-# OCP RBAC: HAPI's ServiceAccount needs cluster-monitoring-view to query Prometheus.
-# The chart creates this automatically when holmesgptApi.prometheus.ocpMonitoringRbac
+# OCP RBAC: Kubernaut Agent's ServiceAccount needs cluster-monitoring-view to query Prometheus.
+# The chart creates this automatically when kubernautAgent.prometheus.ocpMonitoringRbac
 # is true (default in kubernaut-ocp-values.yaml). For manual installs, run:
-#   kubectl create clusterrolebinding holmesgpt-monitoring-view \
+#   kubectl create clusterrolebinding kubernaut-agent-monitoring-view \
 #     --clusterrole=cluster-monitoring-view \
-#     --serviceaccount=kubernaut-system:holmesgpt-api-sa
+#     --serviceaccount=kubernaut-system:kubernaut-agent-sa
 toolsets: {}
 
 # -- MCP servers (optional)

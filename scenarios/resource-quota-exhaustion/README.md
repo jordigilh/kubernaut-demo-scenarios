@@ -29,7 +29,7 @@ Deployment scaled (3 replicas × 256Mi) → exceeds 512Mi quota
 → ReplicaSet FailedCreate (pods never reach Pending)
 → kube-state-metrics (spec_replicas > ready_replicas)
 → Prometheus (for: 1m) → AlertManager → Gateway webhook
-→ RR → SP → AA (HAPI/LLM)
+→ RR → SP → AA (KA/LLM)
 → no_matching_workflows → ManualReviewRequired
 → ManualReviewNotification sent
 ```
@@ -72,10 +72,10 @@ capability — the LLM learns from the failed first attempt.
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Workflows | No specific workflow needed (scenario proves escalation) |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
+| KA Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 
 ### Workflow RBAC
 
@@ -204,26 +204,66 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Deployment cannot scale because namespace ResourceQuota CPU/memory limits are exhausted. New pods fail at admission with FailedCreate events (never reach Pending). |
-| **Severity** | high |
-| **Target Resource** | ResourceQuota/demo-quota (ns: demo-quota) |
-| **Workflow Selected** | ManualReviewRequired (no matching workflow) |
-| **Confidence** | 0.85–0.95 |
-| **Approval** | n/a — escalated to ManualReviewRequired before approval gate |
+| **Root Cause** | The `namespace-quota` ResourceQuota (512Mi memory limit) is fully exhausted by 2 running pods, blocking the Deployment `api-server` from scaling to its desired 3 replicas — the 3rd pod is permanently forbidden from being created. |
+| **Severity** | medium |
+| **Target Resource** | Deployment/api-server (ns: demo-quota) |
+| **Workflow Selected** | None — LLM declines (no workflow can adjust namespace quotas) |
+| **Outcome** | `ManualReviewRequired` |
+| **Approval** | n/a — escalated before approval gate |
 
 **Key Reasoning Chain:**
 
-1. Detects ReplicaSet desired > ready with FailedCreate events due to quota rejection.
-2. Identifies ResourceQuota as the constraint preventing pod creation.
-3. No registered workflow can adjust namespace quotas, so the pipeline escalates to ManualReviewRequired.
+1. Fetches ResourceQuota by kind, ReplicaSet by name (`kubectl_get_by_name`), and pods.
+2. Fetches the Deployment by name and checks ReplicaSet events — confirms `FailedCreate` due to quota rejection.
+3. Explores `PatchConfiguration` as a potential fit, retrieves `hotfix-config-v1` — rejects it (targets ConfigMap errors, not quotas).
+4. Declines to select any workflow — escalates to human review.
 
 > **Why this matters**: Demonstrates the LLM correctly identifying infrastructure quota constraints as the root cause, and the platform gracefully escalating when no automated remediation is available.
+>
+> **Known issue**: The KA parser classifies the LLM's intentional workflow decline as `llm_parsing_error` rather than `no_matching_workflow` (see [kubernaut#746](https://github.com/jordigilh/kubernaut/issues/746) follow-up). The RR still reaches `ManualReviewRequired` but via an error path.
+
+#### LLM Investigation Trace (v1.3)
+
+The table below shows the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
+
+**Phase 1 — Root Cause Analysis** (5 LLM turns, ~53 000 tokens, ~60 s)
+
+| Turn | Tool calls | Tokens | What happened |
+|------|-----------|--------|---------------|
+| 1 | `todo_write` (plan) | — | Planned 6-step investigation |
+| 2 | `kubectl_get_by_kind_in_namespace(ResourceQuota)`, **`kubectl_get_by_name(RS/api-server-…)`**, `kubectl_get_by_kind_in_namespace(Pod)` | — | Confirmed quota 100% exhausted, RS can't create 3rd pod |
+| 3 | **`kubectl_get_by_name(Deployment/api-server)`**, `kubectl_events(RS/…)`, `todo_write` | — | Confirmed FailedCreate events: "exceeded quota" |
+| 4 | `get_namespaced_resource_context(…)`, `todo_write` | — | Gathered context, no prior remediations |
+| 5 | *submit_result (RCA)* | — | Root cause: quota exhaustion, severity medium |
+
+**Phase 2 — Workflow Selection** (7 LLM turns, ~84 000 tokens, ~76 s)
+
+| Turn | Tool calls | Tokens | What happened |
+|------|-----------|--------|---------------|
+| 6-7 | `list_available_actions` (pages 1-2) | — | Scanned all ActionTypes; no "ScaleResourceQuota" exists |
+| 8 | `list_workflows(PatchConfiguration)` | — | Explored PatchConfiguration as closest match |
+| 9 | `get_workflow(hotfix-config-v1)` | — | Reviewed definition — targets ConfigMap errors, not quotas |
+| 10 | `todo_write` | — | Concluded no workflow fits |
+| 11 | *(LLM declines to call submit_result)* | — | No workflow selected → KA escalates to ManualReviewRequired |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 137 303 |
+| **Total tool calls** | 19 (4 K8s-by-name + 2 K8s-list + 1 events + 1 context + 2 catalog + 2 workflow + 7 planning) |
+| **LLM turns** | 12 |
+| **Wall-clock time** | ~136 s |
+
+> **Note on `kubectl_get_by_name`**: The LLM used targeted lookups for both
+> the ReplicaSet and the Deployment, keeping prompt sizes lean at ~29K chars peak.
 
 #### 8. View notifications
 
@@ -267,7 +307,7 @@ Feature: Resource Quota Exhaustion — policy constraint escalation
     When the deployment is scaled to 3 replicas with 256Mi each (768Mi > 512Mi)
       And the new ReplicaSet receives FailedCreate events (quota exceeded)
       And the KubeResourceQuotaExhausted alert fires
-    Then the alert flows through Gateway → SP → AA (HAPI)
+    Then the alert flows through Gateway → SP → AA (KA)
       And the LLM identifies this as a policy constraint (ResourceQuota)
       And no matching workflow is found
       And AA sets needsHumanReview to true with reason "no_matching_workflows"

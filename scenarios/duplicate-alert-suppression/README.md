@@ -28,7 +28,7 @@ on duplicate incidents — a critical requirement for noisy production environme
   → Single fingerprint: SHA256(demo-alert-storm:deployment:api-gateway)
   → 1 RemediationRequest (occurrenceCount increments per webhook)
   → Signal Processing
-  → AI Analysis (HAPI + Claude Sonnet 4 on Vertex AI)
+  → AI Analysis (KA + Claude Sonnet 4 on Vertex AI)
     → Root cause: invalid directive in ConfigMap gateway-config-bad
     → Contributing factors: bad config, recent deployment change, no config validation
     → Selected: RollbackDeployment (confidence 0.95)
@@ -43,7 +43,7 @@ on duplicate incidents — a critical requirement for noisy production environme
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `rollback-deployment-v1` registered in DataStorage |
 
@@ -221,27 +221,75 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Pod crashes due to invalid configuration directive 'invalid_directive: true' in ConfigMap gateway-config-bad. Application fails to parse config file and exits with code 1, causing CrashLoopBackOff. |
+| **Root Cause** | Deployment api-gateway was patched to use an invalid ConfigMap `gateway-config-bad` containing an unsupported directive (`invalid_directive: true`), causing all 3 new pods to crash instantly on startup with exit code 1. The rolling update is stalled with 3 unavailable replicas; old pods on the valid config remain healthy. |
 | **Severity** | critical |
 | **Target Resource** | Deployment/api-gateway (ns: demo-alert-storm) |
-| **Workflow Selected** | crashloop-rollback-v1 |
-| **Confidence** | 0.90 |
+| **Workflow Selected** | crashloop-rollback-v1 (`RollbackDeployment`) |
+| **Confidence** | 0.97 |
 | **Approval** | not required (staging, high confidence) |
 
 **Key Reasoning Chain:**
 
-1. Detects CrashLoopBackOff from invalid config.
-2. Traces crash to ConfigMap with bad directive.
-3. Selects appropriate fix workflow.
-4. **Key**: When duplicate alerts fire for the same root cause, the platform suppresses redundant RemediationRequests — only the first alert triggers the pipeline.
+1. Describes crashing pod, reads events — identifies CrashLoopBackOff with exit code 1.
+2. Lists all pods in namespace — discovers 5 pods crashing, all from same Deployment.
+3. Reads previous logs and fetches ConfigMap — confirms `invalid_directive: true` in `gateway-config-bad`.
+4. Enriches via `get_namespaced_resource_context` — `environment=staging`, ownership chain.
+5. Selects `crashloop-rollback-v1` — purpose-built for this failure mode.
+6. **Key**: Despite 5 pods crashing, only 1 RR is created — the Gateway OwnerResolver deduplicates all pod alerts to the parent Deployment fingerprint.
 
 > **Why this matters**: Shows both the LLM's config-crash diagnosis and the platform's duplicate alert suppression mechanism preventing redundant remediation attempts.
+
+#### LLM Investigation Trace (v1.3)
+
+The tables below show the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
+
+**Phase 1 — Root Cause Analysis (8 LLM turns)**
+
+| Turn | Tool calls | Prompt (chars) | What happened |
+|------|-----------|----------------|---------------|
+| 1 | `todo_write`, `kubectl_describe(Pod/api-gateway-…)`, `kubectl_events(Pod/…)`, `kubectl_get_by_kind_in_namespace(Pod)` | 4 636 | Planned investigation; identified CrashLoopBackOff, exit code 1, 5 crashing pods |
+| 2 | `todo_write` | 4 962 | Updated plan: need to read logs and ConfigMap |
+| 3 | `kubectl_previous_logs(…)`, `kubectl_get_by_name(ConfigMap/gateway-config-bad)`, `kubectl_get_by_name(ConfigMap/gateway-config)`, `kubectl_describe(Deployment/api-gateway)` | 20 974 | Read crash log `[emerg] invalid directive`; compared bad vs. good ConfigMap; confirmed rolling update stalled |
+| 4 | `todo_write` | 21 379 | Root cause identified: `gateway-config-bad` with `invalid_directive: true` |
+| 5 | `get_namespaced_resource_context(Deployment/api-gateway)` | 29 351 | Enriched: `environment=staging`, ownership chain, no GitOps/Helm management |
+| 6 | `todo_write` | 29 634 | Finalized contributing factors |
+| 7 | `todo_write` | 29 908 | Prepared RCA submission |
+| 8 | *submit_result (RCA)* | 30 059 | Target: Deployment/api-gateway — invalid ConfigMap directive |
+
+**Phase 2 — Workflow Selection (8 LLM turns)**
+
+| Turn | Tool calls | Prompt (chars) | What happened |
+|------|-----------|----------------|---------------|
+| 1 | `todo_write` | 7 883 | Planned workflow search |
+| 2 | `list_available_actions` | 8 271 | Fetched ActionTypes — identified `RollbackDeployment` as primary candidate |
+| 3 | `todo_write`, `list_workflows(RollbackDeployment)` | 13 217 | Found `crashloop-rollback-v1` |
+| 4 | `todo_write` | 13 486 | Evaluated: purpose-built for CrashLoopBackOff from bad config |
+| 5 | `get_workflow(crashloop-rollback-v1)` | 16 307 | Reviewed full workflow definition, confirmed label match |
+| 6 | `todo_write` | 17 136 | Confirmed selection — rollback restores known-good config |
+| 7 | `todo_write` | 21 148 | Prepared submission with parameters |
+| 8 | *submit_result_with_workflow* | 21 526 | Selected crashloop-rollback-v1 (0.97 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 149 294 (144 221 prompt + 5 073 completion) |
+| **Total tool calls** | 19 |
+| **LLM turns** | 16 (8 RCA + 8 Workflow) |
+| **Peak prompt size** | 30 059 chars (RCA submit) |
+
+> **Note**: The LLM compared both the healthy (`gateway-config`) and broken
+> (`gateway-config-bad`) ConfigMaps side-by-side to confirm the root cause.
+> Despite 5 pods crashing with separate alerts, the platform created only 1 RR
+> — deduplication occurred at the Gateway's OwnerResolver level using the shared
+> Deployment fingerprint `SHA256(demo-alert-storm:deployment:api-gateway)`.
 
 #### 7. Verify remediation and deduplication
 
@@ -323,7 +371,7 @@ Feature: Duplicate alert suppression via OwnerResolver fingerprinting
       And a single fingerprint is computed for all 5 alerts
       And exactly 1 RemediationRequest is created (not 5)
       And the RR's deduplication.occurrenceCount reflects webhook deliveries
-      And HAPI diagnoses invalid config directive in gateway-config-bad
+      And KA diagnoses invalid config directive in gateway-config-bad
       And the LLM selects RollbackDeployment (confidence 0.95)
       And auto-approval is granted (no manual review required)
       And WorkflowExecution rolls back the deployment

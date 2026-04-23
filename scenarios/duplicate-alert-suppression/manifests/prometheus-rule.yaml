@@ -17,7 +17,7 @@ spec:
             container="api-gateway"
           }[10m]
         ) > 3
-      for: 3m
+      for: 30s
       labels:
         severity: critical
       annotations:

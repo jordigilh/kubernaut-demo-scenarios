@@ -2,15 +2,13 @@
 # Resource Quota Exhaustion Demo -- Automated Runner
 # Scenario #171: ResourceQuota prevents pod creation -> LLM escalates to human review
 #
-# No workflow is seeded for ResourceQuota exhaustion. The LLM should recognize
-# this as a policy constraint and escalate to ManualReviewRequired.
-# The validation accepts a 1-or-2 pass loop: if the LLM initially selects a
-# semantically similar workflow that fails, it self-corrects on the second
-# attempt using remediation history feedback (#323).
-#
-# The alert uses ReplicaSet-level metrics (spec vs status replicas) because
-# quota-rejected pods are never created (FailedCreate at admission, never
-# reach Pending state).
+# The deployment is created with replicas=3 from the start, but the namespace
+# ResourceQuota only allows 512Mi total (2 pods × 256Mi). The 3rd replica is
+# permanently blocked by FailedCreate admission errors. Because the deployment
+# was NEVER healthy at its desired replica count and revision 1 IS the
+# 3-replica version, there is no previous state to rollback to. The LLM must
+# recognise this as a capacity/policy constraint and escalate to
+# ManualReviewRequired.
 #
 # Prerequisites:
 #   - Kind cluster (kubernaut-demo) with platform installed
@@ -44,39 +42,38 @@ echo " Policy Constraint -> ManualReviewRequired"
 echo "============================================="
 echo ""
 
-# Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
-echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
+# Enable KA Prometheus toolset for this scenario (kubernaut#473, #108).
+echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
 enable_prometheus_toolset
 force_production_approval
 echo ""
 
 ensure_clean_slate "${NAMESPACE}"
 
-# Step 1: Deploy scenario resources
-echo "==> Step 1: Deploying scenario resources..."
+# Step 1: Deploy scenario resources (3 replicas requested, only 2 fit in quota)
+echo "==> Step 1: Deploying scenario resources (3 replicas × 256Mi vs 512Mi quota)..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
-# Step 2: Wait for healthy deployment
-echo "==> Step 2: Waiting for api-server to be healthy..."
-kubectl wait --for=condition=Available deployment/api-server \
-  -n "${NAMESPACE}" --timeout=120s
-echo "  api-server is running within quota."
+echo "==> Step 2: Waiting for partial deployment (2/3 pods will come up)..."
+sleep 15
+echo ""
+echo "  Pod status:"
 kubectl get pods -n "${NAMESPACE}"
 echo ""
-
-# Step 3: Establish baseline
-echo "==> Step 3: Establishing baseline (20s)..."
-sleep 20
-echo "  Baseline established."
+echo "  ReplicaSet status (desired > ready = quota exhausted):"
+kubectl get rs -n "${NAMESPACE}"
+echo ""
+echo "  ResourceQuota usage:"
+kubectl describe quota namespace-quota -n "${NAMESPACE}"
+echo ""
+echo "  FailedCreate events:"
+kubectl get events -n "${NAMESPACE}" --field-selector reason=FailedCreate --sort-by='.lastTimestamp' 2>/dev/null | tail -5
 echo ""
 
-# Step 4: Exhaust quota
-echo "==> Step 4: Exhausting ResourceQuota..."
-bash "${SCRIPT_DIR}/exhaust-quota.sh"
-echo ""
-
-echo "==> Step 5: Fault injected. Waiting for KubeResourceQuotaExhausted alert (~1-2 min)."
+echo "==> Deployment created with quota exceeded from the start."
+echo "    No previous revision exists -- rollback is not possible."
+echo "    Waiting for KubeResourceQuotaExhausted alert (~30s-2 min)."
 
 # Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then

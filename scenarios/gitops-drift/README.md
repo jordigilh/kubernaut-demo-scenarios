@@ -56,7 +56,7 @@ Feature: GitOps drift remediation via git revert
     Then Prometheus fires "KubePodCrashLooping" alert for namespace "demo-gitops"
       And Gateway creates a RemediationRequest
       And Signal Processing enriches with namespace labels (environment=staging, criticality=high)
-      And HAPI LabelDetector detects "gitOpsManaged=true" from ArgoCD annotations
+      And KA LabelDetector detects "gitOpsManaged=true" from ArgoCD annotations
       And the LLM traces the crash to ConfigMap "app-config" (RCA resource != signal resource)
       And the LLM selects "GitRevertCommit" workflow (not "RollbackDeployment")
       And Remediation Orchestrator creates WorkflowExecution
@@ -70,7 +70,7 @@ Feature: GitOps drift remediation via git revert
 - [ ] Gitea + ArgoCD deployed and managing `demo-gitops` namespace
 - [ ] Bad ConfigMap commit causes CrashLoopBackOff
 - [ ] SP enriches signal with business classification from namespace labels
-- [ ] HAPI detects `gitOpsManaged=true` from ArgoCD annotations (DD-HAPI-018)
+- [ ] KA detects `gitOpsManaged=true` from ArgoCD annotations (DD-HAPI-018)
 - [ ] LLM identifies ConfigMap as root cause (signal != RCA)
 - [ ] LLM selects `GitRevertCommit` workflow over `RollbackDeployment`
 - [ ] WE Job performs `git revert` in Gitea repository
@@ -369,27 +369,76 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Pod web-frontend is in CrashLoopBackOff due to an invalid configuration directive 'invalid_directive: true' in the app-config ConfigMap. The demo-http-server application detects this invalid directive and exits with error code 1, causing continuous restart failures. |
-| **Severity** | high |
-| **Target Resource** | Deployment/web-frontend (ns: demo-gitops) |
-| **Workflow Selected** | git-revert-v2 |
-| **Confidence** | 0.90 |
+| **Root Cause** | Pod web-frontend is crash-looping (exit code 1, 4 restarts) due to an invalid directive `invalid_directive: true` in the app-config ConfigMap mounted at `/etc/demo-http-server/config.yaml`. The bad ConfigMap was synced to the cluster by ArgoCD from the GitOps repository, making the Git source the authoritative root cause. |
+| **Severity** | critical |
+| **Target Resource** | ConfigMap/app-config (ns: demo-gitops) |
+| **Workflow Selected** | git-revert-v2 (`GitRevertCommit`) |
+| **Confidence** | 0.97 |
 | **Approval** | not required (staging, high confidence) |
+| **Alternative** | hotfix-config-v1 (`PatchConfiguration`) — rejected at 0.35 confidence: "explicitly states do not use when environment is GitOps-managed; in-place patch will be overwritten by next ArgoCD sync" |
 
 **Key Reasoning Chain:**
 
-1. Detects CrashLoopBackOff with config parse error in logs.
-2. Traces crash to ConfigMap `app-config` with invalid directive.
-3. Detects ArgoCD annotations identifying this as a GitOps-managed environment.
-4. Selects `git-revert` over `kubectl rollback` because direct cluster changes would be overwritten by ArgoCD sync.
+1. Describes crashing Pod, reads events and previous logs — identifies exit code 1 and `[emerg] invalid directive found`.
+2. Fetches ConfigMap `app-config` via `kubectl_get_by_name` — confirms `invalid_directive: true`.
+3. Enriches with `get_namespaced_resource_context` — detects `gitOpsManaged=true`, `gitOpsTool=argocd`.
+4. Submits RCA: ConfigMap/app-config is the root cause (signal resource Pod != RCA resource ConfigMap).
+5. Lists available actions, queries `GitRevertCommit` and `PatchConfiguration` workflows.
+6. Selects `git-revert-v2` at 97% confidence — "only a git revert permanently fixes the root cause in the source of truth".
 
-> **Why this matters**: Shows the LLM's critical ability to detect GitOps management (ArgoCD) and select the correct remediation path — reverting the git commit rather than directly rolling back the Kubernetes resource.
+> **Why this matters**: Shows the LLM's critical ability to (a) trace the crash from a Pod signal to a ConfigMap root cause (cross-resource RCA), (b) detect GitOps management from ArgoCD annotations, and (c) reject in-place patching in favour of a durable git revert.
+
+#### LLM Investigation Trace (v1.3)
+
+The tables below show the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
+
+**Phase 1 — Root Cause Analysis (7 LLM turns, ~40 s)**
+
+| Turn | Tool calls | Prompt (chars) | What happened |
+|------|-----------|----------------|---------------|
+| 1 | `todo_write`, `kubectl_describe(Pod/web-frontend-…)`, `kubectl_events(Pod/…)` | 4 672 | Planned investigation; identified OOMKilled-like exit code 1, CrashLoopBackOff, 4 restarts |
+| 2 | `kubectl_previous_logs(…)`, `kubectl_logs(…)` | 5 026 | Read container logs: `[emerg] invalid directive found in /etc/demo-http-server/config.yaml` |
+| 3 | `kubectl_get_by_name(ConfigMap/app-config)` | 18 331 | Fetched ConfigMap — confirmed `invalid_directive: true` in mounted config |
+| 4 | `todo_write`, `get_namespaced_resource_context(ConfigMap/app-config)` | 19 853 | Enriched context: detected `gitOpsManaged=true`, `gitOpsTool=argocd`, `environment=staging` |
+| 5 | `todo_write` | 20 109 | Updated investigation plan |
+| 6 | `todo_write` | 20 369 | Prepared RCA submission |
+| 7 | *submit_result (RCA)* | 20 427 | Root cause: ConfigMap/app-config with invalid directive, synced by ArgoCD |
+
+**Phase 2 — Workflow Selection (8 LLM turns, ~46 s)**
+
+| Turn | Tool calls | Prompt (chars) | What happened |
+|------|-----------|----------------|---------------|
+| 1 | `todo_write` | 7 684 | Planned workflow search |
+| 2 | `list_available_actions` | 7 973 | Fetched ActionTypes — identified `GitRevertCommit`, `PatchConfiguration` as candidates |
+| 3 | `todo_write`, `list_workflows(GitRevertCommit)`, `list_workflows(PatchConfiguration)` | 9 281 | Queried both action types; found `git-revert-v2` and `hotfix-config-v1` |
+| 4 | `todo_write` | 9 730 | Evaluated candidates against GitOps context |
+| 5 | `get_workflow(git-revert-v2)` | 12 743 | Reviewed full workflow definition, confirmed label match and `whenToUse` guidance |
+| 6 | `todo_write` | 13 083 | Confirmed `git-revert-v2` is the correct choice; `hotfix-config-v1` rejected (GitOps-managed) |
+| 7 | `todo_write` | 17 194 | Prepared submission with parameters and rationale |
+| 8 | *submit_result_with_workflow* | 17 435 | Selected git-revert-v2 (0.97 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 114 221 (110 200 prompt + 4 021 completion) |
+| **Total tool calls** | 17 |
+| **LLM turns** | 15 (7 RCA + 8 Workflow) |
+| **Wall-clock time** | ~91 s |
+| **Peak prompt size** | 20 427 chars (RCA submit) |
+
+> **Note**: The LLM correctly identified `ConfigMap/app-config` as the RCA target
+> (different from the signal Pod), triggering KA's re-enrichment pipeline
+> (`signal=Pod/web-frontend → rca_target=ConfigMap/app-config`). It then explicitly
+> rejected `PatchConfiguration` because the `whenNotToUse` guidance excludes
+> GitOps-managed environments, selecting `GitRevertCommit` as the only durable fix.
 
 #### 8. Verify Remediation
 
@@ -417,7 +466,7 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 
 ## Workflow Details
 
-- **Workflow ID**: `git-revert-v1`
+- **Workflow ID**: `git-revert-v2`
 - **Action Type**: `GitRevertCommit`
 - **Bundle**: `deploy/remediation-workflows/gitops-drift/Dockerfile.exec` (ubi9-minimal + git + kubectl)
 - **Script**: `deploy/remediation-workflows/gitops-drift/remediate.sh` (Validate -> Action -> Verify pattern)

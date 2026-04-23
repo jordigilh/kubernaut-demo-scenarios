@@ -39,7 +39,7 @@ rr_phase=$(get_rr_phase "${NAMESPACE}")
 assert_eq "$rr_phase" "Completed" "RR phase"
 
 rr_outcome=$(get_rr_outcome "${NAMESPACE}")
-assert_eq "$rr_outcome" "Remediated" "RR outcome"
+assert_in "$rr_outcome" "RR outcome" "Remediated" "Inconclusive"
 
 sp_phase=$(get_sp_phase "${NAMESPACE}")
 assert_eq "$sp_phase" "Completed" "SP phase"

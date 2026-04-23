@@ -72,10 +72,10 @@ The EA (EffectivenessAssessment) detects the revert via spec hash comparison:
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Workflow | `increase-memory-limits-v1` (shipped with demo content) |
-| HAPI Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
+| KA Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 
 ### Workflow RBAC
 
@@ -205,26 +205,71 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Container memory limit (64Mi) is insufficient for the stress test workload that allocates exactly 64MB of memory, causing immediate OOMKill events and CrashLoopBackOff. |
-| **Severity** | high |
+| **Root Cause** | Container `worker` in contention-app is OOMKilled because the stress tool allocates 64MB virtual memory (`--vm-bytes 64M`) while the container memory limit is also 64Mi, leaving zero headroom for process overhead. Repeated OOM kills (exit code 137) and CrashLoopBackOff. |
+| **Severity** | critical |
 | **Target Resource** | Deployment/contention-app (ns: demo-resource-contention) |
-| **Workflow Selected** | increase-memory-limits-v1 |
+| **Workflow Selected** | increase-memory-limits-v1 (`IncreaseMemoryLimits`) |
 | **Confidence** | 0.95 |
 | **Approval** | not required (staging, high confidence) |
 
 **Key Reasoning Chain:**
 
-1. Detects KubePodNotScheduled events with insufficient resource messages.
-2. Analyzes node resource availability vs. pod requests.
-3. Selects resource adjustment or descheduling to free capacity.
+1. Describes crashing pod and ConfigMap — identifies OOMKilled with exit code 137.
+2. Reads events, previous logs, and runs `kubectl_top_nodes` — confirms memory pressure.
+3. Fetches Deployment details and runs `kubectl_top_pods` — confirms limit=64Mi vs. stress tool requesting 64MB.
+4. Enriches via `get_namespaced_resource_context` — `environment=staging`.
+5. Selects `increase-memory-limits-v1` — doubles memory limit to accommodate workload.
 
-> **Why this matters**: Shows the LLM analyzing cluster-wide resource pressure and selecting appropriate capacity management workflows.
+> **Why this matters**: Shows the LLM analyzing resource contention at both pod and node levels, using Prometheus-enabled tools (`kubectl_top_nodes`, `kubectl_top_pods`) for deeper insight.
+
+#### LLM Investigation Trace (v1.3)
+
+The tables below show the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
+
+**Phase 1 — Root Cause Analysis (8 LLM turns)**
+
+| Turn | Tool calls | Prompt (chars) | What happened |
+|------|-----------|----------------|---------------|
+| 1 | `todo_write`, `kubectl_describe(Pod/contention-app-…)`, `kubectl_get_by_name(ConfigMap/…)` | 4 685 | Planned investigation; identified OOMKilled, exit code 137 |
+| 2 | `todo_write` | 4 962 | Updated plan: need logs and events |
+| 3 | `kubectl_events(Pod/…)`, `kubectl_previous_logs(…)`, `kubectl_top_nodes` | 14 656 | Read events, logs; checked node memory capacity |
+| 4 | `todo_write` | 14 885 | Identified root cause: 64Mi limit vs 64MB allocation |
+| 5 | `kubectl_describe(Deployment/contention-app)`, `kubectl_top_pods` | 17 877 | Confirmed Deployment spec and pod memory usage |
+| 6 | `todo_write` | 18 050 | Assessed blast radius |
+| 7 | `get_namespaced_resource_context(Deployment/contention-app)` | 21 580 | Enriched: `environment=staging`, ownership chain |
+| 8 | `todo_write` → *submit_result (RCA)* | 22 119 | Target: Deployment/contention-app — zero memory headroom |
+
+**Phase 2 — Workflow Selection (7 LLM turns)**
+
+| Turn | Tool calls | Prompt (chars) | What happened |
+|------|-----------|----------------|---------------|
+| 1 | `todo_write`, `list_available_actions` | 7 832 | Fetched ActionTypes — identified `IncreaseMemoryLimits` |
+| 2 | `todo_write`, `list_workflows(IncreaseMemoryLimits)` | 13 341 | Found `increase-memory-limits-v1` |
+| 3 | `todo_write` | 15 560 | Confirmed match: staging + OOMKill from insufficient limits |
+| 4 | `get_workflow(increase-memory-limits-v1)` | 20 917 | Reviewed full workflow definition |
+| 5 | `todo_write` | 21 789 | Prepared submission |
+| 6–7 | *submit_result_with_workflow* | — | Selected increase-memory-limits-v1 (0.95 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 135 696 (131 281 prompt + 4 415 completion) |
+| **Total tool calls** | 20 |
+| **LLM turns** | 15 (8 RCA + 7 Workflow) |
+| **Peak prompt size** | 22 119 chars (RCA submit) |
+
+> **Note**: The LLM used `kubectl_top_nodes` and `kubectl_top_pods` (Prometheus
+> toolset) for resource-level diagnosis, confirming that the node had ample memory
+> but the container limit was the bottleneck — zero headroom between the 64Mi limit
+> and the stress tool's 64MB allocation.
 
 #### 7. Watch external actor revert + subsequent cycles
 

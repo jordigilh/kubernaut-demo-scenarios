@@ -18,11 +18,11 @@ Check pod events:
 kubectl describe pod -l app=postgresql -n kubernaut-system
 ```
 
-## HolmesGPT API errors
+## Kubernaut Agent errors
 
 Check logs for LLM credential issues:
 ```bash
-kubectl logs -l app=holmesgpt-api -n kubernaut-system
+kubectl logs -l app=kubernaut-agent -n kubernaut-system
 ```
 
 Common causes:
@@ -100,7 +100,7 @@ helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
 
 ## Helm upgrade fails with SDK ConfigMap conflict
 
-After using `enable_prometheus_toolset()` (from `platform-helper.sh`) or manually patching the `holmesgpt-sdk-config` ConfigMap, a subsequent `helm upgrade` may fail with:
+After using `enable_prometheus_toolset()` (from `platform-helper.sh`) or manually patching the `kubernaut-agent-sdk-config` ConfigMap, a subsequent `helm upgrade` may fail with:
 
 ```
 Apply failed with 1 conflict: conflict with "kubectl-patch" using v1: .data.sdk-config.yaml
@@ -109,7 +109,7 @@ Apply failed with 1 conflict: conflict with "kubectl-patch" using v1: .data.sdk-
 **Fix:** The `enable_prometheus_toolset()` function (as of #229) now applies changes with Helm ownership annotations to prevent this. If you encounter this after a manual `kubectl patch`, re-adopt the ConfigMap for Helm:
 
 ```bash
-kubectl annotate configmap holmesgpt-sdk-config -n kubernaut-system \
+kubectl annotate configmap kubernaut-agent-sdk-config -n kubernaut-system \
     meta.helm.sh/release-name=kubernaut \
     meta.helm.sh/release-namespace=kubernaut-system --overwrite
 ```

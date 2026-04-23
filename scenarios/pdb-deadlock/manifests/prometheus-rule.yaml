@@ -26,7 +26,7 @@ spec:
           namespace="demo-pdb",
           poddisruptionbudget="payment-service-pdb"
         }
-      for: 3m
+      for: 30s
       labels:
         severity: warning
       annotations:

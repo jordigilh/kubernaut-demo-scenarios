@@ -42,4 +42,29 @@ _stress_pods
 echo "==> All pods under CPU stress."
 echo "    Watch HPA: kubectl get hpa -n ${NAMESPACE} -w"
 echo "    Once currentReplicas == maxReplicas (3), the alert will fire after 2 min."
-echo "    To stop manually: kubectl exec -n ${NAMESPACE} <pod> -- killall yes"
+
+ORIGINAL_MAX=${ORIGINAL_MAX:-3}
+
+_kill_stress() {
+    echo "==> Killing CPU stress on all api-frontend pods..."
+    for pod in $(kubectl get pods -n "${NAMESPACE}" -l "${LABEL_SELECTOR}" \
+        -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
+        kubectl exec -n "${NAMESPACE}" "${pod}" -- killall yes 2>/dev/null || true
+    done
+}
+
+echo "==> Watching HPA for scale-up beyond original maxReplicas (${ORIGINAL_MAX})..."
+while true; do
+    current=$(kubectl get hpa api-frontend -n "${NAMESPACE}" \
+        -o jsonpath='{.status.currentReplicas}' 2>/dev/null || echo "0")
+    max=$(kubectl get hpa api-frontend -n "${NAMESPACE}" \
+        -o jsonpath='{.spec.maxReplicas}' 2>/dev/null || echo "${ORIGINAL_MAX}")
+
+    if [ "${max}" -gt "${ORIGINAL_MAX}" ] && [ "${current}" -gt "${ORIGINAL_MAX}" ]; then
+        echo "==> HPA scaled to ${current} replicas (maxReplicas patched to ${max}). Remediation detected."
+        _kill_stress
+        echo "==> CPU stress stopped. Alert should self-resolve."
+        exit 0
+    fi
+    sleep 10
+done

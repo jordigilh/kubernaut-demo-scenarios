@@ -1,9 +1,25 @@
 #!/bin/sh
 set -e
 
-: "${TARGET_RESOURCE_NAMESPACE:?TARGET_RESOURCE_NAMESPACE is required}"
-: "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
 CA_SECRET_NAMESPACE="${CA_SECRET_NAMESPACE:-cert-manager}"
+ISSUER_KIND="${ISSUER_KIND:-ClusterIssuer}"
+
+# ClusterIssuer is cluster-scoped, so KA may leave TARGET_RESOURCE_NAMESPACE empty.
+# Resolve the workload namespace by finding Certificates that reference the issuer.
+# Works identically on Kind and OCP — only uses cert-manager CRDs and standard kubectl.
+if [ -z "${TARGET_RESOURCE_NAMESPACE:-}" ]; then
+  if [ -n "${ISSUER_NAME:-}" ]; then
+    echo "Target is cluster-scoped (${TARGET_RESOURCE_KIND:-unknown}); resolving workload namespace..."
+    TARGET_RESOURCE_NAMESPACE=$(kubectl get certificates --all-namespaces \
+      -o custom-columns='NS:.metadata.namespace,ISSUER:.spec.issuerRef.name' --no-headers 2>/dev/null \
+      | awk -v issuer="${ISSUER_NAME}" '$2 == issuer { print $1; exit }')
+  fi
+  if [ -z "${TARGET_RESOURCE_NAMESPACE:-}" ]; then
+    echo "ERROR: TARGET_RESOURCE_NAMESPACE is required and could not be resolved"
+    exit 1
+  fi
+  echo "Resolved workload namespace: ${TARGET_RESOURCE_NAMESPACE}"
+fi
 
 echo "=== Phase 1: Discover ==="
 echo "Scanning namespace ${TARGET_RESOURCE_NAMESPACE} for NotReady Certificates..."
@@ -38,10 +54,13 @@ CERT_MESSAGE=$(kubectl get certificate "${CERT_NAME}" -n "${TARGET_RESOURCE_NAME
 echo "Message: ${CERT_MESSAGE}"
 
 echo "=== Phase 1b: Resolve Issuer ==="
-ISSUER_NAME=$(kubectl get certificate "${CERT_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
-  -o jsonpath='{.spec.issuerRef.name}' 2>/dev/null || echo "")
-ISSUER_KIND=$(kubectl get certificate "${CERT_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
-  -o jsonpath='{.spec.issuerRef.kind}' 2>/dev/null || echo "ClusterIssuer")
+if [ -z "${ISSUER_NAME:-}" ]; then
+  echo "ISSUER_NAME not provided. Resolving from Certificate ${CERT_NAME}..."
+  ISSUER_NAME=$(kubectl get certificate "${CERT_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
+    -o jsonpath='{.spec.issuerRef.name}' 2>/dev/null || echo "")
+  ISSUER_KIND=$(kubectl get certificate "${CERT_NAME}" -n "${TARGET_RESOURCE_NAMESPACE}" \
+    -o jsonpath='{.spec.issuerRef.kind}' 2>/dev/null || echo "ClusterIssuer")
+fi
 echo "Issuer: ${ISSUER_KIND}/${ISSUER_NAME}"
 
 if [ -z "${ISSUER_NAME}" ]; then

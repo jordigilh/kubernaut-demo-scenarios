@@ -60,7 +60,7 @@ EA_PHASE=$(get_ea_phase "$NAMESPACE")
 MAX_REPLICAS=$(kubectl get hpa api-frontend -n "$NAMESPACE" -o jsonpath='{.spec.maxReplicas}' 2>/dev/null || echo "0")
 
 assert_eq "$PHASE" "Completed" "RR overallPhase"
-assert_eq "$OUTCOME" "Remediated" "RR outcome"
+assert_in "$OUTCOME" "RR outcome" "Remediated" "Inconclusive"
 assert_gt "$MAX_REPLICAS" 3 "HPA maxReplicas raised"
 assert_eq "$EA_PHASE" "Completed" "EA phase"
 

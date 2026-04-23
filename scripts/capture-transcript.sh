@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
-# Capture a golden transcript from the most recent HAPI investigation session.
+# DEPRECATED: Use capture-eval.sh instead (see #333).
 #
+# This script extracts LLM dialog from kubernaut-agent *logs* using regex,
+# which breaks whenever KA's log format changes (Go structured logging, Rich
+# markup, etc.). capture-eval.sh replaces it with a DB-backed approach that
+# reads from the audit_events table, which has stable schema and 7-year
+# retention.
+#
+# This file is kept for reference only. New captures should use:
+#   bash scripts/capture-eval.sh [--rr NAME] [--scenario NAME] [--output DIR]
+#
+# Original description:
+# Capture a golden transcript from the most recent KA investigation session.
 # Extracts the LLM dialog (tool calls, AI responses, workflow selection) from
-# the holmesgpt-api logs and the AIAnalysis CR, then writes a structured JSON
+# the kubernaut-agent logs and the AIAnalysis CR, then writes a structured JSON
 # file suitable for Mock LLM validation (see issue #296).
 #
-# Usage:
+# Usage (legacy):
 #   bash scripts/capture-transcript.sh [--rr NAME] [--output DIR]
 #
 # If --rr is omitted, the most recent RemediationRequest is used.
@@ -112,15 +123,15 @@ result = {
 print(json.dumps(result, indent=2))
 ")
 
-# Capture HAPI logs for this session (filter out health probes)
-echo "  Extracting HAPI logs for session $SESSION_ID..."
-HAPI_LOGS=$(kubectl logs -n "$NS" deployment/holmesgpt-api --tail=10000 2>/dev/null \
-    | grep -v '/ready\|/health\|readiness_check\|health_check\|Timer tick\|Timer-based\|audit-store\|HAPI FLUSH\|DD-AUDIT' \
+# Capture KA logs for this session (filter out health probes)
+echo "  Extracting KA logs for session $SESSION_ID..."
+KA_LOGS=$(kubectl logs -n "$NS" deployment/kubernaut-agent --tail=10000 2>/dev/null \
+    | grep -v '/ready\|/health\|readiness_check\|health_check\|Timer tick\|Timer-based\|audit-store\|KA FLUSH\|DD-AUDIT' \
     | grep -E "$SESSION_ID|AI:\[/bold|Running tool #|Finished #|list_available_actions|list_workflows|get_workflow|get_namespaced_resource|LiteLLM completion|Wrapper: Completed|Investigation Tasks|incident_analysis_started|phase[123]_|workflow_selection" \
     || echo "")
 
-# Parse HAPI logs into structured tool calls
-TOOL_CALLS=$(echo "$HAPI_LOGS" | python3 -c "
+# Parse KA logs into structured tool calls
+TOOL_CALLS=$(echo "$KA_LOGS" | python3 -c "
 import sys, json, re
 
 lines = sys.stdin.read().strip().split('\n')

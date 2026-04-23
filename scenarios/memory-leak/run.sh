@@ -38,9 +38,16 @@ echo " Proactive Memory Exhaustion Demo (#129)"
 echo "============================================="
 echo ""
 
-# Enable HAPI Prometheus toolset for this scenario (kubernaut#473, #108).
-echo "==> Enabling HolmesGPT Prometheus toolset for this scenario..."
+# Enable KA Prometheus toolset for this scenario (kubernaut#473, #108).
+echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
 enable_prometheus_toolset
+echo ""
+
+# The leaker refills memory at ~12MB/min after a graceful restart. The EM
+# must complete its assessment before the alert re-fires (~60-90s). Use a
+# short stabilization window so the EA samples the "reset" state quickly.
+echo "==> Configuring EM for fast-recurring fault scenario..."
+configure_em "30s" "90s"
 echo ""
 
 ensure_clean_slate "${NAMESPACE}"
@@ -66,5 +73,11 @@ echo "    typically after 5-7 minutes of trend data."
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
-    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
+    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}" || _rc=$?
 fi
+
+echo ""
+echo "==> Restoring EM configuration..."
+restore_em || true
+
+exit "${_rc:-0}"

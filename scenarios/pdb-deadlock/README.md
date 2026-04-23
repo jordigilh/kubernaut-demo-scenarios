@@ -53,7 +53,7 @@ single-node validation as a future expansion.
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind (multi-node) or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (not mock) via HAPI |
+| LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `relax-pdb-v1` registered in DataStorage |
 
@@ -242,27 +242,72 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | PodDisruptionBudget payment-service-pdb is configured with minAvailable=2, matching the exact replica count of the payment-service deployment (2 pods). This creates disruptionsAllowed=0, meaning no voluntary disruptions can proceed. |
-| **Severity** | critical |
+| **Root Cause** | PDB `payment-service-pdb` has `minAvailable=2` equal to the total replica count of 2, leaving zero disruptions allowed (`disruptionsAllowed=0`) and blocking all voluntary disruptions including node drains and rolling updates. |
+| **Severity** | medium |
 | **Target Resource** | PodDisruptionBudget/payment-service-pdb (ns: demo-pdb) |
 | **Workflow Selected** | relax-pdb-v1 |
 | **Confidence** | 0.95 |
 | **Approval** | required (production environment) |
+| **Alternatives** | None — `relax-pdb-v1` is a direct and precise match |
 
 **Key Reasoning Chain:**
 
-1. Observes deployment replica mismatch between desired and available.
-2. Identifies PDB with minAvailable blocking eviction of old pods.
-3. Recognizes this as a PDB deadlock, not a resource or config issue.
-4. Selects PDB patch to temporarily allow rollout to proceed.
+1. Fetches PDB by name (`kubectl_get_by_name`) and describes it — sees `minAvailable=2`, `disruptionsAllowed=0`.
+2. Lists pods and nodes — confirms both pods are healthy, one node is cordoned for maintenance.
+3. Finds the owning Deployment via `kubectl_find_resource` — confirms 2 replicas matching the PDB budget.
+4. Recognizes this as a PDB deadlock (not a resource or config issue) and selects `RelaxPDB`.
 
-> **Why this matters**: Shows the LLM reasoning beyond surface-level pod failures to identify infrastructure constraints (PDB) as the root cause.
+> **Why this matters**: Shows the LLM reasoning beyond surface-level pod failures to identify infrastructure constraints (PDB) as the root cause. Also demonstrates use of `kubectl_get_by_name` for targeted PDB lookup.
+
+#### LLM Investigation Trace (v1.3)
+
+The table below shows the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
+
+**Phase 1 — Root Cause Analysis** (6 LLM turns, 46 967 tokens, ~80 s)
+
+| Turn | Tool calls | Prompt (chars) | Tokens | What happened |
+|------|-----------|----------------|--------|---------------|
+| 1 | `todo_write` (plan) | 5 261 | 5 174 | Planned 6-step investigation |
+| 2 | **`kubectl_get_by_name(PDB/payment-service-pdb)`**, `kubectl_describe(PDB/…)` | 5 661 | 5 438 | Fetched PDB directly by name: `minAvailable=2`, `disruptionsAllowed=0` |
+| 3 | `todo_write` | 8 781 | 6 866 | Updated progress |
+| 4 | `kubectl_get_by_kind_in_namespace(Pod)`, `kubectl_get_by_kind_in_cluster(Node)` | 8 866 | 7 052 | Confirmed pods healthy, one node cordoned |
+| 5 | `kubectl_find_resource(Deployment/payment-service)`, `get_namespaced_resource_context(PDB/…)` | 14 909 | 9 502 | Found owning Deployment, gathered context |
+| 6 | *submit_result (RCA)* | 21 606 | 12 935 | Root cause: PDB deadlock, severity medium |
+
+**Phase 2 — Workflow Selection** (9 LLM turns, 60 353 tokens, ~39 s)
+
+| Turn | Tool calls | Prompt (chars) | Tokens | What happened |
+|------|-----------|----------------|--------|---------------|
+| 7 | *submit_result (RCA response)* | 7 602 | 3 697 | RCA phase boundary |
+| 8 | `todo_write` | 7 920 | 3 798 | Planned workflow selection |
+| 9 | `list_available_actions` (page 1) | 14 005 | 5 418 | Fetched ActionTypes |
+| 10 | `list_available_actions` (page 2) | 18 831 | 6 775 | Identified `RelaxPDB` |
+| 11 | `todo_write` + `list_workflows(RelaxPDB)` | 19 153 | 6 903 | Found `relax-pdb-v1` |
+| 12 | `todo_write` + `get_workflow(relax-pdb-v1)` | 20 111 | 7 431 | Reviewed workflow definition |
+| 13 | `todo_write` | 20 457 | 7 610 | Confirmed preconditions met |
+| 14 | `todo_write` | 23 930 | 8 941 | Prepared submission |
+| 15 | *submit_result (workflow)* | 24 157 | 9 780 | Selected relax-pdb-v1 (0.95 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 107 320 |
+| **Total tool calls** | 18 (3 K8s-by-name + 2 K8s-list + 1 find + 1 context + 2 catalog + 2 workflow + 7 planning) |
+| **LLM turns** | 15 |
+| **Wall-clock time** | ~119 s |
+| **Peak prompt size** | 24 157 chars (end of workflow selection) |
+
+> **Note on `kubectl_get_by_name`**: The LLM used the targeted lookup to fetch
+> the PDB directly by name on its very first investigation step, avoiding a
+> namespace-wide PDB listing.
 
 #### 7. Verify remediation
 

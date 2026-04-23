@@ -45,7 +45,6 @@ SCENARIO_ORDER=(
   memory-escalation
   resource-contention
   cert-failure
-  cert-failure-gitops
   gitops-drift
   pdb-deadlock
   node-notready

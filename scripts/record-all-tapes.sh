@@ -108,7 +108,6 @@ SCENARIOS=(
   memory-leak
   gitops-drift
   cert-failure
-  cert-failure-gitops
 )
 
 log "Scenarios to record: ${#SCENARIOS[@]}"

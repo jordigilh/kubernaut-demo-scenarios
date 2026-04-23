@@ -8,7 +8,7 @@ echo "==> Cleaning up Cluster Autoscaling demo..."
 
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
-echo "==> Disabling HolmesGPT Prometheus toolset..."
+echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 
 # Kill any running provisioner agent
@@ -33,5 +33,7 @@ done
 # Delete namespace and Prometheus rules
 kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 kubectl delete namespace demo-autoscale --ignore-not-found
+
+purge_pipeline_crds
 
 echo "==> Cleanup complete."

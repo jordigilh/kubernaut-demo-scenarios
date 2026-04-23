@@ -17,7 +17,7 @@ deny-all NetworkPolicy blocks inter-pod traffic
   → traffic-gen readiness probe fails (curl to web-frontend times out)
   → traffic-gen becomes NotReady (kube_deployment_status_replicas_unavailable > 0)
   → KubeDeploymentReplicasMismatch alert fires after 3 min
-  → Gateway → SP → AA (HAPI + LLM)
+  → Gateway → SP → AA (KA + LLM)
   → LLM detects networkIsolated=true, diagnoses NetworkPolicy block
   → Selects FixNetworkPolicy workflow
   → RO → WE (delete deny-all NetworkPolicy)
@@ -30,7 +30,7 @@ deny-all NetworkPolicy blocks inter-pod traffic
 | Component | Requirement |
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
-| LLM backend | Real LLM (or mock) via HAPI |
+| LLM backend | Real LLM (or mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `fix-network-policy-v1` registered in DataStorage |
 
@@ -170,26 +170,60 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Traffic-gen deployment has 0/1 available replicas due to readiness probe failures caused by a deny-all NetworkPolicy blocking ingress traffic to the web-frontend service. |
+| **Root Cause** | A deny-all-ingress NetworkPolicy injected into demo-netpol is blocking all traffic to web-frontend, causing traffic-gen's readiness probe to time out and the deployment to report zero available replicas. |
 | **Severity** | critical |
 | **Target Resource** | Deployment/traffic-gen (ns: demo-netpol) |
 | **Workflow Selected** | fix-network-policy-v1 |
-| **Confidence** | 0.95 |
-| **Approval** | not required (staging, high confidence) |
+| **Confidence** | 0.97 |
+| **Approval** | not required |
+| **Alternatives** | N/A |
 
 **Key Reasoning Chain:**
 
-1. Detects probe failures and connection timeouts to the application.
-2. Identifies a restrictive NetworkPolicy blocking all ingress.
-3. Selects network policy fix workflow to restore connectivity.
+1. Detects traffic-gen readiness probe failures and connection timeouts to web-frontend.
+2. Describes deployment via `kubectl_describe`, lists pods and NetworkPolicies via `kubectl_get_by_kind_in_namespace`.
+3. Identifies a deny-all-ingress NetworkPolicy blocking all ingress traffic in the namespace.
+4. Uses `get_namespaced_resource_context` and `kubectl_events` to confirm no other contributing factors.
+5. Selects `fix-network-policy-v1` workflow (confidence 0.97) to remove the offending policy.
 
 > **Why this matters**: Demonstrates the LLM's ability to correlate application unreachability with NetworkPolicy restrictions rather than blaming the application itself.
+
+#### LLM Investigation Trace (v1.3)
+
+| Phase | Turn | Tool Calls | Prompt (chars) |
+|-------|------|-----------|----------------|
+| RCA | 1 | `todo_write` | 4,583 |
+| RCA | 2 | `kubectl_describe`, `kubectl_get_by_kind_in_namespace` | 4,929 |
+| RCA | 3 | `todo_write` | 12,896 |
+| RCA | 4 | `kubectl_events`, `kubectl_get_by_kind_in_namespace`, `kubectl_logs` | 13,274 |
+| RCA | 5 | `todo_write` | 20,222 |
+| RCA | 6 | `get_namespaced_resource_context`, `kubectl_describe` | 20,482 |
+| RCA | 7 | `todo_write` | 21,641 |
+| RCA | 8 | *submit_result* | 21,699 |
+| Workflow | 1 | `todo_write`, `list_available_actions` | 7,716 |
+| Workflow | 2 | `todo_write`, `list_available_actions`, `list_workflows` | 14,122 |
+| Workflow | 3 | `todo_write`, `get_workflow` | 20,407 |
+| Workflow | 4 | `todo_write` | 24,671 |
+| Workflow | 5 | *submit_result* | 24,919 |
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 113,177 (108,513 prompt + 4,664 completion) |
+| **Total tool calls** | 19 (10 investigation + 9 todo_write) |
+| **LLM turns** | 13 (8 RCA + 5 workflow) |
+| **Wall-clock time** | ~2 min 26 s (AA phase) |
+| **Peak prompt size** | 24,919 chars |
+
+> **Note**: The LLM used 13 turns across both phases, with `kubectl_describe` and
+> `kubectl_get_by_kind_in_namespace` being the primary investigation tools. The LLM
+> correctly identified the `deny-all-ingress` NetworkPolicy as the root cause and
+> matched it to the `fix-network-policy-v1` workflow with 0.97 confidence.
 
 #### 6. Verify remediation
 

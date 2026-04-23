@@ -2,8 +2,8 @@
 # Concurrent Cross-Namespace Demo -- Automated Runner
 # Scenario #172: Two teams, same issue, different risk tolerance -> different workflows
 #
-# Team Alpha (high risk tolerance) -> hotfix-config-v1 (patches ConfigMap in-place, faster)
-# Team Beta  (low risk tolerance)  -> crashloop-rollback-risk-v1 (full rollback, safer)
+# Team Alpha (high risk tolerance) -> hotfix-config-v1 (patches ConfigMap in-place, staging)
+# Team Beta  (low risk tolerance)  -> hotfix-config-production-v1 (patches ConfigMap in-place, production-safe)
 #
 # The risk_tolerance rules are injected into policy.rego at runtime (#216).
 #
@@ -79,7 +79,7 @@ kubectl patch configmap signalprocessing-policy -n "${PLATFORM_NS}" --type=merge
 
 echo "  Restarting SignalProcessing controller to pick up policy change..."
 kubectl rollout restart deployment/signalprocessing-controller -n "${PLATFORM_NS}"
-kubectl rollout status deployment/signalprocessing-controller -n "${PLATFORM_NS}" --timeout=60s
+kubectl rollout status deployment/signalprocessing-controller -n "${PLATFORM_NS}" --timeout=180s
 echo ""
 
 # Step 0c: Production environments always require manual approval (centralized helper).
@@ -138,8 +138,8 @@ echo ""
 echo "    Team Beta (production, low risk tolerance):"
 echo "      -> Requires manual approval (environment=production)"
 echo "      -> SP enriches with customLabels: {risk_tolerance: [low]}"
-echo "      -> DataStorage boosts crashloop-rollback-risk-v1 (customLabels match)"
-echo "      -> LLM selects crashloop-rollback-risk-v1 (full rollback, safer)"
+echo "      -> DataStorage boosts hotfix-config-production-v1 (customLabels match)"
+echo "      -> LLM selects hotfix-config-production-v1 (patches ConfigMap in-place, production-safe)"
 echo ""
 # Validate pipeline
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then

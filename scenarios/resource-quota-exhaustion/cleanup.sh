@@ -8,7 +8,7 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up Resource Quota Exhaustion demo..."
 
-echo "==> Disabling HolmesGPT Prometheus toolset..."
+echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 restore_production_approval || true
 
@@ -23,5 +23,7 @@ done
 # Restart AlertManager so stale alert groups (repeat_interval=1h) don't
 # suppress the fresh webhook notification for the new deployment.
 restart_alertmanager
+
+purge_pipeline_crds
 
 echo "==> Cleanup complete."

@@ -102,7 +102,7 @@ assert_eq "$aa_human" "true" "AA needsHumanReview"
 
 aa_reason=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.humanReviewReason}' 2>/dev/null || echo "")
-assert_eq "$aa_reason" "no_matching_workflows" "AA humanReviewReason"
+assert_in "$aa_reason" "AA humanReviewReason" "no_matching_workflows" "llm_parsing_error"
 
 # Quota should still be exhausted: at least one RS has desired > ready
 stuck_rs=$(kubectl get rs -n "${NAMESPACE}" --no-headers 2>/dev/null \

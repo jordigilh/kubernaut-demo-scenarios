@@ -38,4 +38,6 @@ if [ -n "$WORKER_NODE" ]; then
         kubernaut.ai/sla-tier- 2>/dev/null || true
 fi
 
+purge_pipeline_crds
+
 echo "==> Cleanup complete."

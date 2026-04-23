@@ -11,7 +11,7 @@ disable_prometheus_toolset || true
 echo "==> Cleaning up Concurrent Cross-Namespace demo..."
 
 # Remove scenario-specific workflow CRDs and RBAC (including stale restart-pods-v1)
-for _wf in hotfix-config-v1 restart-pods-v1 crashloop-rollback-risk-v1; do
+for _wf in hotfix-config-v1 hotfix-config-production-v1 restart-pods-v1 crashloop-rollback-risk-v1; do
   kubectl delete remediationworkflow "$_wf" -n "${PLATFORM_NS}" --ignore-not-found 2>/dev/null || true
   kubectl delete clusterrolebinding "${_wf}-runner" --ignore-not-found 2>/dev/null || true
   kubectl delete clusterrole "${_wf}-runner" --ignore-not-found 2>/dev/null || true
@@ -51,5 +51,7 @@ kubectl rollout restart deployment/signalprocessing-controller -n "${PLATFORM_NS
 restore_production_approval || true
 
 restart_alertmanager
+
+purge_pipeline_crds
 
 echo "==> Cleanup complete."

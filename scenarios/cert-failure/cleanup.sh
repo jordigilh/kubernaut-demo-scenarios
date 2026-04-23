@@ -25,6 +25,8 @@ if [ "$PLATFORM" = "ocp" ]; then
     kubectl label namespace cert-manager openshift.io/cluster-monitoring- 2>/dev/null || true
 fi
 
+purge_pipeline_crds
+
 echo "==> Cleanup complete."
 echo "    NOTE: cert-manager itself is NOT removed. To remove:"
 echo "    kubectl delete -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.1/cert-manager.yaml"

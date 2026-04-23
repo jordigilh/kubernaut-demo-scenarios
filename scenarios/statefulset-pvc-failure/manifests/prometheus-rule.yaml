@@ -20,7 +20,7 @@ spec:
           namespace="demo-statefulset",
           statefulset="kv-store"
         }
-      for: 3m
+      for: 30s
       labels:
         severity: critical
       annotations:

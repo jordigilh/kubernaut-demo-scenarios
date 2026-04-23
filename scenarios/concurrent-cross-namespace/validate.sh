@@ -90,7 +90,7 @@ beta_bundle=$(kubectl get aianalyses "ai-${beta_rr}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
 
 assert_contains "$alpha_bundle" "hotfix-config-job" "Alpha selected hotfix-config workflow (high risk tolerance)"
-assert_contains "$beta_bundle" "crashloop-rollback-job" "Beta selected crashloop-rollback workflow (low risk tolerance)"
+assert_contains "$beta_bundle" "hotfix-config-job" "Beta selected hotfix-config-production workflow (low risk tolerance)"
 
 log_info "Alpha workflow: ${alpha_workflow} (${alpha_bundle##*/})"
 log_info "Beta workflow:  ${beta_workflow} (${beta_bundle##*/})"

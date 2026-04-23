@@ -15,5 +15,7 @@ kubectl delete -f "${SCRIPT_DIR}/manifests/istio-podmonitor.yaml" --ignore-not-f
 kubectl delete -f "${SCRIPT_DIR}/manifests/deployment.yaml" --ignore-not-found
 kubectl delete namespace demo-mesh-failure --ignore-not-found
 
+purge_pipeline_crds
+
 echo "==> Cleanup complete."
 echo "    NOTE: Istio itself is NOT removed."

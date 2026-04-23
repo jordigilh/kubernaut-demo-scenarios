@@ -8,7 +8,7 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up HPA Maxed Out demo..."
 
-echo "==> Disabling HolmesGPT Prometheus toolset..."
+echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 
 # Kill any CPU stress processes running inside pods
@@ -31,5 +31,7 @@ done
 
 # Restart AlertManager to clear stale notification state
 restart_alertmanager
+
+purge_pipeline_crds
 
 echo "==> Cleanup complete."

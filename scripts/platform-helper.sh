@@ -139,6 +139,21 @@ restart_alertmanager() {
     kubectl rollout status statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring --timeout=60s
 }
 
+# Delete all pipeline CRDs (RR, SP, AIA, WFE, EA, RAR, Notif) from kubernaut-system.
+# Call this from cleanup.sh after deleting the scenario namespace so that stale
+# resources from previous runs don't interfere with subsequent scenarios.
+purge_pipeline_crds() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    echo "==> Purging pipeline CRDs from ${ns}..."
+    kubectl delete remediationrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete signalprocessings --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete aianalyses --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete workflowexecutions --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete effectivenessassessments --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete remediationapprovalrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    kubectl delete notificationrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
+}
+
 # Silence a specific alert in AlertManager (platform-aware).
 silence_alert() {
     local alert_name="$1"
@@ -390,10 +405,10 @@ ensure_platform() {
 
     local llm_flags=""
     if [ -f "${SDK_CONFIG}" ]; then
-        llm_flags="--set-file holmesgptApi.sdkConfigContent=${SDK_CONFIG}"
+        llm_flags="--set-file kubernautAgent.sdkConfigContent=${SDK_CONFIG}"
         echo "  SDK config loaded from ${SDK_CONFIG}"
     elif [ -n "${KUBERNAUT_LLM_PROVIDER:-}" ] && [ -n "${KUBERNAUT_LLM_MODEL:-}" ]; then
-        llm_flags="--set holmesgptApi.llm.provider=${KUBERNAUT_LLM_PROVIDER} --set holmesgptApi.llm.model=${KUBERNAUT_LLM_MODEL}"
+        llm_flags="--set kubernautAgent.llm.provider=${KUBERNAUT_LLM_PROVIDER} --set kubernautAgent.llm.model=${KUBERNAUT_LLM_MODEL}"
         echo "  LLM quickstart: provider=${KUBERNAUT_LLM_PROVIDER} model=${KUBERNAUT_LLM_MODEL}"
     else
         echo "  WARNING: No LLM config found."
@@ -420,12 +435,17 @@ ensure_platform() {
     local sp_policy="${REPO_ROOT}/deploy/defaults/signalprocessing-policy.rego"
     local aa_policy="${REPO_ROOT}/deploy/defaults/approval-policy.rego"
     if [ -f "$sp_policy" ]; then
-        policy_flags="--set-file signalprocessing.policy=${sp_policy}"
+        policy_flags="--set-file signalprocessing.policies.content=${sp_policy}"
     fi
     if [ -f "$aa_policy" ]; then
         policy_flags="${policy_flags} --set-file aianalysis.policies.content=${aa_policy}"
     fi
 
+    # Do NOT use --wait: the chart has a post-install migration hook that must
+    # run before datastorage becomes ready. --wait blocks until all pods are
+    # ready, creating a deadlock (datastorage needs migration → migration is
+    # post-install → post-install waits for --wait → --wait waits for datastorage).
+    # Instead, let Helm finish (hooks run), then poll via wait_platform_ready().
     helm upgrade --install kubernaut "${CHART_REF}" \
         --namespace "${PLATFORM_NS}" \
         --create-namespace \
@@ -433,9 +453,8 @@ ensure_platform() {
         ${llm_flags} \
         ${version_flag} \
         ${policy_flags} \
-        --set demoContent.enabled=false \
         --skip-crds \
-        --wait --timeout 10m
+        --timeout 10m
 
     echo "  Kubernaut platform installed in ${PLATFORM_NS}."
     wait_platform_ready
@@ -463,7 +482,7 @@ seed_scenario_workflow() {
 # Create secrets that must exist before Helm install (#243):
 #   - postgresql-secret (PostgreSQL + DataStorage credentials)
 #   - valkey-secret     (Valkey/Redis credentials)
-#   - llm-credentials   (VertexAI ADC for holmesgpt-api)
+#   - llm-credentials   (VertexAI ADC for kubernaut-agent)
 #   - slack-webhook     (notification credential store, issue #104)
 # Also labels the namespace for Helm adoption if it was pre-created.
 #
@@ -525,14 +544,14 @@ _ensure_pre_install_secrets() {
     local adc_file="${HOME}/.config/gcloud/application_default_credentials.json"
     if [ -f "${adc_file}" ] && [ -f "${SDK_CONFIG}" ]; then
         local project region
-        project=$(grep 'gcp_project_id' "${SDK_CONFIG}" | awk -F'"' '{print $2}')
-        region=$(grep 'gcp_region' "${SDK_CONFIG}" | awk -F'"' '{print $2}')
+        project=$(grep -E 'gcp_project_id|vertex_project' "${SDK_CONFIG}" | head -1 | awk -F'"' '{print $2}') || true
+        region=$(grep -E 'gcp_region|vertex_location' "${SDK_CONFIG}" | head -1 | awk -F'"' '{print $2}') || true
         if [ -n "${project}" ] && [ -n "${region}" ]; then
             kubectl create secret generic llm-credentials \
                 -n "${PLATFORM_NS}" \
                 --from-literal=VERTEXAI_PROJECT="${project}" \
                 --from-literal=VERTEXAI_LOCATION="${region}" \
-                --from-literal=GOOGLE_APPLICATION_CREDENTIALS="/etc/holmesgpt/credentials/application_default_credentials.json" \
+                --from-literal=GOOGLE_APPLICATION_CREDENTIALS="/etc/kubernaut-agent/credentials/application_default_credentials.json" \
                 --from-file=application_default_credentials.json="${adc_file}" \
                 --dry-run=client -o yaml | kubectl apply -f - 2>&1 | sed 's/^/    /'
         fi
@@ -560,13 +579,13 @@ _check_llm_credentials() {
         echo "    cp credentials/vertex-ai-example.yaml my-llm-credentials.yaml"
         echo "    # Edit with your provider credentials"
         echo "    kubectl apply -f my-llm-credentials.yaml"
-        echo "    kubectl rollout restart deployment/holmesgpt-api -n ${PLATFORM_NS}"
+        echo "    kubectl rollout restart deployment/kubernaut-agent -n ${PLATFORM_NS}"
         echo ""
     fi
 }
 
 # ── Prometheus toolset management ────────────────────────────────────────────
-# Enable/disable the Prometheus toolset in the HolmesGPT SDK config.
+# Enable/disable the Prometheus toolset in the Kubernaut Agent SDK config.
 #
 # Strategy: update the local ~/.kubernaut/sdk-config.yaml file first, then
 # re-apply the full ConfigMap content with Helm ownership annotations so that
@@ -575,7 +594,7 @@ _check_llm_credentials() {
 
 _sdk_configmap_name() {
     kubectl get configmap -n "${PLATFORM_NS}" -o name 2>/dev/null \
-      | grep -o 'holmesgpt-sdk-config[^ ]*' | head -1 || true
+      | grep -o 'kubernaut-agent-sdk-config[^ ]*' | head -1 || true
 }
 
 _prom_url_for_platform() {
@@ -615,12 +634,20 @@ _apply_sdk_config_to_cluster() {
     local cm_name
     cm_name=$(_sdk_configmap_name)
     if [ -z "$cm_name" ]; then
-        echo "  WARNING: HolmesGPT SDK ConfigMap not found in cluster."
+        echo "  WARNING: Kubernaut Agent SDK ConfigMap not found in cluster."
         return 1
     fi
 
     local content
     content=$(cat "$file")
+
+    local cluster_content
+    cluster_content=$(kubectl get "configmap/${cm_name}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.data.sdk-config\.yaml}' 2>/dev/null || true)
+
+    if [ "$content" = "$cluster_content" ]; then
+        return 0
+    fi
 
     kubectl create configmap "${cm_name}" -n "${PLATFORM_NS}" \
         --from-literal="sdk-config.yaml=${content}" \
@@ -632,29 +659,26 @@ _apply_sdk_config_to_cluster() {
           app.kubernetes.io/managed-by=Helm -o yaml \
       | kubectl apply --server-side --force-conflicts -f - >/dev/null 2>&1
 
-    kubectl rollout restart deployment/holmesgpt-api -n "${PLATFORM_NS}" >/dev/null 2>&1
-    kubectl rollout status deployment/holmesgpt-api -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
+    kubectl rollout restart deployment/kubernaut-agent -n "${PLATFORM_NS}" >/dev/null 2>&1
+    kubectl rollout status deployment/kubernaut-agent -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
 }
 
 enable_prometheus_toolset() {
     local prom_url
     prom_url=$(_prom_url_for_platform)
 
-    # On OCP, HAPI's SA needs cluster-monitoring-view to query prometheus-k8s.
-    # The chart creates "holmesgpt-api-monitoring-view" when both
-    # holmesgptApi.prometheus.enabled and ocpMonitoringRbac are true.
-    # We check for both the chart-managed and legacy binding names as a
-    # safety net for older installs (kubernaut#574).
+    # On OCP, KA's SA needs cluster-monitoring-view to query prometheus-k8s.
+    # The chart creates "kubernaut-agent-monitoring-view" when both
+    # kubernautAgent.prometheus.enabled and ocpMonitoringRbac are true.
     if [ "${PLATFORM:-}" = "ocp" ]; then
-        if ! kubectl get clusterrolebinding holmesgpt-api-monitoring-view &>/dev/null \
-           && ! kubectl get clusterrolebinding holmesgpt-monitoring-view &>/dev/null; then
-            local hapi_sa
-            hapi_sa=$(kubectl get sa -n "${PLATFORM_NS}" -l app=holmesgpt-api \
-                -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "holmesgpt-api-sa")
-            kubectl create clusterrolebinding holmesgpt-api-monitoring-view \
+        if ! kubectl get clusterrolebinding kubernaut-agent-monitoring-view &>/dev/null; then
+            local ka_sa
+            ka_sa=$(kubectl get sa -n "${PLATFORM_NS}" -l app=kubernaut-agent \
+                -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "kubernaut-agent-sa")
+            kubectl create clusterrolebinding kubernaut-agent-monitoring-view \
                 --clusterrole=cluster-monitoring-view \
-                --serviceaccount="${PLATFORM_NS}:${hapi_sa}" 2>/dev/null || true
-            echo "  Prometheus RBAC: granted cluster-monitoring-view to ${hapi_sa}."
+                --serviceaccount="${PLATFORM_NS}:${ka_sa}" 2>/dev/null || true
+            echo "  Prometheus RBAC: granted cluster-monitoring-view to ${ka_sa}."
         fi
 
         # The chart's kubernaut-alertmanager-view ClusterRole uses nonResourceURLs,
@@ -699,7 +723,7 @@ json.dump(role, sys.stdout)
         local cm_name
         cm_name=$(_sdk_configmap_name)
         if [ -z "$cm_name" ]; then
-            echo "  WARNING: HolmesGPT SDK ConfigMap not found; cannot enable Prometheus toolset."
+            echo "  WARNING: Kubernaut Agent SDK ConfigMap not found; cannot enable Prometheus toolset."
             echo "  Enable manually in ~/.kubernaut/sdk-config.yaml under toolsets.prometheus/metrics."
             return 0
         fi
@@ -737,8 +761,8 @@ toolsets:
 
         kubectl patch "configmap/${cm_name}" -n "${PLATFORM_NS}" --type merge \
           -p "{\"data\":{\"sdk-config.yaml\":$(echo "$current" | jq -Rs .)}}" >/dev/null 2>&1
-        kubectl rollout restart deployment/holmesgpt-api -n "${PLATFORM_NS}" >/dev/null 2>&1
-        kubectl rollout status deployment/holmesgpt-api -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
+        kubectl rollout restart deployment/kubernaut-agent -n "${PLATFORM_NS}" >/dev/null 2>&1
+        kubectl rollout status deployment/kubernaut-agent -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
         echo "  Prometheus toolset enabled via SDK ConfigMap (no local file)."
     fi
 }
@@ -772,8 +796,8 @@ disable_prometheus_toolset() {
         current=$(echo "$current" | sed '/prometheus\/metrics:/{n;s/enabled: true/enabled: false/;}')
         kubectl patch "configmap/${cm_name}" -n "${PLATFORM_NS}" --type merge \
           -p "{\"data\":{\"sdk-config.yaml\":$(echo "$current" | jq -Rs .)}}" >/dev/null 2>&1
-        kubectl rollout restart deployment/holmesgpt-api -n "${PLATFORM_NS}" >/dev/null 2>&1
-        kubectl rollout status deployment/holmesgpt-api -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
+        kubectl rollout restart deployment/kubernaut-agent -n "${PLATFORM_NS}" >/dev/null 2>&1
+        kubectl rollout status deployment/kubernaut-agent -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
         echo "  Prometheus toolset disabled via SDK ConfigMap."
     fi
 }
@@ -850,4 +874,73 @@ restore_production_approval() {
       "kubernaut.ai/original-approval-rego-" 2>/dev/null || true
     kubectl rollout restart deployment/aianalysis-controller -n "${ns}" 2>/dev/null || true
     echo "  Approval policy restored to original."
+}
+
+# ── EM configuration helpers ──────────────────────────────────────────────
+#
+# Scenarios with fast-recurring faults (e.g. memory leaks) need the EM to
+# complete its assessment before the alert re-fires.  These helpers let
+# each scenario set its own stabilizationWindow / validityWindow and
+# restore them afterwards.
+#
+#   configure_em  <stabilizationWindow> <validityWindow>
+#   restore_em
+#
+# The original YAML is saved as an annotation so restore_em can put it back.
+# Idempotent: calling configure_em twice preserves the first saved copy.
+
+configure_em() {
+    local stab="${1:?usage: configure_em <stabilizationWindow> <validityWindow>}"
+    local val="${2:?usage: configure_em <stabilizationWindow> <validityWindow>}"
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="effectivenessmonitor-config"
+
+    local existing_b64
+    existing_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-em-config}' 2>/dev/null || echo "")
+
+    local current_yaml
+    current_yaml=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.data.effectivenessmonitor\.yaml}')
+
+    if [ -z "${existing_b64}" ]; then
+        kubectl annotate configmap "${cm}" -n "${ns}" \
+          "kubernaut.ai/original-em-config=$(echo "${current_yaml}" | base64 | tr -d '\n')" --overwrite
+    fi
+
+    local patched
+    patched=$(python3 -c "
+import sys, yaml
+data = yaml.safe_load(sys.stdin.read())
+data.setdefault('assessment', {})
+data['assessment']['stabilizationWindow'] = '${stab}'
+data['assessment']['validityWindow'] = '${val}'
+print(yaml.dump(data, default_flow_style=False), end='')
+" <<< "${current_yaml}")
+
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"effectivenessmonitor.yaml\":$(echo "${patched}" | jq -Rs .)}}"
+    kubectl rollout restart deployment/effectivenessmonitor-controller -n "${ns}"
+    kubectl rollout status deployment/effectivenessmonitor-controller -n "${ns}" --timeout=60s
+    echo "  EM configured: stabilizationWindow=${stab}, validityWindow=${val}"
+}
+
+restore_em() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="effectivenessmonitor-config"
+    local saved_b64
+    saved_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-em-config}' 2>/dev/null || echo "")
+    if [ -z "${saved_b64}" ]; then
+        return 0
+    fi
+    local original
+    original=$(echo "${saved_b64}" | base64 -d)
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"effectivenessmonitor.yaml\":$(echo "${original}" | jq -Rs .)}}"
+    kubectl annotate configmap "${cm}" -n "${ns}" \
+      "kubernaut.ai/original-em-config-" 2>/dev/null || true
+    kubectl rollout restart deployment/effectivenessmonitor-controller -n "${ns}" 2>/dev/null || true
+    kubectl rollout status deployment/effectivenessmonitor-controller -n "${ns}" --timeout=60s 2>/dev/null || true
+    echo "  EM configuration restored to original."
 }

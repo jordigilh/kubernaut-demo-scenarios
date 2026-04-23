@@ -19,7 +19,7 @@ images:
   newTag: demo-v1.0
 - name: quay.io/kubernaut-ai/gateway
   newTag: demo-v1.0
-- name: quay.io/kubernaut-ai/holmesgpt-api
+- name: quay.io/kubernaut-ai/kubernaut-agent
   newTag: demo-v1.0
 - name: quay.io/kubernaut-ai/notification
   newTag: demo-v1.0
@@ -68,7 +68,7 @@ patches:
       value: 30088
   target:
     kind: Service
-    name: holmesgpt-api
+    name: kubernaut-agent
     namespace: kubernaut-system
 - patch: |
     - op: add

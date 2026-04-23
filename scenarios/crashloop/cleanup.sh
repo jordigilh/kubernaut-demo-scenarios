@@ -22,13 +22,7 @@ kubectl get configmap remediationorchestrator-config -n "$PLATFORM_NS" -o yaml \
   | kubectl apply -f - >/dev/null 2>&1
 kubectl rollout restart deploy/remediationorchestrator-controller -n "$PLATFORM_NS" >/dev/null 2>&1
 kubectl rollout status deploy/remediationorchestrator-controller -n "$PLATFORM_NS" --timeout=120s >/dev/null 2>&1
-echo "==> Cleaning up stale platform resources..."
-kubectl delete remediationrequests --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl delete notificationrequests --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl delete aianalyses --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl delete remediationapprovalrequests --all -n "$PLATFORM_NS" --ignore-not-found 2>/dev/null || true
-kubectl exec -n "$PLATFORM_NS" deploy/postgresql -- psql -U slm_user -d action_history \
-  -c "DELETE FROM audit_events WHERE event_data->>'target_resource' = 'demo-crashloop/Deployment/worker';" 2>/dev/null || true
+purge_pipeline_crds
 
 echo "==> Waiting for namespace deletion to complete..."
 while kubectl get ns demo-crashloop &>/dev/null; do

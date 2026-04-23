@@ -9,3 +9,4 @@ metadata:
     kubernaut.ai/service-owner: ml-team
     kubernaut.ai/criticality: high
     kubernaut.ai/sla-tier: tier-1
+    kubernaut.ai/component: data-pipeline

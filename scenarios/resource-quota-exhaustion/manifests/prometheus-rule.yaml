@@ -16,7 +16,7 @@ spec:
           -
           kube_replicaset_status_ready_replicas{namespace="demo-quota"}
         ) > 0
-      for: 3m
+      for: 30s
       labels:
         severity: warning
       annotations:
