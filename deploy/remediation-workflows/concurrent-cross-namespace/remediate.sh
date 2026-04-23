@@ -2,34 +2,44 @@
 set -e
 
 NS="$TARGET_RESOURCE_NAMESPACE"
-CM_NAME="$TARGET_RESOURCE_NAME"
+KIND="$TARGET_RESOURCE_KIND"
 
-echo "=== Phase 1: Validate ==="
+echo "=== Phase 1: Resolve targets ==="
+echo "TARGET_RESOURCE_KIND=$KIND  TARGET_RESOURCE_NAME=$TARGET_RESOURCE_NAME  NS=$NS"
+echo "TARGET_CONFIGMAP_NAME=$TARGET_CONFIGMAP_NAME"
 
-if [ "$TARGET_RESOURCE_KIND" = "Deployment" ]; then
-  echo "Target is a Deployment ($CM_NAME). Resolving mounted ConfigMap..."
-  DEPLOY_NAME="$CM_NAME"
-  CM_NAME=$(kubectl get "deployment/$DEPLOY_NAME" -n "$NS" \
-    -o jsonpath='{.spec.template.spec.volumes[0].configMap.name}')
-  if [ -z "$CM_NAME" ]; then
-    echo "ERROR: No ConfigMap volume found on deployment/$DEPLOY_NAME"
-    exit 1
+if [ "$KIND" = "ConfigMap" ]; then
+  CM_NAME="$TARGET_RESOURCE_NAME"
+  if [ -n "$TARGET_CONFIGMAP_NAME" ] && [ "$TARGET_CONFIGMAP_NAME" != "$CM_NAME" ]; then
+    echo "WARN: TARGET_CONFIGMAP_NAME ($TARGET_CONFIGMAP_NAME) differs from TARGET_RESOURCE_NAME ($CM_NAME), using TARGET_RESOURCE_NAME"
   fi
-  echo "Resolved ConfigMap: $CM_NAME"
-else
-  echo "Target is ConfigMap/$CM_NAME in namespace $NS"
-  echo "Looking up Deployment that mounts this ConfigMap..."
   DEPLOY_NAME=$(kubectl get deployments -n "$NS" -o json | \
-    jq -r --arg cm "$CM_NAME" \
-      '.items[] | select(.spec.template.spec.volumes[]? | .configMap?.name == $cm) | .metadata.name' \
-    | head -1) || true
+    jq -r --arg cm "$CM_NAME" '.items[] | select(.spec.template.spec.volumes[]?.configMap.name == $cm) | .metadata.name' | head -1)
   if [ -z "$DEPLOY_NAME" ]; then
-    echo "ERROR: No Deployment found mounting ConfigMap/$CM_NAME in namespace $NS"
+    echo "ERROR: No Deployment found mounting ConfigMap $CM_NAME in namespace $NS"
     exit 1
   fi
-  echo "Found Deployment: $DEPLOY_NAME"
+  echo "Resolved: ConfigMap=$CM_NAME -> owning Deployment=$DEPLOY_NAME"
+elif [ "$KIND" = "Deployment" ]; then
+  DEPLOY_NAME="$TARGET_RESOURCE_NAME"
+  CM_NAME="${TARGET_CONFIGMAP_NAME:-}"
+  if [ -z "$CM_NAME" ]; then
+    CM_NAME=$(kubectl get "deployment/$DEPLOY_NAME" -n "$NS" \
+      -o jsonpath='{.spec.template.spec.volumes[0].configMap.name}')
+    if [ -z "$CM_NAME" ]; then
+      echo "ERROR: Deployment $DEPLOY_NAME has no ConfigMap volume and TARGET_CONFIGMAP_NAME was not provided"
+      exit 1
+    fi
+    echo "Resolved: Deployment=$DEPLOY_NAME -> mounted ConfigMap=$CM_NAME"
+  else
+    echo "Targets: Deployment=$DEPLOY_NAME  ConfigMap=$CM_NAME"
+  fi
+else
+  echo "ERROR: Unsupported TARGET_RESOURCE_KIND=$KIND (expected Deployment or ConfigMap)"
+  exit 1
 fi
 
+echo "=== Phase 2: Validate ConfigMap ==="
 CONFIG_DATA=$(kubectl get "configmap/$CM_NAME" -n "$NS" \
   -o jsonpath='{.data.config\.yaml}')
 
@@ -45,7 +55,7 @@ fi
 
 echo "Found invalid_directive in ConfigMap $CM_NAME -- will patch in-place."
 
-echo "=== Phase 2: Action ==="
+echo "=== Phase 3: Action ==="
 echo "Patching ConfigMap $CM_NAME to remove faulty configuration..."
 
 FIXED_CONFIG=$(echo "$CONFIG_DATA" | grep -v "invalid_directive")
@@ -59,7 +69,7 @@ kubectl rollout restart "deployment/$DEPLOY_NAME" -n "$NS"
 echo "Waiting for rollout to complete..."
 kubectl rollout status "deployment/$DEPLOY_NAME" -n "$NS" --timeout=120s
 
-echo "=== Phase 3: Verify ==="
+echo "=== Phase 4: Verify ==="
 NEW_CONFIG=$(kubectl get "configmap/$CM_NAME" -n "$NS" \
   -o jsonpath='{.data.config\.yaml}')
 
@@ -75,7 +85,7 @@ DESIRED=$(kubectl get "deployment/$DEPLOY_NAME" -n "$NS" \
 echo "Replicas: ${READY:-0}/$DESIRED ready"
 
 if [ "${READY:-0}" = "$DESIRED" ] && [ -n "$DESIRED" ]; then
-  echo "=== SUCCESS: ConfigMap hotfixed in-place ($CM_NAME), deployment/$DEPLOY_NAME restarted, all replicas ready ==="
+  echo "=== SUCCESS: ConfigMap $CM_NAME hotfixed in-place, deployment/$DEPLOY_NAME restarted, all replicas ready ==="
 else
   echo "WARNING: Not all replicas ready after hotfix (${READY:-0}/$DESIRED)"
   exit 1

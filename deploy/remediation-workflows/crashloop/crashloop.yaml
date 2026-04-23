@@ -53,21 +53,21 @@ spec:
   description:
     what: "Rolls back a deployment to its previous revision to recover from CrashLoopBackOff caused by a bad configuration change"
     whenToUse: "When a deployment enters CrashLoopBackOff immediately after a config or image change, and the previous revision was healthy"
-    whenNotToUse: "When the crash is caused by an external dependency failure (database down, network partition) rather than a local configuration change"
-    preconditions: "The deployment has at least one previous healthy revision in its rollout history"
+    whenNotToUse: "When the root cause analysis identifies a ConfigMap as the target resource -- rolling back a Deployment does not modify the ConfigMap, so the EA pre/post hash check on the ConfigMap would show no change and the remediation would be flagged as ineffective. Also do not use when the crash is caused by an external dependency failure (database down, network partition) rather than a local configuration change."
+    preconditions: "The deployment has at least one previous healthy revision in its rollout history. The RCA target must be a Deployment, not a ConfigMap."
   
   actionType: RollbackDeployment
   
   labels:
     severity: [critical, low]
-    environment: [production, staging, "*"]
-    component: "deployment"
+    environment: [production]
+    component: [deployment]
     priority: "*"
   
   execution:
     engine: job
     serviceAccountName: crashloop-rollback-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:55bc6b406314c18d1e02f3280def5b9ea7847d2ccac5e00456e2eb6cf37e5e31
+    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:2c16c45fd94dd6afcb241717d1e81ec29acebf142b4a3959d6539ea24cbcdfd7
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

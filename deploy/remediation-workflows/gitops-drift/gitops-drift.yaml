@@ -49,16 +49,16 @@ spec:
   version: "1.3.0"
   description:
     what: "Reverts the most recent commit in a GitOps-managed repository to undo a bad change"
-    whenToUse: "When a GitOps-managed workload is crashing due to a bad commit (ConfigMap, Deployment spec, etc.) and ArgoCD/Flux will reconcile the reverted state"
-    whenNotToUse: "When the environment is not GitOps-managed -- use RollbackDeployment instead"
+    whenToUse: "When a GitOps-managed workload is crashing due to a bad commit (ConfigMap, Deployment spec, etc.) and ArgoCD/Flux will reconcile the reverted state. ALWAYS prefer this over PatchConfiguration or RollbackDeployment when the environment is GitOps-managed (detected label gitOpsTool is set), because in-place patches or kubectl rollbacks will be overwritten by the next ArgoCD/Flux sync -- only a git revert permanently fixes the root cause in the source of truth."
+    whenNotToUse: "When the environment is not GitOps-managed (no ArgoCD/Flux annotations detected) -- use RollbackDeployment or PatchConfiguration instead"
     preconditions: "ArgoCD or Flux is active, the Gitea/GitHub repository is accessible, and a previous healthy commit exists"
   
   actionType: GitRevertCommit
   
   labels:
     severity: [critical, high]
-    environment: [production, staging, "*"]
-    component: "deployment"
+    environment: [staging]
+    component: [configmap, deployment]
     priority: "*"
   
   detectedLabels:

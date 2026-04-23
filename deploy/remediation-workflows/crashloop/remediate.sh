@@ -3,9 +3,22 @@ set -e
 
 echo "=== Phase 1: Validate ==="
 
-# Workaround for kubernaut#693: KA may pass a ReplicaSet name instead of the
-# owning Deployment. Detect and resolve via the owner chain.
-if ! kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" >/dev/null 2>&1; then
+# Resolve non-Deployment targets to the owning Deployment.
+# The rollback action always targets a Deployment, but the LLM's RCA may
+# identify a ConfigMap or ReplicaSet as the root cause.
+if [ "$TARGET_RESOURCE_KIND" = "ConfigMap" ]; then
+  DEPLOY=$(kubectl get deployments -n "$TARGET_RESOURCE_NAMESPACE" -o json | \
+    jq -r --arg cm "$TARGET_RESOURCE_NAME" \
+    '.items[] | select(.spec.template.spec.volumes[]?.configMap.name == $cm) | .metadata.name' | head -1)
+  if [ -n "$DEPLOY" ]; then
+    echo "WARN: '$TARGET_RESOURCE_NAME' is a ConfigMap, resolved to Deployment '$DEPLOY'"
+    TARGET_RESOURCE_NAME="$DEPLOY"
+  else
+    echo "ERROR: No Deployment found mounting ConfigMap '$TARGET_RESOURCE_NAME'"
+    exit 1
+  fi
+elif ! kubectl get "deployment/$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" >/dev/null 2>&1; then
+  # Workaround for kubernaut#693: KA may pass a ReplicaSet name.
   OWNER=$(kubectl get replicaset "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
     -o jsonpath='{.metadata.ownerReferences[?(@.kind=="Deployment")].name}' 2>/dev/null || true)
   if [ -n "$OWNER" ]; then

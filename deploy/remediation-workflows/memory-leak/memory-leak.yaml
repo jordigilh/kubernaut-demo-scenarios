@@ -61,7 +61,7 @@ spec:
   labels:
     severity: [low, medium, high, critical]
     environment: [production, staging]
-    component: "deployment"
+    component: [deployment]
     priority: "*"
   
   execution:

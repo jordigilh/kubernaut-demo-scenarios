@@ -68,8 +68,8 @@ spec:
   
   labels:
     severity: [critical, high]
-    environment: [production, staging, "*"]
-    component: "deployment"
+    environment: [production]
+    component: [deployment]
     priority: "*"
   
   detectedLabels:

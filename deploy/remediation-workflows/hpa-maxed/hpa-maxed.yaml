@@ -58,7 +58,7 @@ spec:
   labels:
     severity: [low, medium, high, critical]
     environment: [production, staging]
-    component: "horizontalpodautoscaler"
+    component: [horizontalpodautoscaler]
     priority: "*"
   
   detectedLabels:
