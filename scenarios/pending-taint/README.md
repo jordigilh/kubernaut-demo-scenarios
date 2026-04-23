@@ -156,26 +156,64 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Pod cannot be scheduled because the only node matching its node selector has a maintenance taint (maintenance=scheduled:NoSchedule) that prevents scheduling. |
-| **Severity** | high |
-| **Target Resource** | Node/kubernaut-demo-worker (ns: ) |
+| **Root Cause** | Pod is unschedulable because the only eligible node has an untolerated `NoSchedule` taint (`maintenance=scheduled`), and no other nodes match the pod's `nodeSelector`. Both replicas are stuck Pending with 0/3 nodes available. |
+| **Severity** | medium |
+| **Target Resource** | Deployment/batch-processor (ns: demo-taint) |
 | **Workflow Selected** | remove-taint-v1 |
 | **Confidence** | 0.95 |
-| **Approval** | required (sensitive resource kind: Node) |
+| **Approval** | required (production environment) |
 
 **Key Reasoning Chain:**
 
-1. Detects Pending pod with unmet scheduling constraints.
-2. Identifies NoSchedule taint on the target node preventing scheduling.
-3. Selects taint removal as the appropriate remediation.
+1. Fetches the Deployment by name (`kubectl_get_by_name`), describes the Pending pod, lists all nodes.
+2. Describes the tainted node — confirms `maintenance=scheduled:NoSchedule` taint applied via `kubectl-taint`.
+3. Identifies that the pod's `nodeSelector` restricts it to this specific node and has no matching toleration.
+4. Selects `RemoveTaint` to unblock scheduling.
 
-> **Why this matters**: Demonstrates the LLM's ability to analyze scheduling constraints and identify node-level taints as the root cause of pod scheduling failures.
+> **Why this matters**: Shows the LLM correlating pod scheduling failures with node taints and selecting the precise remediation (taint removal) rather than broader actions like cordon/drain.
+
+#### LLM Investigation Trace (v1.3)
+
+The table below shows the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
+
+**Phase 1 — Root Cause Analysis** (5 LLM turns, ~70 000 tokens, ~90 s)
+
+| Turn | Tool calls | Tokens | What happened |
+|------|-----------|--------|---------------|
+| 1 | `todo_write` (plan) | — | Planned 4-step investigation |
+| 2 | **`kubectl_get_by_name(Deployment/batch-processor)`**, `kubectl_describe(Pod/…)`, `kubectl_get_by_kind_in_cluster(Node)`, `kubectl_events(Pod/…)`, `kubectl_get_by_kind_in_namespace(Pod)` | — | 5 parallel calls: deployment, pod, all nodes, events, pod list |
+| 3 | `kubectl_describe(Node/kubernaut-demo-worker)`, `todo_write` | — | Confirmed taint on target node |
+| 4 | `get_namespaced_resource_context(…)`, `todo_write` | — | Gathered context |
+| 5 | *submit_result (RCA)* | — | Root cause: untolerated NoSchedule taint |
+
+**Phase 2 — Workflow Selection** (8 LLM turns, ~70 000 tokens, ~68 s)
+
+| Turn | Tool calls | Tokens | What happened |
+|------|-----------|--------|---------------|
+| 6-7 | `list_available_actions` (pages 1-2) | — | Identified `RemoveTaint` ActionType |
+| 8 | `list_workflows(RemoveTaint)` | — | Found `remove-taint-v1` |
+| 9 | `get_workflow(remove-taint-v1)` | — | Reviewed workflow definition |
+| 10 | *submit_result (workflow)* | — | Selected remove-taint-v1 (0.95 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 140 600 |
+| **Total tool calls** | 20 (5 K8s + 1 node-describe + 1 context + 2 catalog + 2 workflow + 9 planning) |
+| **LLM turns** | 13 |
+| **Wall-clock time** | ~158 s |
+
+> **Note on `kubectl_get_by_name`**: The LLM fetched the Deployment directly
+> by name in the first investigation turn alongside 4 other parallel calls,
+> demonstrating efficient use of targeted lookups in multi-tool turns.
 
 #### 4. Approve the RAR (when using `--interactive`)
 

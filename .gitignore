@@ -20,5 +20,11 @@ test-results-*.txt
 # User-specific LLM credentials (example templates are tracked)
 my-llm-credentials.yaml
 
+# Golden transcripts (captured by capture-eval.sh, may contain sensitive data)
+golden-transcripts/
+
+# Python bytecode
+__pycache__/
+
 # OS files
 .DS_Store

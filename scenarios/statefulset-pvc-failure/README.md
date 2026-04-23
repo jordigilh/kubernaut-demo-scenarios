@@ -223,27 +223,69 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | StatefulSet kv-store has 2/3 replicas ready because pod kv-store-2 is stuck in Pending status due to PVC data-kv-store-2 referencing non-existent StorageClass 'broken-storage-class'. The PVC cannot be provisioned, preventing pod scheduling. |
+| **Root Cause** | StatefulSet replica mismatch caused by kv-store-2 stuck in Pending due to PVC `data-kv-store-2` referencing a non-existent StorageClass `broken-storage-class`. The PVC was manually created with an incorrect storageClassName, causing repeated ProvisioningFailed errors and preventing pod scheduling. |
 | **Severity** | critical |
 | **Target Resource** | StatefulSet/kv-store (ns: demo-statefulset) |
-| **Workflow Selected** | fix-statefulset-pvc-v1 |
+| **Workflow Selected** | fix-statefulset-pvc-v1 (`FixStatefulSetPVC`) |
 | **Confidence** | 0.95 |
 | **Approval** | required (sensitive resource kind: StatefulSet) |
 
 **Key Reasoning Chain:**
 
-1. Detects StatefulSet with unavailable replicas.
-2. Identifies PVC binding failure as the root cause.
-3. Recognizes StatefulSet workloads require careful handling.
-4. Selects PVC fix workflow appropriate for stateful workloads.
+1. Fetches StatefulSet and lists all pods — identifies kv-store-2 Pending while kv-store-0/1 are Running.
+2. Describes pod and PVC — confirms `data-kv-store-2` stuck with `ProvisioningFailed: storageclass.storage.k8s.io "broken-storage-class" not found`.
+3. Lists PVCs and StorageClasses cluster-wide — confirms `broken-storage-class` does not exist, healthy PVCs use `standard`.
+4. Enriches via `get_namespaced_resource_context` — confirms StatefulSet ownership, `environment=staging`.
+5. Selects `fix-statefulset-pvc-v1` — deletes broken PVC and recreates with correct StorageClass.
 
-> **Why this matters**: Demonstrates the LLM handling stateful workloads with appropriate caution, including mandatory manual approval for sensitive resource types.
+> **Why this matters**: Demonstrates the LLM handling stateful workloads with appropriate caution, including mandatory manual approval for sensitive resource types. The LLM correctly identified a storage-class mismatch by comparing cluster-wide resources.
+
+#### LLM Investigation Trace (v1.3)
+
+The tables below show the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
+
+**Phase 1 — Root Cause Analysis (4 LLM turns)**
+
+| Turn | Tool calls | Prompt (chars) | What happened |
+|------|-----------|----------------|---------------|
+| 1 | `todo_write`, `kubectl_get_by_name(StatefulSet/kv-store)`, `kubectl_get_by_kind_in_namespace(Pod)` | 4 521 | Planned investigation; identified 2/3 replicas ready, kv-store-2 Pending |
+| 2 | `todo_write` | 4 859 | Updated plan: need PVC and StorageClass details |
+| 3 | `kubectl_describe(Pod/kv-store-2)`, `kubectl_get_by_kind_in_namespace(PersistentVolumeClaim)`, `kubectl_events(PVC/data-kv-store-2)`, `kubectl_get_by_kind_in_cluster(StorageClass)`, `kubectl_events(StatefulSet/kv-store)`, `kubectl_events(Pod/kv-store-2)`, `get_namespaced_resource_context(StatefulSet/kv-store)` | 13 636 | Deep investigation: confirmed `broken-storage-class` not found, healthy PVCs use `standard` |
+| 4 | `todo_write` → *submit_result (RCA)* | 40 720 | Target: StatefulSet/kv-store — PVC with wrong StorageClass |
+
+**Phase 2 — Workflow Selection (7 LLM turns)**
+
+| Turn | Tool calls | Prompt (chars) | What happened |
+|------|-----------|----------------|---------------|
+| 1 | `todo_write` | 7 602 | Planned workflow search |
+| 2 | `list_available_actions` | 8 038 | Fetched ActionTypes — identified `FixStatefulSetPVC` |
+| 3 | `todo_write` | 8 691 | Evaluated: purpose-built for StatefulSet PVC issues |
+| 4 | `list_workflows(FixStatefulSetPVC)` | 8 943 | Found `fix-statefulset-pvc-v1` |
+| 5 | `todo_write` | 9 996 | Confirmed match |
+| 6 | `get_workflow(fix-statefulset-pvc-v1)` | 10 405 | Reviewed full workflow definition |
+| 7 | `todo_write` → *submit_result_with_workflow* | 14 476 | Selected fix-statefulset-pvc-v1 (0.95 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 125 690 (121 066 prompt + 4 624 completion) |
+| **Total tool calls** | 19 |
+| **LLM turns** | 15 (4 RCA + 7 Workflow + batch calls) |
+| **Peak prompt size** | 40 720 chars (RCA submit) |
+
+> **Note**: The RCA phase was highly efficient (4 turns) because turn 3 batched
+> 7 parallel tool calls — describing the pod, listing PVCs, checking events for
+> 3 resources, querying StorageClasses cluster-wide, and enriching context — all
+> in a single LLM round-trip. The peak prompt size (40 720 chars) reflects the
+> large amount of cluster context gathered in that batch.
 
 #### 7. Approve the RAR
 

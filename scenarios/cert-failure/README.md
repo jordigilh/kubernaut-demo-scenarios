@@ -239,27 +239,54 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | The CertManagerCertNotReady alert is caused by a missing CA Secret 'demo-ca-key-pair' that the ClusterIssuer requires to sign certificates. The ClusterIssuer cannot initialize properly without this secret, preventing certificate issuance. |
+| **Root Cause** | ClusterIssuer `demo-selfsigned-ca` is not Ready because its backing CA Secret `demo-ca-key-pair` does not exist, blocking TLS certificate issuance for `demo-app-cert`. The missing secret prevents the ClusterIssuer from signing CertificateRequests, leaving the TLS secret `demo-app-tls` absent and pods serving without valid HTTPS. |
 | **Severity** | critical |
-| **Target Resource** | Certificate/demo-app-cert (ns: demo-cert-failure) |
+| **Target Resource** | ClusterIssuer/demo-selfsigned-ca |
 | **Workflow Selected** | fix-certificate-v1 |
-| **Confidence** | 0.95 |
+| **Confidence** | 0.97 |
 | **Approval** | not required (staging, high confidence) |
 
 **Key Reasoning Chain:**
 
-1. Detects CertManagerCertNotReady alert.
-2. Traces certificate failure to ClusterIssuer configuration.
-3. Identifies the specific problem: CA Secret reference doesn't exist.
-4. Selects direct certificate fix workflow.
+1. Detects CertManagerCertNotReady alert in `demo-cert-failure` namespace.
+2. Examines Certificates, CertificateRequests — finds `demo-app-cert` stuck NotReady.
+3. Traces failure through cert-manager trust chain: Certificate → ClusterIssuer → missing CA Secret.
+4. Inspects ClusterIssuer `demo-selfsigned-ca` — confirms `ErrGetKeyPair` for Secret `demo-ca-key-pair`.
+5. Identifies that the optional TLS volume mount masks pod-level impact.
+6. Selects `fix-certificate-v1` (`FixCertificate` action type) with `ISSUER_NAME=demo-selfsigned-ca`.
 
-> **Why this matters**: Shows the LLM tracing certificate issuance failures through the cert-manager trust chain (Certificate → ClusterIssuer → CA Secret).
+> **Why this matters**: Shows the LLM tracing certificate issuance failures through the cert-manager trust chain (Certificate → ClusterIssuer → CA Secret) and correctly targeting a cluster-scoped resource.
+
+#### LLM Investigation Trace (v1.3)
+
+| Turn | Phase | Tool(s) Called | Prompt Chars |
+|------|-------|---------------|-------------|
+| 1 | RCA | `todo_write` | 4,488 |
+| 2 | RCA | `kubectl_get_by_kind_in_namespace` (Deployments) | 4,849 |
+| 3 | RCA | `kubectl_get_by_kind_in_namespace` (Certificates) | 14,949 |
+| 4 | RCA | `kubectl_get_by_kind_in_namespace` (Pods) | 15,134 |
+| 5 | RCA | `todo_write` | 23,104 |
+| 6 | RCA | `kubectl_get_by_kind_in_namespace` (CertificateRequests) | 32,344 |
+| 7 | RCA | `kubectl_describe`, `kubectl_get_by_name_in_cluster` (ClusterIssuer) | 32,566 |
+| 8 | RCA | `kubectl_events` (demo-cert-failure) | 37,215 |
+| 9 | RCA | `kubectl_get_by_kind_in_namespace` (Secrets) | 37,461 |
+| 10 | RCA | `todo_write`, `kubectl_describe`, `get_namespaced_resource_context`, `get_cluster_resource_context` | 37,594 |
+| 11 | Workflow Selection | `todo_write` | 8,513 |
+| 12 | Workflow Selection | `todo_write` | 8,882 |
+| 13 | Workflow Selection | `list_available_actions` | 9,556 |
+| 14 | Workflow Selection | `todo_write` | 9,989 |
+| 15 | Workflow Selection | `list_workflows` | 11,002 |
+| 16 | Workflow Selection | `todo_write` | 11,417 |
+| 17 | Workflow Selection | `get_workflow` (fix-certificate-v1) | 16,228 |
+| 18 | Workflow Selection | `todo_write` + submit | 16,587 |
+
+**Summary**: 187,136 total tokens, 14 tool calls (excl. `todo_write`), 18 LLM turns, peak prompt 37,594 chars. Workflow execution completed in ~20s. Full pipeline ~9.5 min (including ~2 min alert wait + ~6 min EA verification).
 
 #### 8. Verify remediation
 

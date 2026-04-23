@@ -273,25 +273,25 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Orphaned PVCs from completed batch jobs exist in the namespace. Five PVCs (batch-output-job-1 through batch-output-job-5) remain after their parent Job resources were deleted. The data-processor deployment is unaffected and operating normally. |
-| **Severity** | low |
-| **Target Resource** | PersistentVolumeClaim/batch-output-job-1 (ns: demo-orphaned-pvc) |
+| **Root Cause** | Five orphaned PVCs (`batch-output-job-1` through `batch-output-job-5`) remain after their parent batch Jobs completed and were deleted, with no active consumer pods mounting them. These PVCs have no `ownerReferences`, preventing garbage collection, and are accumulating 500Mi of unused persistent storage. |
+| **Severity** | medium |
+| **Target Resource** | Deployment/data-processor (ns: demo-orphaned-pvc) |
 | **Workflow Selected** | cleanup-pvc-v1 |
 | **Confidence** | 0.95 |
-| **Approval** | not required (auto-approved) |
+| **Approval** | required (production environment) |
 
 **Key Reasoning Chain:**
 
-1. Detects KubePersistentVolumeClaimOrphaned alert for five PVCs.
-2. Confirms the PVCs belong to completed batch jobs that have been deleted.
-3. Verifies the main `data-processor` deployment is unaffected and running normally.
-4. Selects `cleanup-pvc-v1` to remove the orphaned PVCs since they are no longer needed.
+1. Lists Deployments, Pods, PVCs, Events, Jobs, and StatefulSets in the namespace to build a full picture.
+2. Describes the Deployment and a sample PVC to confirm orphaned state.
+3. Uses `kubernetes_jq_query` on PersistentVolumes to verify reclaim policies and binding state.
+4. Confirms no pods mount the orphaned PVCs and selects `CleanupPVC`.
 
 > **Why this matters**: Shows the LLM correctly distinguishing between PVCs that are actively in use (dangerous to delete) and PVCs orphaned by completed jobs (safe to clean up). The scenario name includes "no-action" because the *deployment* needs no remediation — only the orphaned storage is addressed.
 
@@ -300,6 +300,45 @@ Path outcomes after monitoring:
 - **Path A**: RR → Completed (`NoActionRequired`)
 - **Path B**: RR → `AwaitingApproval` → reject/approve via RAR patch
 - **Path C**: RR → Completed (`Remediated`) — PVCs cleaned up
+
+#### LLM Investigation Trace (v1.3)
+
+The table below shows the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
+This run followed Path C (CleanupPVC selected and executed).
+
+**Phase 1 — Root Cause Analysis** (5 LLM turns, ~72 000 tokens, ~55 s)
+
+| Turn | Tool calls | Tokens | What happened |
+|------|-----------|--------|---------------|
+| 1 | `todo_write` (plan) | — | Planned 4-step investigation |
+| 2 | `kubectl_get_by_kind_in_namespace` x6 (Deployment, Pod, PVC, Event, Job, StatefulSet) | — | Comprehensive namespace scan: 5 orphaned PVCs, no Jobs, Deployment healthy |
+| 3 | `kubectl_describe(Deployment/data-processor)`, `kubectl_describe(PVC/batch-output-job-1)`, `todo_write` | — | Confirmed PVCs have no ownerReferences, no active mounts |
+| 4 | `get_namespaced_resource_context(…)`, `kubernetes_jq_query(PV)`, `todo_write` | — | Verified PV reclaim policies and binding state |
+| 5 | *submit_result (RCA)* | — | Root cause: orphaned PVCs from deleted batch jobs |
+
+**Phase 2 — Workflow Selection** (8 LLM turns, ~83 000 tokens, ~48 s)
+
+| Turn | Tool calls | Tokens | What happened |
+|------|-----------|--------|---------------|
+| 6-7 | `list_available_actions` (pages 1-2) | — | Identified `CleanupPVC` ActionType |
+| 8 | `list_workflows(CleanupPVC)` | — | Found `cleanup-pvc-v1` |
+| 9 | `get_workflow(cleanup-pvc-v1)` | — | Reviewed workflow definition and preconditions |
+| 10 | *submit_result (workflow)* | — | Selected cleanup-pvc-v1 (0.95 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 155 573 |
+| **Total tool calls** | 23 (10 K8s + 1 jq-query + 1 context + 2 catalog + 2 workflow + 7 planning) |
+| **LLM turns** | 13 |
+| **Wall-clock time** | ~103 s |
+
+> **Note**: This scenario used 6 parallel `kubectl_get_by_kind_in_namespace`
+> calls in turn 2 — the highest single-turn tool fan-out observed so far.
+> The LLM also used `kubernetes_jq_query` to filter PersistentVolumes by
+> `claimRef.namespace`, avoiding a full cluster-wide PV listing.
 
 #### 8. View notifications
 

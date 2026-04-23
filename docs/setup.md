@@ -65,7 +65,7 @@ This creates a `selfsigned-issuer` ClusterIssuer used by the chart's TLS configu
 
 | Operator | Required for | Install from |
 |----------|-------------|-------------|
-| OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir) | OperatorHub |
+| OpenShift GitOps | GitOps scenarios (gitops-drift, disk-pressure-emptydir) | OperatorHub |
 | OpenShift Service Mesh (OSSM) | mesh-routing-failure | OperatorHub |
 | AWX/AAP | disk-pressure-emptydir | `awx-helper.sh` (AAP: `aap-helper.sh` + license) |
 
@@ -342,7 +342,7 @@ Each scenario's `run.sh` does three things:
 
 > `run.sh` does **not** create the Kind cluster or install the platform. That is handled by `setup-demo-cluster.sh`. If you see an error like `"ERROR: Cannot connect to Kubernetes cluster"`, run the bootstrap first.
 
-Browse all 24 available scenarios in the [Scenario Catalog](scenarios.md).
+Browse all 22 available scenarios in the [Scenario Catalog](scenarios.md).
 
 > **Infrastructure dependencies:** Some scenarios require components like cert-manager, Istio, or AWX that are only installed when `setup-demo-cluster.sh` runs without `--skip-infra`. If a required component is missing, `run.sh` will exit with a clear error message. See the [dependency table](scenarios.md#dependencies) for details.
 

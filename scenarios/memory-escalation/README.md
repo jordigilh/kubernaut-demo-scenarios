@@ -260,26 +260,90 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
+**Cycle 1:**
+
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Pod ml-worker is experiencing repeated OOM kills due to insufficient memory limits. The container has a 64Mi memory limit but runs a workload that writes 8MB/second to /dev/shm, causing it to exceed the limit within ~8 seconds and get OOMKilled with exit code 137. |
+| **Root Cause** | The ml-worker container is intentionally simulating a memory leak by writing 8Mi/s to a memory-backed `/dev/shm` volume, causing it to repeatedly exceed its 64Mi memory limit and get OOMKilled in a CrashLoopBackOff cycle. |
 | **Severity** | critical |
 | **Target Resource** | Deployment/ml-worker (ns: demo-memory-escalation) |
 | **Workflow Selected** | increase-memory-limits-v1 |
-| **Confidence** | 0.95 |
+| **Confidence** | 0.92 |
 | **Approval** | required (production environment) |
+| **Rationale** | IncreaseMemoryLimits directly addresses this by doubling the memory limit (64Mi -> 128Mi). The workflow's own guidance endorses its use even for suspected memory leaks as a first-pass mitigation, relying on the platform's escalation mechanism to detect repeated failures. |
+
+**Cycle 2 (escalation):**
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | The ml-worker container is deliberately simulating a memory leak by appending 8MiB/s to a tmpfs-backed emptyDir. A prior remediation already raised the memory limit to 128Mi with no resolution (effectiveness: 0.35). No automated workflow is correctly scoped to address this. |
+| **Outcome** | `ManualReviewRequired` — LLM declines to select a workflow |
+| **Rationale** | PatchConfiguration targets ConfigMap-based errors; GracefulRestart and IncreaseMemoryLimits are both explicitly disqualified by their own `whenNotToUse` rules for unbounded memory leaks. |
 
 **Key Reasoning Chain:**
 
-1. Detects recurring OOMKill events.
-2. Reviews remediation history showing prior attempts.
-3. On later cycles, acknowledges ineffective prior remediations and may escalate to manual review.
+1. Detects recurring OOMKill events, identifies 8Mi/s allocation to memory-backed emptyDir.
+2. Cycle 1: Selects IncreaseMemoryLimits as first-pass mitigation (64Mi -> 128Mi).
+3. Cycle 2: Reviews prior EA (healthScore=0), recognizes the pattern is an unbounded leak, and declines all workflows.
 
 > **Why this matters**: Demonstrates the multi-cycle remediation pattern where the LLM must learn from previous ineffective attempts and eventually escalate rather than repeating the same fix.
+
+#### LLM Investigation Trace (v1.3)
+
+The tables below show the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
+
+**Cycle 1 — IncreaseMemoryLimits (10 LLM turns, 90 997 tokens, ~129 s)**
+
+| Turn | Tool calls | Prompt (chars) | Tokens | What happened |
+|------|-----------|----------------|--------|---------------|
+| 1 | `kubectl_describe(Pod/ml-worker-…)`, `kubectl_events(Pod/…)`, `kubectl_get_by_kind_in_namespace(Pod)` | 4 663 | 4 998 | Identified OOMKilled, exit code 137 |
+| 2 | `kubectl_describe(Deployment/ml-worker)`, `kubectl_previous_logs(…)`, `kubectl_describe(Node/kubernaut-demo-worker)` | 20 182 | 11 108 | Confirmed 64Mi limit, 8Mi/s write rate, node has ample memory |
+| 3 | `get_namespaced_resource_context(Deployment/ml-worker)` | 28 482 | 14 298 | Gathered namespace labels and ownership context |
+| 4 | *submit_result (RCA)* | 28 859 | 15 338 | Root cause: memory limit too low for workload |
+| 5 | `list_available_actions` (page 1), `todo_write` | 7 682 | 3 715 | Fetched ActionTypes |
+| 6 | `list_available_actions` (page 2), `todo_write` | 14 070 | 5 587 | Identified `IncreaseMemoryLimits` |
+| 7 | `list_workflows(IncreaseMemoryLimits)`, `todo_write` | 19 068 | 7 250 | Found `increase-memory-limits-v1` |
+| 8 | `get_workflow(increase-memory-limits-v1)`, `todo_write` | 21 476 | 8 028 | Reviewed workflow definition |
+| 9 | `todo_write` | 26 618 | 9 700 | Prepared submission |
+| 10 | *submit_result (workflow)* | 26 843 | 10 975 | Selected increase-memory-limits-v1 (0.92 confidence) |
+
+**Cycle 2 — Escalation to ManualReviewRequired (14 LLM turns, 125 082 tokens, ~118 s)**
+
+| Turn | Tool calls | Prompt (chars) | Tokens | What happened |
+|------|-----------|----------------|--------|---------------|
+| 1 | `kubectl_describe(Pod/…)`, `kubectl_get_by_kind_in_namespace(Pod)` | 4 661 | 4 998 | Detected OOMKill on new pod with 128Mi limit |
+| 2 | `kubectl_events(Pod/…)`, `kubectl_describe(Deployment/ml-worker)`, `kubectl_previous_logs(…)`, `kubectl_top_pods` | 20 631 | 11 195 | Confirmed OOMKill recurrence despite raised limits |
+| 3 | `get_namespaced_resource_context(Deployment/ml-worker)` | 25 966 | 13 343 | Found prior remediation history (effectiveness: 0.35) |
+| 4 | `todo_write` | 27 038 | 13 935 | Planned RCA submission |
+| 5 | *submit_result (RCA)* | 27 123 | 15 004 | Root cause: unbounded memory leak, prior remediation ineffective |
+| 6 | `todo_write` | 9 005 | 4 066 | Planned workflow search |
+| 7 | `list_available_actions` (page 1) | 9 313 | 4 167 | Fetched ActionTypes |
+| 8 | `list_available_actions` (page 2) | 15 398 | 5 788 | Reviewed all ActionTypes |
+| 9 | `todo_write` + `list_workflows(PatchConfiguration)` | 20 235 | 7 106 | Considered PatchConfiguration |
+| 10 | `get_workflow(hotfix-config-v1)` + `todo_write` | 20 431 | 7 494 | Rejected: targets ConfigMap errors, not memory leaks |
+| 11 | `list_workflows(GracefulRestart)` | 22 859 | 8 052 | Considered GracefulRestart |
+| 12 | `todo_write` | 23 066 | 8 359 | Rejected: `whenNotToUse` excludes memory leaks |
+| 13 | `todo_write` | 28 979 | 10 134 | Prepared escalation submission |
+| 14 | *submit_result (ManualReviewRequired)* | 29 116 | 11 441 | Declined all workflows — escalated to human review |
+
+**Totals (both cycles)**
+
+| Metric | Cycle 1 | Cycle 2 | Combined |
+|--------|---------|---------|----------|
+| **Total tokens** | 90 997 | 125 082 | 216 079 |
+| **Total tool calls** | 18 | 19 | 37 |
+| **LLM turns** | 10 | 14 | 24 |
+| **Wall-clock time** | ~129 s | ~118 s | ~247 s |
+| **Peak prompt size** | 28 859 chars | 29 116 chars | — |
+
+> **Note**: Cycle 2 consumed 38% more tokens than Cycle 1 because the LLM
+> explored multiple workflow candidates (`PatchConfiguration`, `GracefulRestart`)
+> before concluding none were suitable for an unbounded memory leak.
 
 #### 5. Approve remediation
 

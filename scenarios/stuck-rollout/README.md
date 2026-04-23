@@ -242,26 +242,72 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Deployment rollout stuck due to non-existent container image tag causing ImagePullBackOff and ProgressDeadlineExceeded. Previous revision with working image is healthy and providing partial service with 2/3 replicas available. |
+| **Root Cause** | Deployment rollout stuck due to a non-existent image tag (`99.99.99-doesnotexist`) causing ImagePullBackOff on all new pods, exceeding the progress deadline. |
 | **Severity** | critical |
 | **Target Resource** | Deployment/checkout-api (ns: demo-rollout) |
 | **Workflow Selected** | rollback-deployment-v1 |
-| **Confidence** | 0.95 |
-| **Approval** | required (production environment, critical severity) |
+| **Confidence** | 0.98 |
+| **Approval** | required (production environment) |
+| **Alternatives** | crashloop-rollback-v1 (0.65) — wrong failure mode (CrashLoopBackOff vs ImagePullBackOff); crashloop-rollback-risk-v1 (0.55) — wrong risk tolerance and failure mode |
 
 **Key Reasoning Chain:**
 
-1. Identifies deployment with mismatched replica counts between old and new ReplicaSets.
-2. Recognizes this as a stuck rollout rather than a simple crash.
-3. Selects rollback to restore the last known-good revision.
+1. Describes the Deployment, identifies mismatched replica counts between old and new ReplicaSets.
+2. Lists pods, sees new pods stuck in `ImagePullBackOff` while old pods remain healthy.
+3. Checks events to confirm `Failed to pull image` errors with non-existent tag.
+4. Recognizes this as a stuck rollout (not a crash) and selects `RollbackDeployment`.
 
 > **Why this matters**: Demonstrates the LLM's ability to distinguish a stuck rollout from a simple crash and select rollback rather than restart.
+
+#### LLM Investigation Trace (v1.3)
+
+The table below shows the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
+
+**Phase 1 — Root Cause Analysis** (6 LLM turns, 55 839 tokens, ~61 s)
+
+| Turn | Tool calls | Prompt (chars) | Tokens | What happened |
+|------|-----------|----------------|--------|---------------|
+| 1 | `todo_write` (plan) | 4 492 | 4 911 | Planned 6-step investigation |
+| 2 | `kubectl_describe(Deployment/checkout-api)` | 4 835 | 5 133 | Identified stuck rollout, ProgressDeadlineExceeded |
+| 3 | `kubectl_get_by_kind_in_namespace(Pod)`, `todo_write` | 13 464 | 8 594 | Listed pods: old RS healthy, new RS in ImagePullBackOff |
+| 4 | `get_namespaced_resource_context(Deployment/checkout-api)`, `kubectl_events(Pod/...)`, `kubectl_events(Deployment/checkout-api)` | 25 407 | 8 960 | Gathered events confirming image pull failures |
+| 5 | `todo_write` | 25 579 | 13 508 | Prepared RCA submission |
+| 6 | *submit_result (RCA)* | 9 282 | 14 733 | Emitted root cause: bad image tag, severity critical |
+
+**Phase 2 — Workflow Selection** (9 LLM turns, 68 908 tokens, ~48 s)
+
+| Turn | Tool calls | Prompt (chars) | Tokens | What happened |
+|------|-----------|----------------|--------|---------------|
+| 7 | `todo_write` (plan) | 9 691 | 4 276 | Planned 4-step workflow selection |
+| 8 | `list_available_actions` (page 1) | 15 776 | 4 402 | Fetched first page of ActionTypes |
+| 9 | `list_available_actions` (page 2) | 20 637 | 6 027 | Identified `RollbackDeployment` |
+| 10 | `todo_write` + `list_workflows(RollbackDeployment)` | 21 185 | 7 416 | Listed workflows for the matching ActionType |
+| 11 | `todo_write` + `list_workflows` result | 24 312 | 7 573 | Reviewed workflow list |
+| 12 | `todo_write` + `get_workflow(rollback-deployment-v1)` | 24 934 | 8 769 | Fetched full workflow definition |
+| 13 | `todo_write` | 28 325 | 8 945 | Reviewed workflow preconditions |
+| 14 | `todo_write` | 28 699 | 10 216 | Prepared final submission |
+| 15 | *submit_result (workflow)* | — | 11 284 | Selected rollback-deployment-v1 (0.98 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 124 747 |
+| **Total tool calls** | 18 (4 K8s + 3 context/events + 2 catalog + 2 workflow + 7 planning) |
+| **LLM turns** | 15 |
+| **Wall-clock time** | ~109 s |
+| **Peak prompt size** | 28 699 chars (end of workflow selection phase) |
+
+> **Note**: The LLM did not need `kubectl_get_by_name` here because the root
+> cause was visible directly from the Deployment describe and pod listing —
+> no ConfigMap or Secret comparison was required.
 
 #### 8. Approve (if required) and verify remediation
 

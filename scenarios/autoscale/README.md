@@ -205,6 +205,44 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
+#### Expected LLM Reasoning (v1.3 baseline)
+
+| Field | Expected Value |
+|-------|---------------|
+| **Root Cause** | Deployment web-cluster was manually scaled to 14 replicas with 2 GiB memory each (28 GiB total demand), exceeding the 3-node cluster's ~21.6 GiB total capacity. All nodes report 'Insufficient memory', leaving 6 pods permanently Pending/Unschedulable. |
+| **Severity** | critical |
+| **Target Resource** | Deployment/web-cluster (ns: demo-autoscale) |
+| **Workflow Selected** | provision-node-v1 |
+| **Confidence** | 0.92 |
+| **Approval** | not required |
+| **Alternatives** | N/A |
+
+**Key Reasoning Chain:**
+
+1. Describes the deployment and detects Pending pods with `FailedScheduling` events.
+2. Lists all pods and nodes, runs `kubectl_top_nodes` and `kubectl_memory_requests_all_namespaces`.
+3. Identifies cluster-level memory exhaustion — total demand exceeds total allocatable.
+4. Selects `provision-node-v1` workflow to add capacity by provisioning a new worker node.
+
+> **Why this matters**: Demonstrates the LLM's ability to diagnose cluster-level capacity exhaustion (not just namespace-level) and select an infrastructure-provisioning workflow rather than application-level fixes.
+
+#### LLM Investigation Trace (v1.3)
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 161,914 (156,723 prompt + 5,191 completion) |
+| **Total tool calls** | 22 (15 investigation + 7 todo_write) |
+| **LLM turns** | 17 |
+| **Wall-clock time** | ~3 min 46 s (AA phase) |
+| **Peak prompt size** | ~26k chars |
+
+**Investigation tools used**: `kubectl_describe` (×3), `kubectl_events`, `kubectl_get_by_kind_in_namespace` (×2), `kubectl_get_by_kind_in_cluster`, `kubectl_top_nodes`, `kubectl_memory_requests_all_namespaces`, `get_namespaced_resource_context`, `list_available_actions` (×2), `list_workflows` (×2), `get_workflow`
+
+> **Note**: The node was successfully provisioned and joined the cluster (kubelet bootstrap ~2 min).
+> However, the WFE timed out before the provisioner could acknowledge completion.
+> The remediation itself worked — 11/14 pods became Running on the new 4-node cluster.
+> This is a WFE timeout configuration issue, not an LLM or workflow logic issue.
+
 #### 11. Verify remediation
 
 ```bash

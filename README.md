@@ -96,7 +96,7 @@ If you already have a cluster, install the platform manually.
 >
 > | Operator | Required for |
 > |----------|-------------|
-> | OpenShift GitOps | GitOps scenarios (gitops-drift, cert-failure-gitops, disk-pressure-emptydir) |
+> | OpenShift GitOps | GitOps scenarios (gitops-drift, disk-pressure-emptydir) |
 > | OpenShift Service Mesh (OSSM) | mesh-routing-failure |
 > | AWX/AAP | disk-pressure-emptydir |
 >
@@ -333,7 +333,7 @@ Prometheus alert fires (KubePodCrashLooping)
   -> Notification delivers the final result including effectiveness assessment
 ```
 
-Each of the 23 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
+Each of the 22 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
 
 ## Scenario Prerequisites Matrix
 
@@ -343,9 +343,9 @@ but this matrix lets you plan ahead:
 
 | Infrastructure | Scenarios | Setup |
 |----------------|-----------|-------|
-| **Gitea + ArgoCD** | gitops-drift, cert-failure-gitops, disk-pressure-emptydir | Option A: `--with-gitea --with-argocd`. Option B: see [Setup Guide](docs/setup.md). |
+| **Gitea + ArgoCD** | gitops-drift, disk-pressure-emptydir | Option A: `--with-gitea --with-argocd`. Option B: see [Setup Guide](docs/setup.md). |
 | **AWX/AAP + Ansible engine** | disk-pressure-emptydir | `bash scripts/awx-helper.sh` (or `aap-helper.sh`). Configures operator, job templates, and WE controller Ansible engine. |
-| **cert-manager** | cert-failure, cert-failure-gitops | OCP: `openshift-cert-manager-operator` from OperatorHub. Kind: installed by `setup-demo-cluster.sh`. |
+| **cert-manager** | cert-failure | OCP: `openshift-cert-manager-operator` from OperatorHub. Kind: installed by `setup-demo-cluster.sh`. |
 | **Istio / Service Mesh** | mesh-routing-failure | OCP: OpenShift Service Mesh (OSSM) from OperatorHub. Kind: `--with-istio`. |
 | **metrics-server** | autoscale, hpa-maxed | Built-in on OCP. Kind: installed by `setup-demo-cluster.sh`. |
 | **KA Prometheus toolset** | autoscale, hpa-maxed, memory-leak, memory-escalation, slo-burn, disk-pressure-emptydir, resource-contention, resource-quota-exhaustion | Auto-enabled by `run.sh`. [Manual enablement](docs/prometheus-toolset.md). |
@@ -361,7 +361,7 @@ statefulset-pvc-failure, stuck-rollout) require only the base Kubernaut platform
 | Guide | Description |
 |-------|-------------|
 | **[Setup Guide](docs/setup.md)** | Prerequisites, LLM providers (Vertex AI, Anthropic, OpenAI, local), bootstrap flags, Slack notifications |
-| **[Scenario Catalog](docs/scenarios.md)** | All 23 scenarios with alerts, fault injection, and remediation details |
+| **[Scenario Catalog](docs/scenarios.md)** | All 22 scenarios with alerts, fault injection, and remediation details |
 | **[Verification and Cleanup](docs/verification.md)** | Inspect pipeline status, monitoring, per-scenario cleanup, teardown |
 | **[Troubleshooting](docs/troubleshooting.md)** | Common issues and fixes |
 | **[Building Workflow Images](docs/building.md)** | For contributors rebuilding scenario OCI images |

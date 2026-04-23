@@ -206,26 +206,71 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Pod worker-77784c6cf7-fwmgv is in CrashLoopBackOff due to invalid configuration directive in ConfigMap worker-config-bad. The application fails startup validation and exits with code 1. Deployment is stuck in rolling update with 1 crashing pod from new ReplicaSet while 2 healthy pods from previous ReplicaSet maintain service availability. |
+| **Root Cause** | CrashLoopBackOff caused by a bad ConfigMap (`worker-config-bad`) injected into the Deployment via a kubectl patch, containing an invalid directive (`invalid_directive_that_breaks_nginx on;`) that causes the application to abort immediately on startup with exit code 1. The Deployment (generation 2) still references `worker-config-bad`, so all future pods will crash until the reference is reverted to the valid `worker-config`. |
 | **Severity** | critical |
 | **Target Resource** | Deployment/worker (ns: demo-crashloop) |
 | **Workflow Selected** | crashloop-rollback-v1 |
-| **Confidence** | 0.90 |
+| **Confidence** | 0.97 |
 | **Approval** | required (production environment) |
+| **Alternatives** | rollback-deployment-v1 (0.82) — scoped to progressDeadline expiry; crashloop-rollback-risk-v1 (0.71) — designed for low risk tolerance |
 
 **Key Reasoning Chain:**
 
 1. Detects CrashLoopBackOff with exit code 1 indicating config error.
 2. Traces crash to recently updated ConfigMap containing invalid directive.
-3. Identifies rollback as appropriate since previous revision was healthy.
+3. Compares `worker-config-bad` vs `worker-config` content to confirm root cause.
+4. Identifies rollback as appropriate since previous revision (generation 1) was healthy.
 
 > **Why this matters**: Demonstrates the LLM's ability to trace a pod crash to a ConfigMap root cause (signal resource != RCA resource) and select rollback over restart.
+
+#### LLM Investigation Trace (v1.3)
+
+The table below shows the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
+
+**Phase 1 — Root Cause Analysis** (4 LLM turns, 46 348 tokens, ~49 s)
+
+| Turn | Tool calls | Prompt (chars) | Tokens | What happened |
+|------|-----------|----------------|--------|---------------|
+| 1 | `kubectl_describe(Pod/worker-…)`, `kubectl_events(Pod/worker-…)` | 4 614 | 4 995 | Identified CrashLoopBackOff, exit code 1 |
+| 2 | `kubectl_get_by_kind_in_namespace(Pod)`, `kubectl_describe(Deployment/worker)`, **`kubectl_get_by_name(ConfigMap/worker-config-bad)`**, **`kubectl_get_by_name(ConfigMap/worker-config)`**, `kubectl_previous_logs(worker-…)` | 20 597 | 11 335 | Compared both ConfigMaps by name; confirmed invalid directive |
+| 3 | `get_namespaced_resource_context(Deployment/worker)` | 28 722 | 14 492 | Gathered namespace labels and ownership context |
+| 4 | *submit_result (RCA)* | 29 078 | 15 526 | Emitted root cause: bad ConfigMap, severity critical, target Deployment/worker |
+
+**Phase 2 — Workflow Selection** (9 LLM turns, 64 598 tokens, ~57 s)
+
+| Turn | Tool calls | Prompt (chars) | Tokens | What happened |
+|------|-----------|----------------|--------|---------------|
+| 5 | `todo_write` (plan) | 7 568 | 3 686 | Planned 4-step workflow selection |
+| 6 | `list_available_actions` (page 1) | 7 875 | 3 787 | Fetched first page of ActionTypes |
+| 7 | `list_available_actions` (page 2) | 13 960 | 5 405 | Fetched remaining ActionTypes; identified `RollbackDeployment` |
+| 8 | `todo_write` + `list_workflows(RollbackDeployment)` | 18 789 | 6 917 | Listed workflows for the matching ActionType |
+| 9 | `todo_write` | 19 733 | 7 055 | Updated progress |
+| 10 | `todo_write` + `get_workflow(crashloop-rollback-v1)` | 22 860 | 8 377 | Fetched full workflow definition |
+| 11 | `todo_write` | 23 810 | 8 533 | Updated progress |
+| 12 | `todo_write` | 27 208 | 9 838 | Preparing final submission |
+| 13 | *submit_result (workflow)* | 27 575 | 11 000 | Selected crashloop-rollback-v1 (0.97 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 110 946 |
+| **Total tool calls** | 18 (8 K8s + 2 catalog + 4 workflow + 4 planning) |
+| **LLM turns** | 13 |
+| **Wall-clock time** | ~106 s |
+| **Peak prompt size** | 29 078 chars (end of RCA phase) |
+
+> **Note on `kubectl_get_by_name`**: The LLM used the targeted lookup tool to
+> fetch each ConfigMap individually by name rather than listing all ConfigMaps
+> in the namespace. This keeps the prompt lean — only the two relevant
+> ConfigMaps were returned (~2 KB each) instead of a full namespace listing.
 
 #### 7. Verify remediation
 

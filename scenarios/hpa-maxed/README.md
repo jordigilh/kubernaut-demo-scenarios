@@ -206,26 +206,63 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | HPA api-frontend has reached its maximum replica limit of 3 but CPU utilization remains at 199% (99m actual vs 50m request), significantly above the 50% target threshold. The HPA cannot scale further due to maxReplicas constraint, creating a capacity bottleneck. |
-| **Severity** | high |
+| **Root Cause** | HPA api-frontend has hit its maxReplicas ceiling of 3 while CPU utilization is at 186% of request, preventing further scale-out needed to handle the load. |
+| **Severity** | medium |
 | **Target Resource** | HorizontalPodAutoscaler/api-frontend (ns: demo-hpa) |
 | **Workflow Selected** | patch-hpa-v1 |
 | **Confidence** | 0.95 |
-| **Approval** | not required (staging, high confidence) |
+| **Approval** | not required |
+| **Alternatives** | N/A |
 
 **Key Reasoning Chain:**
 
-1. Detects KubeHpaMaxedOut alert — HPA at maximum replicas.
-2. Confirms CPU utilization still above target threshold.
-3. Selects HPA max increase to allow further scaling headroom.
+1. Detects KubeHpaMaxedOut alert — uses `kubectl_get_by_name` to retrieve the HPA directly.
+2. Lists pods and runs `kubectl_top_pods` to confirm CPU utilization above target.
+3. Checks events and describes HPA to confirm scaling ceiling hit.
+4. Uses `get_namespaced_resource_context` for remediation history.
+5. Selects `patch-hpa-v1` workflow (confidence 0.95) to raise maxReplicas from 3 to 5.
 
 > **Why this matters**: Demonstrates the LLM understanding autoscaling constraints and selecting a workflow that adjusts the scaling ceiling rather than the application itself.
+
+#### LLM Investigation Trace (v1.3)
+
+| Phase | Turn | Tool Calls | Prompt (chars) |
+|-------|------|-----------|----------------|
+| RCA | 1 | `todo_write` | 4,440 |
+| RCA | 2 | `kubectl_get_by_name`, `kubectl_get_by_kind_in_namespace`, `kubectl_top_pods` | 4,762 |
+| RCA | 3 | `todo_write` | 10,510 |
+| RCA | 4 | `kubectl_events`, `kubectl_describe` | 10,678 |
+| RCA | 5 | `todo_write` | 23,616 |
+| RCA | 6 | `get_namespaced_resource_context` | 23,896 |
+| RCA | 7 | `todo_write` | 24,182 |
+| RCA | 8 | *submit_result* | 24,333 |
+| Workflow | 1 | `todo_write` | 9,517 |
+| Workflow | 2 | `list_available_actions` | 9,905 |
+| Workflow | 3 | `list_available_actions` | 15,990 |
+| Workflow | 4 | `todo_write` | 20,842 |
+| Workflow | 5 | `list_workflows` | 21,320 |
+| Workflow | 6 | `todo_write` | 22,230 |
+| Workflow | 7 | `get_workflow` | 22,584 |
+| Workflow | 8 | `todo_write` | 26,225 |
+| Workflow | 9 | *submit_result* | 26,509 |
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 144,198 (139,818 prompt + 4,380 completion) |
+| **Total tool calls** | 18 (10 investigation + 8 todo_write) |
+| **LLM turns** | 17 (8 RCA + 9 workflow) |
+| **Wall-clock time** | ~1 min 56 s (AA phase) |
+| **Peak prompt size** | 26,509 chars |
+
+> **Note**: The LLM leveraged `kubectl_get_by_name` to directly fetch the HPA resource
+> and `kubectl_top_pods` to read live CPU metrics — both new v1.3 tools that reduce
+> token consumption compared to listing all resources of a kind.
 
 #### 8. Verify remediation
 

@@ -228,26 +228,66 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | ErrorBudgetBurn caused by misconfigured ConfigMap 'api-config-bad' that returns HTTP 500 errors for all API endpoints. The deployment was recently updated to use this faulty ConfigMap instead of the working 'api-config' ConfigMap. Traffic generator is continuously receiving 500 responses, causing SLO degradation. |
-| **Severity** | high |
+| **Root Cause** | The api-gateway Deployment was patched to mount ConfigMap `api-config-bad` instead of `api-config`. The bad ConfigMap hardcodes HTTP 500 responses for all `/api/*` routes while only returning HTTP 200 for `/healthz`, causing a 100% error rate. Since probes only check `/healthz`, all pods remain Ready with zero restarts — the failure is silent at the infrastructure level. |
+| **Severity** | critical |
 | **Target Resource** | Deployment/api-gateway (ns: demo-slo) |
-| **Workflow Selected** | proactive-rollback-v1 |
-| **Confidence** | 0.95 |
+| **Workflow Selected** | rollback-deployment-v1 |
+| **Confidence** | 0.92 |
 | **Approval** | required (production environment) |
 
 **Key Reasoning Chain:**
 
-1. Detects ErrorBudgetBurn alert based on error rate SLI.
-2. Identifies recent deployment change correlating with error rate increase.
-3. Selects proactive rollback to restore the last known-good revision before the error budget is fully exhausted.
+1. Describes the Deployment, lists pods — all Running/Ready with zero restarts (silent failure).
+2. Fetches `api-config-bad` by name (`kubectl_get_by_name`) — discovers hardcoded 500 responses.
+3. Fetches `api-config` by name — confirms the original config returned healthy responses.
+4. Reads pod logs showing 500 errors on `/api/*` endpoints.
+5. Selects `RollbackDeployment` to atomically restore the correct ConfigMap mount.
 
-> **Why this matters**: Shows the LLM handling proactive SLO-based signals (not just crash/failure signals) and correlating error budget burn with recent deployment changes.
+> **Why this matters**: Shows the LLM handling proactive SLO-based signals (not just crash/failure signals), using `kubectl_get_by_name` to compare ConfigMaps, and correctly identifying a silent failure where infra metrics look healthy but application metrics don't.
+
+#### LLM Investigation Trace (v1.3)
+
+The table below shows the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
+
+**Phase 1 — Root Cause Analysis** (5 LLM turns, ~55 000 tokens, ~75 s)
+
+| Turn | Tool calls | Tokens | What happened |
+|------|-----------|--------|---------------|
+| 1 | `todo_write` (plan) | — | Planned 6-step investigation |
+| 2 | `kubectl_describe(Deployment/api-gateway)`, `kubectl_get_by_kind_in_namespace(Pod)` | — | Pods healthy, zero restarts, recent spec change detected |
+| 3 | **`kubectl_get_by_name(ConfigMap/api-config-bad)`**, `kubectl_logs(pod1)`, `kubectl_events(Deployment/…)`, **`kubectl_get_by_name(ConfigMap/api-config)`**, `kubectl_logs(pod2)`, `get_namespaced_resource_context(…)`, `todo_write` | — | 7 parallel calls: compared both ConfigMaps, confirmed 500 errors in logs |
+| 4 | `todo_write` | — | Prepared RCA submission |
+| 5 | *submit_result (RCA)* | — | Root cause: bad ConfigMap causing silent 100% error rate |
+
+**Phase 2 — Workflow Selection** (9 LLM turns, ~59 000 tokens, ~61 s)
+
+| Turn | Tool calls | Tokens | What happened |
+|------|-----------|--------|---------------|
+| 6-7 | `list_available_actions` (pages 1-2) | — | Identified `RollbackDeployment` and `PatchConfiguration` |
+| 8 | `list_workflows(RollbackDeployment)` | — | Found `rollback-deployment-v1` |
+| 9 | `get_workflow(rollback-deployment-v1)`, `list_workflows(PatchConfiguration)` | — | Compared rollback vs config patch approach |
+| 10 | *submit_result (workflow)* | — | Selected rollback-deployment-v1 (0.92 confidence) |
+
+**Totals**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 114 538 |
+| **Total tool calls** | 23 (4 K8s-by-name + 2 K8s-list + 2 logs + 1 events + 1 context + 2 catalog + 3 workflow + 8 planning) |
+| **LLM turns** | 14 |
+| **Wall-clock time** | ~136 s |
+
+> **Note on ConfigMap comparison**: Like the crashloop scenario, the LLM used
+> `kubectl_get_by_name` to fetch both ConfigMaps individually rather than listing
+> all ConfigMaps. It also used `kubectl_logs` on two pods to correlate the
+> 500 error responses with the ConfigMap swap.
 
 #### 8. Approve when prompted (production environment)
 

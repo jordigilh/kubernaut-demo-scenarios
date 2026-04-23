@@ -306,7 +306,7 @@ Confidence:  {.status.approvalContext.confidenceLevel}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.investigationSummary}'; echo
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
@@ -316,22 +316,22 @@ This scenario has TWO parallel pipelines with different outcomes:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Pod worker is in CrashLoopBackOff due to an invalid configuration directive in ConfigMap worker-config-bad. The application fails to start with error '[emerg] invalid directive found in config.yaml — aborting'. |
+| **Root Cause** | Pod worker is crash-looping due to an invalid directive (`invalid_directive: true`) injected into the worker-config ConfigMap at rollout time, causing the demo-http-server to abort immediately on startup with exit code 1. |
 | **Severity** | critical → P1 (staging) |
 | **Target Resource** | Deployment/worker (ns: demo-team-alpha) |
-| **Workflow Selected** | hotfix-config-v1 (patches ConfigMap in-place) |
-| **Confidence** | 0.90 |
+| **Workflow Selected** | hotfix-config-v1 (`PatchConfiguration`) |
+| **Confidence** | 0.97 |
 | **Approval** | not required (staging, auto-approved by Rego) |
 
 **Team Beta (production, low risk tolerance):**
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Deployment rollout failed due to invalid configuration directive in ConfigMap worker-config-bad. The new revision mounts a faulty ConfigMap containing 'invalid_directive: true' which causes the application to abort on startup with exit code 1. Previous revision uses the correct ConfigMap and remains healthy. |
+| **Root Cause** | Same fault as Alpha — `invalid_directive: true` in worker-config ConfigMap. |
 | **Severity** | critical → P0 (production) |
 | **Target Resource** | Deployment/worker (ns: demo-team-beta) |
-| **Workflow Selected** | crashloop-rollback-risk-v1 (full rollback) |
-| **Confidence** | 0.95 |
+| **Workflow Selected** | hotfix-config-production-v1 (`PatchConfiguration`, production-safe, risk_tolerance=low) |
+| **Confidence** | 0.95+ |
 | **Approval** | required (production environment) |
 
 **Key Reasoning Chain:**
@@ -339,10 +339,73 @@ This scenario has TWO parallel pipelines with different outcomes:
 1. Both namespaces have the same technical fault.
 2. SP enriches each with `customLabels: {risk_tolerance: high/low}` from namespace labels.
 3. DataStorage boosts different workflows based on risk tolerance match.
-4. Alpha gets the fast, surgical hotfix; Beta gets the safe, conservative rollback.
+4. Alpha gets `hotfix-config-v1` (staging, risk_tolerance=high); Beta gets `hotfix-config-production-v1` (production, risk_tolerance=low).
 5. Rego auto-approves staging but requires manual approval for production.
 
 > **Why this matters**: The definitive demonstration of Kubernaut's context-aware remediation — same incident, different business context, different automated decisions.
+
+#### LLM Investigation Trace (v1.3)
+
+The tables below show the full tool-call sequence and token consumption observed
+during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
+
+**Team Alpha — hotfix-config-v1 (13 LLM turns, 122 310 tokens, ~91 s)**
+
+*Phase 1 — Root Cause Analysis (7 turns)*
+
+| Turn | Tool calls | Prompt (chars) | What happened |
+|------|-----------|----------------|---------------|
+| 1 | `todo_write`, `kubectl_describe(Pod/worker-…)`, `kubectl_events(Pod/…)` | 4 612 | Identified CrashLoopBackOff, exit code 1, 5 restarts |
+| 2 | `todo_write`, `kubectl_previous_logs(…)`, `kubectl_get_by_name(Deployment/worker)`, `kubectl_get_by_name(ConfigMap/worker-config)` | 4 914 | Read crash log `[emerg] invalid directive`; fetched Deployment and ConfigMap |
+| 3 | `todo_write`, `get_namespaced_resource_context(Deployment/worker)` | 18 046 | Enriched: `environment=staging`, `risk_tolerance=high`, ownership chain |
+| 4 | `todo_write` | 18 423 | Updated investigation plan |
+| 5 | `todo_write` | 25 678 | Prepared RCA |
+| 6 | `todo_write` | 26 105 | Finalized RCA |
+| 7 | *submit_result (RCA)* | 26 514 | Target: Deployment/worker — invalid directive in worker-config |
+
+*Phase 2 — Workflow Selection (6 turns)*
+
+| Turn | Tool calls | Prompt (chars) | What happened |
+|------|-----------|----------------|---------------|
+| 1 | `todo_write`, `list_available_actions` | 7 327 | Fetched ActionTypes — identified `PatchConfiguration` |
+| 2 | `todo_write`, `list_workflows(PatchConfiguration)` | 12 590 | Found `hotfix-config-v1` |
+| 3 | `todo_write`, `get_workflow(hotfix-config-v1)` | 14 821 | Reviewed full workflow definition |
+| 4 | `todo_write` | 20 912 | Confirmed match: staging + risk_tolerance=high + PatchConfiguration |
+| 5 | `todo_write` | 21 243 | Prepared submission |
+| 6 | *submit_result_with_workflow* | — | Selected hotfix-config-v1 (0.97 confidence) |
+
+**Totals (Team Alpha)**
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 122 310 (117 927 prompt + 4 383 completion) |
+| **Total tool calls** | 16 |
+| **LLM turns** | 13 (7 RCA + 6 Workflow) |
+| **Wall-clock time** | ~91 s |
+| **Peak prompt size** | 26 514 chars (RCA submit) |
+
+**Team Beta — blocked by kubernaut#795 (139 169 tokens)**
+
+Beta's LLM investigation completed RCA successfully (root cause: ConfigMap/worker-config
+with `invalid_directive: true`), but the RCA submit response was double-serialized JSON
+that the fix-795 parser could not unwrap for this particular response shape. This caused
+`list_available_actions` to return empty (component filter derived from unparsed target),
+leading the LLM to hallucinate action type names (`ConfigMapPatch`, `PatchConfigMap`,
+`ConfigMapRevert`, `RolloutRestart`, `ConfigMapRollback`) — all non-existent. The LLM
+correctly escalated via `submit_result_no_workflow`. The RR was then blocked by
+`IneffectiveChain` (the `no_workflow` submission counted as an ineffective attempt for
+the signal fingerprint).
+
+| Metric | Value |
+|--------|-------|
+| **Total tokens** | 139 169 (134 776 prompt + 4 393 completion) |
+| **Outcome** | `ManualReviewRequired` (IneffectiveChain) |
+| **Root Cause** | kubernaut#795 — LLM double-serialization of RCA JSON |
+
+> **Note**: Team Alpha's trace is the primary eval target. Beta's failure is a known
+> LLM output format inconsistency tracked in kubernaut#795. The fix-795 KA image
+> resolves this for most cases but the retry heuristic does not cover all
+> double-serialization variants.
 
 #### 9. Approve Team Beta (if not using --auto-approve)
 

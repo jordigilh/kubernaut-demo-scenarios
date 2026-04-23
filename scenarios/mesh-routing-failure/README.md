@@ -244,26 +244,54 @@ Rationale:   {.status.selectedWorkflow.rationale}
 kubectl get $AIA -n kubernaut-system -o jsonpath='{range .status.alternativeWorkflows[*]}  Alt: {.workflowId} (confidence: {.confidence}) -- {.rationale}{"\n"}{end}' # no output if empty
 ```
 
-#### Expected LLM Reasoning (v1.2 baseline)
+#### Expected LLM Reasoning (v1.3 baseline)
 
 When Kubernaut's AI analysis processes this scenario, the LLM typically reasons as follows:
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Istio AuthorizationPolicy 'deny-all-traffic' is blocking all traffic in demo-mesh-failure namespace, causing 100% deny rate with HTTP 403 responses. |
+| **Root Cause** | An overly broad Istio AuthorizationPolicy named `deny-all-traffic` with action DENY and a single empty rule (`{}`) is blocking 100% of inbound traffic to the `api-server` service in `demo-mesh-failure`, causing HTTP 403 Forbidden responses. An empty rule in a DENY policy matches ALL traffic unconditionally. |
 | **Severity** | critical |
 | **Target Resource** | AuthorizationPolicy/deny-all-traffic (ns: demo-mesh-failure) |
 | **Workflow Selected** | fix-authz-policy-v1 |
-| **Confidence** | 0.95 |
+| **Confidence** | 0.98 |
 | **Approval** | not required (staging, high confidence) |
 
 **Key Reasoning Chain:**
 
-1. Detects IstioHighDenyRate alert from elevated RBAC deny metrics.
-2. Identifies restrictive AuthorizationPolicy as the cause.
-3. Selects authorization policy fix to restore service mesh routing.
+1. Detects `IstioHighDenyRate` alert in `demo-mesh-failure` namespace.
+2. Examines Deployments, Pods, Services — application containers healthy.
+3. Describes `deny-all-traffic` AuthorizationPolicy — discovers DENY action with empty rules `[{}]`.
+4. Recognizes empty-rule DENY is an Istio footgun: matches ALL traffic unconditionally.
+5. Confirms no companion ALLOW policy exists to override.
+6. Selects `FixAuthorizationPolicy` (`fix-authz-policy-v1`) with target `AuthorizationPolicy/deny-all-traffic`.
 
-> **Why this matters**: Demonstrates the LLM understanding Istio service mesh concepts and tracing traffic failures to AuthorizationPolicy misconfigurations rather than application-level issues.
+> **Why this matters**: Demonstrates the LLM understanding Istio service mesh concepts and tracing traffic failures to AuthorizationPolicy misconfigurations rather than application-level issues. The v1.3 baseline shows improved confidence (0.98 vs 0.95) and more detailed RCA.
+
+#### LLM Investigation Trace (v1.3)
+
+| Turn | Phase | Tool(s) Called | Prompt Chars |
+|------|-------|---------------|-------------|
+| 1 | RCA | `todo_write` | — |
+| 2 | RCA | `kubectl_get_by_kind_in_namespace` (Deployments) | — |
+| 3 | RCA | `kubectl_get_by_kind_in_namespace` (Services), `kubectl_get_by_kind_in_namespace` (Pods) | — |
+| 4 | RCA | `todo_write` | — |
+| 5 | RCA | `kubectl_describe` (AuthorizationPolicy) | — |
+| 6 | RCA | `kubectl_get_by_kind_in_namespace` (AuthorizationPolicies), `kubectl_get_by_kind_in_namespace` (VirtualServices), `kubectl_get_by_kind_in_namespace` (DestinationRules) | — |
+| 7 | RCA | `kubectl_logs` (api-server) | — |
+| 8 | RCA | `todo_write` | — |
+| 9 | RCA | `get_namespaced_resource_context`, `kubectl_events` | — |
+| 10 | RCA | `todo_write` + submit | — |
+| 11 | Workflow Selection | `todo_write` | — |
+| 12 | Workflow Selection | `todo_write` | — |
+| 13 | Workflow Selection | `list_available_actions` | — |
+| 14 | Workflow Selection | `todo_write` | — |
+| 15 | Workflow Selection | `list_workflows` | — |
+| 16 | Workflow Selection | `todo_write` | — |
+| 17 | Workflow Selection | `get_workflow` (fix-authz-policy-v1) | — |
+| 18–19 | Workflow Selection | `todo_write` + submit | — |
+
+**Summary**: 150,213 total tokens, 13 tool calls (excl. `todo_write`), 19 LLM turns. Workflow execution completed in ~30s. Full pipeline ~3 min (from alert to Remediated).
 
 #### 8. Verify remediation
 
