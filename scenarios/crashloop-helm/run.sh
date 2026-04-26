@@ -40,24 +40,16 @@ echo ""
 # Step 0: Clean up stale alerts/RRs from any previous run (#193)
 ensure_clean_slate "${NAMESPACE}"
 
-# Step 1: Pre-create namespace with kubernaut labels, then install via Helm.
-# The namespace is created outside the chart to avoid the Helm 3 conflict where
-# --create-namespace + a Namespace template both try to create the same object (#122).
-echo "==> Step 1: Installing workload via Helm chart..."
-kubectl apply -f - <<'NSEOF'
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: demo-crashloop-helm
-  labels:
-    kubernaut.ai/managed: "true"
-    kubernaut.ai/environment: production
-    kubernaut.ai/business-unit: engineering
-    kubernaut.ai/service-owner: backend-team
-    kubernaut.ai/criticality: high
-    kubernaut.ai/sla-tier: tier-1
-    kubernaut.ai/component: backend-api
-NSEOF
+# Step 1: Create namespace with kubernaut labels + deploy Prometheus alerting rules.
+# Kustomize manages the namespace (with kubernaut.ai/* labels) and PrometheusRule.
+# On OCP, the overlay adds openshift.io/cluster-monitoring via JSON patch so
+# kubernaut labels are preserved (#122, label-stripping fix).
+echo "==> Step 1: Deploying namespace and alerting rules..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
+
+# Step 2: Install Helm chart into the pre-created namespace.
+echo "==> Step 2: Installing workload via Helm chart..."
 HELM_VALUES_ARGS=""
 if [ "$PLATFORM" = "ocp" ]; then
     HELM_VALUES_ARGS="-f ${SCRIPT_DIR}/chart/values-ocp.yaml"
@@ -68,13 +60,9 @@ echo "  Helm release installed. Deployment has app.kubernetes.io/managed-by: Hel
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
-# Step 2: Deploy Prometheus alerting rules (outside Helm to keep it simple)
-echo "==> Step 2: Deploying CrashLoop detection alerting rule..."
-MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
-kubectl apply -k "${MANIFEST_DIR}"
-
 # Step 3: Baseline
 echo "==> Step 3: Establishing healthy baseline (20s)..."
+echo ""
 sleep 20
 echo "  Baseline established."
 echo ""

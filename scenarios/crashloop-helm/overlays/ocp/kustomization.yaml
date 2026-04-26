@@ -2,10 +2,14 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../manifests
-  - namespace.yaml
 patches:
-  # Category A: Namespace has openshift.io/cluster-monitoring via namespace.yaml
-  # Category C: PrometheusRule - remove release label for OCP
+  - target:
+      kind: Namespace
+      name: demo-crashloop-helm
+    patch: |
+      - op: add
+        path: /metadata/labels/openshift.io~1cluster-monitoring
+        value: "true"
   - target:
       kind: PrometheusRule
       name: kubernaut-crashloop-helm-rules
