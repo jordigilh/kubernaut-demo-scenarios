@@ -55,7 +55,7 @@ spec:
   labels:
     severity: [low, medium, high, critical]
     environment: [production, staging]
-    component: [poddisruptionbudget]
+    component: [poddisruptionbudget, deployment]
     priority: "*"
   
   detectedLabels:
@@ -77,4 +77,4 @@ spec:
     - name: TARGET_RESOURCE_KIND
       type: string
       required: true
-      description: "Must be PodDisruptionBudget"
+      description: "PodDisruptionBudget or Deployment (the workflow locates the PDB via the namespace)"
