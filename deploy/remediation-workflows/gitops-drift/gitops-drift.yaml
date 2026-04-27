@@ -46,7 +46,7 @@ metadata:
 spec:
   # GitOps Revert Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #125 -- GitOps drift remediation (ArgoCD + Gitea)
-  version: "1.3.1"
+  version: "1.3.2"
   description:
     what: "Reverts the most recent commit in a GitOps-managed repository to undo a bad change"
     whenToUse: "When a GitOps-managed workload is crashing due to a bad commit (ConfigMap, Deployment spec, etc.) and ArgoCD/Flux will reconcile the reverted state. ALWAYS prefer this over PatchConfiguration or RollbackDeployment when the environment is GitOps-managed (detected label gitOpsTool is set), because in-place patches or kubectl rollbacks will be overwritten by the next ArgoCD/Flux sync -- only a git revert permanently fixes the root cause in the source of truth."
@@ -67,7 +67,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: git-revert-v2-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:62aecf8175eaba04dddd1dfd270809b80ecf56c1a1df67783cd0a91d1e67767b
+    bundle: quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:196a61adc9f2b256e0b25d486b3b27749cfbf5bf0852dc5ab6e55e916987283f
 
   dependencies:
     secrets:

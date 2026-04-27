@@ -47,7 +47,7 @@ metadata:
   name: crashloop-rollback-risk-v1
   namespace: kubernaut-system
 spec:
-  version: "1.3.1"
+  version: "1.3.2"
   description:
     what: "Rolls back a Deployment to its previous healthy revision to recover from CrashLoopBackOff caused by a bad configuration change (e.g., a poisoned ConfigMap) or a bad image change"
     whenToUse: "When a Deployment enters CrashLoopBackOff and the signal carries risk_tolerance=low. The root cause analysis must identify a Deployment as the target resource, since this workflow operates exclusively on Deployments by reverting to the last known-good pod template. This full rollback approach prioritizes safety over speed. Best for production teams that require guaranteed recovery with minimal risk."
@@ -68,7 +68,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: crashloop-rollback-risk-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:a5826ba68ba7e189ca6755f9d68d37ecbc8f1ccc9fb85b29c34d959f1fe29677
+    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:8c7e2790ae45652e7adb50c9f7b0c19bd43192eb1fc6efae4a73c92b16aa3f9c
 
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE

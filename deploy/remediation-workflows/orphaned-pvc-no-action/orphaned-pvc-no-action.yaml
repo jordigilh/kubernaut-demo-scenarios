@@ -46,7 +46,7 @@ metadata:
 spec:
   # Cleanup PVC Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #121 -- Orphaned PVCs consuming disk -> cleanup
-  version: "1.3.1"
+  version: "1.3.2"
   description:
     what: "Deletes orphaned PersistentVolumeClaims that are not mounted by any running pod"
     whenToUse: "When PVCs from completed or failed batch jobs accumulate and contribute to storage pressure"
@@ -64,7 +64,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: cleanup-pvc-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/cleanup-pvc-job@sha256:b4d7d9083c488ee1f9f2f238c646489c8aacb3596ee0997bfa997fc486a885fb
+    bundle: quay.io/kubernaut-cicd/test-workflows/cleanup-pvc-job@sha256:ffefd3e891e9034c0ecbccf65318d32b2db62644272472484049711fedd527da
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
