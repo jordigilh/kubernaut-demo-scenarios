@@ -46,7 +46,7 @@ metadata:
 spec:
   # Remove Taint Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #122 -- Pods pending due to node taint -> remove taint
-  version: "1.3.1"
+  version: "1.3.2"
   description:
     what: "Removes a specific taint from a Kubernetes node to unblock pod scheduling"
     whenToUse: "When pods are stuck in Pending state because a node has a taint that blocks scheduling, and the taint is no longer needed (e.g., maintenance window ended). Supply the node name in NODE_NAME and the taint key in TAINT_KEY."
@@ -64,7 +64,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: remove-taint-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/remove-taint-job@sha256:452d7063b1949a21b732d485033a5df3f320662d6d08ee4dd487556456b07395
+    bundle: quay.io/kubernaut-cicd/test-workflows/remove-taint-job@sha256:f7d193911182860708599282f5e11268fe5aa20278bc2ea2d4e308556c9967be
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

@@ -46,7 +46,7 @@ metadata:
 spec:
   # Patch HPA Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #123 -- HPA at maxReplicas -> temporarily raise ceiling
-  version: "1.3.1"
+  version: "1.3.2"
   description:
     what: "Temporarily increases the maxReplicas value of an HPA to allow scaling beyond the current ceiling"
     whenToUse: "When an HPA has reached its maxReplicas limit and the deployment is still under resource pressure from a legitimate traffic spike"
@@ -67,7 +67,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: patch-hpa-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/patch-hpa-job@sha256:0ce8df2a358611b4ce5bc1145ae34698321ed01f573380d57ab5e41c545c4dca
+    bundle: quay.io/kubernaut-cicd/test-workflows/patch-hpa-job@sha256:056b39e066165845a5fc379d8e02b10f4bebcb8cad1345b0c6366fb29e0a6607
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
