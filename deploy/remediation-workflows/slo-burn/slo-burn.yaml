@@ -51,10 +51,10 @@ spec:
   # Scenario: #128 -- SLO error budget burn -> proactive rollback
   version: "1.3.1"
   description:
-    what: "Proactively rolls back a deployment based on SLO error budget burn rate analysis"
-    whenToUse: "When the current error rate will exhaust the SLO error budget before the next maintenance window, and a recent deployment revision is the likely cause"
-    whenNotToUse: "When the error rate is within normal bounds, or the issue is caused by an external dependency rather than a deployment change"
-    preconditions: "A previous stable deployment revision exists, and the error spike correlates with a recent deployment change"
+    what: "Rolls back a Deployment to its previous revision to stop SLO error-budget burn caused by a bad deployment change"
+    whenToUse: "When an ErrorBudgetBurn or SLO-violation alert fires and the root cause is a recent deployment revision. A rollback reverts the entire pod spec atomically — including image, volume references, and environment changes. Prefer this over in-place ConfigMap patching (PatchConfiguration) when the Deployment spec itself changed (e.g. wrong volume mount, bad image tag) rather than the content of an existing ConfigMap being corrupted."
+    whenNotToUse: "When the ConfigMap content itself contains an invalid directive that must be patched in-place (use PatchConfiguration instead). When the error rate is within normal bounds or caused by an external dependency rather than a deployment change. Do not select this workflow if a prior attempt resulted in Inconclusive outcome or zero/near-zero effectiveness for the same target."
+    preconditions: "A previous stable deployment revision exists (revision > 1), and the error spike correlates with a recent deployment change"
   
   actionType: ProactiveRollback
   
@@ -63,6 +63,9 @@ spec:
     environment: [production]
     component: [deployment]
     priority: "*"
+  
+  customLabels:
+    remediation_strategy: "rollback"
   
   execution:
     engine: job

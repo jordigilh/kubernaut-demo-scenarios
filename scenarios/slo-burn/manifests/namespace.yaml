@@ -8,5 +8,6 @@ metadata:
     kubernaut.ai/service-owner: api-team
     kubernaut.ai/criticality: critical
     kubernaut.ai/managed: "true"
+    kubernaut.ai/label-remediation_strategy: rollback
     kubernaut.ai/sla-tier: tier-1
     kubernaut.ai/component: api-server
