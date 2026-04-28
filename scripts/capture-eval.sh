@@ -43,13 +43,36 @@ done
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
+_pg_pod=""
+_pg_user=""
+_pg_db=""
+
+_detect_pg() {
+    if [ -n "$_pg_pod" ]; then return; fi
+    _pg_pod=$(kubectl get pods -n "$PLATFORM_NS" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null \
+        | grep '^postgresql' | head -1)
+    if [ -z "$_pg_pod" ]; then
+        echo "ERROR: No PostgreSQL pod found in $PLATFORM_NS" >&2
+        return 1
+    fi
+    _pg_user=$(kubectl get secret postgresql-secret -n "$PLATFORM_NS" \
+        -o jsonpath='{.data.POSTGRES_USER}' 2>/dev/null | base64 -d 2>/dev/null)
+    _pg_db=$(kubectl get secret postgresql-secret -n "$PLATFORM_NS" \
+        -o jsonpath='{.data.POSTGRES_DB}' 2>/dev/null | base64 -d 2>/dev/null)
+    if [ -z "$_pg_user" ] || [ -z "$_pg_db" ]; then
+        echo "ERROR: Could not read postgresql-secret in $PLATFORM_NS" >&2
+        return 1
+    fi
+}
+
 psql_readonly() {
     local query="$1"
+    _detect_pg || return 1
     local attempt=0
     local result=""
     while (( attempt < 3 )); do
-        result=$(kubectl exec -n "$PLATFORM_NS" deploy/postgresql -- \
-            psql -U slm_user -d action_history -t -A \
+        result=$(kubectl exec -n "$PLATFORM_NS" "$_pg_pod" -- \
+            psql -U "$_pg_user" -d "$_pg_db" -t -A \
             --set=ON_ERROR_STOP=1 -c "$query" 2>/dev/null) && break
         attempt=$((attempt + 1))
         echo "  WARN: psql attempt $attempt failed, retrying in 5s..." >&2
