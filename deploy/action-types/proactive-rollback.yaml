@@ -6,7 +6,7 @@ metadata:
 spec:
   name: ProactiveRollback
   description:
-    what: "Proactively roll back a deployment based on predictive SLO burn rate analysis."
-    whenToUse: "Predictive analysis shows the current error rate will exhaust the SLO error budget before the next maintenance window."
-    whenNotToUse: "When the error rate is within normal bounds or the SLO budget has sufficient headroom."
+    what: "Roll back a deployment to stop SLO error-budget burn caused by a bad deployment change."
+    whenToUse: "When an ErrorBudgetBurn or SLO-violation alert fires and the root cause is a recent deployment revision that changed the pod spec (image, volume mounts, environment variables). Use this instead of RollbackDeployment when the trigger is an SLO or error-budget signal."
+    whenNotToUse: "When the rollout is stuck or pods are crashlooping without SLO impact (use RollbackDeployment instead). When the ConfigMap content itself is corrupt and must be patched in-place (use PatchConfiguration)."
     preconditions: "A previous stable deployment revision exists, and the error spike correlates with a recent deployment change."
