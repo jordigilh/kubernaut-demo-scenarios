@@ -170,9 +170,9 @@ cleanup_port_forward() {
 }
 trap cleanup_port_forward EXIT
 
-if ! curl -sf -o /dev/null --connect-timeout 2 "http://localhost:30081/health" 2>/dev/null; then
+if ! curl -sf -o /dev/null --connect-timeout 2 "http://localhost:30081/healthz" 2>/dev/null; then
     echo "  Starting DataStorage port-forward..."
-    kubectl port-forward -n kubernaut-system svc/data-storage-service 30081:8080 >/dev/null 2>&1 &
+    kubectl port-forward -n kubernaut-system svc/data-storage-service 30081:8081 >/dev/null 2>&1 &
     DS_PORT_FORWARD_PID=$!
     sleep 3
 fi

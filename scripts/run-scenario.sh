@@ -21,6 +21,12 @@
 #   --help                   Show this help
 set -euo pipefail
 
+# Save original argv for platform-helper.sh stdbuf re-exec (args are
+# consumed by the parsing loop below, so $@ would be empty by the time
+# platform-helper.sh is sourced).
+printf -v _KUBERNAUT_ORIG_ARGV '%q ' "$0" "$@"
+export _KUBERNAUT_ORIG_ARGV
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SCENARIOS_DIR="${REPO_ROOT}/scenarios"
@@ -128,17 +134,19 @@ require_demo_ready
 # ── Port-forward management ──────────────────────────────────────────────────
 
 ensure_datastorage_port_forward() {
-    if curl -sf -o /dev/null --connect-timeout 2 "http://localhost:30081/health" 2>/dev/null; then
+    if curl -sf -o /dev/null --connect-timeout 2 "http://localhost:30081/healthz" 2>/dev/null; then
         return 0
     fi
 
-    log_phase "Starting DataStorage port-forward (localhost:30081 -> svc/data-storage-service:8080)..."
-    kubectl port-forward -n kubernaut-system svc/data-storage-service 30081:8080 >/dev/null 2>&1 &
+    # DataStorage exposes TLS on port 8080 (API) and plaintext on 8081 (health).
+    # Forward the health port so the readiness check works without TLS.
+    log_phase "Starting DataStorage port-forward (localhost:30081 -> svc/data-storage-service:8081)..."
+    kubectl port-forward -n kubernaut-system svc/data-storage-service 30081:8081 >/dev/null 2>&1 &
     DS_PORT_FORWARD_PID=$!
 
     local retries=0
     while [ "$retries" -lt 15 ]; do
-        if curl -sf -o /dev/null --connect-timeout 1 "http://localhost:30081/health" 2>/dev/null; then
+        if curl -sf -o /dev/null --connect-timeout 1 "http://localhost:30081/healthz" 2>/dev/null; then
             log_success "DataStorage port-forward ready"
             return 0
         fi

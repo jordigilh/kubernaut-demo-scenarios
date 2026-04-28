@@ -6,9 +6,19 @@
 # Force line-buffered stdout/stderr when not running in a TTY (e.g. over SSH).
 # Without this, output is 4KB-block-buffered and remote monitoring sees stale data.
 # Guard variable prevents infinite re-exec since this file is source'd.
+#
+# When this file is sourced after the caller has consumed $@ (e.g.
+# run-scenario.sh shifts all args before sourcing), $@ is empty and a
+# naive re-exec loses the original arguments.  Callers that parse args
+# before sourcing should set _KUBERNAUT_ORIG_ARGV (via printf -v %q)
+# so we can re-exec with the full original command line.
 if [ -z "${_KUBERNAUT_LINEBUF:-}" ] && [ ! -t 1 ] && command -v stdbuf &>/dev/null; then
     export _KUBERNAUT_LINEBUF=1
-    exec stdbuf -oL -eL "$0" "$@"
+    if [ -n "${_KUBERNAUT_ORIG_ARGV:-}" ]; then
+        eval exec stdbuf -oL -eL "$_KUBERNAUT_ORIG_ARGV"
+    else
+        exec stdbuf -oL -eL "$0" "$@"
+    fi
 fi
 
 # macOS does not ship GNU coreutils `timeout`. Provide a portable fallback
@@ -841,13 +851,14 @@ force_production_approval() {
     patched=$(python3 -c "
 import sys, re
 text = sys.stdin.read()
+# Match both multi-line (newline-separated) and compact (semicolon-separated) formats
 text = re.sub(
-    r'require_approval if \{\s*\n\s*is_production\s*\n\s*not is_high_confidence\s*\n\}',
+    r'require_approval if \{[\s;]*is_production[\s;]+not is_high_confidence[\s;]*\}',
     'require_approval if { is_production }',
     text
 )
 text = re.sub(
-    r'(risk_factors contains \{\"score\": 70, \"reason\": \"Production environment requires manual approval\"\} if \{)\s*\n\s*is_production\s*\n\s*not is_high_confidence\s*\n\}',
+    r'(risk_factors contains \{\"score\": 70, \"reason\": \"Production environment requires manual approval\"\} if \{)[\s;]*is_production[\s;]+not is_high_confidence[\s;]*\}',
     r'\1\n    is_production\n}',
     text
 )

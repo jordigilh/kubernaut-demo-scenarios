@@ -14,6 +14,19 @@ if [ -z "${NODE_NAME:-}" ]; then
   echo "Discovered node: ${NODE_NAME}"
 fi
 
+# Resolve short hostname to FQDN if needed (#341). The LLM may return a
+# short name (e.g. "dev-worker-0") but OCP nodes use FQDN metadata names
+# (e.g. "dev-worker-0.redhat-internal.com").
+if ! kubectl get node "${NODE_NAME}" >/dev/null 2>&1; then
+  echo "Node '${NODE_NAME}' not found, attempting FQDN resolution..."
+  RESOLVED=$(kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null \
+    | grep "^${NODE_NAME}\." | head -1)
+  if [ -n "${RESOLVED}" ]; then
+    echo "Resolved '${NODE_NAME}' -> '${RESOLVED}'"
+    NODE_NAME="${RESOLVED}"
+  fi
+fi
+
 echo "=== Phase 1: Validate ==="
 echo "Checking node ${NODE_NAME} for taint ${TAINT_KEY}..."
 

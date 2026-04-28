@@ -48,13 +48,13 @@ metadata:
   namespace: kubernaut-system
 spec:
   # Rollback Deployment Workflow Schema - Job Backend (BR-WORKFLOW-004)
-  # Scenario: #120 -- CrashLoopBackOff -> rollback to working config
-  version: "1.3.3"
+  # Scenario: #120 -- Bad release / spec change -> CrashLoopBackOff -> rollback
+  version: "1.3.4"
   description:
-    what: "Rolls back a deployment to its previous revision to recover from CrashLoopBackOff caused by a bad configuration change"
-    whenToUse: "When a deployment enters CrashLoopBackOff immediately after a config or image change, and the previous revision was healthy"
-    whenNotToUse: "When the root cause analysis identifies a ConfigMap as the target resource -- rolling back a Deployment does not modify the ConfigMap, so the EA pre/post hash check on the ConfigMap would show no change and the remediation would be flagged as ineffective. Also do not use when the crash is caused by an external dependency failure (database down, network partition) rather than a local configuration change."
-    preconditions: "The deployment has at least one previous healthy revision in its rollout history. The RCA target must be a Deployment, not a ConfigMap."
+    what: "Rolls back a Deployment to its previous revision to recover from CrashLoopBackOff caused by a bad release or pod spec change"
+    whenToUse: "When a Deployment enters CrashLoopBackOff because its pod spec was modified (image tag, command/args, env vars, volume mount references, or resource limits) and the previous revision was healthy. This is the correct choice when the Deployment spec itself changed -- rollback reverts the entire pod template to the last known-good revision."
+    whenNotToUse: "When the Deployment spec is unchanged and a mounted ConfigMap's content was modified in-place -- rollback cannot revert ConfigMap data, so use PatchConfiguration instead. Also do not use when the crash is caused by an external dependency failure (database down, network partition) rather than a local spec change."
+    preconditions: "The Deployment has at least one previous healthy revision in its rollout history. The RCA target must be a Deployment, not a ConfigMap."
   
   actionType: RollbackDeployment
   

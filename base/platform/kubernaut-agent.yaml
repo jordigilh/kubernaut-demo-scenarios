@@ -1,7 +1,7 @@
 # Kubernaut Agent (LLM Integration Service)
-# Extracted from: test/infrastructure/kubernaut_agent.go
-# Wired for real LLM (user provides llm-credentials Secret)
-# Workflow discovery via DATA_STORAGE_URL
+# LLM and data-storage settings are loaded from the config file (-config flag).
+# On OCP the operator manages these via kubernaut-agent-config and
+# kubernaut-agent-sdk-config ConfigMaps.
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -59,7 +59,6 @@ subjects:
     namespace: kubernaut-system
 ---
 # ConfigMap: Kubernaut Agent configuration
-# The LLM provider/model settings are loaded from this config + llm-credentials Secret
 # data_storage.url enables workflow discovery (DD-HAPI-017)
 apiVersion: v1
 kind: ConfigMap
@@ -68,18 +67,8 @@ metadata:
   namespace: kubernaut-system
 data:
   config.yaml: |
-    logging:
-      level: "INFO"
-
-    llm:
-      provider: ""
-      model: ""
-      endpoint: ""
-      gcp_project_id: ""
-      gcp_region: ""
-      max_retries: 3
-      timeout_seconds: 120
-      temperature: 0.7
+    investigator:
+      max_turns: 30
 
     data_storage:
       url: "http://data-storage-service.kubernaut-system.svc.cluster.local:8080"
@@ -118,15 +107,6 @@ spec:
           args:
             - "-config"
             - "/etc/kubernaut-agent/config.yaml"
-          env:
-            - name: DATA_STORAGE_URL
-              value: "http://data-storage-service.kubernaut-system.svc.cluster.local:8080"
-            - name: LITELLM_LOG
-              value: "DEBUG"
-          envFrom:
-            - secretRef:
-                name: llm-credentials
-                optional: true
           volumeMounts:
             - name: config
               mountPath: /etc/kubernaut-agent

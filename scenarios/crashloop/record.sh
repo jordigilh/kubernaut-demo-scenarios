@@ -54,9 +54,9 @@ vhs "${SCENARIO_DIR}/crashloop-rr1.tape" &
 RR1_PID=$!
 sleep 5
 
-# ── Step 3: Inject bad config ─────────────────
-echo "==> [3/11] Injecting bad nginx config..."
-bash "${SCENARIO_DIR}/inject-bad-config.sh"
+# ── Step 3: Inject bad release ─────────────────
+echo "==> [3/11] Injecting bad release (command override)..."
+bash "${SCENARIO_DIR}/inject-bad-release.sh"
 echo "    Fault injected. Pods will begin crashing."
 
 # ── Step 4: Wait for alert + capture data ─────

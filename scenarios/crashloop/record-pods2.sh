@@ -16,8 +16,8 @@ echo "==> Pods2 re-recording: setting up scenario..."
 bash "${SCENARIO_DIR}/tape-setup.sh"
 echo "    Setup complete."
 
-echo "==> Injecting bad config..."
-bash "${SCENARIO_DIR}/inject-bad-config.sh"
+echo "==> Injecting bad release..."
+bash "${SCENARIO_DIR}/inject-bad-release.sh"
 
 echo "==> Waiting for AwaitingApproval..."
 AA_WAIT=0

@@ -6,13 +6,14 @@
 
 ## Overview
 
-Demonstrates Kubernaut detecting a CrashLoopBackOff caused by a bad configuration
-change and performing an automatic rollback to the previous working revision.
+Demonstrates Kubernaut detecting a CrashLoopBackOff caused by a bad release
+(command override on the Deployment spec) and performing an automatic rollback
+to the previous working revision.
 
 | | |
 |---|---|
 | **Signal** | `KubePodCrashLooping` -- restart count increasing rapidly |
-| **Root cause** | Invalid demo-http-server configuration deployed via ConfigMap swap |
+| **Root cause** | Deployment spec patched with a crashing command (simulates bad binary release) |
 | **Remediation** | `kubectl rollout undo` restores the previous healthy revision |
 | **Approval** | **Required** — production environment (`run.sh` enforces deterministic approval) |
 
@@ -116,14 +117,14 @@ worker-6b8c9f4d5-x2k7p   1/1     Running   0          45s
 
 </details>
 
-#### 3. Inject bad configuration
+#### 3. Inject bad release
 
 ```bash
-bash scenarios/crashloop/inject-bad-config.sh
+bash scenarios/crashloop/inject-bad-release.sh
 ```
 
-The script creates a `worker-config-bad` ConfigMap with an `invalid_directive` that causes demo-http-server to exit
-and patches the deployment to reference it. Pods will crash on startup.
+The script patches the Deployment to override the container command with one that
+exits immediately (simulating a broken binary release). Pods will crash on startup.
 
 #### 4. Observe CrashLoopBackOff
 
@@ -212,7 +213,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | CrashLoopBackOff caused by a bad ConfigMap (`worker-config-bad`) injected into the Deployment via a kubectl patch, containing an invalid directive (`invalid_directive_that_breaks_nginx on;`) that causes the application to abort immediately on startup with exit code 1. The Deployment (generation 2) still references `worker-config-bad`, so all future pods will crash until the reference is reverted to the valid `worker-config`. |
+| **Root Cause** | CrashLoopBackOff caused by a command override on the Deployment spec that makes the container exit immediately with code 1 (`echo fatal: bad release 1.1.0 -- aborting && exit 1`). The Deployment (generation 2) includes the crashing command; all new pods exit on startup until the spec is rolled back to revision 1 (no command override). |
 | **Severity** | critical |
 | **Target Resource** | Deployment/worker (ns: demo-crashloop) |
 | **Workflow Selected** | crashloop-rollback-v1 |
@@ -222,12 +223,12 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 **Key Reasoning Chain:**
 
-1. Detects CrashLoopBackOff with exit code 1 indicating config error.
-2. Traces crash to recently updated ConfigMap containing invalid directive.
-3. Compares `worker-config-bad` vs `worker-config` content to confirm root cause.
-4. Identifies rollback as appropriate since previous revision (generation 1) was healthy.
+1. Detects CrashLoopBackOff with exit code 1 indicating a bad release.
+2. Inspects Deployment spec and finds a command override added in the latest revision.
+3. Previous revision (generation 1) had no command override and was healthy.
+4. Identifies rollback as appropriate since the Deployment spec itself changed.
 
-> **Why this matters**: Demonstrates the LLM's ability to trace a pod crash to a ConfigMap root cause (signal resource != RCA resource) and select rollback over restart.
+> **Why this matters**: Demonstrates the LLM's ability to trace a pod crash to a Deployment spec change (command override) and unambiguously select `crashloop-rollback-v1` over ConfigMap-focused workflows.
 
 #### LLM Investigation Trace (v1.3)
 
@@ -324,28 +325,27 @@ Given a Kind cluster with Kubernaut services and a real LLM backend
   And the "crashloop-rollback-v1" workflow is registered in the DataStorage catalog
   And the "worker" deployment is running healthily in namespace "demo-crashloop"
 
-When a bad ConfigMap is deployed that causes demo-http-server to fail on startup
-  And the deployment is patched to reference the bad ConfigMap
+When the deployment is patched with a crashing command override (bad release)
   And pods enter CrashLoopBackOff with rapidly increasing restart counts
   And the KubePodCrashLooping alert fires (>3 restarts in 10 min)
 
 Then Kubernaut Gateway receives the alert via Alertmanager webhook
   And Signal Processing enriches the signal with business labels
-  And AI Analysis (KA + LLM) diagnoses CrashLoopBackOff from bad configuration
-  And the LLM selects the "GracefulRestart" workflow (crashloop-rollback-v1)
+  And AI Analysis (KA + LLM) diagnoses CrashLoopBackOff from bad release
+  And the LLM selects the "RollbackDeployment" workflow (crashloop-rollback-v1)
   And Remediation Orchestrator creates a WorkflowExecution
   And Workflow Execution rolls back the deployment to the previous revision
-  And the pods start successfully with the restored healthy configuration
+  And the pods start successfully with the restored healthy spec
   And Effectiveness Monitor confirms the deployment is healthy and restarts stabilized
 ```
 
 ## Acceptance Criteria
 
 - [ ] Worker deployment starts healthy and serves traffic
-- [ ] Bad config injection causes immediate CrashLoopBackOff
+- [ ] Command-override injection causes immediate CrashLoopBackOff
 - [ ] Alert fires within 2-3 minutes of first crash
-- [ ] LLM correctly diagnoses bad config as root cause
-- [ ] Rollback restores the original healthy ConfigMap reference
+- [ ] LLM correctly diagnoses bad release (command override) as root cause
+- [ ] Rollback restores the original healthy Deployment spec
 - [ ] All pods become Running/Ready after rollback
 - [ ] Restart count stabilizes (no further restarts)
 - [ ] EM confirms successful remediation
