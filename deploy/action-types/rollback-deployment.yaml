@@ -7,5 +7,6 @@ spec:
   name: RollbackDeployment
   description:
     what: "Revert a deployment to its previous stable revision."
-    whenToUse: "Root cause is a recent deployment that introduced a regression, and the previous revision was healthy."
+    whenToUse: "Root cause is a recent deployment that introduced a regression, and the previous revision was healthy. Intended for stuck rollouts (progressDeadlineSeconds exceeded) and crashlooping pods."
+    whenNotToUse: "When the trigger is an SLO error-budget burn alert (ErrorBudgetBurn) or SLO-violation signal — use ProactiveRollback instead, which is purpose-built for SLO-driven remediation."
     preconditions: "A previous healthy revision exists (verify via rollout history) and the issue started after the most recent deployment."
