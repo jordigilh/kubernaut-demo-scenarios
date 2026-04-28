@@ -59,8 +59,11 @@ single-node validation as a future expansion.
 
 ### OCP-specific prerequisites
 
-The deployment uses `nodeSelector: kubernaut.ai/managed=true`. On OCP, label
-your worker nodes before running this scenario:
+The deployment uses `nodeSelector: kubernaut.ai/managed=true`. The `run.sh`
+script applies this label automatically to all worker nodes if fewer than two
+are labelled. The `cleanup.sh` script removes the label afterwards.
+
+For manual runs, label at least two workers before deploying:
 
 ```bash
 kubectl label node <worker-1> kubernaut.ai/managed=true
@@ -138,6 +141,13 @@ export PLATFORM=ocp
 </details>
 
 ### Manual Step-by-Step
+
+#### 0. (OCP only) Label worker nodes
+
+```bash
+kubectl label node <worker-1> kubernaut.ai/managed=true
+kubectl label node <worker-2> kubernaut.ai/managed=true
+```
 
 #### 1. Deploy the workload with restrictive PDB
 

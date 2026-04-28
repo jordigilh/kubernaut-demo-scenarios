@@ -3,7 +3,7 @@
 # Scenario #124: Overly restrictive PDB blocks node drain -> relax PDB
 #
 # Prerequisites:
-#   - Kind cluster with worker node (kubernaut.ai/managed=true)
+#   - Kind or OCP cluster with worker nodes
 #   - Prometheus with kube-state-metrics
 #
 # Usage: ./scenarios/pdb-deadlock/run.sh
@@ -37,6 +37,18 @@ echo "============================================="
 echo ""
 
 ensure_clean_slate "${NAMESPACE}"
+
+# Step 0: Ensure worker nodes have the kubernaut.ai/managed=true label
+# The deployment uses nodeSelector: kubernaut.ai/managed=true. On OCP this
+# label is not present by default; on Kind setup-demo-cluster.sh handles it.
+MANAGED_WORKERS=$(kubectl get nodes -l kubernaut.ai/managed=true --no-headers 2>/dev/null | wc -l | tr -d ' ')
+if [ "$MANAGED_WORKERS" -lt 2 ]; then
+  echo "==> Labelling worker nodes with kubernaut.ai/managed=true..."
+  for node in $(kubectl get nodes -l node-role.kubernetes.io/worker --no-headers -o custom-columns=NAME:.metadata.name 2>/dev/null); do
+    kubectl label node "$node" kubernaut.ai/managed=true --overwrite
+    echo "  Labelled $node"
+  done
+fi
 
 # Step 1: Deploy scenario resources
 echo "==> Step 1: Deploying scenario resources..."
