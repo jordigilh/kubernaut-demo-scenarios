@@ -18,7 +18,10 @@ patches:
         name: istio-proxy
         namespace: monitoring
       $patch: delete
-  # PrometheusRule: remove Kind-specific release label, add UWM evaluation scope.
+  # PrometheusRule: remove Kind-specific release label, add UWM evaluation scope,
+  # and shrink IstioHighDenyRate window from [5m] to [2m]. OCP scrape interval
+  # is 1m — a [5m] rate needs ~6m to clear, exceeding the 5m EA stabilization
+  # window and causing Inconclusive (#293).
   - target:
       kind: PrometheusRule
       name: kubernaut-mesh-failure-rules
@@ -28,6 +31,9 @@ patches:
       - op: add
         path: /metadata/labels/openshift.io~1prometheus-rule-evaluation-scope
         value: leaf-prometheus
+      - op: replace
+        path: /spec/groups/0/rules/0/expr
+        value: "sum by (namespace)(rate(istio_requests_total{namespace=\"demo-mesh-failure\", response_code=\"403\"}[2m])) > 0\n"
   # ServiceMonitor: remove Kind-specific release label for OCP UWM.
   - target:
       kind: ServiceMonitor
