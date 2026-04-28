@@ -25,26 +25,34 @@ show_alert "ErrorBudgetBurn" "${NAMESPACE}"
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 
 wait_for_rr "${NAMESPACE}" 120
+
+# Pin the RR name now (before duplicates can appear from re-firing alerts).
+RR_NAME=$(get_rr_name "${NAMESPACE}")
 poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"
 
 # ── Assertions ──────────────────────────────────────────────────────────────
+# Use the pinned RR_NAME to avoid picking up a duplicate RR that may have
+# been created while the burn-rate recording rule window was still decaying.
 
 log_phase "Running assertions..."
 
-rr_phase=$(get_rr_phase "${NAMESPACE}")
+rr_phase=$(kubectl get remediationrequests "$RR_NAME" -n "$PLATFORM_NS" \
+  -o jsonpath='{.status.overallPhase}' 2>/dev/null || echo "")
 assert_eq "$rr_phase" "Completed" "RR phase"
 
-rr_outcome=$(get_rr_outcome "${NAMESPACE}")
+rr_outcome=$(kubectl get remediationrequests "$RR_NAME" -n "$PLATFORM_NS" \
+  -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
 assert_eq "$rr_outcome" "Remediated" "RR outcome"
 
-sp_phase=$(get_sp_phase "${NAMESPACE}")
+sp_name="sp-${RR_NAME}"
+sp_phase=$(kubectl get signalprocessings "$sp_name" -n "$PLATFORM_NS" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 assert_eq "$sp_phase" "Completed" "SP phase"
 
-aa_phase=$(get_aa_phase "${NAMESPACE}")
+aa_name="ai-${RR_NAME}"
+aa_phase=$(kubectl get aianalyses "$aa_name" -n "$PLATFORM_NS" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 assert_eq "$aa_phase" "Completed" "AA phase"
-
-rr_name=$(get_rr_name "${NAMESPACE}")
-aa_name="ai-${rr_name}"
 
 workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
@@ -58,7 +66,9 @@ confidence=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || echo "")
 assert_neq "$confidence" "" "AA confidence present"
 
-wfe_phase=$(get_wfe_phase "${NAMESPACE}")
+wfe_name="we-${RR_NAME}"
+wfe_phase=$(kubectl get workflowexecutions "$wfe_name" -n "$PLATFORM_NS" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
 # Verify rollback occurred (deployment should have >1 revision)

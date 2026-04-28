@@ -22,6 +22,22 @@ patches:
     patch: |
       - op: remove
         path: /metadata/labels/release
+      # OCP kube-state-metrics scrape interval is 1m (vs 30s on Kind).
+      # A [5m] window needs ~6m of clean probes to clear on OCP, which
+      # exceeds the 5m EA stabilization window and causes Inconclusive.
+      # Shrink to [2m] so the alert resolves well within EA's window (#293).
+      - op: replace
+        path: /spec/groups/0/rules/0/record
+        value: "job:api_gateway:error_rate_2m"
+      - op: replace
+        path: /spec/groups/0/rules/0/expr
+        value: "1 - avg_over_time(probe_success{namespace=\"demo-slo\", instance=~\".*api-gateway.*\"}[2m])\n"
+      - op: replace
+        path: /spec/groups/0/rules/1/expr
+        value: "job:api_gateway:error_rate_2m > (0.001 * 14.4)\n"
+      - op: replace
+        path: /spec/groups/0/rules/1/annotations/description
+        value: "The 2-minute rolling error rate for api-gateway in demo-slo has exceeded the sustainable burn rate threshold (14.4x). This is measured via blackbox probing of the /api/ endpoint. Proactive rollback is recommended to preserve the SLO."
   - target:
       kind: ServiceMonitor
       name: demo-app-metrics
