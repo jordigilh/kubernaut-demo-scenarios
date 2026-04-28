@@ -3,6 +3,23 @@ set -e
 
 : "${TARGET_RESOURCE_NAME:?TARGET_RESOURCE_NAME is required}"
 
+# When the RCA targets a PVC (e.g. data-kv-store-2), derive the owning
+# StatefulSet name. PVC naming convention: <vct>-<sts>-<ordinal>.
+if [ "${TARGET_RESOURCE_KIND:-}" = "PersistentVolumeClaim" ]; then
+  echo "RCA target is PVC '${TARGET_RESOURCE_NAME}'. Resolving owning StatefulSet..."
+  TARGET_PVC="${TARGET_RESOURCE_NAME}"
+  STS_NAME=$(kubectl get statefulset -n "${TARGET_RESOURCE_NAMESPACE:-}" -A -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null \
+    | while read -r sts; do
+        echo "${TARGET_RESOURCE_NAME}" | grep -q ".*-${sts}-[0-9]*$" && echo "$sts" && break
+      done)
+  if [ -n "${STS_NAME}" ]; then
+    echo "Resolved StatefulSet: ${STS_NAME}"
+    TARGET_RESOURCE_NAME="${STS_NAME}"
+  else
+    echo "WARNING: Could not derive StatefulSet from PVC name '${TARGET_PVC}'. Trying as-is."
+  fi
+fi
+
 if [ -z "${TARGET_RESOURCE_NAMESPACE:-}" ]; then
   echo "TARGET_RESOURCE_NAMESPACE not set. Discovering namespace for StatefulSet ${TARGET_RESOURCE_NAME}..."
   TARGET_RESOURCE_NAMESPACE=$(kubectl get statefulset -A -o jsonpath="{range .items[?(@.metadata.name==\"${TARGET_RESOURCE_NAME}\")]}{.metadata.namespace}{end}" 2>/dev/null || echo "")
