@@ -283,8 +283,11 @@ require_demo_ready() {
         fail=true
     fi
 
-    if [ "$fail" = false ] && ! helm status kubernaut -n "${PLATFORM_NS}" &>/dev/null; then
+    if [ "$fail" = false ] && ! helm status kubernaut -n "${PLATFORM_NS}" &>/dev/null \
+       && ! kubectl get kubernaut -n "${PLATFORM_NS}" &>/dev/null; then
         echo "ERROR: Kubernaut platform is not installed in ${PLATFORM_NS}."
+        echo ""
+        echo "Ensure the OCP cluster is configured with user-workload monitoring enabled."
         fail=true
     fi
 
