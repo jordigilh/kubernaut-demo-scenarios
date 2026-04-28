@@ -23,12 +23,20 @@ patches:
     patch: |
       - op: remove
         path: /metadata/labels/release
+      # OCP KSM scrape interval is 1m. increase(...[10m]) needs 10m+ to clear,
+      # exceeding the 5m EA stabilization window. Shrink to [5m] (#293).
+      - op: replace
+        path: /spec/groups/0/rules/0/expr
+        value: "increase(\n  kube_pod_container_status_restarts_total{\n    namespace=\"demo-team-alpha\",\n    container=\"worker\"\n  }[5m]\n) > 3\n"
   - target:
       kind: PrometheusRule
       name: kubernaut-beta-rules
     patch: |
       - op: remove
         path: /metadata/labels/release
+      - op: replace
+        path: /spec/groups/0/rules/0/expr
+        value: "increase(\n  kube_pod_container_status_restarts_total{\n    namespace=\"demo-team-beta\",\n    container=\"worker\"\n  }[5m]\n) > 3\n"
   - target:
       kind: ServiceMonitor
       name: demo-app-metrics

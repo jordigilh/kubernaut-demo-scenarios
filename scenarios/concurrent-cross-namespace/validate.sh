@@ -28,10 +28,12 @@ wait_for_alert "KubePodCrashLooping" "${NS_ALPHA}" 480
 show_alert "KubePodCrashLooping" "${NS_ALPHA}"
 
 # ── Wait for both RRs and approve Beta early so pipelines run in parallel ────
+# Beta's alert fires later than Alpha (staggered injection + for: 3m + OCP
+# scrape intervals), so give it more time.
 
 log_phase "Waiting for both RemediationRequests..."
 wait_for_rr "${NS_ALPHA}" 120
-wait_for_rr "${NS_BETA}" 120
+wait_for_rr "${NS_BETA}" 360
 
 # Alpha (staging) is auto-approved by Rego policy — no action needed.
 # Beta (production) requires manual approval — approve now so it doesn't
