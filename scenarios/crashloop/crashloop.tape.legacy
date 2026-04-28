@@ -136,7 +136,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scenarios/crashloop/inject-bad-config.sh"
+Type "bash scenarios/crashloop/inject-bad-release.sh"
 Enter
 Sleep 4s
 

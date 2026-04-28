@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CrashLoopBackOff Demo -- Automated Runner
-# Scenario #120: Bad config deploy -> CrashLoopBackOff -> rollback
+# Scenario #120: Bad release (command override) -> CrashLoopBackOff -> rollback
 #
 # Prerequisites:
 #   - Kind or OCP cluster with Kubernaut services
@@ -58,14 +58,14 @@ sleep 20
 echo "  Baseline established. Restart count is 0."
 echo ""
 
-# Step 4: Inject bad configuration
-echo "==> Step 4: Injecting invalid nginx config (triggers CrashLoopBackOff)..."
-bash "${SCRIPT_DIR}/inject-bad-config.sh"
+# Step 4: Inject bad release (command override)
+echo "==> Step 4: Injecting bad release (triggers CrashLoopBackOff)..."
+bash "${SCRIPT_DIR}/inject-bad-release.sh"
 echo ""
 
 # Step 5: Wait for pods to start crashing and alert to fire
 echo "==> Step 5: Waiting for CrashLoop alert to fire (~2-3 min)..."
-echo "  Pods will fail to start with 'unknown directive' error."
+echo "  Pods exit immediately with code 1 (simulated broken binary)."
 echo ""
 echo "  Waiting for new rollout to begin..."
 sleep 10
