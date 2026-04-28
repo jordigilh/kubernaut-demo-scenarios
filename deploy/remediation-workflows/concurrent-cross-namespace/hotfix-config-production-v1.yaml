@@ -50,7 +50,7 @@ metadata:
   name: hotfix-config-production-v1
   namespace: kubernaut-system
 spec:
-  version: "1.0.3"
+  version: "1.0.4"
   description:
     what: "Patches a faulty ConfigMap in-place to remove an invalid configuration directive, then restarts the owning Deployment so pods load the corrected configuration"
     whenToUse: "When a Deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap and the signal carries risk_tolerance=low. The target resource may be the ConfigMap itself or the Deployment that mounts it. Prefer this over rollback when the RCA identifies a ConfigMap as the root cause, because a deployment rollback does not modify the ConfigMap -- the poisoned ConfigMap remains in the cluster and will re-trigger crashes if pods are rescheduled. In-place patching eliminates the root cause permanently. This workflow is designed for production environments where the configuration error is clearly identifiable and the fix is deterministic."
@@ -71,7 +71,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: hotfix-config-production-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:03e75560bd596ea9f7f58483d9a797cbad2d7288fdc1f560739c5ed53f1d0789
+    bundle: quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:8be8324d3f53e83b3730a2cd7491601aa3a565d87c2c457c333cc578e04e8c29
 
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
