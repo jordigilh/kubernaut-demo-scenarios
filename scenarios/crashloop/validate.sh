@@ -52,7 +52,15 @@ assert_neq "$workflow_id" "" "AA selected a workflow"
 
 bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
-assert_contains "$bundle" "crashloop-rollback-job" "AA selected correct workflow"
+# Both crashloop-rollback (deployment rollback) and hotfix-config (ConfigMap patch)
+# are valid remediations — the LLM may prefer either depending on RCA framing.
+if echo "$bundle" | grep -q "crashloop-rollback-job\|hotfix-config-job"; then
+    _ASSERT_TOTAL=$((_ASSERT_TOTAL + 1)); _ASSERT_PASS=$((_ASSERT_PASS + 1))
+    log_success "[PASS] AA selected correct workflow contains \"crashloop-rollback-job\" or \"hotfix-config-job\""
+else
+    _ASSERT_TOTAL=$((_ASSERT_TOTAL + 1)); _ASSERT_FAIL=$((_ASSERT_FAIL + 1))
+    log_error "[FAIL] AA selected correct workflow = ${bundle} (expected: crashloop-rollback-job or hotfix-config-job)"
+fi
 
 confidence=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || echo "")

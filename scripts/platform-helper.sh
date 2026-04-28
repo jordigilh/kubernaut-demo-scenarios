@@ -841,13 +841,14 @@ force_production_approval() {
     patched=$(python3 -c "
 import sys, re
 text = sys.stdin.read()
+# Match both multi-line (newline-separated) and compact (semicolon-separated) formats
 text = re.sub(
-    r'require_approval if \{\s*\n\s*is_production\s*\n\s*not is_high_confidence\s*\n\}',
+    r'require_approval if \{[\s;]*is_production[\s;]+not is_high_confidence[\s;]*\}',
     'require_approval if { is_production }',
     text
 )
 text = re.sub(
-    r'(risk_factors contains \{\"score\": 70, \"reason\": \"Production environment requires manual approval\"\} if \{)\s*\n\s*is_production\s*\n\s*not is_high_confidence\s*\n\}',
+    r'(risk_factors contains \{\"score\": 70, \"reason\": \"Production environment requires manual approval\"\} if \{)[\s;]*is_production[\s;]+not is_high_confidence[\s;]*\}',
     r'\1\n    is_production\n}',
     text
 )
