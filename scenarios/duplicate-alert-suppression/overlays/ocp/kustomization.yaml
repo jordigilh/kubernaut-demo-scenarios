@@ -16,6 +16,13 @@ patches:
     patch: |
       - op: remove
         path: /metadata/labels/release
+      # OCP kube-state-metrics scrape interval is 1m (vs 30s on Kind).
+      # increase(...[10m]) needs ~10m+ to clear after remediation on OCP,
+      # far exceeding the 5m EA stabilization window. Shrink to [5m] so
+      # the alert resolves within EA's window (#293).
+      - op: replace
+        path: /spec/groups/0/rules/0/expr
+        value: "increase(\n  kube_pod_container_status_restarts_total{\n    namespace=\"demo-alert-storm\",\n    container=\"api-gateway\"\n  }[5m]\n) > 3\n"
   - target:
       kind: ServiceMonitor
       name: demo-app-metrics
