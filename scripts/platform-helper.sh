@@ -6,9 +6,19 @@
 # Force line-buffered stdout/stderr when not running in a TTY (e.g. over SSH).
 # Without this, output is 4KB-block-buffered and remote monitoring sees stale data.
 # Guard variable prevents infinite re-exec since this file is source'd.
+#
+# When this file is sourced after the caller has consumed $@ (e.g.
+# run-scenario.sh shifts all args before sourcing), $@ is empty and a
+# naive re-exec loses the original arguments.  Callers that parse args
+# before sourcing should set _KUBERNAUT_ORIG_ARGV (via printf -v %q)
+# so we can re-exec with the full original command line.
 if [ -z "${_KUBERNAUT_LINEBUF:-}" ] && [ ! -t 1 ] && command -v stdbuf &>/dev/null; then
     export _KUBERNAUT_LINEBUF=1
-    exec stdbuf -oL -eL "$0" "$@"
+    if [ -n "${_KUBERNAUT_ORIG_ARGV:-}" ]; then
+        eval exec stdbuf -oL -eL "$_KUBERNAUT_ORIG_ARGV"
+    else
+        exec stdbuf -oL -eL "$0" "$@"
+    fi
 fi
 
 # macOS does not ship GNU coreutils `timeout`. Provide a portable fallback
