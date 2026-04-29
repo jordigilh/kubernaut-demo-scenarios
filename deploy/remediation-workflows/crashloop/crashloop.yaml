@@ -49,12 +49,12 @@ metadata:
 spec:
   # Rollback Deployment Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #120 -- Bad release / spec change -> CrashLoopBackOff -> rollback
-  version: "1.3.4"
+  version: "1.3.5"
   description:
     what: "Rolls back a Deployment to its previous revision to recover from CrashLoopBackOff caused by a bad release or pod spec change"
     whenToUse: "When a Deployment enters CrashLoopBackOff because its pod spec was modified (image tag, command/args, env vars, volume mount references, or resource limits) and the previous revision was healthy. This is the correct choice when the Deployment spec itself changed -- rollback reverts the entire pod template to the last known-good revision."
-    whenNotToUse: "When the Deployment spec is unchanged and a mounted ConfigMap's content was modified in-place -- rollback cannot revert ConfigMap data, so use PatchConfiguration instead. Also do not use when the crash is caused by an external dependency failure (database down, network partition) rather than a local spec change."
-    preconditions: "The Deployment has at least one previous healthy revision in its rollout history. The RCA target must be a Deployment, not a ConfigMap."
+    whenNotToUse: "When the Deployment spec is unchanged and a mounted ConfigMap's content was modified in-place -- rollback cannot revert ConfigMap data, so use PatchConfiguration instead. Do not use when the crash is caused by an external dependency failure (database down, network partition) rather than a local spec change. Do not use when the primary signal is ContainerOOMKilling or the container termination reason is OOMKilled -- OOMKill indicates memory pressure, not a bad release or spec regression. Rollback does not change memory limits; use IncreaseMemoryLimits instead for OOM scenarios."
+    preconditions: "The Deployment has at least one previous healthy revision in its rollout history. The RCA target must be a Deployment, not a ConfigMap. The container must NOT be terminated with reason OOMKilled."
   
   actionType: RollbackDeployment
   
