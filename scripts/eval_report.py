@@ -200,7 +200,7 @@ def score_scenario(transcript: dict, expected: dict) -> dict:
     rca = analysis.get("rootCauseAnalysis") or {}
     actual_kind = rca.get("remediationTarget", {}).get("kind", "")
     if not actual_kind:
-        target = analysis.get("signal", {}).get("targetResource", {})
+        target = analysis.get("signal", {}).get("targetResource") or {}
         actual_kind = target.get("kind", "")
     expected_kind = expected.get("expected_target_kind", "")
     check("target_kind", actual_kind, expected_kind, match_outcome)

@@ -29,18 +29,18 @@
       "signal": "KubeDeploymentRolloutStuck"
     },
     "memory-escalation": {
-      "expected_bundle": ["increase-memory-limits-v1", "crashloop-rollback-v1"],
-      "expected_outcome": "Remediated",
+      "expected_bundle": "increase-memory-limits-v1",
+      "expected_outcome": ["Remediated", "Inconclusive"],
       "expected_severity": "critical",
       "expected_target_kind": "Deployment",
       "expected_aa_phase": "Completed",
-      "confidence_floor": 0.77,
-      "confidence_expected": 0.92,
+      "confidence_floor": 0.85,
+      "confidence_expected": 0.95,
       "approval_expected": true,
       "needs_human_review": false,
       "human_review_reason": null,
       "signal": "ContainerOOMKilling",
-      "_note": "Transcript may capture any cycle. Cycle 1 selects increase-memory-limits-v1, Cycle 2+ escalates to crashloop-rollback-v1."
+      "_note": "Cycle 1 must select increase-memory-limits-v1 (OOMKill exclusion on crashloop-rollback per #340). Outcome may be Inconclusive due to memory leak recurrence before EA stabilization window."
     },
     "memory-escalation-cycle2": {
       "expected_bundle": null,
@@ -52,9 +52,9 @@
       "confidence_expected": null,
       "approval_expected": false,
       "needs_human_review": true,
-      "human_review_reason": "repeated_oom_after_limits_increase",
+      "human_review_reason": null,
       "signal": "ContainerOOMKilling",
-      "_note": "Escalation scenario: LLM correctly declines workflows after prior bump failed."
+      "_note": "Escalation via platform guardrails (DuplicateInProgress/CheckIneffectiveRemediationChain per #616). LLM may still select increase-memory-limits but the RO blocks."
     },
     "pdb-deadlock": {
       "expected_bundle": "relax-pdb-v1",

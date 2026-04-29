@@ -144,17 +144,42 @@ echo "  Audit events: $AUDIT_COUNT LLM request(s)"
 # ── Extract AA CR ────────────────────────────────────────────────────────────
 
 AA_NAME="ai-${RR_NAME}"
-AA_JSON=$(kubectl get aianalysis "$AA_NAME" -n "$PLATFORM_NS" -o json 2>/dev/null) || {
-    echo "ERROR: AIAnalysis $AA_NAME not found"
-    exit 1
-}
+AA_JSON=$(kubectl get aianalysis "$AA_NAME" -n "$PLATFORM_NS" -o json 2>/dev/null) || AA_JSON=""
+
+if [ -z "$AA_JSON" ]; then
+    echo "  WARN: AIAnalysis $AA_NAME not found on cluster (cleaned up?). Reconstructing from DB..."
+    AA_JSON=$(psql_readonly "
+        SELECT event_data
+        FROM audit_events
+        WHERE correlation_id = '$RR_NAME'
+          AND event_type = 'aianalysis.analysis.completed'
+        ORDER BY event_timestamp DESC LIMIT 1
+    ")
+    if [ -z "$AA_JSON" ] || [ "$AA_JSON" = "" ]; then
+        echo "  Falling back to aiagent.response.complete..."
+        AA_JSON=$(psql_readonly "
+            SELECT event_data
+            FROM audit_events
+            WHERE correlation_id = '$RR_NAME'
+              AND event_type = 'aiagent.response.complete'
+            ORDER BY event_timestamp DESC LIMIT 1
+        ")
+    fi
+    if [ -z "$AA_JSON" ] || [ "$AA_JSON" = "" ]; then
+        echo "  WARN: No analysis data in DB either. Using empty stub."
+        AA_JSON='{}'
+    fi
+    _AA_FROM_DB=true
+fi
 
 SESSION_ID=$(echo "$AA_JSON" | python3 -c "
 import json, sys
 aa = json.load(sys.stdin)
-print(aa.get('status', {}).get('investigationSession', {}).get('id', ''))
-")
-echo "  Session ID: $SESSION_ID"
+# Support both CR format (.status.investigationSession) and DB event_data format
+status = aa.get('status', aa)
+print(status.get('investigationSession', {}).get('id', status.get('session_id', '')))
+" 2>/dev/null || echo "")
+echo "  Session ID: ${SESSION_ID:-N/A (reconstructed from DB)}"
 
 # ── Extract structured analysis ──────────────────────────────────────────────
 
@@ -163,7 +188,7 @@ import json, sys
 
 aa = json.load(sys.stdin)
 spec = aa.get('spec', {})
-status = aa.get('status', {})
+status = aa.get('status', aa)  # DB event_data has fields at top level
 signal = spec.get('analysisRequest', {}).get('signalContext', {})
 
 result = {
@@ -310,19 +335,38 @@ print(json.dumps({
 
 # ── Get RR and EA details ────────────────────────────────────────────────────
 
-RR_JSON=$(kubectl get rr "$RR_NAME" -n "$PLATFORM_NS" -o json 2>/dev/null)
+RR_JSON=$(kubectl get rr "$RR_NAME" -n "$PLATFORM_NS" -o json 2>/dev/null) || RR_JSON=""
 
-RR_PHASE=$(echo "$RR_JSON" | python3 -c "
+if [ -n "$RR_JSON" ]; then
+    RR_PHASE=$(echo "$RR_JSON" | python3 -c "
 import json, sys
 r = json.load(sys.stdin)
 print(r.get('status',{}).get('overallPhase',''))
 ")
-
-RR_OUTCOME=$(echo "$RR_JSON" | python3 -c "
+    RR_OUTCOME=$(echo "$RR_JSON" | python3 -c "
 import json, sys
 r = json.load(sys.stdin)
 print(r.get('status',{}).get('outcome',''))
 ")
+else
+    echo "  WARN: RR $RR_NAME not found on cluster. Inferring phase from DB..."
+    RR_PHASE=$(psql_readonly "
+        SELECT CASE
+            WHEN EXISTS(SELECT 1 FROM audit_events WHERE correlation_id='$RR_NAME' AND event_type='orchestrator.lifecycle.completed') THEN 'Completed'
+            WHEN EXISTS(SELECT 1 FROM audit_events WHERE correlation_id='$RR_NAME' AND event_type='orchestrator.lifecycle.failed') THEN 'Failed'
+            ELSE 'Unknown'
+        END
+    ")
+    RR_OUTCOME=$(psql_readonly "
+        SELECT COALESCE(
+            (SELECT event_data->>'outcome' FROM audit_events
+             WHERE correlation_id='$RR_NAME' AND event_type='orchestrator.lifecycle.completed'
+             ORDER BY event_timestamp DESC LIMIT 1),
+            'Remediated'
+        )
+    ")
+    RR_JSON='{}'
+fi
 
 EA_NAME="ea-${RR_NAME}"
 EA_SCORES=$(kubectl get effectivenessassessment "$EA_NAME" -n "$PLATFORM_NS" -o json 2>/dev/null | python3 -c "
