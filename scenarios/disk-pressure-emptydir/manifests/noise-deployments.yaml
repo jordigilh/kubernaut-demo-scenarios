@@ -54,7 +54,8 @@ spec:
           mountPath: /tmp/nginx-cache
       volumes:
       - name: cache
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 250Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -88,10 +89,8 @@ spec:
         - /bin/sh
         - -c
         - |
-          i=0
           while true; do
-            dd if=/dev/urandom bs=256K count=1 of=/var/log/app/logfile-${i}.log 2>/dev/null
-            i=$((i + 1))
+            dd if=/dev/urandom bs=256K count=1 of=/var/log/app/logfile-$((RANDOM % 5)).log 2>/dev/null
             sleep 5
           done
         resources:
@@ -106,7 +105,8 @@ spec:
           mountPath: /var/log/app
       volumes:
       - name: logs
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 50Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -173,4 +173,5 @@ spec:
           mountPath: /data
       volumes:
       - name: data
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 150Mi
