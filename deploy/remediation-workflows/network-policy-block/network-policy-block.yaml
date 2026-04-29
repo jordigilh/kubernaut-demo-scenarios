@@ -46,7 +46,7 @@ metadata:
 spec:
   # Fix NetworkPolicy Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #138 -- Deny-all NetworkPolicy blocks traffic -> remove offending policy
-  version: "1.3.4"
+  version: "1.3.5"
   description:
     what: "Removes a deny-all NetworkPolicy that is blocking legitimate ingress traffic and causing health check failures"
     whenToUse: "When a NetworkPolicy is blocking all ingress traffic to a workload, causing liveness/readiness probe failures"
@@ -67,7 +67,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-network-policy-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:bf54f1899d52abe1b2e339268e240690d63344d3683c8d9be2a44ffe03ec377c
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:85a387a3637053dde5daac6d4129a546c4000f7a3e802d648260038571c67e29
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
