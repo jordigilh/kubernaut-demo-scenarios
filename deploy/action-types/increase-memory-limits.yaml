@@ -7,6 +7,6 @@ spec:
   name: IncreaseMemoryLimits
   description:
     what: "Increase memory resource limits on containers."
-    whenToUse: "OOM kills are caused by memory limits being too low relative to the workload actual requirements."
-    whenNotToUse: "When the deployment is constrained by a ResourceQuota -- increasing individual container limits does not increase the namespace's total allocation. Also not appropriate for memory leaks with unbounded growth."
-    preconditions: "Memory usage shows a stable pattern consistent with legitimate workload, not unbounded growth over time."
+    whenToUse: "OOM kills are caused by memory limits being too low relative to the workload's requirements. This is the correct action for any ContainerOOMKilling signal, including suspected memory leaks -- increasing limits is the proper first-pass mitigation to buy runtime for investigation. The platform's escalation guardrails handle repeated ineffective attempts automatically."
+    whenNotToUse: "When the deployment is constrained by a ResourceQuota -- increasing individual container limits does not increase the namespace's total allocation and may worsen it by requesting more memory per pod against a fixed quota ceiling."
+    preconditions: "The deployment exists and containers have memory limits set. The node has sufficient allocatable memory for the increased limit."
