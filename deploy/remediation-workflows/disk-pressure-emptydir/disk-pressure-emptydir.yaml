@@ -68,19 +68,19 @@ metadata:
   name: migrate-emptydir-to-pvc-gitops-v1
   namespace: kubernaut-system
 spec:
-  version: "1.3.0"
+  version: "1.3.3"
   description:
     what: "Migrates a database from ephemeral emptyDir storage to a persistent volume claim via GitOps. Backs up the database via live pg_dump, commits the emptyDir-to-PVC migration to the source Git repository, waits for ArgoCD to sync the change, and restores the database to the new PVC-backed instance."
     whenToUse: "When PredictedDiskPressure or DiskPressure is caused by emptyDir growth from a stateful workload (database) running on ephemeral storage, and the namespace is managed by a GitOps tool (ArgoCD). Best used with proactive signals (BR-SP-106) where the pod is still running and backup is feasible."
-    whenNotToUse: "When disk pressure is caused by ephemeral container logs, image layers, or other non-emptyDir sources. When the workload already uses PVC storage. When a simple volume expansion suffices."
+    whenNotToUse: "When disk pressure is caused by ephemeral container logs, image layers, or other non-emptyDir sources. When the workload already uses PVC storage. When a simple volume expansion suffices. Do not select this workflow if a prior attempt with this same workflow resulted in Inconclusive outcome or zero/near-zero effectiveness for the same target — lower your confidence and escalate to human review instead of repeating an ineffective remediation."
     preconditions: "ArgoCD is managing the target namespace. The source Git repository is accessible. The affected pod uses an emptyDir volume for its data directory. PostgreSQL client tools (pg_dump/pg_restore) are available in the container image."
 
   actionType: MigrateEmptyDirToPVC
 
   labels:
     severity: [critical, high]
-    environment: [production]
-    component: [deployment]
+    environment: ["*"]
+    component: [node, deployment]
     priority: "*"
 
   detectedLabels:

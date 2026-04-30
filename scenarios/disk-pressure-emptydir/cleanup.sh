@@ -18,7 +18,10 @@ disable_prometheus_toolset || true
 ARGOCD_NS=$(get_argocd_namespace)
 kubectl delete application demo-diskpressure -n "${ARGOCD_NS}" --ignore-not-found 2>/dev/null || true
 
-# Delete PrometheusRule
+# Delete PrometheusRule (lives in openshift-monitoring on OCP, demo-diskpressure on Kind)
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule demo-diskpressure-rules -n openshift-monitoring --ignore-not-found 2>/dev/null || true
+fi
 kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found 2>/dev/null || true
 
 # Delete temp backup/restore Jobs and PVC if still present

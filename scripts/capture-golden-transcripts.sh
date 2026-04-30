@@ -19,7 +19,7 @@ PARTITION="audit_events_2026_04"
 
 _psql() {
   kubectl exec -n kubernaut-system "${PG_POD}" -- \
-    psql -U slm_user -d action_history -t -A -c "$1" 2>/dev/null
+    psql -U kubernaut -d kubernaut -t -A -c "$1" 2>/dev/null
 }
 
 # Namespace-to-scenario mapping

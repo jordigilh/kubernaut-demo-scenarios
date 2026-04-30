@@ -37,11 +37,16 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/volumeMounts/0/mountPath
         value: /var/lib/pgsql/data
-  # Category C: PrometheusRule - remove release label for OCP
+  # Category C: PrometheusRule - move to openshift-monitoring so platform
+  # Prometheus (which scrapes node_filesystem_avail_bytes) evaluates it,
+  # and remove the Kind-specific release label.
   - target:
       kind: PrometheusRule
       name: demo-diskpressure-rules
     patch: |
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-monitoring
       - op: remove
         path: /metadata/labels/release
   # Category D: ArgoCD Application namespace argocd -> openshift-gitops

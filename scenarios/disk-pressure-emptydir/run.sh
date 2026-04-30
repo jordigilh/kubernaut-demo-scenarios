@@ -605,7 +605,8 @@ spec:
           periodSeconds: 10
       volumes:
       - name: data
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 4Gi
       - name: init-sql
         configMap:
           name: postgres-init-sql
@@ -732,7 +733,8 @@ spec:
           mountPath: /tmp/nginx-cache
       volumes:
       - name: cache
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 512Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -787,7 +789,8 @@ spec:
           mountPath: /var/log/app
       volumes:
       - name: logs
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 512Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -857,7 +860,8 @@ spec:
           mountPath: /data
       volumes:
       - name: data
-        emptyDir: {}
+        emptyDir:
+          sizeLimit: 512Mi
 MANIFEST
 
 cat > disk-pressure-emptydir/kustomization.yaml <<'MANIFEST'
@@ -912,7 +916,7 @@ echo "  Ensuring Alertmanager RBAC..."
 _ensure_alertmanager_rbac
 
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
-kubectl apply -k "${MANIFEST_DIR}"
+kubectl apply --server-side --force-conflicts -k "${MANIFEST_DIR}"
 
 # Patch PrometheusRule with correct instance and mountpoint for the target
 # environment. The static manifest uses Kind defaults (instance=~"stress-worker.*",
@@ -934,8 +938,13 @@ else
     _MOUNTPOINT="/"
 fi
 _EXPR="predict_linear(node_filesystem_avail_bytes{mountpoint=\"${_MOUNTPOINT}\", instance=~\"${_INSTANCE_RE}\"}[1m], 600) < 0"
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    _PROM_NS="openshift-monitoring"
+else
+    _PROM_NS="${NAMESPACE}"
+fi
 echo "  Patching PrometheusRule: mountpoint=${_MOUNTPOINT}, instance=~${_INSTANCE_RE}"
-kubectl get prometheusrule demo-diskpressure-rules -n "${NAMESPACE}" -o json \
+kubectl get prometheusrule demo-diskpressure-rules -n "${_PROM_NS}" -o json \
   | python3 -c "
 import json, sys
 rule = json.load(sys.stdin)
@@ -1081,13 +1090,15 @@ if [ "$USABLE_MB" -lt "$MIN_USABLE_MB" ]; then
     exit 1
 fi
 
-# W=60, H=600, F=15, margin=300  (all in seconds)
+# W=60, H=1800, F=15, margin=1200  (all in seconds)
+# H=1800 matches predict_linear horizon in PrometheusRule (30 min lookahead)
+# margin=1200 gives ~20 min for LLM investigation + workflow execution
 # PostgreSQL disk amplification: ~2x (tuple headers, WAL, TOAST)
 PG_AMP=2
 
 RATE_MB_S=$(awk "BEGIN {
     avail=${AVAIL_MB}; usable=${USABLE_MB}
-    W=60; H=600; F=15; margin=300
+    W=60; H=1800; F=15; margin=1200
 
     r = usable / (W + F + margin)
     r_min = avail / (W + H)
@@ -1103,7 +1114,7 @@ ITERATIONS=$(awk "BEGIN { print int(${USABLE_MB}*1024/${BATCH_SIZE})+1000 }")
 
 # Estimate timing (minutes)
 EST_ALERT_MIN=$(awk "BEGIN {
-    r=${RATE_MB_S}*60; W=1; H=10; F=0.25
+    r=${RATE_MB_S}*60; W=1; H=30; F=0.25
     t_window = W + F
     t_slope = ${AVAIL_MB}/r - H + F
     t = (t_slope > t_window) ? t_slope : t_window
