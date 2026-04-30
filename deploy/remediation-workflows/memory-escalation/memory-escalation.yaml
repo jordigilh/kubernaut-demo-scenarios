@@ -46,7 +46,7 @@ metadata:
 spec:
   # Increase Memory Limits Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: Memory escalation -- increase limits to prevent OOMKill
-  version: "1.3.5"
+  version: "1.3.6"
   description:
     what: "Increases the memory limits of a deployment's containers to prevent OOMKill events. Doubles the current memory limit by default."
     whenToUse: "When containers are being OOMKilled (ContainerOOMKilling signal or OOMKilled termination reason) because the memory limit is too low for the workload's requirements. This is the correct workflow for any OOMKill scenario, including suspected memory leaks -- increasing limits is the proper first-pass mitigation to buy runtime for the application team to investigate the root cause. Select this workflow even if prior attempts exist; the platform's escalation guardrails will automatically block repeated ineffective remediations."
@@ -64,7 +64,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: increase-memory-limits-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/increase-memory-limits-job@sha256:b3cbc4c63105a343ca686633b5f01a9b946af0364206709149bc4f362ba9eda8
+    bundle: quay.io/kubernaut-cicd/test-workflows/increase-memory-limits-job@sha256:168bbb8e5512bc4d693fb402d360bce6dbdb82c21094addab9b2b26815653a39
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
