@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-route-rules
+  namespace: demo-route
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: demo-route
+    rules:
+    - alert: RouteBackendUnavailable
+      expr: |
+        haproxy_backend_up{
+          exported_namespace="demo-route",
+          route="storefront"
+        } == 0
+      for: 30s
+      labels:
+        severity: high
+      annotations:
+        summary: >
+          Route storefront in namespace demo-route has no healthy backend.
+          The HAProxy backend is down, indicating the target Service is
+          unreachable or does not exist.
+        description: >
+          The OpenShift Route storefront is pointing to a Service that has
+          no healthy endpoints. This is typically caused by a misconfigured
+          Route target (spec.to.name pointing to a non-existent Service),
+          or the backend pods are not ready. External users are receiving
+          503 errors.

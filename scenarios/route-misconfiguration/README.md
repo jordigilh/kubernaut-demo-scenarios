@@ -1,6 +1,6 @@
 # Scenario: Route/Ingress Misconfiguration
 
-**Status**: PLANNED — not yet implemented
+**Status**: IN PROGRESS
 
 ## Overview
 
