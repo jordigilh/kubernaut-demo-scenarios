@@ -26,5 +26,15 @@ golden-transcripts/
 # Python bytecode
 __pycache__/
 
+# Overnight validation logs and results
+overnight-logs-*/
+overnight-logs-*.log
+overnight-results-*.txt
+overnight-rerun-launcher-*.log
+nohup-*.log
+
+# Secrets (tracked via sealed-secrets or external vault)
+base/secrets/
+
 # OS files
 .DS_Store
