@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restore-rolebinding-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restore-rolebinding-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: restore-rolebinding-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restore-rolebinding-v1
+rules:
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["rolebindings"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: restore-rolebinding-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restore-rolebinding-v1
+subjects:
+  - kind: ServiceAccount
+    name: restore-rolebinding-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: restore-rolebinding-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: restore-rolebinding-v1
+  namespace: kubernaut-system
+spec:
+  version: "1.4.0"
+  description:
+    what: "Recreates a missing RoleBinding from a known-good template to restore a ServiceAccount's RBAC permissions, recovering workloads that lost API access"
+    whenToUse: "When a Deployment has zero available replicas and pod logs show 'forbidden' or '403' errors when accessing the Kubernetes API. Check the ServiceAccount's RoleBindings and ClusterRoleBindings in the namespace. If a RoleBinding that previously existed is missing, the ServiceAccount has lost its RBAC permissions. Common after security audit cleanup scripts, namespace RBAC policy changes, or accidental deletion. The fix is to recreate the RoleBinding from a known-good template."
+    whenNotToUse: "When pods are failing for reasons other than API access denial (CrashLoopBackOff from application bugs, ImagePullBackOff, OOMKilled). When the 403 is caused by a Kubernetes API server issue rather than missing RBAC. When the ServiceAccount intentionally had its permissions revoked as part of a security lockdown."
+    preconditions: "The Role that the RoleBinding references still exists. The ServiceAccount still exists. A known-good RoleBinding template is available."
+
+  actionType: RestoreRoleBinding
+
+  labels:
+    severity: [critical, high]
+    environment: [production, staging]
+    component: [deployment, monitoring]
+    priority: "*"
+
+  execution:
+    engine: job
+    serviceAccountName: restore-rolebinding-v1-runner
+    bundle: quay.io/kubernaut-cicd/test-workflows/restore-rolebinding-job@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: true
+      description: "Namespace of the affected RoleBinding"
+    - name: TARGET_RESOURCE_NAME
+      type: string
+      required: true
+      description: "Name of the RoleBinding to restore"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Must be RoleBinding"

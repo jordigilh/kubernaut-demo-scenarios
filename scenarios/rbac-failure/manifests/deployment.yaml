@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-collector
+  namespace: demo-rbac
+  labels:
+    app: metrics-collector
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metrics-collector
+  template:
+    metadata:
+      labels:
+        app: metrics-collector
+    spec:
+      serviceAccountName: metrics-collector
+      containers:
+        - name: metrics-collector
+          image: bitnami/kubectl:latest
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - |
+              while true; do kubectl get pods -n demo-rbac > /dev/null 2>&1 && echo "$(date) OK" || echo "$(date) FORBIDDEN"; sleep 10; done
+          readinessProbe:
+            exec:
+              command:
+                - kubectl
+                - auth
+                - can-i
+                - list
+                - pods
+                - -n
+                - demo-rbac
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop:
+                - ALL
