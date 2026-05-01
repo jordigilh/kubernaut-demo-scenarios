@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storefront-web
+  namespace: demo-route
+  labels:
+    app: storefront-web
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: storefront-web
+  template:
+    metadata:
+      labels:
+        app: storefront-web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 80
+          name: http
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 2
+          periodSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storefront-web
+  namespace: demo-route
+  labels:
+    app: storefront-web
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
+spec:
+  selector:
+    app: storefront-web
+  ports:
+  - port: 80
+    targetPort: 80
+    name: http
+  type: ClusterIP

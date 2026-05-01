@@ -1,0 +1,17 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: storefront
+  namespace: demo-route
+  labels:
+    app: storefront-web
+spec:
+  to:
+    kind: Service
+    name: storefront-web
+    weight: 100
+  port:
+    targetPort: 80
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

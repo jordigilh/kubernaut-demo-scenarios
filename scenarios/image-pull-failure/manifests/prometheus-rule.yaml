@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-imagepull-rules
+  namespace: demo-imagepull
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: demo-imagepull
+      rules:
+        - alert: ImagePullBackOffPersistent
+          expr: |
+            kube_pod_container_status_waiting_reason{
+              reason="ImagePullBackOff",
+              namespace="demo-imagepull"
+            } > 0
+          for: 60s
+          labels:
+            severity: high
+          annotations:
+            summary: >
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is stuck
+              in ImagePullBackOff for container {{ $labels.container }}.
+            description: >
+              The container {{ $labels.container }} in pod {{ $labels.pod }} cannot
+              pull its image. This is typically caused by expired or missing registry
+              credentials (ImagePullSecret), an incorrect image reference, or registry
+              rate limiting. Verify the ImagePullSecret and image reference.

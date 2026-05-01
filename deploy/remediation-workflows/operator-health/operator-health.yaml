@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restore-operator-csv-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restore-operator-csv-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: restore-operator-csv-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restore-operator-csv-v1
+rules:
+  - apiGroups: ["operators.coreos.com"]
+    resources: ["subscriptions"]
+    verbs: ["get", "list", "delete", "create"]
+  - apiGroups: ["operators.coreos.com"]
+    resources: ["clusterserviceversions"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: ["operators.coreos.com"]
+    resources: ["installplans"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: restore-operator-csv-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restore-operator-csv-v1
+subjects:
+  - kind: ServiceAccount
+    name: restore-operator-csv-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: restore-operator-csv-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: restore-operator-csv-v1
+  namespace: kubernaut-system
+spec:
+  version: "1.4.0"
+  description:
+    what: "Restores a failed or deleted operator CSV by recreating the OLM Subscription, triggering OLM to re-install the operator's ClusterServiceVersion"
+    whenToUse: "When csv_succeeded drops to 0 for an operator and the CSV shows phase Failed, Replacing, or is missing entirely. Check the Subscription status for state UpgradePending or AtLatestKnown with a missing CSV. Common after accidental CSV deletion, CatalogSource image corruption, or failed operator upgrade. The fix is to restore the operator by recreating the Subscription so OLM re-installs the CSV."
+    whenNotToUse: "When the operator CSV is Succeeded but the operator's workload pods are failing for other reasons (CrashLoopBackOff, resource limits). When the CatalogSource itself is intentionally being migrated. When the operator is being uninstalled."
+    preconditions: "The CatalogSource serving the operator's package is healthy. The operator's channel and package name are known."
+
+  actionType: RestoreOperatorCSV
+
+  labels:
+    severity: [critical, high]
+    environment: [production, staging]
+    component: [operator]
+    priority: "*"
+
+  execution:
+    engine: job
+    serviceAccountName: restore-operator-csv-v1-runner
+    bundle: quay.io/kubernaut-cicd/test-workflows/restore-operator-csv-job@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: true
+      description: "Namespace containing the operator Subscription"
+    - name: TARGET_RESOURCE_NAME
+      type: string
+      required: true
+      description: "Name of the Subscription to recreate"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Must be Subscription"

@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fix-security-context-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-security-context-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fix-security-context-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-security-context-v1
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fix-security-context-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-security-context-v1
+subjects:
+  - kind: ServiceAccount
+    name: fix-security-context-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: fix-security-context-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: fix-security-context-v1
+  namespace: kubernaut-system
+spec:
+  version: "1.4.0"
+  description:
+    what: "Reverts a Deployment's SecurityContext to a known-good configuration that complies with the namespace's Security Context Constraints (SCC) policy, restoring pod creation"
+    whenToUse: "When a Deployment has zero available replicas and the ReplicaSet shows FailedCreate events containing 'unable to validate against any security context constraint' or 'is not valid for the pod'. This indicates the pod spec requires capabilities (such as NET_ADMIN, SYS_PTRACE) or UID/GID settings (runAsUser: 0, privileged: true) that violate the namespace's SCC policy (typically restricted-v2 on OpenShift). The fix is to revert the SecurityContext to a compliant configuration, NOT to grant a more permissive SCC."
+    whenNotToUse: "When the pod is failing for reasons other than SCC validation (CrashLoopBackOff, ImagePullBackOff, OOMKilled). When the application genuinely requires elevated privileges — in that case, a cluster admin should review and explicitly grant an appropriate SCC binding. Do not use when the Deployment spec has not changed and the failure is due to an SCC policy change at the cluster level."
+    preconditions: "The Deployment's previous SecurityContext was compliant with the namespace SCC. The current SecurityContext was modified to add privileged requirements that violate the SCC."
+
+  actionType: FixSecurityContext
+
+  labels:
+    severity: [critical, high]
+    environment: [production, staging]
+    component: [deployment, monitoring-agent]
+    priority: "*"
+
+  execution:
+    engine: job
+    serviceAccountName: fix-security-context-v1-runner
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-security-context-job@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: true
+      description: "Namespace of the affected deployment"
+    - name: TARGET_RESOURCE_NAME
+      type: string
+      required: true
+      description: "Name of the deployment to patch"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Must be Deployment"
