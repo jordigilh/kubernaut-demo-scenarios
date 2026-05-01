@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../manifests
+patches:
+  - target:
+      kind: Namespace
+      name: demo-build
+    patch: |
+      - op: add
+        path: /metadata/labels/openshift.io~1cluster-monitoring
+        value: "true"
+  - target:
+      kind: PrometheusRule
+      name: demo-build-rules
+    patch: |
+      - op: remove
+        path: /metadata/labels/release

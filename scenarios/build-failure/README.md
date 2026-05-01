@@ -1,48 +1,49 @@
 # Scenario: Build Failure (BuildConfig / S2I)
 
-**Status**: PLANNED — not yet implemented
+**Status**: IN PROGRESS — scenario scripts and manifests implemented; end-to-end validation pending on live cluster.
 
 ## Overview
 
-Demonstrates Kubernaut diagnosing OpenShift Build failures — BuildConfig
-producing failed Builds due to source clone errors, S2I builder image issues,
-build pod OOM, or push failures to the internal registry.
+Demonstrates Kubernaut diagnosing OpenShift build failures when a BuildConfig's Git
+source URI is wrong after a migration (for example `fatal: repository not found`).
+The scenario uses S2I with the `httpd:2.4-ubi9` builder, a known-good baseline build
+against `https://github.com/sclorg/httpd-ex.git`, then patches the BuildConfig to a
+non-existent repository and starts a failing build. The `BuildFailureRate` alert
+fires from `openshift_build_status_phase_total`.
 
 ## ITIL Mapping
 
 | Level | Task |
 |-------|------|
-| L2 | Availability management — CI/CD build pipeline remediation |
+| L2 | Availability management — CI/CD pipeline remediation |
 
 ## Signal
 
 | Field | Value |
 |-------|-------|
-| Alert | `OpenShiftBuildFailed` or custom alert on build failure rate |
-| Source | Prometheus AlertManager |
-| Severity | medium |
+| Alert | `BuildFailureRate` |
+| Source | Prometheus / Alertmanager |
+| Severity | high |
 
-## Investigation
+## Running
 
-KA investigates via the K8s dynamic client:
+Requires OpenShift with Builds, user workload monitoring (or equivalent scraping of
+`openshift_build_status_phase_total`), and the `httpd:2.4-ubi9` ImageStreamTag in
+`openshift`. The `oc` CLI is required (`start-build`).
 
-- Describe the failed Build resource and its phase/status
-- Review build pod logs for compilation errors, dependency failures, or OOM events
-- Check the BuildConfig source (Git URL, ref, secret) for connectivity issues
-- Verify the builder image (ImageStream tag) exists and is pullable
-- Check if the internal registry is healthy and has sufficient storage
-- Review resource limits on the build pod
+```bash
+./scenarios/build-failure/run.sh [--auto-approve|--interactive] [--no-validate]
+./scenarios/build-failure/validate.sh [--auto-approve]
+./scenarios/build-failure/cleanup.sh
+```
 
-## Remediation (customer-defined)
+## Remediation
 
-Possible workflow actions:
-- Retry the Build (create new Build from BuildConfig)
-- Increase build pod resource limits if OOM was the cause
-- Fix source secret if Git clone failed due to auth
-- Escalate to development team if the failure is a code/dependency issue
+Register `deploy/remediation-workflows/build-failure/build-failure.yaml` and the
+`fix-build-source-job` workflow bundle. Expected action: `FixBuildSource`.
 
 ## Prerequisites
 
-- OpenShift cluster with Builds/BuildConfigs
-- Prometheus monitoring build metrics
+- OpenShift cluster with Builds / BuildConfigs
+- Prometheus monitoring build metrics (`openshift_build_status_phase_total`)
 - Customer-defined remediation workflow registered in DataStorage

@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fix-build-source-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-build-source-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fix-build-source-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-build-source-v1
+rules:
+  - apiGroups: ["build.openshift.io"]
+    resources: ["buildconfigs"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: ["build.openshift.io"]
+    resources: ["builds"]
+    verbs: ["get", "list", "create"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fix-build-source-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-build-source-v1
+subjects:
+  - kind: ServiceAccount
+    name: fix-build-source-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: fix-build-source-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: fix-build-source-v1
+  namespace: kubernaut-system
+spec:
+  version: "1.4.0"
+  description:
+    what: "Restores a BuildConfig's Git source reference to a known-good URI and branch, then triggers a new build to recover from build failures caused by broken source references"
+    whenToUse: "When openshift_build_status_phase_total with build_phase=failed increases and no successful builds are completing. Check the Build resource status.phase and build pod logs for clone/fetch errors. Check BuildConfig spec.source.git.uri and spec.source.git.ref for incorrect repository URL or branch reference. Common after repository migrations, branch renames, or source secret expiry."
+    whenNotToUse: "When the build failure is caused by a code compilation error (application bug, not infrastructure). When the builder image itself is broken (use FixBuilderImageStream instead). When build pods are OOMKilled (increase build resource limits instead)."
+    preconditions: "The correct Git source URI and ref are known. The builder ImageStream tag is valid."
+
+  actionType: FixBuildSource
+
+  labels:
+    severity: [critical, high]
+    environment: [production, staging]
+    component: [build-pipeline, deployment]
+    priority: "*"
+
+  execution:
+    engine: job
+    serviceAccountName: fix-build-source-v1-runner
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-build-source-job@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: true
+      description: "Namespace of the affected BuildConfig"
+    - name: TARGET_RESOURCE_NAME
+      type: string
+      required: true
+      description: "Name of the BuildConfig to fix"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Must be BuildConfig"
