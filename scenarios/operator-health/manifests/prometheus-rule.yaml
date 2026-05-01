@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-operator-rules
+  namespace: demo-operator
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: demo-operator
+    rules:
+    - alert: OperatorCSVFailed
+      expr: |
+        csv_succeeded{
+          name=~"etcdoperator.*",
+          exported_namespace="demo-operator"
+        } == 0
+      for: 120s
+      labels:
+        severity: high
+        namespace: demo-operator
+      annotations:
+        summary: >
+          Operator CSV {{ $labels.name }} in namespace {{ $labels.exported_namespace }}
+          is no longer in Succeeded state.
+        description: >
+          The ClusterServiceVersion for the etcd operator has failed or been
+          deleted. The operator is no longer reconciling its custom resources.
+          This is typically caused by accidental CSV deletion, a failed operator
+          upgrade, or CatalogSource corruption. Check the Subscription status
+          and InstallPlan for recovery options.

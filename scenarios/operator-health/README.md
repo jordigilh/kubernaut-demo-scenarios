@@ -1,12 +1,14 @@
 # Scenario: Operator Health Management (OLM)
 
-**Status**: PLANNED — not yet implemented
+**Status**: IN PROGRESS — scenario scripts and manifests implemented; end-to-end validation pending on live cluster.
 
 ## Overview
 
 Demonstrates Kubernaut diagnosing and remediating OpenShift Operator Lifecycle Manager
-(OLM) failures, including stuck Subscriptions, failed ClusterServiceVersions (CSVs),
-and InstallPlan issues.
+(OLM) failures when a ClusterServiceVersion is deleted (for example during a flawed
+namespace cleanup script). The etcd operator from the `community-operators` catalog
+is installed with a manual InstallPlan; the CSV is deleted to drive `csv_succeeded`
+to 0 and fire `OperatorCSVFailed`.
 
 ## ITIL Mapping
 
@@ -18,31 +20,27 @@ and InstallPlan issues.
 
 | Field | Value |
 |-------|-------|
-| Alert | `OLMOperatorInstallFailed` or `ClusterOperatorDegraded` |
-| Source | Prometheus AlertManager (kube-state-metrics for OLM resources) |
+| Alert | `OperatorCSVFailed` |
+| Source | Prometheus (`csv_succeeded` from kube-state-metrics) |
 | Severity | high |
 
-## Investigation
+## Running
 
-KA investigates via the K8s dynamic client (Subscriptions, CSVs, InstallPlans,
-CatalogSources are standard K8s CRDs managed by OLM):
+Requires an OpenShift cluster with OLM, `community-operators`, and platform monitoring.
 
-- Describe the failing Subscription and its current CSV
-- Check InstallPlan status and approval state
-- Review CatalogSource health and connectivity
-- Check operator pod logs for crash/error details
-- Verify RBAC (ClusterRole, ClusterRoleBinding) for the operator's ServiceAccount
+```bash
+./scenarios/operator-health/run.sh [--auto-approve|--interactive] [--no-validate]
+./scenarios/operator-health/validate.sh [--auto-approve]
+./scenarios/operator-health/cleanup.sh
+```
 
-## Remediation (customer-defined)
+## Remediation
 
-Possible workflow actions:
-- Retry failed InstallPlan approval
-- Delete and recreate the Subscription to trigger re-install
-- Roll back to previous CSV version
-- Escalate to L3 if the operator requires a vendor patch
+Register `deploy/remediation-workflows/operator-health/operator-health.yaml` and the
+`restore-operator-csv-job` workflow bundle. Expected action: `RestoreOperatorCSV`.
 
 ## Prerequisites
 
 - OpenShift cluster with OLM enabled
-- kube-state-metrics scraping OLM resources
+- kube-state-metrics exposing OLM CSV metrics (`csv_succeeded`)
 - Customer-defined remediation workflow registered in DataStorage
