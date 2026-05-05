@@ -90,7 +90,7 @@ spec:
     spec:
       containers:
       - name: loader
-        image: busybox:1.36
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-2
         command: ["sh", "-c"]
         args:
         - |

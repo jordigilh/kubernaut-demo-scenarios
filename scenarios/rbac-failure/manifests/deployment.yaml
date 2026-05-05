@@ -19,7 +19,7 @@ spec:
       serviceAccountName: metrics-collector
       containers:
         - name: metrics-collector
-          image: bitnami/kubectl:latest
+          image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
           command:
             - /bin/bash
             - -c

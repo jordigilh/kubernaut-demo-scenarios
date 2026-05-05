@@ -59,7 +59,7 @@ spec:
       volumes:
       - name: data
         emptyDir:
-          sizeLimit: 4Gi
+          sizeLimit: 8Gi
       - name: init-sql
         configMap:
           name: postgres-init-sql
