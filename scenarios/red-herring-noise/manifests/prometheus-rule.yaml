@@ -1,0 +1,46 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: red-herring-noise-rules
+  namespace: demo-red-herring
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: red-herring-noise
+    rules:
+    - alert: KubePodCrashLooping
+      expr: |
+        rate(
+          kube_pod_container_status_restarts_total{
+            namespace="demo-red-herring",
+            container="app"
+          }[5m]
+        ) * 300 > 3
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: >
+          Pod {{ $labels.pod }} in namespace {{ $labels.namespace }}
+          is crash-looping ({{ $value | printf "%.0f" }} restarts in 5 minutes).
+        description: >
+          Container {{ $labels.container }} in pod {{ $labels.pod }}
+          is restarting repeatedly. The container is exiting with a
+          non-zero exit code.
+    - alert: ImagePullBackOffPersistent
+      expr: |
+        kube_pod_container_status_waiting_reason{
+          namespace="demo-red-herring",
+          reason=~"ImagePullBackOff|ErrImagePull"
+        } > 0
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: >
+          Pod {{ $labels.pod }} in namespace {{ $labels.namespace }}
+          is stuck in {{ $labels.reason }}.
+        description: >
+          The container image cannot be pulled. This may indicate a
+          registry outage, missing image tag, or authentication issue.

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connection-leaker
+  namespace: demo-db-saturation
+  labels:
+    app: connection-leaker
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: connection-leaker
+  template:
+    metadata:
+      labels:
+        app: connection-leaker
+    spec:
+      containers:
+      - name: leaker
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        command: ["sh", "-c"]
+        args:
+        - |
+          echo "[connection-leaker] Starting connection leak simulation"
+          echo "[connection-leaker] Target: postgres.demo-db-saturation.svc:5432"
+          i=0
+          while true; do
+            i=$((i + 1))
+            echo "[connection-leaker] Opening persistent connection #$i to postgres (will hold indefinitely)"
+            PGPASSWORD=demo psql -h postgres -U demo -d demo -c "SELECT pg_sleep(86400)" &
+            sleep 8
+          done
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "5m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"

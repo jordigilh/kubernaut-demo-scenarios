@@ -1,0 +1,12 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: ActionType
+metadata:
+  name: expand-pvc
+  namespace: kubernaut-system
+spec:
+  name: ExpandPersistentVolumeClaim
+  description:
+    what: "Expand a PersistentVolumeClaim by patching its storage request to a larger size, leveraging the CSI driver's online volume expansion capability."
+    whenToUse: "When a PVC is projected to exhaust capacity based on storage growth trends (predict_linear), and the underlying StorageClass supports allowVolumeExpansion. The workload must be using a CSI-backed PVC with a filesystem that supports online resize (ext4, xfs)."
+    whenNotToUse: "When disk growth is caused by stale data that should be cleaned up rather than accommodated. When the StorageClass does not support volume expansion. When the PVC is backed by a non-CSI provisioner."
+    preconditions: "The PVC's StorageClass has allowVolumeExpansion: true. The CSI driver supports ControllerExpandVolume and NodeExpandVolume RPCs. Sufficient storage capacity exists in the underlying storage pool."

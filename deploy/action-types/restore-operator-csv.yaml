@@ -1,0 +1,12 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: ActionType
+metadata:
+  name: restore-operator-csv
+  namespace: kubernaut-system
+spec:
+  name: RestoreOperatorCSV
+  description:
+    what: "Deletes a failed ClusterServiceVersion so that OLM re-creates it from the Subscription, restoring operator health."
+    whenToUse: "An OLM-managed operator is degraded because its CSV is stuck in a failed phase after accidental deletion or corruption."
+    whenNotToUse: "When the CatalogSource is missing or the Subscription channel does not contain the expected CSV version."
+    preconditions: "The operator Subscription exists and references a healthy CatalogSource. The target CSV name and namespace are known."

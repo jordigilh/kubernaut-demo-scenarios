@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: etcd-metrics
+  namespace: demo-etcd-defrag
+  labels:
+    app: etcd
+    kubernaut.ai/managed: "true"
+spec:
+  selector:
+    matchLabels:
+      app: etcd
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+    scheme: http

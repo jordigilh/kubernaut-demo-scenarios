@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-processor
+  namespace: demo-cascade
+  labels:
+    app: order-processor
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-processor
+  template:
+    metadata:
+      labels:
+        app: order-processor
+    spec:
+      containers:
+      - name: app
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        command: ["sh", "-c"]
+        args:
+        - |
+          echo "[order-processor] Starting -- depends on postgres.demo-cascade.svc:5432"
+          while true; do
+            if PGPASSWORD=demo psql -h postgres -U demo -d demo -t -c "SELECT 1" >/dev/null 2>&1; then
+              echo "[order-processor] Health check OK -- postgres connection successful"
+              sleep 10
+            else
+              echo "[order-processor] FATAL: Cannot connect to postgres.demo-cascade.svc:5432 -- exiting"
+              exit 1
+            fi
+          done
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "5m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-sync
+  namespace: demo-cascade
+  labels:
+    app: inventory-sync
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory-sync
+  template:
+    metadata:
+      labels:
+        app: inventory-sync
+    spec:
+      containers:
+      - name: app
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        command: ["sh", "-c"]
+        args:
+        - |
+          echo "[inventory-sync] Starting -- depends on postgres.demo-cascade.svc:5432"
+          while true; do
+            if PGPASSWORD=demo psql -h postgres -U demo -d demo -t -c "SELECT 1" >/dev/null 2>&1; then
+              echo "[inventory-sync] Health check OK -- postgres connection successful"
+              sleep 10
+            else
+              echo "[inventory-sync] FATAL: Cannot connect to postgres.demo-cascade.svc:5432 -- exiting"
+              exit 1
+            fi
+          done
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "5m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"

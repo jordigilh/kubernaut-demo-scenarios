@@ -1,0 +1,12 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: ActionType
+metadata:
+  name: restore-role-binding
+  namespace: kubernaut-system
+spec:
+  name: RestoreRoleBinding
+  description:
+    what: "Recreates a deleted or corrupted RoleBinding / ClusterRoleBinding so that the affected ServiceAccount regains its RBAC permissions."
+    whenToUse: "A workload fails with 403 Forbidden because its RoleBinding was accidentally deleted or modified, removing required RBAC grants."
+    whenNotToUse: "When the ServiceAccount itself is missing. When the ClusterRole referenced by the binding does not exist."
+    preconditions: "The target namespace, ServiceAccount, and required Role/ClusterRole are known. The original binding spec is recoverable from the workflow definition."

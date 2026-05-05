@@ -1,0 +1,87 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: scale-replicas-v1-runner
+rules:
+- apiGroups: ["apps"]
+  resources: [deployments, deployments/scale, replicasets]
+  verbs: [get, list, patch, update]
+- apiGroups: [""]
+  resources: [pods]
+  verbs: [get, list, watch, delete]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: scale-replicas-v1-runner
+  namespace: kubernaut-workflows
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: scale-replicas-v1-runner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: scale-replicas-v1-runner
+subjects:
+- kind: ServiceAccount
+  name: scale-replicas-v1-runner
+  namespace: kubernaut-workflows
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: scale-replicas-v1
+  namespace: kubernaut-system
+spec:
+  actionType: ScaleReplicas
+  description:
+    preconditions: >
+      The target Deployment exists and the issue is caused by an offending workload
+      that should be isolated by scaling down, or by insufficient capacity that should
+      be addressed by scaling up.
+    what: >
+      Scales a Deployment to a target replica count. Defaults to 0 (scale-to-zero)
+      to isolate an offending workload and stop its impact on shared resources.
+    whenNotToUse: >
+      When the workload is a StatefulSet with persistent state that would be lost,
+      or when scaling down would violate a PodDisruptionBudget.
+    whenToUse: >
+      When the root cause is an offending workload (e.g., connection leaker, resource
+      hog) that should be stopped entirely, or when capacity needs to be increased
+      by adding replicas.
+  execution:
+    bundle: quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:8b00a2fbd2ee39802c52e16b1089c2a2711218a5e1b3d94acc15a797b1f05668
+    engine: job
+    serviceAccountName: scale-replicas-v1-runner
+  labels:
+    component:
+    - deployment
+    environment:
+    - production
+    - staging
+    priority: "*"
+    severity:
+    - low
+    - medium
+    - high
+    - critical
+  parameters:
+  - description: Namespace of the target Deployment
+    name: TARGET_RESOURCE_NAMESPACE
+    required: true
+    type: string
+  - description: Name of the Deployment to scale
+    name: TARGET_RESOURCE_NAME
+    required: true
+    type: string
+  - description: Must be Deployment
+    name: TARGET_RESOURCE_KIND
+    required: true
+    type: string
+  - description: Target replica count (default 0)
+    name: SCALE_REPLICAS
+    required: false
+    type: string
+  version: "1.4.0"

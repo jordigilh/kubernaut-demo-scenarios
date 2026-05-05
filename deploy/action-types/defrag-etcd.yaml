@@ -1,0 +1,12 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: ActionType
+metadata:
+  name: defrag-etcd
+  namespace: kubernaut-system
+spec:
+  name: DefragEtcd
+  description:
+    what: "Perform a rolling defragmentation of etcd cluster members to reclaim fragmented database space."
+    whenToUse: "When etcd database fragmentation ratio exceeds 50% (db_total_size significantly larger than db_in_use). Verify all etcd members are healthy and have a leader before proceeding. Defrag one member at a time, verifying cluster health between each."
+    whenNotToUse: "When etcd cluster has a member down or no leader (quorum at risk). When the database size is growing because of active key creation (fragmentation is not the issue). When etcd is under high write load (defrag temporarily blocks writes on the member being defragged)."
+    preconditions: "All etcd members are healthy (etcd_server_has_leader=1). The fragmentation ratio is above the threshold. No etcd members are in a degraded state."

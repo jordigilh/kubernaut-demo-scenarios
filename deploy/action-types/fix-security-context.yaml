@@ -1,0 +1,12 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: ActionType
+metadata:
+  name: fix-security-context
+  namespace: kubernaut-system
+spec:
+  name: FixSecurityContext
+  description:
+    what: "Patches a Deployment's securityContext to comply with the assigned OCP SecurityContextConstraint, allowing pods to schedule."
+    whenToUse: "Pods are blocked by SCC admission because the Deployment requests capabilities, runAsUser, or volume types not allowed by the SCC bound to the ServiceAccount."
+    whenNotToUse: "When the SCC itself needs to be changed or when the workload genuinely requires privileged access."
+    preconditions: "The target Deployment and namespace are known. The allowed SCC and its constraints are discoverable from the cluster."

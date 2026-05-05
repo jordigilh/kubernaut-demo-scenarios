@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: etcd-defrag-rules
+  namespace: demo-etcd-defrag
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: etcd-defragmentation
+    rules:
+    - alert: EtcdHighFragmentationRatio
+      expr: |
+        (
+          etcd_mvcc_db_total_size_in_bytes{namespace="demo-etcd-defrag"}
+          - etcd_mvcc_db_total_size_in_use_in_bytes{namespace="demo-etcd-defrag"}
+        )
+        / etcd_mvcc_db_total_size_in_bytes{namespace="demo-etcd-defrag"}
+        > 0.15
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: >
+          etcd member {{ $labels.pod }} in namespace {{ $labels.namespace }}
+          has a database fragmentation ratio of {{ $value | printf "%.0f" }}%.
+        description: >
+          The etcd database on {{ $labels.pod }} has {{ $value | printf "%.0f" }}%
+          fragmented space. Total database size is significantly larger than
+          the data actually in use.

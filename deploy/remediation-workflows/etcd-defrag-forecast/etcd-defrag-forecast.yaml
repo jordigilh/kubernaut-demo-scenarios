@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: defrag-etcd-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: defrag-etcd-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: defrag-etcd-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: defrag-etcd-v1
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: defrag-etcd-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: defrag-etcd-v1
+subjects:
+  - kind: ServiceAccount
+    name: defrag-etcd-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: defrag-etcd-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: defrag-etcd-v1
+  namespace: kubernaut-system
+spec:
+  version: "1.4.0"
+  description:
+    what: "Performs a rolling defragmentation of etcd cluster members to reclaim fragmented database space, defragging one member at a time with health checks between each"
+    whenToUse: "When etcd database fragmentation ratio exceeds 50% (etcd_mvcc_db_total_size_in_bytes much larger than etcd_mvcc_db_total_size_in_use_in_bytes). All etcd members must be healthy with a leader elected. The database size is stable (not actively growing from key creation)."
+    whenNotToUse: "When etcd has a member down or no leader. When database growth is caused by active key creation rather than fragmentation. When etcd is under sustained high write load."
+    preconditions: "All etcd members healthy. Leader elected. Fragmentation ratio above threshold."
+
+  actionType: DefragEtcd
+
+  labels:
+    severity: [critical, high]
+    environment: [production, staging]
+    component: [etcd, database]
+    priority: "*"
+
+  execution:
+    engine: job
+    serviceAccountName: defrag-etcd-v1-runner
+    bundle: quay.io/kubernaut-cicd/test-workflows/defrag-etcd-job@sha256:a03eb247457cb3c1cc071191e81f369271d20af487cc666fc60198cf887b22a4
+  parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: true
+      description: "Namespace containing the etcd StatefulSet"
+    - name: TARGET_RESOURCE_NAME
+      type: string
+      required: true
+      description: "Name of the etcd StatefulSet"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Must be StatefulSet"
