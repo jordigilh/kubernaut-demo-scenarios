@@ -11,7 +11,7 @@ spec:
     name: storefront-web
     weight: 100
   port:
-    targetPort: 80
+    targetPort: http
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect

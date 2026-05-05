@@ -14,10 +14,16 @@ spec:
         haproxy_backend_up{
           exported_namespace="demo-route",
           route="storefront"
-        } == 0
+        } == 1
+        unless on(exported_namespace, route)
+        haproxy_server_up{
+          exported_namespace="demo-route",
+          route="storefront"
+        }
       for: 30s
       labels:
         severity: high
+        namespace: demo-route
       annotations:
         summary: >
           Route storefront in namespace demo-route has no healthy backend.

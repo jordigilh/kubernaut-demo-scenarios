@@ -11,21 +11,27 @@ spec:
     rules:
     - alert: OperatorCSVFailed
       expr: |
-        csv_succeeded{
+        absent(csv_succeeded{
           name=~"etcdoperator.*",
           exported_namespace="demo-operator"
-        } == 0
+        } == 1)
       for: 120s
       labels:
         severity: high
         namespace: demo-operator
+        subscription: etcd
       annotations:
         summary: >
-          Operator CSV {{ $labels.name }} in namespace {{ $labels.exported_namespace }}
-          is no longer in Succeeded state.
+          Operator etcdoperator CSV in namespace demo-operator is no longer
+          in Succeeded state (deleted or failed). The csv_succeeded metric
+          has disappeared, indicating the ClusterServiceVersion was removed.
         description: >
-          The ClusterServiceVersion for the etcd operator has failed or been
-          deleted. The operator is no longer reconciling its custom resources.
-          This is typically caused by accidental CSV deletion, a failed operator
-          upgrade, or CatalogSource corruption. Check the Subscription status
-          and InstallPlan for recovery options.
+          The ClusterServiceVersion for the etcd operator (installed via
+          Subscription "etcd" in namespace "demo-operator") has been deleted
+          or has failed. The operator is no longer reconciling its custom
+          resources. Investigate: (1) check Subscription status with
+          "kubectl get subscription etcd -n demo-operator",
+          (2) check for InstallPlans with
+          "kubectl get installplan -n demo-operator",
+          (3) check if the CSV can be restored by approving a new InstallPlan
+          or by deleting and recreating the Subscription.

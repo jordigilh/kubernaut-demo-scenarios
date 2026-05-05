@@ -18,6 +18,7 @@ route:
     - match_re:
         namespace: "demo-.*"
       receiver: gateway-webhook
+      group_by: [alertname, namespace]
       continue: false
     - match:
         alertname: KubeNodeNotReady
