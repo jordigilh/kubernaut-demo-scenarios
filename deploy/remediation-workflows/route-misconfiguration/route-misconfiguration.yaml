@@ -65,7 +65,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-route-target-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-route-target-job@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-route-target-job@sha256:c009ab00b9b4bee19b5de88ab818acd01e849377b6d701f3fd8d4528e0274347
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

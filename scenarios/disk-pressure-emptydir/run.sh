@@ -275,8 +275,9 @@ _check_prerequisites() {
 
     if [ "$missing" = true ]; then
         echo ""
-        echo "  Setup will continue, but the pipeline may fail without the above."
+        echo "  ERROR: Required prerequisites are missing. Fix the above before running."
         echo ""
+        exit 1
     fi
 }
 
@@ -393,9 +394,10 @@ echo ""
 # Reduce EA timing for webhook-based ArgoCD sync.
 # With a Gitea→ArgoCD webhook, sync is near-instant; the default 3m gitOpsSyncDelay
 # and 5m proactiveAlertDelay add unnecessary wait. cleanup.sh restores defaults.
-echo "==> Tuning RO timing for webhook-based GitOps (gitOpsSyncDelay=1m, stabilization=3m, alertDelay=3m)..."
+echo "==> Tuning RO timing for webhook-based GitOps (gitOpsSyncDelay=30s, stabilization=3m, alertDelay=3m)..."
 kubectl get configmap remediationorchestrator-config -n "${PLATFORM_NS}" -o yaml \
-  | sed 's/gitOpsSyncDelay: "3m"/gitOpsSyncDelay: "1m"/' \
+  | sed 's/gitOpsSyncDelay: "3m"/gitOpsSyncDelay: "30s"/' \
+  | sed 's/gitOpsSyncDelay: "1m"/gitOpsSyncDelay: "30s"/' \
   | sed 's/stabilizationWindow: "5m"/stabilizationWindow: "3m"/' \
   | sed 's/proactiveAlertDelay: "5m"/proactiveAlertDelay: "3m"/' \
   | kubectl apply -f - >/dev/null 2>&1
@@ -526,7 +528,7 @@ WORK_DIR=$(mktemp -d)
 kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
-wait_for_port "${GITEA_LOCAL_PORT}"
+wait_for_port "${GITEA_LOCAL_PORT}" 45
 
 curl -s -X POST "http://localhost:${GITEA_LOCAL_PORT}/api/v1/user/repos" \
   -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
@@ -606,7 +608,7 @@ spec:
       volumes:
       - name: data
         emptyDir:
-          sizeLimit: 4Gi
+          sizeLimit: 8Gi
       - name: init-sql
         configMap:
           name: postgres-init-sql
@@ -704,7 +706,7 @@ spec:
         effect: NoSchedule
       initContainers:
       - name: cache-warmup
-        image: busybox:1.36
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-2
         command:
         - /bin/sh
         - -c
@@ -734,7 +736,7 @@ spec:
       volumes:
       - name: cache
         emptyDir:
-          sizeLimit: 512Mi
+          sizeLimit: 250Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -766,16 +768,16 @@ spec:
         effect: NoSchedule
       containers:
       - name: logger
-        image: busybox:1.36
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-2
         command:
         - /bin/sh
         - -c
         - |
           i=0
           while true; do
-            dd if=/dev/urandom bs=256K count=1 of=/var/log/app/logfile-${i}.log 2>/dev/null
+            dd if=/dev/urandom bs=32K count=1 of=/var/log/app/logfile-${i}.log 2>/dev/null
             i=$((i + 1))
-            sleep 5
+            sleep 60
           done
         resources:
           requests:
@@ -790,7 +792,7 @@ spec:
       volumes:
       - name: logs
         emptyDir:
-          sizeLimit: 512Mi
+          sizeLimit: 50Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -835,7 +837,7 @@ spec:
         - name: data
           mountPath: /data
       - name: session-loader
-        image: busybox:1.36
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-2
         command:
         - /bin/sh
         - -c
@@ -861,7 +863,7 @@ spec:
       volumes:
       - name: data
         emptyDir:
-          sizeLimit: 512Mi
+          sizeLimit: 150Mi
 MANIFEST
 
 cat > disk-pressure-emptydir/kustomization.yaml <<'MANIFEST'
@@ -937,7 +939,7 @@ elif [ "${PLATFORM:-kind}" = "ocp" ]; then
 else
     _MOUNTPOINT="/"
 fi
-_EXPR="predict_linear(node_filesystem_avail_bytes{mountpoint=\"${_MOUNTPOINT}\", instance=~\"${_INSTANCE_RE}\"}[1m], 600) < 0"
+_EXPR="predict_linear(node_filesystem_avail_bytes{mountpoint=\"${_MOUNTPOINT}\", instance=~\"${_INSTANCE_RE}\"}[1m], 1800) < 0"
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
     _PROM_NS="openshift-monitoring"
 else
@@ -1001,6 +1003,7 @@ echo ""
 echo "==> Step 5: Running init SQL..."
 local init_pod
 init_pod=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir \
+  --field-selector=status.phase=Running \
   -o jsonpath='{.items[0].metadata.name}')
 kubectl exec -n "${NAMESPACE}" "${init_pod}" -- \
   psql -U postgres -d postgres -f /docker-entrypoint-initdb.d/init.sql 2>&1 | sed 's/^/    /'
@@ -1011,6 +1014,7 @@ echo ""
 _label_target_node() {
     local pod node
     pod=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir \
+      --field-selector=status.phase=Running \
       -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
     node=$(kubectl get pod "$pod" -n "${NAMESPACE}" \
       -o jsonpath='{.spec.nodeName}' 2>/dev/null)
@@ -1048,6 +1052,7 @@ run_inject() {
 _label_target_node
 
 POD=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir \
+  --field-selector=status.phase=Running \
   -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
 if [ -z "$POD" ]; then
     echo "ERROR: No postgres-emptydir pod found in ${NAMESPACE}"
@@ -1060,9 +1065,9 @@ echo "==> Target node: ${NODE}"
 # ── Dynamic rate calculation based on node filesystem capacity ──────────
 # Get disk stats directly from the postgres pod (on the target node).
 #
-# PrometheusRule: predict_linear(v[1m], 600) < 0 for 15s
-#   W=60s (window), H=600s (horizon), F=15s (for clause)
-#   Desired margin = 300s (5 min -- enough for pg_dump + GitOps + restore)
+# PrometheusRule: predict_linear(v[1m], 1800) < 0 for 15s
+#   W=60s (window), H=1800s (horizon), F=15s (for clause)
+#   Desired margin = 1200s (20 min -- enough for LLM investigation + workflow)
 #
 # Strategy: fill fast enough for predict_linear to fire within ~75s
 # (W + F) but slow enough to leave ~6 min margin for the Ansible playbook.
@@ -1131,7 +1136,7 @@ echo "  Iterations: ${ITERATIONS}"
 echo "  Estimate:   PredictedDiskPressure at ~${EST_ALERT_MIN} min, eviction at ~${EST_EVICT_MIN} min"
 echo ""
 echo "  Noise writers:"
-echo "    Log-collector: ~3 MB/min unbounded"
+echo "    Log-collector: ~32 KB/min unbounded (reduced to avoid LLM target ambiguity)"
 echo "    Nginx cache:   ~200 MB burst then stable"
 echo "    Redis scratch:  ~100 MB gradual then stable"
 echo ""

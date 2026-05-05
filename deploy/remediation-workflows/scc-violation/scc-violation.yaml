@@ -68,7 +68,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-security-context-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-security-context-job@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-security-context-job@sha256:8430bf32cae472db0fd57132ceaf1220b1860df422ea17aa70d6dcc1f3f2fce0
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

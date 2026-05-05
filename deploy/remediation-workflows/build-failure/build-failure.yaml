@@ -68,7 +68,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-build-source-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-build-source-job@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-build-source-job@sha256:a61eb0d83223b55b946e8aa5ae4506bd71a89f33c224ee5b93064fd9305e817a
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

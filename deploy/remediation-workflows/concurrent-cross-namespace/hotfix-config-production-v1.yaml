@@ -50,11 +50,11 @@ metadata:
   name: hotfix-config-production-v1
   namespace: kubernaut-system
 spec:
-  version: "1.0.5"
+  version: "1.0.6"
   description:
     what: "Patches a faulty ConfigMap in-place to remove an invalid configuration directive, then restarts the owning Deployment so pods load the corrected configuration"
-    whenToUse: "When a Deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap and the signal carries risk_tolerance=low. The target resource may be the ConfigMap itself or the Deployment that mounts it. Prefer this over rollback when the RCA identifies a ConfigMap as the root cause, because a deployment rollback does not modify the ConfigMap -- the poisoned ConfigMap remains in the cluster and will re-trigger crashes if pods are rescheduled. In-place patching eliminates the root cause permanently. This workflow is designed for production environments where the configuration error is clearly identifiable and the fix is deterministic."
-    whenNotToUse: "When the configuration error cannot be identified programmatically, when the root cause is a bad image or pod spec change rather than a ConfigMap, or when a clean rollback to a known-good revision is preferred. In those cases, use a full deployment rollback."
+    whenToUse: "When a Deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap, the signal carries risk_tolerance=low, and the workload is NOT managed by Helm or GitOps. The target resource may be the ConfigMap itself or the Deployment that mounts it. This workflow patches the ConfigMap in-place, which is only appropriate for imperatively managed resources. For Helm-managed workloads, use HelmRollback instead — a Helm rollback reverts the entire release including all ConfigMaps to the previous healthy revision."
+    whenNotToUse: "When the workload is managed by Helm or GitOps (ArgoCD/Flux) — use HelmRollback or GitRevert instead, as in-place ConfigMap patches will be overwritten by the next sync or upgrade. Also avoid when the configuration error cannot be identified programmatically, or when the root cause is a bad image or pod spec change rather than a ConfigMap."
     preconditions: "A Deployment mounts a ConfigMap as a volume, and the ConfigMap contains an identifiable invalid directive that can be removed to restore health."
 
   actionType: PatchConfiguration

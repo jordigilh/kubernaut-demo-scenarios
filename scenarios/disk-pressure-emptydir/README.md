@@ -459,7 +459,35 @@ filesystem on the scenario worker node, using Claude Sonnet 4 as the LLM backend
 | EA verifies | ~7 min | Reduced timing for webhook-based ArgoCD (gitOpsSyncDelay=1m, stabilization=3m, alertDelay=3m) |
 | **Total** | **~15-20 min** | End-to-end proactive remediation (includes manual approval) |
 
-### LLM Analysis (OCP observed — correct, rc14)
+### LLM Analysis (OCP observed — v1.4.0-rc4, Claude Sonnet 4)
+
+```
+Root cause:    Multiple workloads writing to emptyDir volumes; postgres-emptydir
+               (8Gi emptyDir, no PVC) is the primary driver — 892Mi and growing
+Confidence:    92%
+Workflow:      MigrateEmptyDirToPVC (migrate-emptydir-to-pvc-gitops-v1)
+Rationale:     Exact match: GitOps-managed PostgreSQL on emptyDir causing
+               DiskPressure, namespace has argocd label, proactive signal
+               allows live pg_dump before eviction.
+Duration:      ~90s AA, 3m24s AWX playbook, workflow completed successfully
+```
+
+The LLM correctly identified PostgreSQL as the root cause using 27 tool calls across
+20 LLM turns (214K tokens). Key investigation steps:
+1. Described the node — identified prior `EvictionThresholdMet` and `NodeHasDiskPressure` events
+2. Listed all pods and inspected volume specs (identified 4 emptyDir workloads)
+3. Correctly ranked `postgres-emptydir` as the largest contributor (8Gi emptyDir, 892Mi RAM)
+4. Noted all 4 pods tolerate `disk-pressure:NoSchedule` taint (preventing auto-eviction)
+5. Detected `gitOpsManaged=true` via ArgoCD Application enrichment labels
+6. Selected `migrate-emptydir-to-pvc-gitops-v1` with 0.92 confidence
+
+> **RC4 prompt improvements**: The investigation prompt changes in v1.4.0-rc4
+> eliminated the false-positive targeting of `log-collector` that was observed in
+> earlier releases. With the reduced `log-collector` write rate (32KB/60s) and
+> improved prompt steering, the LLM consistently identifies `postgres-emptydir`
+> as the primary root cause across runs (observed confidence: 0.90–0.92).
+
+### LLM Analysis (OCP observed — v1.1.0-rc14)
 
 ```
 Root cause:    PostgreSQL deployment using unbounded emptyDir storage with

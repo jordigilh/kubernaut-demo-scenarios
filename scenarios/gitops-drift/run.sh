@@ -77,7 +77,7 @@ kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http \
   "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
 local pf_pid=$!
-wait_for_port "${GITEA_LOCAL_PORT}"
+wait_for_port "${GITEA_LOCAL_PORT}" 45
 
 # Create repo if it doesn't exist (idempotent)
 curl -sf -X POST "http://localhost:${GITEA_LOCAL_PORT}/api/v1/user/repos" \
@@ -326,7 +326,7 @@ WORK_DIR=$(mktemp -d)
 kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
-wait_for_port "${GITEA_LOCAL_PORT}"
+wait_for_port "${GITEA_LOCAL_PORT}" 45
 
 cd "${WORK_DIR}"
 git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo

@@ -65,7 +65,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: refresh-pull-secret-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/refresh-pull-secret-job@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    bundle: quay.io/kubernaut-cicd/test-workflows/refresh-pull-secret-job@sha256:446f9a2200c1cbf1de9dd007f63a557739b2f564ba4b7ac8e90ebc05a3bc6d8d
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

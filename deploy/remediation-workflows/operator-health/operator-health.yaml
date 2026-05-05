@@ -68,7 +68,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: restore-operator-csv-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/restore-operator-csv-job@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    bundle: quay.io/kubernaut-cicd/test-workflows/restore-operator-csv-job@sha256:6774a90c14dffa17a4bc167c4bb36bc53bf0bc6150b10b3a778add09ea196956
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
