@@ -1,0 +1,201 @@
+{
+    "apiVersion": "kubernaut.ai/v1alpha1",
+    "kind": "RemediationRequest",
+    "metadata": {
+        "annotations": {
+            "kubernaut.ai/created-at": "2026-04-27T03:46:10Z"
+        },
+        "creationTimestamp": "2026-04-27T03:46:10Z",
+        "generation": 1,
+        "labels": {
+            "app.kubernetes.io/component": "remediation",
+            "app.kubernetes.io/managed-by": "gateway-service"
+        },
+        "name": "rr-6f5490d9b422-651aa044",
+        "namespace": "kubernaut-system",
+        "resourceVersion": "52521865",
+        "uid": "8d3af32c-2c97-4d5e-a413-b8b3ea4b744d"
+    },
+    "spec": {
+        "firingTime": "2026-04-27T03:46:05Z",
+        "originalPayload": "{\"receiver\":\"gateway-webhook\",\"status\":\"firing\",\"alerts\":[{\"status\":\"firing\",\"labels\":{\"alertname\":\"PredictedDiskPressure\",\"component\":\"deployment\",\"container\":\"kube-rbac-proxy\",\"device\":\"/dev/loop1\",\"endpoint\":\"https\",\"environment\":\"production\",\"fstype\":\"ext4\",\"instance\":\"dev-worker-0.redhat-internal.com\",\"job\":\"node-exporter\",\"mountpoint\":\"/var/lib/kubelet\",\"namespace\":\"demo-diskpressure\",\"node\":\"dev-worker-0.redhat-internal.com\",\"openshift_io_alert_source\":\"platform\",\"pod\":\"node-exporter-kh8lm\",\"prometheus\":\"openshift-monitoring/k8s\",\"service\":\"node-exporter\",\"severity\":\"high\"},\"annotations\":{\"description\":\"Linear regression on node dev-worker-0.redhat-internal.com filesystem usage over the last minute predicts available space will reach zero within 30 minutes. This is likely caused by emptyDir growth from the postgres-emptydir deployment in demo-diskpressure namespace. Proactive remediation can migrate the database to persistent storage before data loss occurs.\",\"summary\":\"Node dev-worker-0.redhat-internal.com predicted to exhaust disk within 30 minutes\"},\"startsAt\":\"2026-04-27T03:46:05.75Z\",\"endsAt\":\"0001-01-01T00:00:00Z\",\"generatorURL\":\"https://console-openshift-console.apps.dev.redhat-internal.com/monitoring/graph?g0.expr=predict_linear%28node_filesystem_avail_bytes%7Binstance%3D~%22dev-worker-0.redhat-internal.com%22%2Cmountpoint%3D%22%2Fvar%2Flib%2Fkubelet%22%7D%5B5m%5D%2C+1800%29+%3C+0\\u0026g0.tab=1\",\"fingerprint\":\"f3d2adaf5dae5cca\"}],\"groupLabels\":{},\"commonLabels\":{\"alertname\":\"PredictedDiskPressure\",\"component\":\"deployment\",\"container\":\"kube-rbac-proxy\",\"device\":\"/dev/loop1\",\"endpoint\":\"https\",\"environment\":\"production\",\"fstype\":\"ext4\",\"instance\":\"dev-worker-0.redhat-internal.com\",\"job\":\"node-exporter\",\"mountpoint\":\"/var/lib/kubelet\",\"namespace\":\"demo-diskpressure\",\"node\":\"dev-worker-0.redhat-internal.com\",\"openshift_io_alert_source\":\"platform\",\"pod\":\"node-exporter-kh8lm\",\"prometheus\":\"openshift-monitoring/k8s\",\"service\":\"node-exporter\",\"severity\":\"high\"},\"commonAnnotations\":{\"description\":\"Linear regression on node dev-worker-0.redhat-internal.com filesystem usage over the last minute predicts available space will reach zero within 30 minutes. This is likely caused by emptyDir growth from the postgres-emptydir deployment in demo-diskpressure namespace. Proactive remediation can migrate the database to persistent storage before data loss occurs.\",\"summary\":\"Node dev-worker-0.redhat-internal.com predicted to exhaust disk within 30 minutes\"},\"externalURL\":\"https://console-openshift-console.apps.dev.redhat-internal.com/monitoring\",\"version\":\"4\",\"groupKey\":\"{}/{namespace=~\\\"^(?:demo-.*)$\\\"}:{}\",\"truncatedAlerts\":0}\n",
+        "providerData": "{\"labels\":{\"alertname\":\"PredictedDiskPressure\",\"component\":\"deployment\",\"container\":\"kube-rbac-proxy\",\"device\":\"/dev/loop1\",\"endpoint\":\"https\",\"environment\":\"production\",\"fstype\":\"ext4\",\"instance\":\"dev-worker-0.redhat-internal.com\",\"job\":\"node-exporter\",\"mountpoint\":\"/var/lib/kubelet\",\"namespace\":\"demo-diskpressure\",\"node\":\"dev-worker-0.redhat-internal.com\",\"openshift_io_alert_source\":\"platform\",\"pod\":\"node-exporter-kh8lm\",\"prometheus\":\"openshift-monitoring/k8s\",\"service\":\"node-exporter\",\"severity\":\"high\"},\"namespace\":\"demo-diskpressure\"}",
+        "receivedTime": "2026-04-27T03:46:10Z",
+        "severity": "high",
+        "signalAnnotations": {
+            "description": "Linear regression on node dev-worker-0.redhat-internal.com filesystem usage over the last minute predicts available space will reach zero within 30 minutes. This is likely caused by emptyDir growth from the postgres-emptydir deployment in demo-diskpressure namespace. Proactive remediation can migrate the database to persistent storage before data loss occurs.",
+            "summary": "Node dev-worker-0.redhat-internal.com predicted to exhaust disk within 30 minutes"
+        },
+        "signalFingerprint": "6f5490d9b422dffc885d012c7bb7ec2c619050388ac3524f53c9a86933cd6b7f",
+        "signalLabels": {
+            "alertname": "PredictedDiskPressure",
+            "component": "deployment",
+            "container": "kube-rbac-proxy",
+            "device": "/dev/loop1",
+            "endpoint": "https",
+            "environment": "production",
+            "fstype": "ext4",
+            "instance": "dev-worker-0.redhat-internal.com",
+            "job": "node-exporter",
+            "mountpoint": "/var/lib/kubelet",
+            "namespace": "demo-diskpressure",
+            "node": "dev-worker-0.redhat-internal.com",
+            "openshift_io_alert_source": "platform",
+            "pod": "node-exporter-kh8lm",
+            "prometheus": "openshift-monitoring/k8s",
+            "service": "node-exporter",
+            "severity": "high"
+        },
+        "signalName": "PredictedDiskPressure",
+        "signalSource": "prometheus",
+        "signalType": "alert",
+        "targetResource": {
+            "kind": "Node",
+            "name": "dev-worker-0.redhat-internal.com",
+            "namespace": "demo-diskpressure"
+        },
+        "targetType": "kubernetes"
+    },
+    "status": {
+        "aiAnalysisRef": {
+            "apiVersion": "kubernaut.ai/v1alpha1",
+            "kind": "AIAnalysis",
+            "name": "ai-rr-6f5490d9b422-651aa044",
+            "namespace": "kubernaut-system"
+        },
+        "analyzingStartTime": "2026-04-27T03:46:11Z",
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-04-27T03:46:11Z",
+                "message": "SignalProcessing CRD sp-rr-6f5490d9b422-651aa044 created successfully",
+                "observedGeneration": 1,
+                "reason": "SignalProcessingCreated",
+                "status": "True",
+                "type": "SignalProcessingReady"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:46:11Z",
+                "message": "Remediation failed",
+                "observedGeneration": 1,
+                "reason": "RemediationFailed",
+                "status": "False",
+                "type": "Ready"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:46:11Z",
+                "message": "AIAnalysis CRD ai-rr-6f5490d9b422-651aa044 created successfully",
+                "observedGeneration": 1,
+                "reason": "AIAnalysisCreated",
+                "status": "True",
+                "type": "AIAnalysisReady"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:46:11Z",
+                "message": "SignalProcessing completed successfully",
+                "observedGeneration": 1,
+                "reason": "SignalProcessingSucceeded",
+                "status": "True",
+                "type": "SignalProcessingComplete"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:50:12Z",
+                "message": "AIAnalysis completed successfully",
+                "observedGeneration": 1,
+                "reason": "AIAnalysisSucceeded",
+                "status": "True",
+                "type": "AIAnalysisComplete"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:50:12Z",
+                "message": "Pre-remediation hash captured for Deployment/postgres-emptydir",
+                "observedGeneration": 1,
+                "reason": "HashCaptured",
+                "status": "True",
+                "type": "PreRemediationHashCaptured"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:50:12Z",
+                "message": "WorkflowExecution CRD we-rr-6f5490d9b422-651aa044 created successfully",
+                "observedGeneration": 1,
+                "reason": "WorkflowExecutionCreated",
+                "status": "True",
+                "type": "WorkflowExecutionReady"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:50:13Z",
+                "message": "WorkflowExecution failed",
+                "observedGeneration": 1,
+                "reason": "WorkflowFailed",
+                "status": "False",
+                "type": "WorkflowExecutionComplete"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:50:13Z",
+                "message": "Notification delivered successfully",
+                "observedGeneration": 1,
+                "reason": "DeliverySucceeded",
+                "status": "True",
+                "type": "NotificationDelivered"
+            }
+        ],
+        "confidence": "0.82",
+        "consecutiveFailureCount": 1,
+        "deduplication": {
+            "firstSeenAt": "2026-04-27T03:46:10Z",
+            "lastSeenAt": "2026-04-27T03:50:26Z",
+            "occurrenceCount": 6
+        },
+        "executingStartTime": "2026-04-27T03:50:12Z",
+        "failurePhase": "WorkflowExecution",
+        "failureReason": "WorkflowExecution failed",
+        "lastModifiedAt": "2026-04-27T03:46:10Z",
+        "lastModifiedBy": "system:serviceaccount:kubernaut-system:remediationorchestrator-controller",
+        "nextAllowedExecution": "2026-04-27T03:51:13Z",
+        "notificationRequestRefs": [
+            {
+                "apiVersion": "notification.kubernaut.ai/v1alpha1",
+                "kind": "NotificationRequest",
+                "name": "nr-manual-review-rr-6f5490d9b422-651aa044",
+                "namespace": "kubernaut-system",
+                "uid": "df0058e9-8d5c-4714-8ef3-13b43ae72a7e"
+            }
+        ],
+        "notificationStatus": "Sent",
+        "observedGeneration": 1,
+        "overallPhase": "Failed",
+        "preRemediationSpecHash": "sha256:bbef9ee5480a9ef6d8e68a96b714e4c1a595f78501ea68446130af101ef8102d",
+        "processingStartTime": "2026-04-27T03:46:11Z",
+        "remediationTarget": {
+            "kind": "Deployment",
+            "name": "postgres-emptydir",
+            "namespace": "demo-diskpressure"
+        },
+        "selectedWorkflowRef": {
+            "executionBundle": "https://github.com/jordigilh/kubernaut-test-playbooks.git",
+            "version": "1.3.3",
+            "workflowId": "6b8b0231-d050-5fa1-a6c6-ab1e41176ad0"
+        },
+        "signalProcessingRef": {
+            "apiVersion": "kubernaut.ai/v1alpha1",
+            "kind": "SignalProcessing",
+            "name": "sp-rr-6f5490d9b422-651aa044",
+            "namespace": "kubernaut-system"
+        },
+        "signalTargetDisplay": "Node/dev-worker-0.redhat-internal.com",
+        "startTime": "2026-04-27T03:46:10Z",
+        "targetDisplay": "Deployment/postgres-emptydir",
+        "timeoutConfig": {
+            "analyzing": "10m0s",
+            "executing": "30m0s",
+            "global": "1h0m0s",
+            "processing": "5m0s"
+        },
+        "workflowDisplayName": "MigrateEmptyDirToPVC:migrate-emptydir-to-pvc-gitops-v1",
+        "workflowExecutionRef": {
+            "apiVersion": "kubernaut.ai/v1alpha1",
+            "kind": "WorkflowExecution",
+            "name": "we-rr-6f5490d9b422-651aa044",
+            "namespace": "kubernaut-system"
+        }
+    }
+}

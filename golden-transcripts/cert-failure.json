@@ -1,0 +1,117 @@
+{
+  "scenario": "cert-failure",
+  "incidentId": "rr-c82834669789-5c575c2b",
+  "signal": {
+    "signalName": "CertManagerCertNotReady",
+    "namespace": "demo-cert-failure",
+    "resourceKind": "Deployment",
+    "resourceName": "demo-app",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.97,
+      "parameters": {
+        "ISSUER_KIND": "ClusterIssuer",
+        "ISSUER_NAME": "demo-selfsigned-ca",
+        "CA_SECRET_NAMESPACE": "cert-manager",
+        "TARGET_RESOURCE_KIND": "ClusterIssuer",
+        "TARGET_RESOURCE_NAME": "demo-selfsigned-ca",
+        "TARGET_RESOURCE_NAMESPACE": ""
+      },
+      "workflowId": "2aac40d0-fa44-515e-b823-128243a2f450",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:a38626b11cb23576b9bb75db9b36fa4a5dc044b144c39e09b650493035c94a7e",
+      "workflowName": "fix-certificate-v1"
+    },
+    "approvalRequired": false,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "ClusterIssuer 'demo-selfsigned-ca' is not Ready because its backing CA secret 'demo-ca-key-pair' does not exist, blocking TLS certificate issuance for the demo-app deployment. The missing secret prevents the ClusterIssuer from signing CertificateRequests, leaving the TLS secret 'demo-app-tls' absent and pods serving without valid HTTPS.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "ClusterIssuer",
+        "name": "demo-selfsigned-ca"
+      },
+      "contributingFactors": [
+        "ClusterIssuer 'demo-selfsigned-ca' reports: 'Error getting keypair for CA issuer: secrets \"demo-ca-key-pair\" not found'",
+        "The CA secret 'demo-ca-key-pair' is absent from the cluster \u2014 it was never created or was deleted",
+        "CertificateRequest 'demo-app-cert-2' is stuck in Pending with message: 'Referenced issuer does not have a Ready status condition'",
+        "The TLS secret 'demo-app-tls' does not exist in the namespace \u2014 cert-manager cannot issue it because the issuer is broken",
+        "Certificate 'demo-app-cert' transitioned from Ready=True to Ready=False (DoesNotExist) after the secret was deleted/expired",
+        "The Deployment mounts 'demo-app-tls' with optional:true, so pods start but serve without valid TLS certificates"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.97,
+    "analysis": "ClusterIssuer 'demo-selfsigned-ca' is not Ready because its backing CA secret 'demo-ca-key-pair' does not exist, blocking TLS certificate issuance for the demo-app deployment. The missing secret prevents the ClusterIssuer from signing CertificateRequests, leaving the TLS secret 'demo-app-tls' absent and pods serving without valid HTTPS."
+  },
+  "traceStats": {
+    "totalTokens": 187136,
+    "llmTurns": 18,
+    "totalToolCalls": 14
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_name_in_cluster",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 1
+    },
+    {
+      "tool": "get_cluster_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

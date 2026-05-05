@@ -1,0 +1,114 @@
+{
+  "scenario": "hpa-maxed",
+  "incidentId": "rr-e095df38b620-af8e00ac",
+  "signal": {
+    "signalName": "KubeHpaMaxedOut",
+    "namespace": "demo-hpa",
+    "resourceKind": "HorizontalPodAutoscaler",
+    "resourceName": "api-frontend",
+    "severity": "warning"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.93,
+      "parameters": {
+        "NEW_MAX_REPLICAS": 6,
+        "TARGET_RESOURCE_KIND": "HorizontalPodAutoscaler",
+        "TARGET_RESOURCE_NAME": "api-frontend",
+        "TARGET_RESOURCE_NAMESPACE": "demo-hpa"
+      },
+      "workflowId": "c2440bfb-4f2c-5b9b-ac60-746c5ef626aa",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/patch-hpa-job@sha256:f8d4d68f8d49b2e44d2a203550035a28bbd9902584d8509a30a224e71e42070d",
+      "workflowName": "patch-hpa-v1"
+    },
+    "approvalRequired": false,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "The HPA api-frontend is maxed out at 3 replicas while CPU utilization is 135% of request (2.7\u00d7 the 50% target), because the maxReplicas cap of 3 is too low to absorb sustained CPU load \u2014 the HPA cannot scale further to relieve the pressure.",
+      "severity": "medium",
+      "remediationTarget": {
+        "kind": "HorizontalPodAutoscaler",
+        "name": "api-frontend",
+        "namespace": "demo-hpa"
+      },
+      "contributingFactors": [
+        "HPA maxReplicas is set to 3, which is too conservative for the observed sustained CPU demand",
+        "Current average CPU utilization across all 3 pods is 135% of request (target is 50%), meaning ~5-6 replicas would be needed to meet the SLO",
+        "Two pods (4m7rm, fgd6j) are each consuming 100m CPU \u2014 their full CPU limit \u2014 indicating they are CPU-throttled",
+        "CPU request of 50m per pod is very low, making the HPA react aggressively but unable to scale past the ceiling",
+        "The HPA ScalingLimited condition is True with reason 'TooManyReplicas', confirming it wants more pods but is blocked by maxReplicas",
+        "SuccessfulRescale event confirms HPA already scaled from 2\u21923 due to CPU above target and is now pinned at the ceiling",
+        "No previous remediation history exists for this deployment \u2014 this is a first-time configuration issue",
+        "One pod is scheduled on the control-plane node, indicating worker capacity pressure and potential scheduling constraints"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.93,
+    "analysis": "The HPA api-frontend is maxed out at 3 replicas while CPU utilization is 135% of request (2.7\u00d7 the 50% target), because the maxReplicas cap of 3 is too low to absorb sustained CPU load \u2014 the HPA cannot scale further to relieve the pressure."
+  },
+  "traceStats": {
+    "totalTokens": 104116,
+    "llmTurns": 13,
+    "totalToolCalls": 13
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_top_pods",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_top_nodes",
+      "index": 3
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 2
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

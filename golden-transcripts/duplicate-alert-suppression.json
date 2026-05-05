@@ -1,0 +1,123 @@
+{
+  "scenario": "duplicate-alert-suppression",
+  "incidentId": "rr-3d13718bca91-812ef56e",
+  "signal": {
+    "signalName": "KubePodCrashLooping",
+    "namespace": "demo-alert-storm",
+    "resourceKind": "Pod",
+    "resourceName": "api-gateway-5b4ccdb7df-4w56v",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.93,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "api-gateway",
+        "TARGET_CONFIGMAP_NAME": "gateway-config-bad",
+        "TARGET_RESOURCE_NAMESPACE": "demo-alert-storm"
+      },
+      "workflowId": "5032d821-4cb9-54b4-a073-e7f3e2de6e25",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:84848a02bc0154c0ef447e4bb2bf6fcf2f75d067cd7a6990abff87353cccaf62"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Deployment api-gateway was patched to reference a broken ConfigMap (gateway-config-bad) containing an unsupported 'invalid_directive: true' field, causing all updated pods to abort at config-parse time with exit code 1 and enter CrashLoopBackOff. The valid ConfigMap (gateway-config) exists in the same namespace and is the correct fix target.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: Pod api-gateway-5b4ccdb7df-4w56v is CrashLoopBackOff (4 restarts, exit code 1, runs ~1 second)",
+        "Why? Container logs show '[emerg] invalid directive found in /etc/demo-http-server/config.yaml \u2014 aborting' \u2014 application aborts at startup during config parsing",
+        "Why? The config file at /etc/demo-http-server/config.yaml is sourced from ConfigMap gateway-config-bad, which contains 'invalid_directive: true' \u2014 an unsupported field the server rejects",
+        "Why? The Deployment api-gateway was patched at 18:20:37Z to change its volume ConfigMap reference from gateway-config (valid) to gateway-config-bad (invalid) \u2014 a misconfiguration introduced post-deployment",
+        "Root cause: Deployment api-gateway spec references ConfigMap gateway-config-bad instead of the valid ConfigMap gateway-config, injecting a malformed config file that aborts the application on every start"
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "Targeting Deployment/api-gateway because its spec.template.spec.volumes[config].configMap.name needs to be changed from gateway-config-bad back to gateway-config. The pod is the symptom reporter; the Deployment is the misconfigured resource. An automated workflow can patch this single field to resolve the issue.",
+        "proportionality": "Single Deployment affected. The fix (patch volume ConfigMap name) is minimal and surgical. The 4 old replicas using gateway-config are healthy, confirming the application itself is not broken.",
+        "scopeCompleteness": "Investigated: pod (describe, logs, previous logs, events), Deployment (spec, status, managedFields), both ConfigMaps (gateway-config and gateway-config-bad), ReplicaSet ownership chain. The Deployment shows 4 ready replicas on the old ReplicaSet using gateway-config, and 3 unavailable on the new ReplicaSet using gateway-config-bad, confirming the scope is limited to the new rollout. Node was implicitly validated as healthy via successful scheduling and image presence events.",
+        "causalCompleteness": "Traced fully: CrashLoopBackOff \u2192 exit code 1 \u2192 config parse error in logs \u2192 invalid_directive in mounted ConfigMap \u2192 Deployment volume reference pointing to gateway-config-bad. The patch timestamp and manager (kubectl-patch) in managedFields confirm this was a deliberate but erroneous config change. Cannot go deeper without access to who issued the kubectl patch command.",
+        "evidenceSufficiency": "All claims are backed by tool output: (1) kubectl_describe confirmed ConfigMap gateway-config-bad is mounted, (2) kubectl_logs and kubectl_previous_logs both show the exact abort message, (3) kubectl_get_by_name retrieved gateway-config-bad contents showing invalid_directive: true, (4) kubectl_find_resource confirmed gateway-config exists and is valid, (5) Deployment managedFields show a kubectl-patch operation changed the ConfigMap reference at 18:20:37Z. No inaccessible data sources.",
+        "regressionAwareness": "No prior remediation history available for Deployment/api-gateway (tier1 and tier2 history both empty).",
+        "alternativeHypotheses": "OOMKill: ruled out \u2014 memory limit is 64Mi and the container exits in 1 second before allocating significant memory; no OOMKilled reason in pod status. Image pull failure: ruled out \u2014 events show 'Container image already present on machine'. Node pressure/eviction: ruled out \u2014 pod was successfully scheduled and started; no eviction events. Liveness probe killing the container: ruled out \u2014 container dies before the 3-second initialDelaySeconds of the liveness probe fires. Application bug: ruled out \u2014 the same image runs successfully on the 4 pods still using gateway-config.",
+        "confidenceCalibration": "Starting at 1.0. -0.02 for not verifying who issued the kubectl-patch (audit log not accessible). -0.01 for not confirming whether the 3 unavailable pods are all from the same ReplicaSet (high confidence based on Deployment rollout status but not explicitly verified per-pod). Final confidence: 0.97."
+      },
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "api-gateway",
+        "namespace": "demo-alert-storm"
+      },
+      "contributingFactors": [
+        "Deployment volume reference was patched from gateway-config (valid) to gateway-config-bad (invalid) at 2026-04-27T18:20:37Z \u2014 27 seconds after initial creation, likely an erroneous kubectl-patch during a test scenario",
+        "ConfigMap gateway-config-bad contains an unsupported 'invalid_directive: true' field that the demo-http-server rejects at startup",
+        "Container exits in ~1 second with exit code 1 \u2014 config-parse abort before any network listener is opened",
+        "3 updated replicas (all mounting gateway-config-bad) are unavailable; only 4 old replicas remain ready out of 5 desired",
+        "Valid ConfigMap gateway-config exists in the same namespace with identical routing config minus the invalid directive"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.93,
+    "analysis": "Deployment api-gateway was patched to reference a broken ConfigMap (gateway-config-bad) containing an unsupported 'invalid_directive: true' field, causing all updated pods to abort at config-parse time with exit code 1 and enter CrashLoopBackOff. The valid ConfigMap (gateway-config) exists in the same namespace and is the correct fix target."
+  },
+  "traceStats": {
+    "totalTokens": 148946,
+    "llmTurns": 15,
+    "totalToolCalls": 12
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_previous_logs",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 3
+    },
+    {
+      "tool": "kubectl_find_resource",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_find_resource",
+      "index": 1
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

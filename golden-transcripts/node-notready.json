@@ -1,0 +1,98 @@
+{
+  "scenario": "node-notready",
+  "incidentId": "rr-b157a3a9e42f-86df70c2",
+  "signal": {
+    "signalName": "KubeNodeNotReady",
+    "namespace": "demo-node",
+    "resourceKind": "Node",
+    "resourceName": "kubernaut-demo-worker",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.88,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Node",
+        "TARGET_RESOURCE_NAME": "kubernaut-demo-worker",
+        "TARGET_RESOURCE_NAMESPACE": ""
+      },
+      "workflowId": "bb202d28-c2f6-5d67-9b52-1dce3aa45776",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/cordon-drain-job@sha256:d2408b0fdc0ba186130939325a22441d23aa5fd1281fda8ff771f191871df0ee",
+      "workflowName": "cordon-drain-v1"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Node kubernaut-demo-worker became NotReady due to kubelet failure, likely caused by a recurring cgroup misconfiguration (missing cpuset.cpus path at /sys/fs/cgroup/kubelet.slice/kubelet-kubepods.slice/cpuset.cpus) that ultimately caused the kubelet process to stop heartbeating. After the 60-second node-monitor-grace-period, all node conditions transitioned to Unknown and NoSchedule/NoExecute taints were applied, evicting all 13 pods from the node. The web-service Deployment in demo-node namespace is degraded at 2/3 replicas.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "Node",
+        "name": "kubernaut-demo-worker"
+      },
+      "contributingFactors": [
+        "Kubelet stopped posting heartbeats at 11:32:27Z; all node conditions transitioned to Unknown 60 seconds later (node-monitor-grace-period expiry)",
+        "Recurring FailedNodeAllocatableEnforcement warning (656 occurrences over ~11 hours): 'openat2 /sys/fs/cgroup/kubelet.slice/kubelet-kubepods.slice/cpuset.cpus: no such file or directory' \u2014 cgroup hierarchy incomplete/missing",
+        "Node runs on kind://podman (containerized Kubernetes), prone to cgroup v2 compatibility issues with cpuset subsystem",
+        "NoSchedule and NoExecute taints automatically applied at 11:33:27Z, evicting all workloads on the node",
+        "All 13 pods on the node simultaneously lost Ready=True at 11:33:27\u201328Z, confirming a single total-kubelet-failure event",
+        "web-service Deployment in demo-node namespace degraded: 2/3 replicas ready (MinimumReplicasUnavailable), one pod stuck on the unreachable node"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.88,
+    "analysis": "Node kubernaut-demo-worker became NotReady due to kubelet failure, likely caused by a recurring cgroup misconfiguration (missing cpuset.cpus path at /sys/fs/cgroup/kubelet.slice/kubelet-kubepods.slice/cpuset.cpus) that ultimately caused the kubelet process to stop heartbeating. After the 60-second node-monitor-grace-period, all node conditions transitioned to Unknown and NoSchedule/NoExecute taints were applied, evicting all 13 pods from the node. The web-service Deployment in demo-node namespace is degraded at 2/3 replicas."
+  },
+  "traceStats": {
+    "totalTokens": 123671,
+    "llmTurns": 16,
+    "totalToolCalls": 10
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_top_nodes",
+      "index": 2
+    },
+    {
+      "tool": "get_cluster_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "kubernetes_jq_query",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

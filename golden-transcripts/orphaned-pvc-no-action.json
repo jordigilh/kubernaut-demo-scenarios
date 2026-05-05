@@ -1,0 +1,116 @@
+{
+  "scenario": "orphaned-pvc-no-action",
+  "incidentId": "rr-4deb88d0bae3-e35207cc",
+  "signal": {
+    "signalName": "KubePersistentVolumeClaimOrphaned",
+    "namespace": "demo-orphaned-pvc",
+    "resourceKind": "Deployment",
+    "resourceName": "data-processor",
+    "severity": "warning"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.95,
+      "parameters": {
+        "LABEL_SELECTOR": "batch-run=completed",
+        "TARGET_RESOURCE_KIND": "PersistentVolumeClaim",
+        "TARGET_RESOURCE_NAME": "batch-output-job-1",
+        "TARGET_RESOURCE_NAMESPACE": "demo-orphaned-pvc"
+      },
+      "workflowId": "fc17c418-c9c2-5118-bf69-be116dacca81",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/cleanup-pvc-job@sha256:e67af5d165f8414866811a9bfaa0565aa3674bf93d9cd91850b28df02eaa7e96",
+      "workflowName": "cleanup-pvc-v1"
+    },
+    "approvalRequired": false,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Five PersistentVolumeClaims (batch-output-job-1 through batch-output-job-5) are orphaned in the demo-orphaned-pvc namespace after their batch Job workloads completed and were deleted, leaving 500Mi of local-path storage bound but unconsumed with no automated cleanup mechanism.",
+      "severity": "medium",
+      "remediationTarget": {
+        "kind": "PersistentVolumeClaim",
+        "name": "batch-output-job-1",
+        "namespace": "demo-orphaned-pvc"
+      },
+      "contributingFactors": [
+        "Batch Jobs that created PVCs batch-output-job-1 through batch-output-job-5 have been deleted, leaving PVCs without owning workloads",
+        "PVCs carry label 'batch-run=completed' confirming the batch run finished but no cleanup was performed",
+        "No TTL or automated cleanup mechanism exists for post-batch PVC lifecycle management \u2014 no Jobs, CronJobs, or batch controllers remain in the namespace",
+        "All 5 PVCs (100Mi each, 500Mi total) remain in Bound phase on a single node (kubernaut-demo-worker2), wasting local-path storage",
+        "The data-processor Deployment is unrelated to the orphaned PVCs \u2014 it uses only a ConfigMap volume and is healthy, confirming PVCs have no active consumers",
+        "PVC protection finalizer (kubernetes.io/pvc-protection) prevents accidental deletion, so manual or automated cleanup is required"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.95,
+    "analysis": "Five PersistentVolumeClaims (batch-output-job-1 through batch-output-job-5) are orphaned in the demo-orphaned-pvc namespace after their batch Job workloads completed and were deleted, leaving 500Mi of local-path storage bound but unconsumed with no automated cleanup mechanism."
+  },
+  "traceStats": {
+    "totalTokens": 141430,
+    "llmTurns": 14,
+    "totalToolCalls": 14
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 0
+    },
+    {
+      "tool": "kubernetes_jq_query",
+      "index": 2
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 1
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 1
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    },
+    {
+      "tool": "get_workflow",
+      "index": 1
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "scenario": "concurrent-cross-namespace-beta",
+  "incidentId": "rr-3428160586f8-e7a46a32",
+  "signal": {
+    "signalName": "KubePodCrashLooping",
+    "namespace": "demo-team-beta",
+    "resourceKind": "Pod",
+    "resourceName": "worker-6875fb79d9-q2zmj",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.97,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "ConfigMap",
+        "TARGET_RESOURCE_NAME": "worker-config",
+        "TARGET_CONFIGMAP_NAME": "worker-config",
+        "TARGET_RESOURCE_NAMESPACE": "demo-team-beta"
+      },
+      "workflowId": "a0f9857c-fc4b-5369-8a9c-6c87a3eeb03c",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:00121d62f62142d3d4700fc73b43d9b1c16e563dd088cd35290c7913906fdc5d",
+      "workflowName": "hotfix-config-production-v1"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Pod worker-6875fb79d9-q2zmj is crash-looping because the worker-config ConfigMap contains an invalid directive ('invalid_directive: true') that causes the demo-http-server application to abort immediately at startup with exit code 1. The ConfigMap was patched via kubectl at 14:55:15Z, simultaneously with a rollout restart, introducing the bad directive. Old ReplicaSet pods (worker-5ccfd4c787) remain healthy as they pre-date the change.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "ConfigMap",
+        "name": "worker-config",
+        "namespace": "demo-team-beta"
+      },
+      "contributingFactors": [
+        "ConfigMap 'worker-config' was patched to include an unsupported directive: 'invalid_directive: true'",
+        "Application logs confirm: '[emerg] invalid directive found in /etc/demo-http-server/config.yaml \u2014 aborting'",
+        "Container exits immediately (exit code 1) with zero runtime \u2014 startup config parse failure, not a runtime crash",
+        "A 'kubectl rollout restart' at ~14:55:15Z created new ReplicaSet (worker-6875fb79d9) that picks up the bad ConfigMap",
+        "Old pods from ReplicaSet worker-5ccfd4c787 remain healthy \u2014 confirming the ConfigMap change is the sole cause"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.97,
+    "analysis": "Pod worker-6875fb79d9-q2zmj is crash-looping because the worker-config ConfigMap contains an invalid directive ('invalid_directive: true') that causes the demo-http-server application to abort immediately at startup with exit code 1. The ConfigMap was patched via kubectl at 14:55:15Z, simultaneously with a rollout restart, introducing the bad directive. Old ReplicaSet pods (worker-5ccfd4c787) remain healthy as they pre-date the change."
+  },
+  "traceStats": {
+    "totalTokens": 160142,
+    "llmTurns": 17,
+    "totalToolCalls": 10
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 2
+    },
+    {
+      "tool": "fetch_pod_logs",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

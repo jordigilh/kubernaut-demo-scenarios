@@ -1,0 +1,90 @@
+{
+  "scenario": "stuck-rollout",
+  "incidentId": "rr-409b984a3e8d-803a5002",
+  "signal": {
+    "signalName": "KubeDeploymentRolloutStuck",
+    "namespace": "demo-rollout",
+    "resourceKind": "Deployment",
+    "resourceName": "checkout-api",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.98,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "checkout-api",
+        "TARGET_RESOURCE_NAMESPACE": "demo-rollout"
+      },
+      "workflowId": "a25a989d-aa6b-57ff-a416-723913cd5c4e",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/rollback-deployment-job@sha256:397699db4cc989a82f6d14d0b26134c0e25c4fce802b16465b2797c47967b4c9",
+      "workflowName": "rollback-deployment-v1"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Deployment rollout is stuck because the new container image tag 'quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist' does not exist in the registry, causing all new pods in ReplicaSet 'checkout-api-659cf7fcb6' to fail with ImagePullBackOff. The 120-second progressDeadlineSeconds was exceeded, triggering a ProgressDeadlineExceeded condition. The rolling update strategy partially scaled down the old RS (3\u21922 healthy pods), reducing availability. Rolling back to the previous revision restores the working 'demo-http-server:1.0.0' image.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "checkout-api",
+        "namespace": "demo-rollout"
+      },
+      "contributingFactors": [
+        "Invalid/non-existent image tag '99.99.99-doesnotexist' pushed to the deployment via 'kubectl set image'",
+        "New ReplicaSet 'checkout-api-659cf7fcb6' unable to start any pods \u2014 all stuck in ImagePullBackOff",
+        "Deployment progressDeadlineSeconds=120 exceeded, triggering ProgressDeadlineExceeded condition",
+        "Rolling update strategy (maxSurge:1, maxUnavailable:1) scaled down old RS from 3\u21922, reducing availability during the stuck rollout",
+        "No prior remediation history \u2014 this is the first rollout failure for this deployment"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.98,
+    "analysis": "Deployment rollout is stuck because the new container image tag 'quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist' does not exist in the registry, causing all new pods in ReplicaSet 'checkout-api-659cf7fcb6' to fail with ImagePullBackOff. The 120-second progressDeadlineSeconds was exceeded, triggering a ProgressDeadlineExceeded condition. The rolling update strategy partially scaled down the old RS (3\u21922 healthy pods), reducing availability. Rolling back to the previous revision restores the working 'demo-http-server:1.0.0' image."
+  },
+  "traceStats": {
+    "totalTokens": 82566,
+    "llmTurns": 10,
+    "totalToolCalls": 8
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 2
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 1
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    },
+    {
+      "tool": "get_workflow",
+      "index": 1
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "scenario": "pdb-deadlock",
+  "incidentId": "rr-5983825e6301-9c411a9e",
+  "signal": {
+    "signalName": "KubePodDisruptionBudgetAtLimit",
+    "namespace": "demo-pdb",
+    "resourceKind": "PodDisruptionBudget",
+    "resourceName": "payment-service-pdb",
+    "severity": "warning"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.95,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "PodDisruptionBudget",
+        "TARGET_RESOURCE_NAME": "payment-service-pdb",
+        "TARGET_RESOURCE_NAMESPACE": "demo-pdb"
+      },
+      "workflowId": "513c5f71-b45a-55a4-aa8f-9e2a4650ebba",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:29c60db45db9a8b12820156152b534c3c5fadbd987a9ae261b44cacc0269ec91",
+      "workflowName": "relax-pdb-v1"
+    },
+    "approvalRequired": false,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "PodDisruptionBudget 'payment-service-pdb' has minAvailable=2 but only 2 replicas exist, leaving disruptionsAllowed=0 and blocking all voluntary disruptions (node drains, evictions). Both pods are fully healthy \u2014 the issue is a structural misconfiguration where the PDB's minAvailable equals the total replica count.",
+      "severity": "medium",
+      "remediationTarget": {
+        "kind": "PodDisruptionBudget",
+        "name": "payment-service-pdb",
+        "namespace": "demo-pdb"
+      },
+      "contributingFactors": [
+        "PDB spec sets minAvailable=2, which equals the total number of running pods (2/2), leaving disruptionsAllowed=0",
+        "Deployment 'payment-service' is configured with only 2 replicas, matching the PDB's minAvailable threshold exactly",
+        "PDB condition 'DisruptionAllowed' is False with reason 'InsufficientPods' \u2014 any voluntary eviction (e.g., node drain) is completely blocked",
+        "Both pods are healthy and running across two worker nodes, but the constraint is structural (replica count vs. PDB constraint), not a pod health issue"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.95,
+    "analysis": "PodDisruptionBudget 'payment-service-pdb' has minAvailable=2 but only 2 replicas exist, leaving disruptionsAllowed=0 and blocking all voluntary disruptions (node drains, evictions). Both pods are fully healthy \u2014 the issue is a structural misconfiguration where the PDB's minAvailable equals the total replica count."
+  },
+  "traceStats": {
+    "totalTokens": 106948,
+    "llmTurns": 16,
+    "totalToolCalls": 8
+  },
+  "toolCalls": [
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

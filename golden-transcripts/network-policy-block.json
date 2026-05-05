@@ -1,0 +1,104 @@
+{
+  "scenario": "network-policy-block",
+  "incidentId": "rr-908ccd4f643c-4cfdf7d5",
+  "signal": {
+    "signalName": "KubeDeploymentReplicasMismatch",
+    "namespace": "demo-netpol-2",
+    "resourceKind": "Deployment",
+    "resourceName": "traffic-gen",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.97,
+      "parameters": {
+        "POLICY_NAME": "deny-all-ingress",
+        "TARGET_RESOURCE_KIND": "NetworkPolicy",
+        "TARGET_RESOURCE_NAME": "deny-all-ingress",
+        "TARGET_RESOURCE_NAMESPACE": "demo-netpol-2"
+      },
+      "workflowId": "a07aaa5f-a631-511e-bca0-b46250df494c",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:ee7fbb4de3107201158d870e736a759192cc67530b660cc780c84060fda774f3",
+      "workflowName": "fix-network-policy-v1"
+    },
+    "approvalRequired": false,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "A 'deny-all-ingress' NetworkPolicy (injected by kubernaut-demo at 16:55:32) blocks all ingress traffic in namespace demo-netpol-2 via an empty podSelector with policyTypes=[Ingress] and no allow rules. This causes the traffic-gen readiness probe (curl to web-frontend:8080/healthz) to time out, leaving the traffic-gen pod stuck in NotReady state and the deployment reporting 0 available replicas despite 1 running.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "NetworkPolicy",
+        "name": "deny-all-ingress",
+        "namespace": "demo-netpol-2"
+      },
+      "contributingFactors": [
+        "NetworkPolicy 'deny-all-ingress' applied with empty podSelector (affects ALL pods in namespace) and policyTypes=[Ingress] with no allow rules \u2014 blocks all inbound traffic",
+        "traffic-gen readiness probe 'curl -sf -o /dev/null -m 3 http://web-frontend.demo-netpol-2:8080/healthz' times out because ingress to web-frontend on port 8080 is denied by the policy",
+        "22 consecutive probe failures confirmed in pod events ('command timed out after 1s') between 16:55:33 and 16:57:12",
+        "Pod logs show clear transition: probe=success before NetworkPolicy injection at 16:55:32, then persistent probe=failure immediately after",
+        "NetworkPolicy was injected by 'kubernaut-demo' (label: injected-by=kubernaut-demo) exactly ~16s after pod start, matching the onset of failures",
+        "Deployment status: replicas=1, unavailableReplicas=1, Available=False with reason MinimumReplicasUnavailable"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.97,
+    "analysis": "A 'deny-all-ingress' NetworkPolicy (injected by kubernaut-demo at 16:55:32) blocks all ingress traffic in namespace demo-netpol-2 via an empty podSelector with policyTypes=[Ingress] and no allow rules. This causes the traffic-gen readiness probe (curl to web-frontend:8080/healthz) to time out, leaving the traffic-gen pod stuck in NotReady state and the deployment reporting 0 available replicas despite 1 running."
+  },
+  "traceStats": {
+    "totalTokens": 110095,
+    "llmTurns": 14,
+    "totalToolCalls": 11
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 3
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

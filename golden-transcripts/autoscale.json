@@ -1,0 +1,124 @@
+{
+  "scenario": "autoscale",
+  "incidentId": "rr-a661bc2c2d30-0b56961b",
+  "signal": {
+    "signalName": "KubePodSchedulingFailed",
+    "namespace": "demo-autoscale",
+    "resourceKind": "Pod",
+    "resourceName": "web-cluster-5587469cc4-2knkh",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.92,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "web-cluster",
+        "TARGET_RESOURCE_NAMESPACE": "demo-autoscale"
+      },
+      "workflowId": "58c764f6-9903-56ed-b104-7b5a118924f3",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/provision-node-job@sha256:6cea90d3bec4048deabab6fdc502180ebe6bcf8e8278059ad1605847687c059e",
+      "workflowName": "provision-node-v1"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Pod web-cluster-5587469cc4-2knkh is stuck Pending due to cluster-wide memory exhaustion: the web-cluster Deployment was scaled to 18 replicas each requesting 2Gi memory (36Gi total demand), exceeding available cluster memory across all 4 nodes (~38.8Gi total, heavily consumed by running web-cluster pods and system workloads). The scheduler reports '0/4 nodes are available: 4 Insufficient memory' with no preemption victims available. A dynamically provisioned node at 19:11:44Z was insufficient to accommodate all 18 replicas, leaving 2 pods (2knkh, fcqzm) permanently Pending.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "web-cluster",
+        "namespace": "demo-autoscale"
+      },
+      "contributingFactors": [
+        "Deployment web-cluster scaled to 18 replicas with 2Gi memory request per pod (36Gi total demand)",
+        "All 4 nodes (~9.7Gi allocatable each, ~38.8Gi total) are memory-saturated with 16 already-running web-cluster pods plus system/infra workloads (Prometheus, Grafana, ArgoCD, Istio, etc.)",
+        "2 pods (2knkh, fcqzm) remain Pending with repeated FailedScheduling events: '0/4 nodes are available: 4 Insufficient memory'",
+        "A new worker node (kubernaut-demo-worker-1776971488) was dynamically provisioned at 19:11:44Z but insufficient to accommodate all 18 replicas",
+        "No HorizontalPodAutoscaler is configured in demo-autoscale namespace \u2014 replica count was set directly via kubectl",
+        "Memory requests equal memory limits (2Gi/2Gi) making workload Burstable class with no headroom flexibility",
+        "No preemption possible as no lower-priority pods exist to evict"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.92,
+    "analysis": "Pod web-cluster-5587469cc4-2knkh is stuck Pending due to cluster-wide memory exhaustion: the web-cluster Deployment was scaled to 18 replicas each requesting 2Gi memory (36Gi total demand), exceeding available cluster memory across all 4 nodes (~38.8Gi total, heavily consumed by running web-cluster pods and system workloads). The scheduler reports '0/4 nodes are available: 4 Insufficient memory' with no preemption victims available. A dynamically provisioned node at 19:11:44Z was insufficient to accommodate all 18 replicas, leaving 2 pods (2knkh, fcqzm) permanently Pending."
+  },
+  "traceStats": {
+    "totalTokens": 188875,
+    "llmTurns": 17,
+    "totalToolCalls": 16
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_cluster",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_top_nodes",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_memory_requests_all_namespaces",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

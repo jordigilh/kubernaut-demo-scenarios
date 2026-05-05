@@ -1,0 +1,102 @@
+{
+  "scenario": "concurrent-cross-namespace",
+  "incidentId": "rr-df3cf7f0a467-2ee6accd",
+  "signal": {
+    "signalName": "KubePodCrashLooping",
+    "namespace": "demo-team-alpha",
+    "resourceKind": "Pod",
+    "resourceName": "worker-6875fb79d9-gjmg5",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.97,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "worker",
+        "TARGET_CONFIGMAP_NAME": "worker-config",
+        "TARGET_RESOURCE_NAMESPACE": "demo-team-alpha"
+      },
+      "workflowId": "3747329e-19f3-5243-8c22-8febe441032a",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:00121d62f62142d3d4700fc73b43d9b1c16e563dd088cd35290c7913906fdc5d",
+      "workflowName": "hotfix-config-v1"
+    },
+    "approvalRequired": false,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Pod worker-6875fb79d9-gjmg5 is crash-looping due to an invalid directive ('invalid_directive: true') injected into the worker-config ConfigMap via a kubectl patch at 2026-04-23T14:55:15Z. The demo-http-server application parses configuration at startup and immediately aborts (exit code 1, ~0s runtime) when it encounters an unrecognized directive. All pods launched after the bad patch fail instantly; the old ReplicaSet (worker-5ccfd4c787) remains healthy only because its pods started before the patch. Removing the invalid directive from worker-config and restarting the deployment will fully restore the rollout.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-team-alpha"
+      },
+      "contributingFactors": [
+        "ConfigMap 'worker-config' contains an unsupported directive: 'invalid_directive: true' introduced via kubectl patch at 2026-04-23T14:55:15Z",
+        "The app parses config at startup and exits immediately on invalid directives (exit code 1, ~0s runtime)",
+        "A 'kubectl rollout restart' was triggered immediately after the bad patch, creating new ReplicaSet worker-6875fb79d9 whose pods pick up the broken ConfigMap",
+        "Old ReplicaSet pods (worker-5ccfd4c787) are still healthy, masking partial service impact but the rollout is stuck"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.97,
+    "analysis": "Pod worker-6875fb79d9-gjmg5 is crash-looping due to an invalid directive ('invalid_directive: true') injected into the worker-config ConfigMap via a kubectl patch at 2026-04-23T14:55:15Z. The demo-http-server application parses configuration at startup and immediately aborts (exit code 1, ~0s runtime) when it encounters an unrecognized directive. All pods launched after the bad patch fail instantly; the old ReplicaSet (worker-5ccfd4c787) remains healthy only because its pods started before the patch. Removing the invalid directive from worker-config and restarting the deployment will fully restore the rollout."
+  },
+  "traceStats": {
+    "totalTokens": 116772,
+    "llmTurns": 14,
+    "totalToolCalls": 11
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_previous_logs",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 3
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 0
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

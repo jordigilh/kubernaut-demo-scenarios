@@ -1,0 +1,90 @@
+{
+  "scenario": "resource-quota-exhaustion",
+  "incidentId": "rr-4045c6c5fbaa-df0bf651",
+  "signal": {
+    "signalName": "KubeResourceQuotaExhausted",
+    "namespace": "demo-quota",
+    "resourceKind": "ReplicaSet",
+    "resourceName": "api-server-964647df6",
+    "severity": "warning"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": null,
+    "approvalRequired": false,
+    "needsHumanReview": true,
+    "humanReviewReason": "no_matching_workflows",
+    "rootCauseAnalysis": {
+      "summary": "The namespace ResourceQuota 'namespace-quota' memory limit (512Mi) is fully exhausted by 2 running pods (2 \u00d7 256Mi = 512Mi), preventing the Deployment/api-server from scaling to its desired 3 replicas.",
+      "severity": "medium",
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "api-server",
+        "namespace": "demo-quota"
+      },
+      "contributingFactors": [
+        "ResourceQuota 'namespace-quota' sets a hard memory limit of 512Mi (requests and limits) for the entire demo-quota namespace",
+        "Deployment 'api-server' requests 3 replicas, each with 256Mi memory request and 256Mi memory limit",
+        "3 replicas \u00d7 256Mi = 768Mi total \u2014 exceeds the 512Mi quota cap by 256Mi (50% over quota)",
+        "Only 2 of 3 desired pods could be created (2 \u00d7 256Mi = 512Mi fully exhausting memory quota)",
+        "18+ FailedCreate events recorded for pod 'api-server-964647df6-*' with error: 'exceeded quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi, used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi'",
+        "Deployment reports ReplicaFailure condition: 'Deployment does not have minimum availability' \u2014 1 unavailable replica",
+        "No prior remediation history for this Deployment"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Processing"
+  },
+  "kaResponse": {
+    "confidence": 0.98,
+    "analysis": "The namespace ResourceQuota 'namespace-quota' memory limit (512Mi) is fully exhausted by 2 running pods (2 \u00d7 256Mi = 512Mi), preventing the Deployment/api-server from scaling to its desired 3 replicas."
+  },
+  "traceStats": {
+    "totalTokens": 106504,
+    "llmTurns": 14,
+    "totalToolCalls": 10
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 1
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "scenario": "statefulset-pvc-failure",
+  "incidentId": "rr-b4f71c8b83b7-5e607fb9",
+  "signal": {
+    "signalName": "KubeStatefulSetReplicasMismatch",
+    "namespace": "demo-statefulset",
+    "resourceKind": "StatefulSet",
+    "resourceName": "kv-store",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.92,
+      "parameters": {
+        "TARGET_PVC": "data-kv-store-2",
+        "TARGET_RESOURCE_KIND": "StatefulSet",
+        "TARGET_RESOURCE_NAME": "kv-store",
+        "TARGET_RESOURCE_NAMESPACE": "demo-statefulset"
+      },
+      "workflowId": "f3826101-ef4b-5f73-a812-f3b56136a001",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/fix-statefulset-pvc-job@sha256:0fa60c7ba5378d565c8870e166ede3cadd3917f5bafbe4cfe2dd24f7c27de0c1"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "StatefulSet replica kv-store-2 is stuck Pending because its PVC data-kv-store-2 specifies a non-existent StorageClass 'broken-storage-class', preventing volume provisioning and pod scheduling. The PVC was manually created via kubectl (not by the StatefulSet controller) with the wrong storageClassName. The only valid StorageClass in the cluster is lvms-vg1, which is correctly used by sibling PVCs data-kv-store-0 and data-kv-store-1.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: KubeStatefulSetReplicasMismatch \u2014 StatefulSet kv-store has 3 desired replicas but only 2 ready",
+        "Why? Pod kv-store-2 is stuck in Pending state and has never been successfully scheduled in its current incarnation",
+        "Why? kube-scheduler reports 'pod has unbound immediate PersistentVolumeClaims' \u2014 kv-store-2 cannot be scheduled because its PVC data-kv-store-2 is unbound",
+        "Why? PVC data-kv-store-2 is perpetually in Pending phase \u2014 the persistentvolume-controller repeatedly fails with 'storageclass.storage.k8s.io broken-storage-class not found'",
+        "Root cause: PVC data-kv-store-2 was manually created (kubectl-create) with storageClassName: 'broken-storage-class', which does not exist in the cluster \u2014 the only valid StorageClass is 'lvms-vg1'. The volumeClaimTemplate in the StatefulSet must be corrected to reference lvms-vg1, and the broken PVC must be deleted so it is re-provisioned correctly."
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "Targeting StatefulSet/kv-store because the volumeClaimTemplate's storageClassName field determines what StorageClass new PVCs are created with. Additionally, the broken PVC data-kv-store-2 (created manually with the wrong class) must be deleted. The StatefulSet is the root owner and remediation entry point for automated workflows.",
+        "proportionality": "The broken PVC data-kv-store-2 is the sole cause of the replica mismatch. Only kv-store-2 is affected. Remediation targets the StatefulSet (volumeClaimTemplate correction) which is the appropriate single resource to fix. The broken PVC also needs deletion as a prerequisite step.",
+        "scopeCompleteness": "Investigated: StatefulSet spec and status, all 3 pods, all 3 PVCs, StatefulSet events, pod kv-store-2 events, PVC data-kv-store-2 events, all StorageClasses cluster-wide, resource context and remediation history. Nodes were not individually described but node-level issues were ruled out via scheduler event specificity. No upstream/downstream gaps relevant to this incident.",
+        "causalCompleteness": "Traced from alert \u2192 replica mismatch \u2192 pod Pending \u2192 PVC unbound \u2192 StorageClass not found \u2192 wrong StorageClass name in PVC spec. Cannot go deeper: the StorageClass name 'broken-storage-class' is the terminal misconfiguration.",
+        "evidenceSufficiency": "All claims are backed by direct tool output: kubectl_describe StatefulSet confirms replicas=3, readyReplicas=2. kubectl_get_by_kind_in_namespace Pods confirms kv-store-2 Pending/unschedulable. kubectl_describe PVC data-kv-store-2 shows storageClassName: broken-storage-class. PVC events show ProvisioningFailed x8 with exact error. StorageClass listing shows only lvms-vg1 exists. No assumptions made.",
+        "regressionAwareness": "No prior remediation history available for this target (remediation_history shows empty tier1 and tier2 arrays, regression_detected: false).",
+        "alternativeHypotheses": "Considered: (1) Node resource exhaustion \u2014 ruled out: kv-store-0 and kv-store-1 were successfully scheduled and are running; the scheduler failure is specifically PVC-related, not resource-related. (2) StorageClass provisioner failure \u2014 ruled out: lvms-vg1/topolvm.io successfully provisioned PVCs for kv-store-0 and kv-store-1. (3) Quota exhaustion \u2014 ruled out: scheduler message specifically cites unbound PVCs, not resource quotas. (4) Node affinity/taint issues \u2014 ruled out: a previous kv-store-2 instance was successfully scheduled on dev-worker-2 before being deleted.",
+        "confidenceCalibration": "Starting at 1.0. -0.05 for not verifying whether the StatefulSet's volumeClaimTemplate itself already has the correct storageClassName (it showed 'Pending' status without a storageClassName field in the template spec, suggesting it may inherit cluster default \u2014 but the broken PVC was created separately by kubectl-create). Overall confidence: 0.95."
+      },
+      "remediationTarget": {
+        "kind": "StatefulSet",
+        "name": "kv-store",
+        "namespace": "demo-statefulset"
+      },
+      "contributingFactors": [
+        "PVC data-kv-store-2 was manually created (kubectl-create) with storageClassName: broken-storage-class \u2014 a StorageClass that does not exist in the cluster",
+        "The only available StorageClass in the cluster is lvms-vg1 (topolvm.io provisioner), used successfully by data-kv-store-0 and data-kv-store-1",
+        "The kube-scheduler reports FailedScheduling: 'pod has unbound immediate PersistentVolumeClaims' because the PVC cannot bind without a valid provisioner",
+        "The persistentvolume-controller emits ProvisioningFailed: storageclass.storage.k8s.io 'broken-storage-class' not found \u2014 repeated 8 times",
+        "A previous kv-store-2 pod instance was successfully started but was then killed and deleted, triggering recreation with the broken PVC"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.92,
+    "analysis": "StatefulSet replica kv-store-2 is stuck Pending because its PVC data-kv-store-2 specifies a non-existent StorageClass 'broken-storage-class', preventing volume provisioning and pod scheduling. The PVC was manually created via kubectl (not by the StatefulSet controller) with the wrong storageClassName. The only valid StorageClass in the cluster is lvms-vg1, which is correctly used by sibling PVCs data-kv-store-0 and data-kv-store-1."
+  },
+  "traceStats": {
+    "totalTokens": 146398,
+    "llmTurns": 12,
+    "totalToolCalls": 12
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_cluster",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 2
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 1
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    },
+    {
+      "tool": "get_workflow",
+      "index": 1
+    }
+  ]
+}

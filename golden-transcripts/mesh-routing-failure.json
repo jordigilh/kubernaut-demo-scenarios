@@ -1,0 +1,146 @@
+{
+  "scenario": "mesh-routing-failure",
+  "incidentId": "rr-ba256202544e-b179a27c",
+  "signal": {
+    "signalName": "IstioHighDenyRate",
+    "namespace": "demo-mesh-failure",
+    "resourceKind": "Unknown",
+    "resourceName": "unknown",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": null,
+    "approvalRequired": false,
+    "needsHumanReview": true,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "Unknown",
+        "name": "unknown",
+        "namespace": "demo-mesh-failure"
+      },
+      "contributingFactors": []
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Processing"
+  },
+  "kaResponse": {
+    "confidence": 0,
+    "analysis": ""
+  },
+  "traceStats": {
+    "totalTokens": 188923,
+    "llmTurns": 12,
+    "totalToolCalls": 26
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "get_metric_names",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "get_metric_names",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 3
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 3
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_yaml",
+      "index": 2
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 0
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 1
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_prometheus_rules",
+      "index": 2
+    },
+    {
+      "tool": "fetch_pod_logs",
+      "index": 0
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 1
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 0
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "get_series",
+      "index": 0
+    }
+  ]
+}

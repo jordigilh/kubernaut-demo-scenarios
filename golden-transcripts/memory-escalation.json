@@ -1,0 +1,95 @@
+{
+  "scenario": "memory-escalation",
+  "incidentId": "rr-6372c283dab9-6c39c632",
+  "signal": {
+    "signalName": "ContainerOOMKilling",
+    "namespace": "demo-memory-escalation",
+    "resourceKind": "Pod",
+    "resourceName": "ml-worker-757b4f8764-s9fh7",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.92,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "ml-worker",
+        "TARGET_RESOURCE_NAMESPACE": "demo-memory-escalation"
+      },
+      "workflowId": "bcc6b196-63b2-5130-a4e4-8345b5c6226d",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:2c16c45fd94dd6afcb241717d1e81ec29acebf142b4a3959d6539ea24cbcdfd7",
+      "workflowName": "crashloop-rollback-v1"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "The ml-worker container is OOMKilled due to an intentional memory leak: a shell script appends 8MiB/sec of random data to /dev/shm via dd, and the /dev/shm volume is mounted as emptyDir with medium: Memory, meaning all writes count directly against the 64Mi container memory limit. The container exhausts its quota in ~8 seconds, triggering the OOM killer and causing CrashLoopBackOff. A prior remediation that raised memory limits (rr-6372c283dab9-7b109de1) was ineffective (regression_detected=true, oom_killed=yes), confirming that the root cause is the workload logic itself, not an undersized limit. Rolling back the Deployment to the last healthy revision removes the bad container spec containing the leak script.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "ml-worker",
+        "namespace": "demo-memory-escalation"
+      },
+      "contributingFactors": [
+        "Container script explicitly simulates a memory leak: appending 8MiB/sec of random data to /dev/shm using dd",
+        "The /dev/shm volume is memory-backed (emptyDir medium: Memory), so all writes consume container memory directly",
+        "Memory limit is only 64Mi \u2014 exhausted in ~8 seconds at the current growth rate",
+        "CrashLoopBackOff is actively occurring with 3 restarts in ~90 seconds and growing backoff delays",
+        "Prior remediation (rr-6372c283dab9-7b109de1) that raised memory limits was flagged as ineffective with regression_detected=true and oom_killed=yes",
+        "Simply raising the memory limit will not resolve the unbounded growth \u2014 the workload spec must be reverted"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.92,
+    "analysis": "The ml-worker container is OOMKilled due to an intentional memory leak: a shell script appends 8MiB/sec of random data to /dev/shm via dd, and the /dev/shm volume is mounted as emptyDir with medium: Memory, meaning all writes count directly against the 64Mi container memory limit. The container exhausts its quota in ~8 seconds, triggering the OOM killer and causing CrashLoopBackOff. A prior remediation that raised memory limits (rr-6372c283dab9-7b109de1) was ineffective (regression_detected=true, oom_killed=yes), confirming that the root cause is the workload logic itself, not an undersized limit. Rolling back the Deployment to the last healthy revision removes the bad container spec containing the leak script."
+  },
+  "traceStats": {
+    "totalTokens": 96501,
+    "llmTurns": 11,
+    "totalToolCalls": 9
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_top_pods",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_previous_logs",
+      "index": 0
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 2
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 1
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    },
+    {
+      "tool": "get_workflow",
+      "index": 1
+    }
+  ]
+}

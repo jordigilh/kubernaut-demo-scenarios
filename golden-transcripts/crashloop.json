@@ -1,0 +1,102 @@
+{
+  "scenario": "crashloop",
+  "incidentId": "rr-9e1b7bf4140b-7dc1421c",
+  "signal": {
+    "signalName": "KubePodCrashLooping",
+    "namespace": "demo-crashloop",
+    "resourceKind": "Pod",
+    "resourceName": "worker-77784c6cf7-gp6v5",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.95,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "worker",
+        "TARGET_RESOURCE_NAMESPACE": "demo-crashloop"
+      },
+      "workflowId": "bcc6b196-63b2-5130-a4e4-8345b5c6226d",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:2c16c45fd94dd6afcb241717d1e81ec29acebf142b4a3959d6539ea24cbcdfd7",
+      "workflowName": "crashloop-rollback-v1"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Pod worker-77784c6cf7-gp6v5 is crash-looping because the Deployment was patched (kubectl-patch at 2026-04-23T15:58:29Z) to mount 'worker-config-bad' instead of the valid 'worker-config' ConfigMap. The bad ConfigMap contains 'invalid_directive_that_breaks_nginx on;', causing the server to abort on startup with exit code 1. The Deployment must be rolled back to restore the correct volume reference.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-crashloop"
+      },
+      "contributingFactors": [
+        "Deployment 'worker' volume was patched from 'worker-config' to 'worker-config-bad' at 2026-04-23T15:58:29Z",
+        "ConfigMap 'worker-config-bad' contains 'invalid_directive_that_breaks_nginx on;' which causes startup failure",
+        "Container exits with code 1 on every start attempt \u2014 cannot pass liveness/readiness probes",
+        "Correct ConfigMap 'worker-config' already exists in the namespace with valid configuration",
+        "4 restarts recorded, now in CrashLoopBackOff with 1m20s back-off"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.95,
+    "analysis": "Pod worker-77784c6cf7-gp6v5 is crash-looping because the Deployment was patched (kubectl-patch at 2026-04-23T15:58:29Z) to mount 'worker-config-bad' instead of the valid 'worker-config' ConfigMap. The bad ConfigMap contains 'invalid_directive_that_breaks_nginx on;', causing the server to abort on startup with exit code 1. The Deployment must be rolled back to restore the correct volume reference."
+  },
+  "traceStats": {
+    "totalTokens": 135143,
+    "llmTurns": 15,
+    "totalToolCalls": 11
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_previous_logs",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 3
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

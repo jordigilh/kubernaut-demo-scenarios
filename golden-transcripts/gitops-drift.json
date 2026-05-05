@@ -1,0 +1,98 @@
+{
+  "scenario": "gitops-drift",
+  "incidentId": "rr-375dabb6be76-479b9655",
+  "signal": {
+    "signalName": "KubePodCrashLooping",
+    "namespace": "demo-gitops",
+    "resourceKind": "Pod",
+    "resourceName": "web-frontend-c8dc85956-pbhfd",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.97,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "ConfigMap",
+        "TARGET_RESOURCE_NAME": "app-config",
+        "TARGET_RESOURCE_NAMESPACE": "demo-gitops"
+      },
+      "workflowId": "958489ce-ab20-544c-970e-2ee6a7da12b9",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:2ddce2cf7396a98ec8268006ffcb25c988ed41bcde81e234533f790f69445f4a",
+      "workflowName": "git-revert-v2"
+    },
+    "approvalRequired": false,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Pod web-frontend is crash-looping (exit code 1, 4 restarts) due to an invalid directive 'invalid_directive: true' in the app-config ConfigMap mounted at /etc/demo-http-server/config.yaml. The application aborts immediately at startup before liveness/readiness probes succeed. The bad ConfigMap was synced to the cluster by ArgoCD from the GitOps repository, making the Git source the authoritative root cause that must be fixed.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "ConfigMap",
+        "name": "app-config",
+        "namespace": "demo-gitops"
+      },
+      "contributingFactors": [
+        "ConfigMap 'app-config' contains an explicitly invalid directive 'invalid_directive: true' that causes the demo-http-server to exit with [emerg]",
+        "The bad ConfigMap was applied by ArgoCD (argocd-controller), indicating a misconfiguration was committed to the GitOps repository and synced to the cluster",
+        "The application reads the config at startup and immediately aborts \u2014 every restart fails within ~1 second (startedAt 02:45:29, finishedAt 02:45:30)",
+        "Pod has restarted 4 times and is in CrashLoopBackOff with 1m20s back-off delay, making it fully unavailable",
+        "Both liveness and readiness probes never succeed since the process exits before binding to port 8080"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.97,
+    "analysis": "Pod web-frontend is crash-looping (exit code 1, 4 restarts) due to an invalid directive 'invalid_directive: true' in the app-config ConfigMap mounted at /etc/demo-http-server/config.yaml. The application aborts immediately at startup before liveness/readiness probes succeed. The bad ConfigMap was synced to the cluster by ArgoCD from the GitOps repository, making the Git source the authoritative root cause that must be fixed."
+  },
+  "traceStats": {
+    "totalTokens": 114221,
+    "llmTurns": 15,
+    "totalToolCalls": 10
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_previous_logs",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 0
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

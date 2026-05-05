@@ -1,0 +1,108 @@
+{
+  "scenario": "slo-burn",
+  "incidentId": "rr-b0c0f4e80a71-7bc022f5",
+  "signal": {
+    "signalName": "ErrorBudgetBurn",
+    "namespace": "demo-slo",
+    "resourceKind": "Deployment",
+    "resourceName": "api-gateway",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.97,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "api-gateway",
+        "TARGET_CONFIGMAP_NAME": "api-config-bad",
+        "TARGET_RESOURCE_NAMESPACE": "demo-slo"
+      },
+      "workflowId": "a0f9857c-fc4b-5369-8a9c-6c87a3eeb03c",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:00121d62f62142d3d4700fc73b43d9b1c16e563dd088cd35290c7913906fdc5d",
+      "workflowName": "hotfix-config-production-v1"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "The api-gateway Deployment is mounted with a misconfigured ConfigMap 'api-config-bad' that forces all API routes to return HTTP 500, causing 100% error rate and SLO error budget burn. The correct ConfigMap 'api-config' exists in the same namespace and returns HTTP 200 for all routes. Pods pass health probes (liveness/readiness on /healthz) but serve errors to all real traffic.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "api-gateway",
+        "namespace": "demo-slo"
+      },
+      "contributingFactors": [
+        "Deployment spec references ConfigMap 'api-config-bad' (volume name 'config') instead of the correct 'api-config'",
+        "ConfigMap 'api-config-bad' explicitly configures /api/status and /api/ routes to return HTTP 500 with body 'internal server error'",
+        "Only /healthz returns HTTP 200, so liveness/readiness probes pass \u2014 pods appear healthy but serve errors to all real traffic",
+        "traffic-gen hits /api/status every 0.2 seconds, generating continuous error traffic that rapidly burns the SLO error budget",
+        "A rollout at ~17:01 UTC introduced 'api-config-bad'; a second rollout at ~17:06 UTC still left the bad ConfigMap in use",
+        "No prior remediation actions have been taken on this Deployment"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.97,
+    "analysis": "The api-gateway Deployment is mounted with a misconfigured ConfigMap 'api-config-bad' that forces all API routes to return HTTP 500, causing 100% error rate and SLO error budget burn. The correct ConfigMap 'api-config' exists in the same namespace and returns HTTP 200 for all routes. Pods pass health probes (liveness/readiness on /healthz) but serve errors to all real traffic."
+  },
+  "traceStats": {
+    "totalTokens": 149267,
+    "llmTurns": 17,
+    "totalToolCalls": 12
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}
