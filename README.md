@@ -356,6 +356,29 @@ concurrent-cross-namespace, memory-escalation, network-policy-block, orphaned-pv
 pdb-deadlock, pending-taint, resource-contention, resource-quota-exhaustion,
 statefulset-pvc-failure, stuck-rollout) require only the base Kubernaut platform.
 
+## Extracting Audit Traces
+
+Every RemediationRequest produces a full audit trail in the DataStorage PostgreSQL backend — LLM turns, tool calls, workflow selection rationale, shadow agent alignment checks, and more. Use `extract-audit-trace.sh` to pull these traces for debugging, eval capture, or golden transcript generation.
+
+```bash
+# Full audit trail for a specific RR
+bash scripts/extract-audit-trace.sh rr-6f5490d9b422-be1a4d24
+
+# Just the AI investigation (LLM turns + tool calls)
+bash scripts/extract-audit-trace.sh --latest --investigation
+
+# One-line summary per RR (signal, model, confidence, workflow, outcome)
+bash scripts/extract-audit-trace.sh --all --summary
+
+# JSON output for programmatic consumption / eval pipelines
+bash scripts/extract-audit-trace.sh --latest --investigation --json
+
+# Save to file
+bash scripts/extract-audit-trace.sh --latest --investigation -o traces/last-run.txt
+```
+
+The `--investigation` filter is particularly useful for validating prompt changes: it shows each LLM turn with the model used, token counts, tool calls with arguments and results, and the final workflow selection with confidence score and rationale.
+
 ## Documentation
 
 | Guide | Description |
