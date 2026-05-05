@@ -15,7 +15,7 @@ if [ -z "$PG_POD" ]; then
   PG_POD="pod/$(kubectl get pods -n kubernaut-system --no-headers -o custom-columns=NAME:.metadata.name 2>/dev/null | grep postgresql | head -1)"
 fi
 
-PARTITION="audit_events_2026_04"
+PARTITION="audit_events_$(date +%Y_%m)"
 
 _psql() {
   kubectl exec -n kubernaut-system "${PG_POD}" -- \
@@ -34,6 +34,7 @@ declare -A NS_MAP=(
   [demo-statefulset]=statefulset-pvc-failure
   [demo-cert-failure]=cert-failure
   [demo-mesh-failure]=mesh-routing-failure
+  [demo-diskpressure]=disk-pressure-emptydir
 )
 
 echo "==> Discovering best run per scenario..."

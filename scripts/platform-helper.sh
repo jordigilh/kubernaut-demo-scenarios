@@ -339,7 +339,9 @@ require_demo_ready() {
         _warn_slow_ksm_scrape
     fi
 
-    seed_action_types_and_workflows
+    if [ "${KUBERNAUT_BATCH_SETUP_DONE:-}" != "1" ]; then
+        seed_action_types_and_workflows
+    fi
 }
 
 # Detect the kube-state-metrics scrape interval on OCP and warn if it
@@ -647,8 +649,8 @@ _apply_sdk_config_to_cluster() {
     local cm_name
     cm_name=$(_sdk_configmap_name)
     if [ -z "$cm_name" ]; then
-        echo "  WARNING: Kubernaut Agent SDK ConfigMap not found in cluster."
-        return 1
+        cm_name="kubernaut-agent-sdk-config"
+        echo "  SDK ConfigMap not found — creating ${cm_name}..."
     fi
 
     local content
@@ -677,6 +679,9 @@ _apply_sdk_config_to_cluster() {
 }
 
 enable_prometheus_toolset() {
+    if [ "${KUBERNAUT_BATCH_SETUP_DONE:-}" = "1" ]; then
+        return 0
+    fi
     local prom_url
     prom_url=$(_prom_url_for_platform)
 
@@ -828,6 +833,9 @@ disable_prometheus_toolset() {
 # the annotation preserves the original, not the already-patched version.
 
 force_production_approval() {
+    if [ "${KUBERNAUT_BATCH_SETUP_DONE:-}" = "1" ]; then
+        return 0
+    fi
     local ns="${PLATFORM_NS:-kubernaut-system}"
     echo "==> Enforcing deterministic production approval policy..."
 

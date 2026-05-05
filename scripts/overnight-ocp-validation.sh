@@ -66,6 +66,16 @@ SCENARIO_ORDER=(
   gitops-drift
   mesh-routing-failure
   node-notready
+  pvc-capacity-forecast
+  db-connection-saturation
+  cascading-service-failure
+  image-pull-failure
+  route-misconfiguration
+  build-failure
+  scc-violation
+  operator-health
+  rbac-failure
+  etcd-defrag-forecast
 )
 
 ONLY_LIST=""
@@ -102,9 +112,10 @@ log_both() {
 capture_transcript() {
   local scenario="$1"
   local log_file="$2"
-  echo "  Capturing golden transcript..." | tee -a "${RESULTS_FILE}"
+  echo "  Capturing golden transcript (archive: ${KA_VERSION})..." | tee -a "${RESULTS_FILE}"
   set +e
   bash "${SCRIPT_DIR}/capture-eval.sh" --wait --output "${TRANSCRIPTS_DIR}" \
+    --archive-version "${KA_VERSION}" \
     >> "${log_file}" 2>&1
   local cap_exit=$?
   set -e
@@ -145,12 +156,23 @@ extract_workflow() {
   fi
 }
 
+# ── Detect KA version for archive ────────────────────────────────────────────
+KA_VERSION=$(kubectl get pod -n "${PLATFORM_NS}" -l app=kubernaut-agent \
+  -o jsonpath='{.items[0].metadata.labels.app\.kubernetes\.io/version}' 2>/dev/null || true)
+if [ -z "$KA_VERSION" ]; then
+  KA_VERSION=$(kubectl get pod -n "${PLATFORM_NS}" -l app=kubernaut-agent \
+    -o jsonpath='{.items[0].metadata.labels.helm\.sh/chart}' 2>/dev/null \
+    | sed 's/^kubernaut-//' || true)
+fi
+[ -z "$KA_VERSION" ] && KA_VERSION="unknown-${TIMESTAMP}"
+
 # ── Header ──────────────────────────────────────────────────────────────────
 {
   echo "Kubernaut OCP Overnight Validation Run"
   echo "Started:  $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
   echo "Cluster:  $(kubectl config current-context 2>/dev/null)"
   echo "Platform: OCP"
+  echo "Version:  ${KA_VERSION}"
   echo "KA image: $(kubectl get pod -n ${PLATFORM_NS} -l app=kubernaut-agent -o jsonpath='{.items[0].status.containerStatuses[0].image}' 2>/dev/null || echo 'unknown')"
   echo "Nodes:    $(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')"
   echo ""

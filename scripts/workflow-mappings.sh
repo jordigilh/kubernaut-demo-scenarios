@@ -27,4 +27,12 @@ WORKFLOWS=(
     "resource-contention:increase-memory-limits-job"
     "disk-pressure-emptydir:migrate-emptydir-to-pvc-gitops"
     "concurrent-cross-namespace:hotfix-config-job"
+    "pvc-capacity-forecast:expand-pvc-job"
+    "image-pull-failure:refresh-pull-secret-job"
+    "route-misconfiguration:fix-route-target-job"
+    "build-failure:fix-build-source-job"
+    "scc-violation:fix-security-context-job"
+    "operator-health:restore-operator-csv-job"
+    "rbac-failure:restore-rolebinding-job"
+    "etcd-defrag-forecast:defrag-etcd-job"
 )

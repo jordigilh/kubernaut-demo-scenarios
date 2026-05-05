@@ -8,14 +8,19 @@ confidence calibration and token consumption analysis.
 
 Usage:
     python3 scripts/eval_report.py [--transcripts DIR] [--matrix FILE] [--output FILE]
+    python3 scripts/eval_report.py --compare v1.3.2 v1.4.0-rc5
 
 Defaults:
     --transcripts  golden-transcripts/
     --matrix       scripts/eval-matrix.json
     --output       (stdout)
 
+The --compare mode loads transcripts from golden-transcripts/archive/<VERSION>/
+and produces a side-by-side diff table showing confidence, duration, token count,
+turn count, tool call, and batching changes between two releases.
+
 Exit codes:
-    0  All scenarios passed
+    0  All scenarios passed (or compare mode completed)
     1  One or more scenarios failed
     2  Usage / configuration error
 """
@@ -346,6 +351,196 @@ def print_report(results: list[dict], sync_warnings: list[str], output_file: str
     return failed
 
 
+def _extract_trace_metrics(transcript: dict) -> dict:
+    """Extract timing, token, and tool-call metrics from a transcript's llmTrace."""
+    trace = transcript.get("llmTrace", [])
+    stats = transcript.get("traceStats", {})
+    metrics: dict[str, Any] = {
+        "llm_turns": stats.get("llmTurns", 0),
+        "tool_calls": stats.get("totalToolCalls", 0),
+        "completion_tokens": stats.get("totalTokens", 0),
+        "prompt_tokens": 0,
+        "duration_s": None,
+        "max_tools_per_turn": 0,
+        "model": stats.get("model", ""),
+    }
+    if not trace:
+        return metrics
+
+    from datetime import datetime
+
+    timestamps = []
+    prompt_total = 0
+    max_tc = 0
+    for e in trace:
+        ts_str = e.get("event_timestamp", "")
+        if ts_str:
+            try:
+                timestamps.append(datetime.fromisoformat(ts_str))
+            except ValueError:
+                pass
+        if e.get("event_type") == "aiagent.llm.request":
+            pl = e.get("prompt_length")
+            if pl:
+                prompt_total += int(pl)
+        if e.get("event_type") == "aiagent.llm.response":
+            tc = e.get("tool_call_count")
+            if tc:
+                max_tc = max(max_tc, int(tc))
+
+    metrics["prompt_tokens"] = prompt_total
+    metrics["max_tools_per_turn"] = max_tc
+    if len(timestamps) >= 2:
+        metrics["duration_s"] = round((max(timestamps) - min(timestamps)).total_seconds(), 1)
+    return metrics
+
+
+def _fmt_delta(new_val, old_val, fmt=".0f", lower_is_better=False):
+    """Format a value with a delta indicator."""
+    if new_val is None or old_val is None:
+        return "—"
+    delta = new_val - old_val
+    if delta == 0:
+        return f"{new_val:{fmt}}"
+    sign = "+" if delta > 0 else ""
+    indicator = ""
+    if lower_is_better:
+        indicator = " ^" if delta < 0 else " v" if delta > 0 else ""
+    else:
+        indicator = " ^" if delta > 0 else " v" if delta < 0 else ""
+    return f"{new_val:{fmt}} ({sign}{delta:{fmt}}{indicator})"
+
+
+def compare_versions(dir_old: str, dir_new: str, output_file: str | None):
+    """Compare transcripts from two archived versions."""
+    old_transcripts = load_transcripts(dir_old)
+    new_transcripts = load_transcripts(dir_new)
+
+    def _best_per_scenario(transcripts: list[dict]) -> dict[str, dict]:
+        """Keep the most complete transcript per scenario (prefer schema_version=1 with llmTrace)."""
+        by_scenario: dict[str, dict] = {}
+        for t in transcripts:
+            s = t.get("scenario", "unknown")
+            existing = by_scenario.get(s)
+            if existing is None:
+                by_scenario[s] = t
+            else:
+                new_has_trace = bool(t.get("llmTrace"))
+                old_has_trace = bool(existing.get("llmTrace"))
+                if new_has_trace and not old_has_trace:
+                    by_scenario[s] = t
+                elif new_has_trace and old_has_trace:
+                    if len(t.get("llmTrace", [])) > len(existing.get("llmTrace", [])):
+                        by_scenario[s] = t
+        return by_scenario
+
+    old_by_scenario = _best_per_scenario(old_transcripts)
+    new_by_scenario = _best_per_scenario(new_transcripts)
+
+    all_scenarios = sorted(set(old_by_scenario) | set(new_by_scenario))
+
+    v_old = Path(dir_old).name
+    v_new = Path(dir_new).name
+
+    lines = []
+    lines.append("=" * 100)
+    lines.append(f"GOLDEN TRANSCRIPT COMPARISON: {v_old} -> {v_new}")
+    lines.append("=" * 100)
+    lines.append("")
+
+    hdr = (f"{'Scenario':<30} {'Confidence':>18} {'Duration (s)':>18} "
+           f"{'Tokens (comp)':>18} {'Turns':>10} {'Tools':>10} {'MaxTC/Turn':>10}")
+    lines.append(hdr)
+    lines.append("-" * 100)
+
+    regressions = []
+    improvements = []
+
+    for scenario in all_scenarios:
+        old_t = old_by_scenario.get(scenario)
+        new_t = new_by_scenario.get(scenario)
+
+        if not old_t:
+            lines.append(f"{scenario:<30} {'(new)':>18}")
+            continue
+        if not new_t:
+            lines.append(f"{scenario:<30} {'(missing)':>18}")
+            continue
+
+        old_m = _extract_trace_metrics(old_t)
+        new_m = _extract_trace_metrics(new_t)
+
+        old_conf = None
+        new_conf = None
+        for t, target in [(old_t, "old"), (new_t, "new")]:
+            rca = t.get("analysis", {}).get("rootCauseAnalysis") or {}
+            c = rca.get("confidence")
+            if c is None:
+                sw = t.get("analysis", {}).get("selectedWorkflow")
+                if isinstance(sw, dict):
+                    c = sw.get("confidence")
+            if c is None:
+                ka = t.get("kaResponse") or {}
+                if isinstance(ka, str):
+                    try:
+                        ka = json.loads(ka)
+                    except (json.JSONDecodeError, TypeError):
+                        ka = {}
+                c = ka.get("confidence")
+            if c is not None:
+                c = float(c)
+            if target == "old":
+                old_conf = c
+            else:
+                new_conf = c
+
+        conf_str = _fmt_delta(new_conf, old_conf, ".2f", lower_is_better=False)
+        dur_str = _fmt_delta(new_m["duration_s"], old_m["duration_s"], ".0f", lower_is_better=True)
+        tok_str = _fmt_delta(new_m["completion_tokens"], old_m["completion_tokens"], ".0f", lower_is_better=True)
+        turns_str = _fmt_delta(new_m["llm_turns"], old_m["llm_turns"], ".0f", lower_is_better=True)
+        tools_str = _fmt_delta(new_m["tool_calls"], old_m["tool_calls"], ".0f", lower_is_better=True)
+        maxtc_str = _fmt_delta(new_m["max_tools_per_turn"], old_m["max_tools_per_turn"], ".0f", lower_is_better=False)
+
+        lines.append(f"{scenario:<30} {conf_str:>18} {dur_str:>18} {tok_str:>18} "
+                     f"{turns_str:>10} {tools_str:>10} {maxtc_str:>10}")
+
+        if old_conf and new_conf and new_conf < old_conf - 0.05:
+            regressions.append((scenario, old_conf, new_conf))
+        if old_conf and new_conf and new_conf > old_conf + 0.02:
+            improvements.append((scenario, old_conf, new_conf))
+
+    lines.append("-" * 100)
+    lines.append("")
+    lines.append(f"Scenarios compared: {len(all_scenarios)}  "
+                 f"In both: {len(set(old_by_scenario) & set(new_by_scenario))}  "
+                 f"New: {len(set(new_by_scenario) - set(old_by_scenario))}  "
+                 f"Removed: {len(set(old_by_scenario) - set(new_by_scenario))}")
+
+    if improvements:
+        lines.append("")
+        lines.append("CONFIDENCE IMPROVEMENTS (> +0.02):")
+        for s, o, n in improvements:
+            lines.append(f"  {s}: {o:.2f} -> {n:.2f} (+{n-o:.2f})")
+
+    if regressions:
+        lines.append("")
+        lines.append("CONFIDENCE REGRESSIONS (> -0.05):")
+        for s, o, n in regressions:
+            lines.append(f"  {s}: {o:.2f} -> {n:.2f} ({n-o:.2f})")
+
+    lines.append("")
+    lines.append("Legend: ^ = improved, v = regressed (relative to column metric)")
+    lines.append("")
+
+    report = "\n".join(lines)
+    if output_file:
+        with open(output_file, "w") as f:
+            f.write(report)
+        print(f"Comparison report written to {output_file}")
+    else:
+        print(report)
+
+
 def main():
     parser = argparse.ArgumentParser(description="LLM Workflow Eval Scorer")
     parser.add_argument("--transcripts", default="golden-transcripts/",
@@ -356,7 +551,22 @@ def main():
                         help="Output file (default: stdout)")
     parser.add_argument("--workflow-mappings", default="scripts/workflow-mappings.sh",
                         help="Path to workflow-mappings.sh for sync validation")
+    parser.add_argument("--compare", nargs=2, metavar=("VERSION_OLD", "VERSION_NEW"),
+                        help="Compare two archived versions (e.g. --compare v1.3.2 v1.4.0-rc5)")
     args = parser.parse_args()
+
+    if args.compare:
+        base = Path(args.transcripts) / "archive"
+        dir_old = str(base / args.compare[0])
+        dir_new = str(base / args.compare[1])
+        if not Path(dir_old).is_dir():
+            print(f"ERROR: archive directory not found: {dir_old}", file=sys.stderr)
+            sys.exit(2)
+        if not Path(dir_new).is_dir():
+            print(f"ERROR: archive directory not found: {dir_new}", file=sys.stderr)
+            sys.exit(2)
+        compare_versions(dir_old, dir_new, args.output)
+        sys.exit(0)
 
     matrix = load_matrix(args.matrix)
     transcripts = load_transcripts(args.transcripts)
