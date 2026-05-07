@@ -9,8 +9,8 @@ BC_JSON=$(kubectl get buildconfig "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_N
     exit 1
 }
 
-CURRENT_URI=$(echo "$BC_JSON" | grep -o '"uri":"[^"]*"' | head -1 | cut -d'"' -f4)
-CURRENT_REF=$(echo "$BC_JSON" | grep -o '"ref":"[^"]*"' | head -1 | cut -d'"' -f4)
+CURRENT_URI=$(echo "$BC_JSON" | grep -o '"uri" *: *"[^"]*"' | head -1 | sed 's/.*: *"//;s/"//')
+CURRENT_REF=$(echo "$BC_JSON" | grep -o '"ref" *: *"[^"]*"' | head -1 | sed 's/.*: *"//;s/"//')
 echo "Current Git URI: ${CURRENT_URI}"
 echo "Current Git ref: ${CURRENT_REF:-<default branch>}"
 
@@ -48,17 +48,21 @@ echo "Patching BuildConfig ${TARGET_RESOURCE_NAME} source to known-good values..
 kubectl patch buildconfig "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" \
   --type=merge -p "{\"spec\":{\"source\":{\"git\":{\"uri\":\"${GOOD_URI}\",\"ref\":\"${GOOD_REF}\"}}}}"
 
-echo "Triggering new build..."
-kubectl start-build "$TARGET_RESOURCE_NAME" -n "$TARGET_RESOURCE_NAMESPACE" 2>/dev/null || \
-  kubectl create -f - <<EOF
-apiVersion: build.openshift.io/v1
-kind: Build
-metadata:
-  generateName: ${TARGET_RESOURCE_NAME}-
-  namespace: ${TARGET_RESOURCE_NAMESPACE}
-  labels:
-    buildconfig: ${TARGET_RESOURCE_NAME}
-EOF
+echo "Triggering new build via BuildConfig instantiate API..."
+TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
+API_URL="https://kubernetes.default.svc/apis/build.openshift.io/v1/namespaces/${TARGET_RESOURCE_NAMESPACE}/buildconfigs/${TARGET_RESOURCE_NAME}/instantiate"
+HTTP_CODE=$(curl -s -o /tmp/build-response.json -w "%{http_code}" -X POST -k "$API_URL" \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"kind\":\"BuildRequest\",\"apiVersion\":\"build.openshift.io/v1\",\"metadata\":{\"name\":\"${TARGET_RESOURCE_NAME}\"}}")
+if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+    BUILD_NAME=$(grep -o '"name":"[^"]*"' /tmp/build-response.json | head -1 | cut -d'"' -f4)
+    echo "Build ${BUILD_NAME} triggered (HTTP ${HTTP_CODE})"
+else
+    echo "ERROR: Failed to trigger build (HTTP ${HTTP_CODE})"
+    cat /tmp/build-response.json 2>/dev/null
+    exit 1
+fi
 
 echo "=== Phase 3: Verify ==="
 echo "Waiting for new build to start..."

@@ -50,7 +50,7 @@ metadata:
   name: restore-operator-csv-v1
   namespace: kubernaut-system
 spec:
-  version: "1.4.0"
+  version: "1.4.1"
   description:
     what: "Restores a failed or deleted operator CSV by recreating the OLM Subscription, triggering OLM to re-install the operator's ClusterServiceVersion"
     whenToUse: "When csv_succeeded drops to 0 for an operator and the CSV shows phase Failed, Replacing, or is missing entirely. Check the Subscription status for state UpgradePending or AtLatestKnown with a missing CSV. Common after accidental CSV deletion, CatalogSource image corruption, or failed operator upgrade. The fix is to restore the operator by recreating the Subscription so OLM re-installs the CSV."
@@ -62,7 +62,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [production, staging]
-    component: [operator]
+    component: [subscription, clusterserviceversion, operator]
     priority: "*"
 
   execution:

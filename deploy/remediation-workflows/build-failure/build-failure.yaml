@@ -19,6 +19,9 @@ rules:
     resources: ["buildconfigs"]
     verbs: ["get", "list", "patch"]
   - apiGroups: ["build.openshift.io"]
+    resources: ["buildconfigs/instantiate"]
+    verbs: ["create"]
+  - apiGroups: ["build.openshift.io"]
     resources: ["builds"]
     verbs: ["get", "list", "create"]
   - apiGroups: [""]
@@ -26,6 +29,9 @@ rules:
     verbs: ["get", "list"]
   - apiGroups: [""]
     resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -50,7 +56,7 @@ metadata:
   name: fix-build-source-v1
   namespace: kubernaut-system
 spec:
-  version: "1.4.0"
+  version: "1.4.2"
   description:
     what: "Restores a BuildConfig's Git source reference to a known-good URI and branch, then triggers a new build to recover from build failures caused by broken source references"
     whenToUse: "When openshift_build_status_phase_total with build_phase=failed increases and no successful builds are completing. Check the Build resource status.phase and build pod logs for clone/fetch errors. Check BuildConfig spec.source.git.uri and spec.source.git.ref for incorrect repository URL or branch reference. Common after repository migrations, branch renames, or source secret expiry."
@@ -62,13 +68,13 @@ spec:
   labels:
     severity: [critical, high]
     environment: [production, staging]
-    component: [build-pipeline, deployment]
+    component: [buildconfig, build-pipeline, deployment]
     priority: "*"
 
   execution:
     engine: job
     serviceAccountName: fix-build-source-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-build-source-job@sha256:a61eb0d83223b55b946e8aa5ae4506bd71a89f33c224ee5b93064fd9305e817a
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-build-source-job@sha256:aceb5565b40e8142dfcf576d80a5a75b6fb2c6866c7890892734c26b2a737341
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

@@ -4,4 +4,5 @@ resources:
   - namespace.yaml
   - imagestream.yaml
   - buildconfig.yaml
+  - build-source-config.yaml
   - prometheus-rule.yaml
