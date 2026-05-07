@@ -54,10 +54,10 @@ sleep 30
 # ── Assertions ──────────────────────────────────────────────────────────────
 log_phase "Running assertions..."
 
-# Get all RRs for this namespace
+# Get all RRs for this namespace (include signal name for filtering)
 all_rrs=$(kubectl get rr -n "${PLATFORM_NS}" \
-  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.overallPhase}{"\t"}{.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
-  | awk -F'\t' -v ns="${NAMESPACE}" '$3 == ns { print $1 "\t" $2 }')
+  -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.overallPhase}{"\t"}{.spec.signalLabels.namespace}{"\t"}{.spec.signalName}{"\n"}{end}' 2>/dev/null \
+  | awk -F'\t' -v ns="${NAMESPACE}" '$3 == ns { print $1 "\t" $2 "\t" $4 }')
 
 rr_total=$(echo "$all_rrs" | grep -c . || echo "0")
 assert_gt "$rr_total" "1" "At least 2 RRs created for multi-incident scenario"
@@ -66,8 +66,14 @@ completed_rrs=$(echo "$all_rrs" | grep -c "Completed" || echo "0")
 blocked_rrs=$(echo "$all_rrs" | grep -c "Blocked" || echo "0")
 log_phase "RR states: ${completed_rrs} Completed, ${blocked_rrs} Blocked (total: ${rr_total})"
 
-# Find the first completed RR to check its RCA target
-completed_rr_name=$(echo "$all_rrs" | awk -F'\t' '$2 == "Completed" { print $1; exit }')
+# Find the KubePodCrashLooping RR (not the ImagePullBackOff noise RR) for the
+# primary assertion. The canary-v2 ImagePullBackOff is a separate incident;
+# the root-cause test must examine the crash-loop pipeline.
+completed_rr_name=$(echo "$all_rrs" | awk -F'\t' '$2 == "Completed" && $3 == "KubePodCrashLooping" { print $1; exit }')
+if [ -z "$completed_rr_name" ]; then
+    # Fall back to any non-ImagePullBackOff completed RR
+    completed_rr_name=$(echo "$all_rrs" | awk -F'\t' '$2 == "Completed" && $3 != "ImagePullBackOffPersistent" { print $1; exit }')
+fi
 if [ -z "$completed_rr_name" ]; then
     completed_rr_name=$(get_rr_name "${NAMESPACE}")
 fi

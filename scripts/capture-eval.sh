@@ -114,9 +114,9 @@ if [ "$WAIT_FOR_COMPLETE" = true ]; then
     echo "  Waiting for RR to reach terminal phase..."
     for _ in $(seq 1 120); do
         PHASE=$(kubectl get rr "$RR_NAME" -n "$PLATFORM_NS" \
-            -o jsonpath='{.status.conditions[?(@.type=="Ready")].reason}' 2>/dev/null)
+            -o jsonpath='{.status.overallPhase}' 2>/dev/null)
         case "$PHASE" in
-            Completed|TimedOut|Failed|ManualIntervention) break ;;
+            Completed|Failed|TimedOut) break ;;
         esac
         sleep 5
     done

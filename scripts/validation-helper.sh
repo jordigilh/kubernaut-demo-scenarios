@@ -100,29 +100,43 @@ fi
 
 _find_rr_name() {
     local target_ns="$1"
-    # Find the most recent RR whose signalLabels.namespace exactly matches the
+    # Find the best RR whose signalLabels.namespace exactly matches the
     # target namespace.  Uses awk instead of grep to avoid substring collisions
     # (e.g. "demo-crashloop" matching "demo-crashloop-helm") — #148.
     #
-    # When multiple RRs exist (e.g. dedup created a Blocked duplicate),
-    # prefer a non-Blocked RR so validate.sh tracks the real pipeline — #concurrent-fix.
+    # Priority (multi-RR dedup scenarios): Completed+Remediated > active
+    # pipeline (Analyzing/Executing/Verifying/AwaitingApproval) > any
+    # non-Blocked > any.  Within each tier prefer the oldest RR (head -1)
+    # because the platform processes the first signal's pipeline first.
     local _all_rrs
     _all_rrs=$(kubectl get remediationrequests -n "$PLATFORM_NS" \
-        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\t"}{.status.overallPhase}{"\n"}{end}' 2>/dev/null \
-        | awk -F'\t' -v ns="$target_ns" '$2 == ns { print $1 "\t" $3 }')
+        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\t"}{.status.overallPhase}{"\t"}{.status.outcome}{"\n"}{end}' 2>/dev/null \
+        | awk -F'\t' -v ns="$target_ns" '$2 == ns { print $1 "\t" $3 "\t" $4 }')
 
     if [ -z "$_all_rrs" ]; then
         return
     fi
 
-    # Prefer any non-Blocked RR; fall back to the most recent if all are Blocked.
     local _preferred
-    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 != "Blocked" { print $1 }' | tail -1)
-    if [ -n "$_preferred" ]; then
-        echo "$_preferred"
-    else
-        echo "$_all_rrs" | awk -F'\t' '{ print $1 }' | tail -1
-    fi
+
+    # 1. Completed + Remediated (definitively successful pipeline)
+    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 == "Completed" && $3 == "Remediated" { print $1 }' | head -1)
+    [ -n "$_preferred" ] && { echo "$_preferred"; return; }
+
+    # 2. Active pipeline (not yet terminal)
+    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 != "Blocked" && $2 != "Failed" && $2 != "Completed" { print $1 }' | head -1)
+    [ -n "$_preferred" ] && { echo "$_preferred"; return; }
+
+    # 3. Any Completed (even non-Remediated)
+    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 == "Completed" { print $1 }' | head -1)
+    [ -n "$_preferred" ] && { echo "$_preferred"; return; }
+
+    # 4. Any non-Blocked
+    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 != "Blocked" { print $1 }' | head -1)
+    [ -n "$_preferred" ] && { echo "$_preferred"; return; }
+
+    # 5. Fall back to oldest
+    echo "$_all_rrs" | awk -F'\t' '{ print $1 }' | head -1
 }
 
 get_rr_phase() {
