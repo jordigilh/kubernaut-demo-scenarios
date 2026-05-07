@@ -11,19 +11,22 @@ spec:
     rules:
     - alert: RouteBackendUnavailable
       expr: |
-        haproxy_backend_up{
-          exported_namespace="demo-route",
-          route="storefront"
-        } == 1
-        unless on(exported_namespace, route)
-        haproxy_server_up{
-          exported_namespace="demo-route",
-          route="storefront"
-        }
+        max by (exported_namespace, route) (
+          haproxy_backend_up{
+            exported_namespace="demo-route",
+            route="storefront"
+          } == 1
+          unless on(exported_namespace, route)
+          haproxy_server_up{
+            exported_namespace="demo-route",
+            route="storefront"
+          }
+        )
       for: 30s
       labels:
         severity: high
         namespace: demo-route
+        route: storefront
       annotations:
         summary: >
           Route storefront in namespace demo-route has no healthy backend.

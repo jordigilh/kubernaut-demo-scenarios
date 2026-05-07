@@ -11,7 +11,9 @@ spec:
     rules:
     - alert: KubeNodeNotReady
       expr: |
-        kube_node_status_condition{condition="Ready", status="true"} == 0
+        max by (node) (
+          kube_node_status_condition{condition="Ready", status="true"} == 0
+        )
       for: 30s
       labels:
         severity: critical

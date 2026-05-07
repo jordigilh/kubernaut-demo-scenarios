@@ -12,23 +12,27 @@ spec:
     # Detect PDB blocking disruptions (0 allowed disruptions for extended period)
     - alert: KubePodDisruptionBudgetAtLimit
       expr: |
-        kube_poddisruptionbudget_status_pod_disruptions_allowed{
-          namespace="demo-pdb",
-          poddisruptionbudget="payment-service-pdb"
-        } == 0
-        and
-        kube_poddisruptionbudget_status_expected_pods{
-          namespace="demo-pdb",
-          poddisruptionbudget="payment-service-pdb"
-        }
-        ==
-        kube_poddisruptionbudget_status_current_healthy{
-          namespace="demo-pdb",
-          poddisruptionbudget="payment-service-pdb"
-        }
+        max by (namespace, poddisruptionbudget) (
+          kube_poddisruptionbudget_status_pod_disruptions_allowed{
+            namespace="demo-pdb",
+            poddisruptionbudget="payment-service-pdb"
+          } == 0
+          and
+          kube_poddisruptionbudget_status_expected_pods{
+            namespace="demo-pdb",
+            poddisruptionbudget="payment-service-pdb"
+          }
+          ==
+          kube_poddisruptionbudget_status_current_healthy{
+            namespace="demo-pdb",
+            poddisruptionbudget="payment-service-pdb"
+          }
+        )
       for: 30s
       labels:
         severity: warning
+        namespace: demo-pdb
+        poddisruptionbudget: payment-service-pdb
       annotations:
         summary: >
           PDB {{ $labels.poddisruptionbudget }} in namespace {{ $labels.namespace }}
