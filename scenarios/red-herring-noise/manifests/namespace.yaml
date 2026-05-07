@@ -10,3 +10,4 @@ metadata:
     kubernaut.ai/managed: "true"
     kubernaut.ai/sla-tier: tier-1
     kubernaut.ai/component: microservices
+    kubernaut.ai/risk-tolerance: high

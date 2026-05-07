@@ -26,8 +26,8 @@ must not contaminate the RCA.
 | **ITIL Level** | L3 -- Advanced Diagnostics |
 | **Category** | Reactive / Multi-Incident Separation |
 | **Signal** | `KubePodCrashLooping` (x2) + `ImagePullBackOffPersistent` (x1) |
-| **ActionType** | `RollbackDeployment` (existing) |
-| **Workflow** | `rollback-deployment-v1` or `crashloop-rollback-v1` (existing) |
+| **ActionType** | `PatchConfiguration` (existing) |
+| **Workflow** | `hotfix-config-v1` (existing) |
 
 ## Architecture
 
@@ -49,7 +49,7 @@ crash-loops               |              |           ImagePullBackOff
      |             remediationTarget:   ResourceBusy   independent
      |             Deployment/postgres  (blocked)      diagnosis
      |                     |
-     |<---- rollback ------|
+     |<---- patch CM ------|
   PG recovers
      |
   apps auto-recover
@@ -76,10 +76,10 @@ The LLM should:
 
 ## Fault Injection
 
-`inject-faults.sh` patches the postgres Deployment with:
-```
-command: ["sh", "-c", "echo INJECTED FAULT: postgres forced crash; exit 1"]
-```
+`inject-faults.sh` patches the `postgres-config` ConfigMap to add
+`invalid_directive: true`, then restarts the postgres Deployment. The entrypoint
+wrapper detects the invalid directive and exits immediately, crashing postgres.
+This aligns with `hotfix-config-v1`'s PatchConfiguration remediation strategy.
 
 The canary-v2 decoy is deployed from the start with a nonexistent image tag
 (`registry.example.com/myorg/api-server:v2.0.0-rc1-does-not-exist`).

@@ -10,6 +10,7 @@ metadata:
     kubernaut.ai/managed: "true"
     kubernaut.ai/sla-tier: tier-1
     kubernaut.ai/component: shared-infrastructure
+    kubernaut.ai/risk-tolerance: high
 ---
 apiVersion: v1
 kind: Namespace
@@ -23,3 +24,4 @@ metadata:
     kubernaut.ai/managed: "true"
     kubernaut.ai/sla-tier: tier-1
     kubernaut.ai/component: microservices
+    kubernaut.ai/risk-tolerance: high

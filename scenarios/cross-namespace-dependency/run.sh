@@ -9,7 +9,7 @@
 #
 # Prerequisites:
 #   - OCP cluster with Kubernaut services
-#   - RollbackDeployment ActionType + rollback-deployment-v1 workflow
+#   - PatchConfiguration ActionType + hotfix-config-v1 workflow
 #
 # Usage: ./scenarios/cross-namespace-dependency/run.sh [--auto-approve|--interactive]
 set -euo pipefail

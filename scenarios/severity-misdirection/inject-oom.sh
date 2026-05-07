@@ -15,12 +15,24 @@ NAMESPACE="demo-severity-misdirection"
 
 echo "==> Injecting OOM condition on postgres in ${NAMESPACE}..."
 
+# Scale to zero first so the old healthy pod is fully terminated.
+# Without this, RollingUpdate keeps the old pod alive (new pod never passes
+# readiness because it OOMs), so api-gateway never loses its DB connection
+# and KubePodCrashLooping never fires.
+echo "    Scaling postgres to 0 to terminate healthy pod..."
+kubectl scale deployment postgres -n "${NAMESPACE}" --replicas=0
+kubectl rollout status deployment/postgres -n "${NAMESPACE}" --timeout=60s 2>/dev/null || true
+sleep 3
+
 echo "    Patching postgres memory limit to 16Mi (will OOM on startup)..."
 kubectl patch deployment postgres -n "${NAMESPACE}" --type=json \
   -p='[{"op":"replace","path":"/spec/template/spec/containers/0/resources/limits/memory","value":"16Mi"},{"op":"replace","path":"/spec/template/spec/containers/0/resources/requests/memory","value":"16Mi"}]'
 
-echo "    Waiting for rollout to trigger OOM..."
-sleep 10
+echo "    Scaling postgres back to 1 (new pod will OOM immediately)..."
+kubectl scale deployment postgres -n "${NAMESPACE}" --replicas=1
+
+echo "    Waiting for OOM to manifest..."
+sleep 15
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 echo "==> OOM condition injected."
