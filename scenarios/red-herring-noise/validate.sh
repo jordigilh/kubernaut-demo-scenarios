@@ -62,8 +62,10 @@ all_rrs=$(kubectl get rr -n "${PLATFORM_NS}" \
 rr_total=$(echo "$all_rrs" | grep -c . || echo "0")
 assert_gt "$rr_total" "1" "At least 2 RRs created for multi-incident scenario"
 
-completed_rrs=$(echo "$all_rrs" | grep -c "Completed" || echo "0")
-blocked_rrs=$(echo "$all_rrs" | grep -c "Blocked" || echo "0")
+completed_rrs=$(echo "$all_rrs" | grep -c "Completed" || true)
+completed_rrs=${completed_rrs:-0}
+blocked_rrs=$(echo "$all_rrs" | grep -c "Blocked" || true)
+blocked_rrs=${blocked_rrs:-0}
 log_phase "RR states: ${completed_rrs} Completed, ${blocked_rrs} Blocked (total: ${rr_total})"
 
 # Find the KubePodCrashLooping RR (not the ImagePullBackOff noise RR) for the

@@ -61,7 +61,7 @@ kubectl wait --for=condition=Available deployment/worker \
   -n "${NAMESPACE}" --timeout=120s
 echo "  api-gateway and worker are running."
 echo ""
-echo "  NOTE: canary-v2 is expected to be in ImagePullBackOff (decoy)."
+echo "  NOTE: canary-v2 will be deployed after postgres fault (red herring)."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 

@@ -4,5 +4,4 @@ resources:
   - namespace.yaml
   - postgres.yaml
   - dependent-apps.yaml
-  - canary-decoy.yaml
   - prometheus-rule.yaml

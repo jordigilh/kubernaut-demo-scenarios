@@ -81,8 +81,10 @@ The LLM should:
 wrapper detects the invalid directive and exits immediately, crashing postgres.
 This aligns with `hotfix-config-v1`'s PatchConfiguration remediation strategy.
 
-The canary-v2 decoy is deployed from the start with a nonexistent image tag
-(`registry.example.com/myorg/api-server:v2.0.0-rc1-does-not-exist`).
+The canary-v2 decoy is deployed 45 seconds after the postgres fault to ensure
+that `KubePodCrashLooping` fires before `ImagePullBackOffPersistent`, giving the
+platform time to create and process the primary RR first. The canary uses a
+nonexistent image tag (`registry.example.com/myorg/api-server:v2.0.0-rc1-does-not-exist`).
 
 ## Validation
 
@@ -109,18 +111,18 @@ The canary-v2 decoy is deployed from the start with a nonexistent image tag
 | Cluster | OCP with Kubernaut services deployed |
 | LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics for restart counts and waiting reasons |
-| Workflow catalog | `rollback-deployment-v1` or `crashloop-rollback-v1` registered |
-| Images | `quay.io/sclorg/postgresql-16-c9s` (OCP) |
+| Workflow catalog | `hotfix-config-v1` registered (PatchConfiguration) |
+| Images | OCP internal registry `postgresql:15-el9` |
 
 ### Workflow RBAC
 
-This scenario reuses existing deployment rollback workflows. No additional RBAC needed.
+This scenario reuses `hotfix-config-v1` (PatchConfiguration). No additional RBAC needed.
 
 ### Pre-flight checklist
 
 ```bash
-# 1. Verify the rollback workflow is registered
-kubectl get remediationworkflow -n kubernaut-system | grep -E 'rollback|crashloop'
+# 1. Verify the hotfix-config workflow is registered
+kubectl get remediationworkflow -n kubernaut-system | grep hotfix-config
 
 # 2. Verify kube-state-metrics reports waiting reasons
 kubectl exec -n openshift-monitoring prometheus-k8s-0 -c prometheus -- \

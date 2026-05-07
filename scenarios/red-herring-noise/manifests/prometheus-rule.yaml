@@ -34,7 +34,7 @@ spec:
           namespace="demo-red-herring",
           reason=~"ImagePullBackOff|ErrImagePull"
         } > 0
-      for: 2m
+      for: 3m
       labels:
         severity: warning
       annotations:
