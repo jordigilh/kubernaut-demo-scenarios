@@ -17,6 +17,8 @@ spec:
         )
         / etcd_mvcc_db_total_size_in_bytes{namespace="demo-etcd-defrag"}
         > 0.15
+        and
+        etcd_mvcc_db_total_size_in_bytes{namespace="demo-etcd-defrag"} > 1048576
       for: 2m
       labels:
         severity: critical

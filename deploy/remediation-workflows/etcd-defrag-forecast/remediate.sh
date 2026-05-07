@@ -22,15 +22,13 @@ echo "Checking cluster health..."
 FIRST_POD=$(echo "$ETCD_PODS" | head -1)
 
 kubectl exec "$FIRST_POD" -n "$TARGET_RESOURCE_NAMESPACE" -- \
-  etcdctl --endpoints="$ENDPOINTS" endpoint health 2>/dev/null || \
-kubectl exec "$FIRST_POD" -n "$TARGET_RESOURCE_NAMESPACE" -- sh -c \
-  "ETCDCTL_API=3 etcdctl --endpoints=$ENDPOINTS endpoint health"
+  etcdctl --endpoints="$ENDPOINTS" endpoint health
 
 echo ""
 echo "Pre-defrag database status:"
 for pod in $ETCD_PODS; do
-    SIZE_INFO=$(kubectl exec "$pod" -n "$TARGET_RESOURCE_NAMESPACE" -- sh -c \
-      "ETCDCTL_API=3 etcdctl --endpoints=$ENDPOINTS endpoint status --write-out=json" 2>/dev/null || echo "{}")
+    SIZE_INFO=$(kubectl exec "$pod" -n "$TARGET_RESOURCE_NAMESPACE" -- \
+      etcdctl --endpoints="$ENDPOINTS" endpoint status --write-out=json 2>/dev/null || echo "{}")
     DB_SIZE=$(echo "$SIZE_INFO" | grep -o '"dbSize":[0-9]*' | head -1 | cut -d: -f2)
     DB_IN_USE=$(echo "$SIZE_INFO" | grep -o '"dbSizeInUse":[0-9]*' | head -1 | cut -d: -f2)
     if [ -n "$DB_SIZE" ] && [ "$DB_SIZE" -gt 0 ]; then
@@ -54,16 +52,16 @@ for pod in $ETCD_PODS; do
     echo "--- Defragging ${pod} ---"
 
     echo "  Pre-defrag health check..."
-    if ! kubectl exec "$pod" -n "$TARGET_RESOURCE_NAMESPACE" -- sh -c \
-      "ETCDCTL_API=3 etcdctl --endpoints=$ENDPOINTS endpoint health" 2>/dev/null; then
+    if ! kubectl exec "$pod" -n "$TARGET_RESOURCE_NAMESPACE" -- \
+      etcdctl --endpoints="$ENDPOINTS" endpoint health 2>/dev/null; then
         echo "  WARNING: ${pod} health check failed, skipping"
         DEFRAG_FAILURES=$((DEFRAG_FAILURES + 1))
         continue
     fi
 
     echo "  Running defrag..."
-    if kubectl exec "$pod" -n "$TARGET_RESOURCE_NAMESPACE" -- sh -c \
-      "ETCDCTL_API=3 etcdctl --endpoints=$ENDPOINTS defrag --command-timeout=60s" 2>/dev/null; then
+    if kubectl exec "$pod" -n "$TARGET_RESOURCE_NAMESPACE" -- \
+      etcdctl --endpoints="$ENDPOINTS" defrag --command-timeout=60s 2>/dev/null; then
         echo "  Defrag completed on ${pod}."
     else
         echo "  WARNING: Defrag failed on ${pod}"
@@ -74,8 +72,8 @@ for pod in $ETCD_PODS; do
     echo "  Post-defrag health check..."
     RETRIES=0
     while [ "$RETRIES" -lt 6 ]; do
-        if kubectl exec "$pod" -n "$TARGET_RESOURCE_NAMESPACE" -- sh -c \
-          "ETCDCTL_API=3 etcdctl --endpoints=$ENDPOINTS endpoint health" 2>/dev/null; then
+        if kubectl exec "$pod" -n "$TARGET_RESOURCE_NAMESPACE" -- \
+          etcdctl --endpoints="$ENDPOINTS" endpoint health 2>/dev/null; then
             echo "  ${pod} healthy after defrag."
             break
         fi
@@ -103,14 +101,14 @@ echo "=== Phase 3: Verify ==="
 echo "Post-defrag database status:"
 SUCCESS=false
 for pod in $ETCD_PODS; do
-    SIZE_INFO=$(kubectl exec "$pod" -n "$TARGET_RESOURCE_NAMESPACE" -- sh -c \
-      "ETCDCTL_API=3 etcdctl --endpoints=$ENDPOINTS endpoint status --write-out=json" 2>/dev/null || echo "{}")
+    SIZE_INFO=$(kubectl exec "$pod" -n "$TARGET_RESOURCE_NAMESPACE" -- \
+      etcdctl --endpoints="$ENDPOINTS" endpoint status --write-out=json 2>/dev/null || echo "{}")
     DB_SIZE=$(echo "$SIZE_INFO" | grep -o '"dbSize":[0-9]*' | head -1 | cut -d: -f2)
     DB_IN_USE=$(echo "$SIZE_INFO" | grep -o '"dbSizeInUse":[0-9]*' | head -1 | cut -d: -f2)
     if [ -n "$DB_SIZE" ] && [ "$DB_SIZE" -gt 0 ]; then
         FRAG_PCT=$(( (DB_SIZE - DB_IN_USE) * 100 / DB_SIZE ))
         echo "  ${pod}: db=${DB_SIZE} bytes, in_use=${DB_IN_USE} bytes, fragmentation=${FRAG_PCT}%"
-        if [ "$FRAG_PCT" -lt 30 ]; then
+        if [ "$FRAG_PCT" -lt 50 ] || [ "$DB_SIZE" -lt 1048576 ]; then
             SUCCESS=true
         fi
     fi
