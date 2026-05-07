@@ -1,18 +1,16 @@
-# Increase Database Connections - Runnable Job Container
-# Scenario: db-connection-saturation -- increase PostgreSQL max_connections
+# Scale-Replicas - Runnable Job Container
+# Scenario: db-connection-saturation -- scale offending workload to zero
 #
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 ARG TARGETARCH
 ARG KUBECTL_VERSION=v1.31.4
 
-RUN microdnf install -y jq && microdnf clean all
-
 RUN curl -fsSL -o /usr/local/bin/kubectl \
     "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
     chmod +x /usr/local/bin/kubectl
 
-COPY increase-db-connections-remediate.sh /scripts/remediate.sh
+COPY remediate.sh /scripts/remediate.sh
 RUN chmod +x /scripts/remediate.sh
 
 USER 1001

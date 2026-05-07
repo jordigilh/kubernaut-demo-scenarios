@@ -11,11 +11,10 @@ spec:
     rules:
     - alert: DatabaseConnectionPoolExhausted
       expr: |
-        pg_stat_activity_count{
+        sum by (namespace) (pg_stat_activity_count{
           namespace="demo-db-saturation",
-          datname="demo",
-          state="active"
-        } > 10
+          datname="demo"
+        }) > 10
       for: 30s
       labels:
         severity: critical

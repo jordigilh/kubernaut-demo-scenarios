@@ -24,13 +24,17 @@ spec:
         - |
           echo "[connection-leaker] Starting connection leak simulation"
           echo "[connection-leaker] Target: postgres.demo-db-saturation.svc:5432"
+          echo "[connection-leaker] Will open 12 persistent connections then idle"
+          MAX_LEAKED=12
           i=0
-          while true; do
+          while [ "$i" -lt "$MAX_LEAKED" ]; do
             i=$((i + 1))
-            echo "[connection-leaker] Opening persistent connection #$i to postgres (will hold indefinitely)"
+            echo "[connection-leaker] Opening persistent connection #$i/$MAX_LEAKED to postgres"
             PGPASSWORD=demo psql -h postgres -U demo -d demo -c "SELECT pg_sleep(86400)" &
             sleep 8
           done
+          echo "[connection-leaker] Reached $MAX_LEAKED leaked connections, idling"
+          sleep infinity
         resources:
           requests:
             memory: "32Mi"
