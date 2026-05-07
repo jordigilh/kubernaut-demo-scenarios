@@ -35,4 +35,5 @@ WORKFLOWS=(
     "operator-health:restore-operator-csv-job"
     "rbac-failure:restore-rolebinding-job"
     "etcd-defrag-forecast:defrag-etcd-job"
+    "db-connection-saturation:increase-db-connections-job"
 )

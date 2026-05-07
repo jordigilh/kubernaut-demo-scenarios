@@ -342,18 +342,18 @@
       "_note": "v1.4.0 new. L3 Capacity Planning PoC for RHACM forecasting integration. Proactive signal. RCA target may be PVC or Deployment depending on LLM investigation."
     },
     "db-connection-saturation": {
-      "expected_bundle": "graceful-restart-job",
+      "expected_bundle": ["increase-db-connections-job", "graceful-restart-job"],
       "expected_outcome": "Remediated",
       "expected_severity": "critical",
-      "expected_target_kind": ["Deployment"],
+      "expected_target_kind": ["Deployment", "ConfigMap"],
       "expected_aa_phase": "Completed",
       "confidence_floor": 0.70,
-      "confidence_expected": 0.85,
+      "confidence_expected": 0.88,
       "approval_expected": false,
       "needs_human_review": false,
       "human_review_reason": null,
       "signal": "DatabaseConnectionPoolExhausted",
-      "_note": "v1.4.0 new. L3 Performance deep investigation. Multi-path: ideal target is connection-leaker, acceptable is postgres. Reuses graceful-restart-v1 workflow."
+      "_note": "v1.4.0 new. L3 Performance deep investigation. Primary path: increase-db-connections-v1 patches postgres-config ConfigMap to raise max_connections. Alternative: graceful-restart of connection-leaker."
     },
     "cascading-service-failure": {
       "expected_bundle": ["crashloop-rollback", "rollback-deployment"],
@@ -466,6 +466,20 @@
       "human_review_reason": null,
       "signal": "EtcdHighFragmentationRatio",
       "_note": "v1.4.0 new. Predictive etcd defrag. LLM investigates fragmentation + member health, manual approval required. Rolling defrag via kubectl exec."
+    },
+    "red-herring-noise": {
+      "expected_bundle": "hotfix-config-job",
+      "expected_outcome": "Remediated",
+      "expected_severity": "critical",
+      "expected_target_kind": ["Deployment", "ConfigMap"],
+      "expected_aa_phase": "Completed",
+      "confidence_floor": 0.75,
+      "confidence_expected": 0.90,
+      "approval_expected": false,
+      "needs_human_review": false,
+      "human_review_reason": null,
+      "signal": "KubePodCrashLooping",
+      "_note": "v1.4.0 new. L3 Advanced Diagnostics. Multi-incident separation: postgres ConfigMap fault causes cascade (api-gateway + worker crash-loop), while canary-v2 ImagePullBackOff fires as unrelated noise. LLM must target postgres, not canary-v2."
     }
   }
 }

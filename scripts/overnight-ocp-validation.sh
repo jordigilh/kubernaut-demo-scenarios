@@ -76,6 +76,9 @@ SCENARIO_ORDER=(
   operator-health
   rbac-failure
   etcd-defrag-forecast
+  red-herring-noise
+  cross-namespace-dependency
+  severity-misdirection
 )
 
 ONLY_LIST=""
