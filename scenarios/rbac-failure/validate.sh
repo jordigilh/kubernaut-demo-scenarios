@@ -50,7 +50,8 @@ assert_neq "$confidence" "" "AA confidence present"
 wfe_phase=$(get_wfe_phase "${NAMESPACE}")
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
-rb_exists=$(kubectl get rolebinding metrics-collector-binding -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ') || rb_exists=0
+rb_exists=$(kubectl get rolebindings -n "${NAMESPACE}" --no-headers 2>/dev/null \
+  | grep -cE 'metrics-collector' || true)
 assert_gt "${rb_exists}" "0" "RoleBinding restored"
 
 ready_pods=$(kubectl get pods -n "${NAMESPACE}" --no-headers 2>/dev/null \

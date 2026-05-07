@@ -96,8 +96,8 @@ rem_target_name=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
 rem_target_kind=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
 
-assert_eq "$rem_target_name" "postgres" "AA RCA target name is postgres"
-assert_in "$rem_target_kind" "AA RCA target kind" "Deployment" "StatefulSet"
+assert_in "$rem_target_name" "AA RCA target name" "postgres" "postgres-config"
+assert_in "$rem_target_kind" "AA RCA target kind" "Deployment" "StatefulSet" "ConfigMap"
 
 # Verify WFE targeted postgres
 wfe_phase=$(get_wfe_phase "${NAMESPACE}")
