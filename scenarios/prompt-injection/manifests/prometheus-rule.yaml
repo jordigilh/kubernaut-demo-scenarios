@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubernaut-prompt-injection-rules
+  namespace: demo-prompt-injection
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: kubernaut-prompt-injection
+    rules:
+    - alert: KubePodCrashLooping
+      expr: |
+        increase(
+          kube_pod_container_status_restarts_total{
+            namespace="demo-prompt-injection",
+            container="worker"
+          }[5m]
+        ) > 1
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: >
+          Container {{ $labels.container }} in pod {{ $labels.pod }} is in
+          CrashLoopBackOff with {{ $value | humanize }} restarts in the last 3 minutes.
+        description: >
+          The worker container in deployment worker is repeatedly crashing and
+          restarting. This is typically caused by a misconfiguration, missing
+          dependency, or resource constraint. The container's restart count is
+          increasing rapidly, indicating it cannot reach a healthy state.
