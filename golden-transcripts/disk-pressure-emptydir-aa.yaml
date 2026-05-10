@@ -1,0 +1,208 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: AIAnalysis
+metadata:
+  creationTimestamp: "2026-05-10T02:24:03Z"
+  finalizers:
+  - kubernaut.ai/finalizer
+  generation: 1
+  name: ai-rr-a46194c375c3-e7161c3e
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RemediationRequest
+    name: rr-a46194c375c3-e7161c3e
+    uid: 2e22e608-3946-4cb7-a781-b5780e0298b8
+  resourceVersion: "69567363"
+  uid: 37ca6fa7-54a3-4e53-8fd6-41541dcea771
+spec:
+  analysisRequest:
+    analysisTypes:
+    - Investigation
+    - RootCause
+    - WorkflowSelection
+    signalContext:
+      businessPriority: P1
+      enrichmentResults:
+        businessClassification:
+          businessUnit: platform
+          criticality: High
+          serviceOwner: platform-team
+          slaRequirement: Gold
+        kubernetesContext:
+          namespace:
+            annotations:
+              openshift.io/sa.scc.mcs: s0:c32,c4
+              openshift.io/sa.scc.supplemental-groups: 1001000000/10000
+              openshift.io/sa.scc.uid-range: 1001000000/10000
+              security.openshift.io/MinimallySufficientPodSecurityStandard: restricted
+            labels:
+              argocd.argoproj.io/managed-by: openshift-gitops
+              kubernaut.ai/business-unit: platform
+              kubernaut.ai/component: database
+              kubernaut.ai/criticality: high
+              kubernaut.ai/environment: production
+              kubernaut.ai/managed: "true"
+              kubernaut.ai/service-owner: platform-team
+              kubernaut.ai/sla-tier: tier-1
+              kubernetes.io/metadata.name: demo-diskpressure
+              openshift.io/cluster-monitoring: "true"
+              pod-security.kubernetes.io/audit: restricted
+              pod-security.kubernetes.io/audit-version: latest
+              pod-security.kubernetes.io/warn: restricted
+              pod-security.kubernetes.io/warn-version: latest
+            name: demo-diskpressure
+      environment: Production
+      fingerprint: a46194c375c3995ef871fca1ddc13b732b0b52b28bcb1b37cc4e0c1e88049677
+      severity: high
+      signalMode: proactive
+      signalName: DiskPressure
+      targetResource:
+        kind: Unknown
+        name: unknown
+        namespace: demo-diskpressure
+  remediationId: rr-a46194c375c3-e7161c3e
+  remediationRequestRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: RemediationRequest
+    name: rr-a46194c375c3-e7161c3e
+    namespace: kubernaut-system
+    uid: 2e22e608-3946-4cb7-a781-b5780e0298b8
+status:
+  actionability: Actionable
+  alternativeWorkflows:
+  - confidence: 0.25
+    rationale: The generic non-database MigrateEmptyDirToPVC workflow (migrate-emptydir-to-pvc-gitops-v1)
+      is explicitly excluded by its own whenNotToUse guidance for database workloads
+      requiring pg_dump/pg_restore data migration. It would migrate the volume mount
+      but not preserve PostgreSQL data across the restart.
+    workflowId: 84f81ebc-4fb5-5a92-8bee-9cf787d1e62c
+  approvalReason: Auto-approved
+  approvalRequired: false
+  completedAt: "2026-05-10T02:28:49Z"
+  conditions:
+  - lastTransitionTime: "2026-05-10T02:24:03Z"
+    message: Session c8b7c0bd-e4f5-428c-984a-4f8aa83ab89a created
+    observedGeneration: 1
+    reason: SessionCreated
+    status: "True"
+    type: InvestigationSessionReady
+  - lastTransitionTime: "2026-05-10T02:28:49Z"
+    message: KA investigation completed successfully
+    observedGeneration: 1
+    reason: InvestigationSucceeded
+    status: "True"
+    type: InvestigationComplete
+  - lastTransitionTime: "2026-05-10T02:28:49Z"
+    message: Policy evaluation does not require manual approval
+    observedGeneration: 1
+    reason: AutoApproved
+    status: "False"
+    type: ApprovalRequired
+  - lastTransitionTime: "2026-05-10T02:28:49Z"
+    message: Workflow fdd276ac-14d9-5d45-b533-f0b6a3330e25 selected with confidence
+      92%
+    observedGeneration: 1
+    reason: WorkflowSelected
+    status: "True"
+    type: WorkflowResolved
+  - lastTransitionTime: "2026-05-10T02:28:49Z"
+    message: Rego policy evaluation completed successfully
+    observedGeneration: 1
+    reason: AnalysisSucceeded
+    status: "True"
+    type: AnalysisComplete
+  - lastTransitionTime: "2026-05-10T02:28:49Z"
+    message: Analysis completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  investigationId: ai-rr-a46194c375c3-e7161c3e
+  investigationSession:
+    createdAt: "2026-05-10T02:24:03Z"
+    generation: 0
+    id: c8b7c0bd-e4f5-428c-984a-4f8aa83ab89a
+    lastPolled: "2026-05-10T02:28:34Z"
+    pollCount: 19
+  investigationTime: 286662
+  message: Analysis complete
+  needsHumanReview: false
+  observedGeneration: 1
+  phase: Completed
+  postRCAContext:
+    detectedLabels:
+      gitOpsManaged: true
+      gitOpsTool: argocd
+      helmManaged: false
+      hpaEnabled: false
+      networkIsolated: false
+      pdbProtected: false
+      resourceQuotaConstrained: false
+      stateful: false
+    setAt: "2026-05-10T02:28:49Z"
+  reason: AnalysisCompleted
+  rootCause: PostgreSQL Deployment uses an emptyDir volume with sizeLimit:8Gi on node
+    dev-worker-0 which has only ~7.9 GiB allocatable ephemeral storage. As PostgreSQL
+    writes WAL segments, data pages, and log files, the kubelet will trigger pod eviction
+    before the declared sizeLimit is reached, causing an imminent DiskPressure condition.
+    The node's /var filesystem (XFS, /dev/vda4) already shows a ~1.7 GiB drop in 30
+    minutes around deployment time. The fix requires migrating from emptyDir to a
+    PersistentVolumeClaim (LVMS/TopoLVM available), and since ArgoCD manages this
+    Deployment, the change must be applied via GitOps.
+  rootCauseAnalysis:
+    contributingFactors:
+    - Node dev-worker-0 has severely constrained allocatable ephemeral storage (~7.9
+      GiB) compared to other workers (~56 GiB), likely due to a smaller root partition
+      or LVM configuration
+    - emptyDir sizeLimit of 8Gi exceeds the node's allocatable ephemeral storage of
+      ~7.9 GiB — kubelet will trigger eviction before the sizeLimit is reached
+    - Node /var filesystem (XFS, /dev/vda4) dropped ~1.7 GiB in ~30 minutes around
+      02:00Z on 2026-05-10, indicating active disk pressure growth
+    - PostgreSQL WAL segments, data pages, and log files will grow steadily in the
+      emptyDir volume at /var/lib/pgsql/data/userdata
+    - ArgoCD is managing this Deployment (argocd tracking annotation present), meaning
+      manual fixes may be reverted unless the GitOps source is updated
+    - Pod had 1 restart due to a race condition on role creation — each restart resets
+      disk usage but also risks data loss on emptyDir wipe
+    - The workflow container in sonataflow-infra adds background pressure (~165 MB,
+      growing ~127 KB/30min) on the same /dev/vda4 device
+    remediationTarget:
+      kind: Deployment
+      name: postgres-emptydir
+      namespace: demo-diskpressure
+    severity: high
+    signalType: DiskPressure
+    summary: PostgreSQL Deployment uses an emptyDir volume with sizeLimit:8Gi on node
+      dev-worker-0 which has only ~7.9 GiB allocatable ephemeral storage. As PostgreSQL
+      writes WAL segments, data pages, and log files, the kubelet will trigger pod
+      eviction before the declared sizeLimit is reached, causing an imminent DiskPressure
+      condition. The node's /var filesystem (XFS, /dev/vda4) already shows a ~1.7
+      GiB drop in 30 minutes around deployment time. The fix requires migrating from
+      emptyDir to a PersistentVolumeClaim (LVMS/TopoLVM available), and since ArgoCD
+      manages this Deployment, the change must be applied via GitOps.
+  selectedWorkflow:
+    confidence: 0.92
+    executionBundle: https://github.com/jordigilh/kubernaut-test-playbooks.git
+    executionEngine: ansible
+    parameters:
+      NODE_NAME: dev-worker-0.redhat-internal.com
+      PVC_SIZE: 10Gi
+      TARGET_RESOURCE_API_VERSION: apps/v1
+      TARGET_RESOURCE_KIND: Deployment
+      TARGET_RESOURCE_NAME: postgres-emptydir
+      TARGET_RESOURCE_NAMESPACE: demo-diskpressure
+    rationale: 'This workflow is purpose-built for exactly this scenario: DiskPressure
+      caused by a PostgreSQL database using emptyDir storage on a GitOps-managed (ArgoCD)
+      namespace. It performs a live pg_dump backup of the running PostgreSQL instance,
+      commits the emptyDir-to-PVC volume change to the source Git repository, waits
+      for ArgoCD to sync, then restores the data — preventing both data loss and the
+      ArgoCD revert risk. LVMS/TopoLVM is confirmed available on this cluster. This
+      is a proactive signal (pod still running), which is the ideal condition for
+      this workflow''s backup phase. The non-database variant (migrate-emptydir-to-pvc-gitops-v1)
+      is explicitly excluded by its own whenNotToUse guidance for database workloads.'
+    version: 1.4.0
+    workflowId: fdd276ac-14d9-5d45-b533-f0b6a3330e25
+  startedAt: "2026-05-10T02:24:03Z"
+  totalAnalysisTime: 286
