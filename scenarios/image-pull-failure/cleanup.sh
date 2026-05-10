@@ -11,8 +11,15 @@ restore_production_approval || true
 
 echo "==> Cleaning up ImagePullBackOff demo..."
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule demo-imagepull-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace demo-imagepull --ignore-not-found --wait=true
+kubectl delete namespace demo-imagepull-source --ignore-not-found --wait=false
+kubectl delete secret registry-credentials-template \
+  -n "${WE_NAMESPACE:-kubernaut-workflows}" --ignore-not-found
 
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 

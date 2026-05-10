@@ -12,7 +12,11 @@ restore_production_approval || true
 
 echo "==> Cleaning up build-failure demo..."
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule demo-build-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete build --all -n "${NAMESPACE}" --ignore-not-found --wait=false 2>/dev/null || true
 kubectl delete namespace "${NAMESPACE}" --ignore-not-found --wait=true
 

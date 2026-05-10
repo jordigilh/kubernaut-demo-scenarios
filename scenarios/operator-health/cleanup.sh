@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-operator"
+NAMESPACE="${NAMESPACE:-demo-operator}"
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
@@ -12,11 +12,17 @@ restore_production_approval || true
 
 echo "==> Cleaning up operator-health demo..."
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule "${NAMESPACE}-rules" -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule "${NAMESPACE}-rules" -n "${NAMESPACE}" --ignore-not-found 2>/dev/null || true
+else
+    kubectl delete prometheusrule "${NAMESPACE}-rules" -n "${NAMESPACE}" --ignore-not-found 2>/dev/null || true
+fi
+kubectl delete configmap operator-restore-spec -n "${NAMESPACE}" --ignore-not-found 2>/dev/null || true
 kubectl delete subscription etcd -n "${NAMESPACE}" --ignore-not-found --wait=false 2>/dev/null || true
 kubectl delete csv -n "${NAMESPACE}" --all --ignore-not-found --wait=false 2>/dev/null || true
 kubectl delete installplan -n "${NAMESPACE}" --all --ignore-not-found --wait=false 2>/dev/null || true
-kubectl delete operatorgroup demo-operator-group -n "${NAMESPACE}" --ignore-not-found --wait=false 2>/dev/null || true
+kubectl delete operatorgroup --all -n "${NAMESPACE}" --ignore-not-found --wait=false 2>/dev/null || true
 kubectl delete namespace "${NAMESPACE}" --ignore-not-found --wait=true
 
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
@@ -30,8 +36,14 @@ kubectl rollout status deploy/remediationorchestrator-controller -n "$PLATFORM_N
 purge_pipeline_crds
 
 echo "==> Waiting for namespace deletion to complete..."
+_elapsed=0
 while kubectl get ns "${NAMESPACE}" &>/dev/null; do
   sleep 2
+  _elapsed=$((_elapsed + 2))
+  if [ "$_elapsed" -ge 120 ]; then
+    echo "  WARNING: Namespace ${NAMESPACE} still terminating after 120s, proceeding..."
+    break
+  fi
 done
 
 restart_alertmanager

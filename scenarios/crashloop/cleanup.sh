@@ -11,7 +11,11 @@ restore_production_approval || true
 
 echo "==> Cleaning up CrashLoopBackOff demo..."
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule kubernaut-crashloop-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace demo-crashloop --ignore-not-found --wait=true
 
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
@@ -25,8 +29,14 @@ kubectl rollout status deploy/remediationorchestrator-controller -n "$PLATFORM_N
 purge_pipeline_crds
 
 echo "==> Waiting for namespace deletion to complete..."
+_elapsed=0
 while kubectl get ns demo-crashloop &>/dev/null; do
   sleep 2
+  _elapsed=$((_elapsed + 2))
+  if [ "$_elapsed" -ge 120 ]; then
+    echo "  WARNING: Namespace demo-crashloop still terminating after 120s, proceeding..."
+    break
+  fi
 done
 
 # Restart AlertManager so stale alert groups (repeat_interval=1h) don't

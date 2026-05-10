@@ -8,12 +8,22 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up Cascading Service Failure demo..."
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule cascading-failure-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace demo-cascade --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
+_elapsed=0
 while kubectl get ns demo-cascade &>/dev/null; do
   sleep 2
+  _elapsed=$((_elapsed + 2))
+  if [ "$_elapsed" -ge 120 ]; then
+    echo "  WARNING: Namespace demo-cascade still terminating after 120s, proceeding..."
+    break
+  fi
 done
 
 echo "==> Silencing stale alerts in AlertManager..."

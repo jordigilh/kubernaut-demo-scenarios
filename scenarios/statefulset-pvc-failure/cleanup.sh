@@ -8,7 +8,11 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up StatefulSet PVC Failure demo..."
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule kubernaut-statefulset-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete statefulset kv-store -n demo-statefulset --cascade=foreground --ignore-not-found
 kubectl delete pvc -l app=kv-store -n demo-statefulset --ignore-not-found
 kubectl delete namespace demo-statefulset --ignore-not-found --wait=true

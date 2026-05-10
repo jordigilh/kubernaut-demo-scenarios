@@ -17,6 +17,9 @@ patches:
     patch: |
       - op: remove
         path: /metadata/labels/release
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-monitoring
   - target:
       kind: ServiceMonitor
       name: postgres-exporter

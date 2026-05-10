@@ -137,6 +137,307 @@ refresh_uwm_scrape_config() {
         echo "  WARNING: $deploy rollout did not complete within 60s."
 }
 
+# ── Preflight & Post-deploy Checks ───────────────────────────────────────────
+# Shared checks that scenarios call to verify runtime conditions before/after
+# deploying resources. These validate that the cluster can actually run the
+# scenario (metrics flowing, storage provisioning, alerts cleared, rules loaded).
+#
+# Usage (pre-deploy):
+#   preflight_check metrics-pipeline storage alert-quiescent:demo-ns
+#
+# Usage (post-deploy, after kubectl apply -k):
+#   postdeploy_check istio-scraping prometheusrule:MyAlertName
+#
+# All checks are read-only and safe to run in parallel across scenarios.
+# Mutable resources (test PVCs) use unique names derived from PID + timestamp.
+
+# Resolve the Prometheus pod and namespace for the current platform.
+_prom_pod_and_ns() {
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        echo "openshift-monitoring prometheus-k8s-0"
+    else
+        echo "monitoring prometheus-kube-prometheus-stack-prometheus-0"
+    fi
+}
+
+# Resolve the AlertManager pod and namespace for the current platform.
+_am_pod_and_ns() {
+    if [ "${PLATFORM:-kind}" = "ocp" ]; then
+        echo "openshift-monitoring alertmanager-main-0"
+    else
+        echo "monitoring alertmanager-kube-prometheus-stack-alertmanager-0"
+    fi
+}
+
+# Query Prometheus via kubectl exec (no port-forward needed, parallel-safe).
+# By default queries the platform Prometheus. Pass "uwm" as $2 to query
+# the user-workload Prometheus (OCP only; no-op on Kind).
+_prom_query() {
+    local query="$1"
+    local target="${2:-platform}"
+    local prom_ns prom_pod
+    if [ "$target" = "uwm" ] && [ "${PLATFORM:-kind}" = "ocp" ]; then
+        prom_ns="openshift-user-workload-monitoring"
+        prom_pod="prometheus-user-workload-0"
+    else
+        local prom_info
+        prom_info=$(_prom_pod_and_ns)
+        read -r prom_ns prom_pod <<< "$prom_info"
+    fi
+    kubectl exec -n "$prom_ns" "$prom_pod" -- \
+        curl -sf --connect-timeout 5 \
+        "http://localhost:9090/api/v1/query?query=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$query'))" 2>/dev/null || echo "$query")" \
+        2>/dev/null || echo '{"status":"error"}'
+}
+
+# Extract result count from a Prometheus query JSON response.
+_prom_result_count() {
+    python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(len(d.get('data',{}).get('result',[])))
+except:
+    print(0)
+"
+}
+
+# ── metrics-pipeline: kube-state-metrics is scraping ──
+_check_metrics_pipeline() {
+    if [ "${_PREFLIGHT_METRICS_OK:-}" = "1" ]; then
+        echo "  Preflight [metrics-pipeline]: OK (cached)"
+        return 0
+    fi
+    echo "  Preflight [metrics-pipeline]: checking kube-state-metrics..."
+    local elapsed=0
+    while [ "$elapsed" -lt 30 ]; do
+        local count
+        count=$(_prom_query 'count(kube_pod_container_status_restarts_total)' | _prom_result_count)
+        if [ "$count" -gt 0 ]; then
+            echo "  Preflight [metrics-pipeline]: OK ($count series)"
+            export _PREFLIGHT_METRICS_OK=1
+            return 0
+        fi
+        sleep 5
+        elapsed=$((elapsed + 5))
+    done
+    echo "  ERROR: kube_pod_container_status_restarts_total has 0 series in Prometheus."
+    echo "    kube-state-metrics may not be scraping. Check:"
+    echo "    kubectl get servicemonitor kube-state-metrics -n ${MONITORING_NS:-openshift-monitoring}"
+    return 1
+}
+
+# ── storage-provisioning: default StorageClass can bind PVCs ──
+_check_storage_provisioning() {
+    echo "  Preflight [storage]: testing PVC provisioning..."
+    local sc_name
+    sc_name=$(kubectl get storageclass -o jsonpath='{.items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")].metadata.name}' 2>/dev/null | awk '{print $1}')
+    if [ -z "$sc_name" ]; then
+        echo "  ERROR: No default StorageClass found."
+        echo "    kubectl get storageclass"
+        return 1
+    fi
+
+    local pvc_name="preflight-pvc-$$-$(date +%s)"
+    kubectl apply -f - <<PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ${pvc_name}
+  namespace: default
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ${sc_name}
+  resources:
+    requests:
+      storage: 1Mi
+PVC
+
+    # WaitForFirstConsumer StorageClasses won't bind until a pod mounts the PVC,
+    # so we create a tiny pod to trigger binding.
+    local binding_mode
+    binding_mode=$(kubectl get storageclass "$sc_name" -o jsonpath='{.volumeBindingMode}' 2>/dev/null)
+    local pod_name=""
+    if [ "$binding_mode" = "WaitForFirstConsumer" ]; then
+        pod_name="preflight-bind-$$-$(date +%s)"
+        kubectl run "$pod_name" -n default --image=busybox --restart=Never \
+            --overrides="{\"spec\":{\"containers\":[{\"name\":\"bind\",\"image\":\"busybox\",\"command\":[\"sleep\",\"5\"],\"volumeMounts\":[{\"name\":\"data\",\"mountPath\":\"/data\"}]}],\"volumes\":[{\"name\":\"data\",\"persistentVolumeClaim\":{\"claimName\":\"${pvc_name}\"}}]}}" \
+            2>/dev/null || true
+    fi
+
+    local elapsed=0
+    local bound=false
+    while [ "$elapsed" -lt 60 ]; do
+        local phase
+        phase=$(kubectl get pvc "$pvc_name" -n default -o jsonpath='{.status.phase}' 2>/dev/null)
+        if [ "$phase" = "Bound" ]; then
+            bound=true
+            break
+        fi
+        sleep 5
+        elapsed=$((elapsed + 5))
+    done
+
+    # Cleanup (parallel-safe: unique names)
+    kubectl delete pvc "$pvc_name" -n default --ignore-not-found --wait=false 2>/dev/null || true
+    [ -n "$pod_name" ] && kubectl delete pod "$pod_name" -n default --ignore-not-found --force --grace-period=0 2>/dev/null || true
+
+    if [ "$bound" = true ]; then
+        echo "  Preflight [storage]: OK (${sc_name}, bound in ${elapsed}s)"
+        return 0
+    else
+        echo "  ERROR: Test PVC did not bind within 60s (StorageClass: ${sc_name}, binding: ${binding_mode:-Immediate})."
+        echo "    The cluster may not have enough storage capacity."
+        echo "    Check: kubectl get pv; kubectl describe pvc ${pvc_name} -n default"
+        return 1
+    fi
+}
+
+# ── alert-quiescent: no stale alerts for a namespace ──
+_check_alert_quiescent() {
+    local namespace="$1"
+    echo "  Preflight [alert-quiescent]: checking for stale alerts in ${namespace}..."
+    local am_info am_ns am_pod
+    am_info=$(_am_pod_and_ns)
+    read -r am_ns am_pod <<< "$am_info"
+
+    local elapsed=0
+    while [ "$elapsed" -lt 60 ]; do
+        local count
+        count=$(kubectl exec -n "$am_ns" "$am_pod" -- \
+            amtool alert query "namespace=${namespace}" \
+            --alertmanager.url=http://localhost:9093 \
+            --output=json 2>/dev/null \
+            | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+        if [ "$count" = "0" ]; then
+            echo "  Preflight [alert-quiescent]: OK (no active alerts in ${namespace})"
+            return 0
+        fi
+        if [ "$elapsed" = "0" ]; then
+            echo "  Preflight [alert-quiescent]: ${count} stale alert(s) in ${namespace}, waiting to clear..."
+        fi
+        sleep 10
+        elapsed=$((elapsed + 10))
+    done
+    echo "  ERROR: ${count} stale alert(s) still active in namespace ${namespace} after 60s."
+    echo "    Previous scenario cleanup may be incomplete. Check:"
+    echo "    kubectl exec -n ${am_ns} ${am_pod} -- amtool alert query namespace=${namespace} --alertmanager.url=http://localhost:9093"
+    return 1
+}
+
+# ── istio-scraping: Istio sidecar metrics are being ingested ──
+_check_istio_scraping() {
+    echo "  Postdeploy [istio-scraping]: waiting for istio_requests_total in Prometheus..."
+    # On OCP, Istio ServiceMonitors are in user namespaces → UWM Prometheus.
+    local prom_target="platform"
+    [ "${PLATFORM:-kind}" = "ocp" ] && prom_target="uwm"
+    local elapsed=0
+    while [ "$elapsed" -lt 120 ]; do
+        local count
+        count=$(_prom_query 'count(istio_requests_total)' "$prom_target" | _prom_result_count)
+        if [ "$count" -gt 0 ]; then
+            echo "  Postdeploy [istio-scraping]: OK ($count series)"
+            return 0
+        fi
+        sleep 10
+        elapsed=$((elapsed + 10))
+    done
+    echo "  ERROR: istio_requests_total has 0 series after 120s."
+    echo "    Istio sidecar metrics are not being scraped by Prometheus."
+    echo "    On OCP, verify:"
+    echo "      1. User Workload Monitoring is enabled (openshift-user-workload-monitoring namespace exists)"
+    echo "      2. ServiceMonitor istio-proxy exists: kubectl get servicemonitor -A | grep istio"
+    echo "      3. Envoy stats port is correct (15090 for OSSM 3 native sidecars)"
+    echo "      4. UWM prometheus-operator was restarted after ServiceMonitor creation"
+    return 1
+}
+
+# ── prometheusrule-loaded: verify a specific alert rule is loaded in Prometheus ──
+# Checks both platform and UWM Prometheus on OCP.
+_check_rule_loaded() {
+    local alert_name="$1"
+    echo "  Postdeploy [prometheusrule:${alert_name}]: verifying rule is loaded..."
+
+    local elapsed=0
+    while [ "$elapsed" -lt 60 ]; do
+        local found="missing"
+        # Check platform Prometheus
+        local prom_info prom_ns prom_pod
+        prom_info=$(_prom_pod_and_ns)
+        read -r prom_ns prom_pod <<< "$prom_info"
+        found=$(_query_rules_for_alert "$prom_ns" "$prom_pod" "$alert_name")
+        # On OCP, also check UWM Prometheus
+        if [ "$found" != "found" ] && [ "${PLATFORM:-kind}" = "ocp" ]; then
+            found=$(_query_rules_for_alert "openshift-user-workload-monitoring" "prometheus-user-workload-0" "$alert_name")
+        fi
+        if [ "$found" = "found" ]; then
+            echo "  Postdeploy [prometheusrule:${alert_name}]: OK (rule loaded)"
+            return 0
+        fi
+        sleep 5
+        elapsed=$((elapsed + 5))
+    done
+    echo "  ERROR: Alert rule '${alert_name}' not found in Prometheus after 60s."
+    echo "    The PrometheusRule may not have been picked up. Check:"
+    echo "      kubectl get prometheusrule -A | grep -i ${alert_name}"
+    echo "    On OCP, ensure the rule is in a namespace with openshift.io/cluster-monitoring=true"
+    return 1
+}
+
+_query_rules_for_alert() {
+    local ns="$1" pod="$2" alert_name="$3"
+    kubectl exec -n "$ns" "$pod" -- \
+        curl -sf --connect-timeout 5 'http://localhost:9090/api/v1/rules?type=alert' 2>/dev/null \
+        | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for g in data.get('data',{}).get('groups',[]):
+    for r in g.get('rules',[]):
+        if r.get('name') == '${alert_name}':
+            print('found')
+            sys.exit(0)
+print('missing')
+" 2>/dev/null || echo "error"
+}
+
+# ── preflight_check: run pre-deploy capability checks ──
+preflight_check() {
+    local fail=false
+    echo "==> Preflight checks..."
+    for cap in "$@"; do
+        case "$cap" in
+            metrics-pipeline)  _check_metrics_pipeline || fail=true ;;
+            storage)           _check_storage_provisioning || fail=true ;;
+            alert-quiescent:*) _check_alert_quiescent "${cap#*:}" || fail=true ;;
+            *) echo "  WARNING: unknown preflight capability: $cap" ;;
+        esac
+    done
+    if [ "$fail" = true ]; then
+        echo ""
+        echo "  Preflight FAILED: fix the above issues before running this scenario."
+        exit 1
+    fi
+    echo "==> Preflight passed."
+    echo ""
+}
+
+# ── postdeploy_check: run post-deploy capability checks ──
+postdeploy_check() {
+    local fail=false
+    for cap in "$@"; do
+        case "$cap" in
+            istio-scraping)   _check_istio_scraping || fail=true ;;
+            prometheusrule:*) _check_rule_loaded "${cap#*:}" || fail=true ;;
+            *) echo "  WARNING: unknown postdeploy capability: $cap" ;;
+        esac
+    done
+    if [ "$fail" = true ]; then
+        echo ""
+        echo "  Postdeploy check FAILED: scenario infrastructure is not ready."
+        return 1
+    fi
+}
+
 # ── kube-prometheus-stack ────────────────────────────────────────────────────
 # Installs kube-prometheus-stack via Helm (idempotent).
 # Provides: Prometheus Operator, Prometheus, AlertManager, Grafana,

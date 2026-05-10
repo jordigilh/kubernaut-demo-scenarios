@@ -11,7 +11,11 @@ echo "==> Cleaning up PVC Capacity Forecast demo..."
 echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule pvc-capacity-forecast-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace demo-pvc-forecast --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."

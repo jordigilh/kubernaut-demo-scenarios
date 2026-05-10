@@ -21,12 +21,22 @@ for rr in $(kubectl get remediationrequests -n "${PLATFORM_NS}" -o jsonpath='{ra
     kubectl delete remediationrequest "$rr" -n "${PLATFORM_NS}" --ignore-not-found 2>/dev/null || true
 done
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule kubernaut-hpa-maxed-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace demo-hpa --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
+_elapsed=0
 while kubectl get ns demo-hpa &>/dev/null; do
     sleep 2
+    _elapsed=$((_elapsed + 2))
+    if [ "$_elapsed" -ge 120 ]; then
+        echo "  WARNING: Namespace demo-hpa still terminating after 120s, proceeding..."
+        break
+    fi
 done
 
 # Restart AlertManager to clear stale notification state

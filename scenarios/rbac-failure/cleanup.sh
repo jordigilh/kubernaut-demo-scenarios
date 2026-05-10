@@ -10,7 +10,11 @@ restore_production_approval || true
 
 echo "==> Cleaning up RBAC failure demo..."
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule demo-rbac-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace demo-rbac --ignore-not-found --wait=true
 
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
