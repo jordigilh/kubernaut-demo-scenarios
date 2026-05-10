@@ -69,6 +69,10 @@ while [ "$(kubectl exec -n "${_AM_NS}" "${_AM_POD}" \
   sleep 10
   ALERT_WAIT=$((ALERT_WAIT + 10))
   echo "    Still waiting... (${ALERT_WAIT}s)"
+  if [ "$ALERT_WAIT" -ge 600 ]; then
+    echo "    TIMEOUT: Alert not fired after ${ALERT_WAIT}s"
+    exit 1
+  fi
 done
 echo "    Alert fired! Capturing alert data to ${ALERT_CACHE}..."
 kubectl exec -n "${_AM_NS}" "${_AM_POD}" \

@@ -53,8 +53,15 @@ _kill_stress() {
     done
 }
 
-echo "==> Watching HPA for scale-up beyond original maxReplicas (${ORIGINAL_MAX})..."
-while true; do
+WATCH_TIMEOUT=${WATCH_TIMEOUT:-1800}
+echo "==> Watching HPA for scale-up beyond original maxReplicas (${ORIGINAL_MAX}) [timeout: ${WATCH_TIMEOUT}s]..."
+_start=$SECONDS
+while [ $(( SECONDS - _start )) -lt "${WATCH_TIMEOUT}" ]; do
+    if ! kubectl get ns "${NAMESPACE}" &>/dev/null; then
+        echo "==> Namespace ${NAMESPACE} no longer exists. Aborting watch."
+        exit 1
+    fi
+
     current=$(kubectl get hpa api-frontend -n "${NAMESPACE}" \
         -o jsonpath='{.status.currentReplicas}' 2>/dev/null || echo "0")
     max=$(kubectl get hpa api-frontend -n "${NAMESPACE}" \
@@ -68,3 +75,7 @@ while true; do
     fi
     sleep 10
 done
+
+echo "==> TIMEOUT: HPA did not scale beyond maxReplicas=${ORIGINAL_MAX} within ${WATCH_TIMEOUT}s."
+_kill_stress
+exit 1

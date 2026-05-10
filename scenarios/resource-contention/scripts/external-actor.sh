@@ -18,16 +18,23 @@ ORIGINAL_LIMIT="64Mi"
 ORIGINAL_REQUEST="32Mi"
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 
-echo "[external-actor] Watching ${DEPLOYMENT} in ${NAMESPACE} for spec changes..."
+ACTOR_TIMEOUT=${ACTOR_TIMEOUT:-1800}
 
-# Wait for the first RR to reach a terminal state before reverting.
+echo "[external-actor] Watching ${DEPLOYMENT} in ${NAMESPACE} for spec changes... [timeout: ${ACTOR_TIMEOUT}s]"
+
+_start=$SECONDS
+
 echo "[external-actor] Waiting for first remediation cycle to complete..."
-while true; do
+while [ $(( SECONDS - _start )) -lt "${ACTOR_TIMEOUT}" ]; do
+  if ! kubectl get ns "${NAMESPACE}" &>/dev/null; then
+    echo "[external-actor] Namespace ${NAMESPACE} gone. Exiting."
+    exit 0
+  fi
+
   PHASE=$(kubectl get rr -n "${PLATFORM_NS}" \
     -l "kubernaut.ai/signal-namespace=${NAMESPACE}" \
     -o jsonpath='{.items[0].status.overallPhase}' 2>/dev/null || echo "")
   if [[ -z "$PHASE" ]]; then
-    # No label selector support — fall back to jsonpath filter
     PHASE=$(kubectl get rr -n "${PLATFORM_NS}" \
       -o jsonpath='{range .items[?(@.spec.signalLabels.namespace=="'"${NAMESPACE}"'")]}{.status.overallPhase}{"\n"}{end}' 2>/dev/null | head -1 || echo "")
   fi
@@ -40,7 +47,12 @@ while true; do
   sleep 10
 done
 
-while true; do
+while [ $(( SECONDS - _start )) -lt "${ACTOR_TIMEOUT}" ]; do
+  if ! kubectl get ns "${NAMESPACE}" &>/dev/null; then
+    echo "[external-actor] Namespace ${NAMESPACE} gone. Exiting."
+    exit 0
+  fi
+
   CURRENT_LIMIT=$(kubectl -n "${NAMESPACE}" get deployment "${DEPLOYMENT}" \
     -o jsonpath='{.spec.template.spec.containers[0].resources.limits.memory}' 2>/dev/null || echo "")
 
@@ -54,3 +66,5 @@ while true; do
 
   sleep 30
 done
+
+echo "[external-actor] Timeout (${ACTOR_TIMEOUT}s). Exiting."

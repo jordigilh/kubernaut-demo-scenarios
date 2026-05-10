@@ -25,6 +25,10 @@ while ! kubectl get remediationrequests -n "${PLATFORM_NS}" 2>/dev/null | grep -
   sleep 5
   AA_WAIT=$((AA_WAIT + 5))
   echo "    Still waiting... (${AA_WAIT}s)"
+  if [ "$AA_WAIT" -ge 900 ]; then
+    echo "    TIMEOUT: AwaitingApproval not reached after ${AA_WAIT}s"
+    exit 1
+  fi
 done
 echo "    AwaitingApproval reached!"
 
