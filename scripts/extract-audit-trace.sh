@@ -72,7 +72,7 @@ run_sql() {
     kubectl cp "$tmpfile" "$KUBERNAUT_NS/$PG_POD:/tmp/_audit_query.sql" 2>/dev/null
     rm -f "$tmpfile"
     kubectl exec -n "$KUBERNAUT_NS" "$PG_POD" -- \
-        env PGPASSWORD="$DB_PASS" psql -U "$DB_USER" -d action_history \
+        env PGPASSWORD="$DB_PASS" psql -U "$DB_USER" -d kubernaut \
         --no-align --tuples-only -f /tmp/_audit_query.sql 2>/dev/null
 }
 

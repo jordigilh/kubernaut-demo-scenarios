@@ -104,10 +104,15 @@ _find_rr_name() {
     # target namespace.  Uses awk instead of grep to avoid substring collisions
     # (e.g. "demo-crashloop" matching "demo-crashloop-helm") — #148.
     #
-    # Priority (multi-RR dedup scenarios): Completed+Remediated > active
-    # pipeline (Analyzing/Executing/Verifying/AwaitingApproval) > any
-    # non-Blocked > any.  Within each tier prefer the oldest RR (head -1)
-    # because the platform processes the first signal's pipeline first.
+    # Priority (multi-RR dedup scenarios): Completed+Remediated > any
+    # Completed (Inconclusive, etc.) > active pipeline
+    # (Analyzing/Executing/Verifying/AwaitingApproval) > any non-Blocked >
+    # any.  Within each tier prefer the oldest RR (head -1) because the
+    # platform processes the first signal's pipeline first.
+    #
+    # Completed pipelines rank above active ones so that assertions run
+    # against the finished pipeline even when a re-fired alert spawns a
+    # second RR.
     local _all_rrs
     _all_rrs=$(kubectl get remediationrequests -n "$PLATFORM_NS" \
         -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\t"}{.status.overallPhase}{"\t"}{.status.outcome}{"\n"}{end}' 2>/dev/null \
@@ -123,12 +128,12 @@ _find_rr_name() {
     _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 == "Completed" && $3 == "Remediated" { print $1 }' | head -1)
     [ -n "$_preferred" ] && { echo "$_preferred"; return; }
 
-    # 2. Active pipeline (not yet terminal)
-    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 != "Blocked" && $2 != "Failed" && $2 != "Completed" { print $1 }' | head -1)
+    # 2. Any Completed (even non-Remediated — e.g. Inconclusive)
+    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 == "Completed" { print $1 }' | head -1)
     [ -n "$_preferred" ] && { echo "$_preferred"; return; }
 
-    # 3. Any Completed (even non-Remediated)
-    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 == "Completed" { print $1 }' | head -1)
+    # 3. Active pipeline (not yet terminal)
+    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 != "Blocked" && $2 != "Failed" && $2 != "Completed" { print $1 }' | head -1)
     [ -n "$_preferred" ] && { echo "$_preferred"; return; }
 
     # 4. Any non-Blocked

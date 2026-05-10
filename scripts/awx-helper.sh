@@ -339,9 +339,12 @@ configure_awx() {
 
     local awx_url awx_pf_pid=""
     if [ "${PLATFORM:-kind}" = "ocp" ]; then
-        local pf_port
+        local pf_port _awx_svc
         pf_port=$(awk 'BEGIN{srand(); print 30000+int(rand()*5000)}')
-        kubectl port-forward "svc/${AWX_SERVICE_NAME}" "${pf_port}:${AWX_SERVICE_PORT}" \
+        _awx_svc=$(kubectl get svc -n "${AWX_NAMESPACE}" -o name 2>/dev/null \
+            | grep -m1 'controller-service' | sed 's|^service/||' || true)
+        : "${_awx_svc:=${AWX_SERVICE_NAME}}"
+        kubectl port-forward "svc/${_awx_svc}" "${pf_port}:${AWX_SERVICE_PORT}" \
             -n "${AWX_NAMESPACE}" &>/dev/null &
         awx_pf_pid=$!
         sleep 3
@@ -440,8 +443,8 @@ configure_awx() {
 
     local migrate_tmpl_id
     migrate_tmpl_id=$(create_awx_job_template \
-        "kubernaut-migrate-emptydir-to-pvc" \
-        "DiskPressure: migrate emptyDir database to PVC via GitOps" \
+        "kubernaut-migrate-postgres-emptydir-to-pvc" \
+        "DiskPressure: migrate PostgreSQL emptyDir to PVC via GitOps" \
         "playbooks/gitops-migrate-postgres-emptydir-to-pvc.yml")
 
     # 6e. Create K8s Bearer Token credential for AWX EE
@@ -517,16 +520,59 @@ EOFK8S
 
     local k8s_host="https://kubernetes.default.svc"
 
-    echo "  Registering K8s credential in AWX..."
+    echo "  Ensuring custom K8s credential type with env injectors..."
+    local custom_ct_name="Kubernetes API Token (env injected)"
+    local custom_ct_id
+    custom_ct_id=$(AWX_API_BODY="" awx_api GET \
+        "${awx_url}/api/v2/credential_types/?name=$(python3 -c 'import urllib.parse; print(urllib.parse.quote("'"${custom_ct_name}"'"))')" "" | \
+        jq -r '.results[0].id // empty' 2>/dev/null || echo "")
+
+    if [ -z "$custom_ct_id" ]; then
+        AWX_API_BODY=$(jq -n --arg name "$custom_ct_name" '{
+            name: $name,
+            description: "Injects K8S_AUTH_HOST, K8S_AUTH_API_KEY, K8S_AUTH_VERIFY_SSL env vars for kubernetes.core modules",
+            kind: "cloud",
+            inputs: {
+                fields: [
+                    { id: "host", type: "string", label: "API Host" },
+                    { id: "bearer_token", type: "string", label: "Bearer Token", secret: true },
+                    { id: "verify_ssl", type: "boolean", label: "Verify SSL" }
+                ],
+                required: ["host", "bearer_token"]
+            },
+            injectors: { env: {
+                K8S_AUTH_HOST: "{{host}}",
+                K8S_AUTH_API_KEY: "{{bearer_token}}",
+                K8S_AUTH_VERIFY_SSL: "{{verify_ssl}}"
+            }}
+        }')
+        custom_ct_id=$(awx_api POST "${awx_url}/api/v2/credential_types/" "" | jq -r '.id')
+        echo "    Created custom credential type (id=${custom_ct_id})."
+    else
+        echo "    Custom credential type already exists (id=${custom_ct_id})."
+    fi
+
+    echo "  Registering K8s credential in AWX (upsert + token refresh)..."
+    local k8s_cred_id
+    k8s_cred_id=$(AWX_API_BODY="" awx_api GET \
+        "${awx_url}/api/v2/credentials/?name=kubernaut-k8s-reader" "" | \
+        jq -r '.results[0].id // empty' 2>/dev/null || echo "")
+
     AWX_API_BODY=$(jq -n \
         --argjson org "$org_id" \
+        --argjson ct_id "$custom_ct_id" \
         --arg token "$sa_token" \
         --arg host "$k8s_host" \
-        '{name:"kubernaut-k8s-reader", description:"In-cluster K8s read access for AWX EE", organization:$org, credential_type:17, inputs:{host:$host, bearer_token:$token, verify_ssl:false}}')
+        '{name:"kubernaut-k8s-reader", description:"In-cluster K8s read access for AWX EE", organization:$org, credential_type:$ct_id, inputs:{host:$host, bearer_token:$token, verify_ssl:false}}')
+
     local k8s_cred_result
-    k8s_cred_result=$(awx_api POST "${awx_url}/api/v2/credentials/" "")
-    local k8s_cred_id
-    k8s_cred_id=$(echo "$k8s_cred_result" | jq -r '.id // empty' 2>/dev/null || echo "")
+    if [ -n "$k8s_cred_id" ]; then
+        echo "    Existing credential found (id=${k8s_cred_id}), refreshing token..."
+        k8s_cred_result=$(awx_api PATCH "${awx_url}/api/v2/credentials/${k8s_cred_id}/" "")
+    else
+        k8s_cred_result=$(awx_api POST "${awx_url}/api/v2/credentials/" "")
+        k8s_cred_id=$(echo "$k8s_cred_result" | jq -r '.id // empty' 2>/dev/null || echo "")
+    fi
     echo "    K8s credential ID: ${k8s_cred_id}"
 
     # 6e-ii. Gitea credential for GitOps playbooks
@@ -657,7 +703,7 @@ EOFK8S
     fi
     echo "    Job Templates:"
     echo "      - kubernaut-gitops-update-memory"
-    echo "      - kubernaut-migrate-emptydir-to-pvc"
+    echo "      - kubernaut-migrate-postgres-emptydir-to-pvc"
     echo ""
 }
 

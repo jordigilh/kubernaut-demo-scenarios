@@ -228,23 +228,27 @@ seed_action_types_and_workflows() {
     if [ -d "$wf_dir" ]; then
         echo "==> Seeding RemediationWorkflow CRDs (namespace: ${ns})..."
         local applied=0 skipped=0 failed=0
+
+        local _has_awx=true
+        if ! kubectl get deployment -A -l app.kubernetes.io/managed-by=awx-operator --no-headers 2>/dev/null | grep -q . && \
+           ! kubectl get automationcontroller -A --no-headers 2>/dev/null | grep -q .; then
+            _has_awx=false
+        fi
+
+        local we_ns="${WE_NAMESPACE:-kubernaut-workflows}"
+        local _results_dir
+        _results_dir=$(mktemp -d)
+
+        local _pids=()
         while IFS= read -r -d '' yaml_file; do
             local basename="${yaml_file##*/}"
 
-            # Skip Ansible-engine workflows when AWX/AAP is not installed
-            if grep -q 'engine: ansible' "$yaml_file"; then
-                if ! kubectl get deployment -A -l app.kubernetes.io/managed-by=awx-operator --no-headers 2>/dev/null | grep -q . && \
-                   ! kubectl get automationcontroller -A --no-headers 2>/dev/null | grep -q .; then
-                    echo "    SKIP ${basename} (engine: ansible — no AWX/AAP found)"
-                    skipped=$((skipped + 1))
-                    continue
-                fi
+            if grep -q 'engine: ansible' "$yaml_file" && [ "$_has_awx" = false ]; then
+                echo "    SKIP ${basename} (engine: ansible — no AWX/AAP found)"
+                skipped=$((skipped + 1))
+                continue
             fi
 
-            # Check secret dependencies declared in the workflow.
-            # WE jobs run in kubernaut-workflows, so check both the platform
-            # namespace and the workflow execution namespace (DD-WE-006).
-            local we_ns="${WE_NAMESPACE:-kubernaut-workflows}"
             local unmet=""
             while IFS= read -r secret_name; do
                 [ -z "$secret_name" ] && continue
@@ -261,16 +265,37 @@ seed_action_types_and_workflows() {
                 continue
             fi
 
-            local _output
-            if _output=$(_apply_workflow_yaml "$yaml_file" "$ns" 2>&1); then
-                echo "$_output" | grep -v unchanged | sed 's/^/    /' || true
+            (
+                if _apply_workflow_yaml "$yaml_file" "$ns" > "${_results_dir}/${basename}.out" 2>&1; then
+                    echo "ok" > "${_results_dir}/${basename}.status"
+                else
+                    echo "fail" > "${_results_dir}/${basename}.status"
+                fi
+            ) &
+            _pids+=($!)
+        done < <(find "$wf_dir" -name '*.yaml' -print0)
+
+        for _pid in "${_pids[@]}"; do
+            wait "$_pid" 2>/dev/null || true
+        done
+
+        for _res in "${_results_dir}"/*.status; do
+            [ -f "$_res" ] || continue
+            local _bn="${_res##*/}"
+            _bn="${_bn%.status}"
+            local _st
+            _st=$(cat "$_res")
+            local _out="${_results_dir}/${_bn}.out"
+            if [ "$_st" = "ok" ]; then
+                cat "$_out" 2>/dev/null | grep -v unchanged | sed 's/^/    /' || true
                 applied=$((applied + 1))
             else
-                echo "$_output" | grep -v unchanged | sed 's/^/    /' || true
-                echo "    WARN: ${basename} was not fully applied (webhook rejection or validation error)"
+                cat "$_out" 2>/dev/null | grep -v unchanged | sed 's/^/    /' || true
+                echo "    WARN: ${_bn} was not fully applied (webhook rejection or validation error)"
                 failed=$((failed + 1))
             fi
-        done < <(find "$wf_dir" -name '*.yaml' -print0)
+        done
+        rm -rf "${_results_dir}"
         echo "    Applied ${applied} workflow(s), skipped ${skipped}, failed ${failed}."
     fi
 }
@@ -286,6 +311,7 @@ require_demo_ready() {
         echo "ERROR: Cannot connect to Kubernetes cluster."
         echo "  Kubeconfig: ${KUBECONFIG}"
         if [ "$PLATFORM" = "ocp" ]; then
+            echo "  Token may have expired. Re-authenticate with: oc login"
             echo "  Check: oc whoami --show-server"
         else
             echo "  Is the Kind cluster running? Check: kind get clusters"
@@ -339,14 +365,32 @@ require_demo_ready() {
         _warn_slow_ksm_scrape
     fi
 
+    # Default preflight: verify kube-state-metrics is scraping. Every scenario
+    # depends on Prometheus alerts, so catch a broken metrics pipeline early.
+    # Uses the same check as preflight_check metrics-pipeline (idempotent).
+    if [ "${_PREFLIGHT_METRICS_OK:-}" != "1" ]; then
+        # Source monitoring-helper.sh for _check_metrics_pipeline if not loaded
+        if ! type _check_metrics_pipeline &>/dev/null; then
+            source "${REPO_ROOT}/scripts/monitoring-helper.sh"
+        fi
+        echo "==> Default preflight: metrics-pipeline..."
+        if _check_metrics_pipeline; then
+            export _PREFLIGHT_METRICS_OK=1
+        else
+            echo "ERROR: Metrics pipeline is broken. Fix before running any scenario."
+            exit 1
+        fi
+    fi
+
     if [ "${KUBERNAUT_BATCH_SETUP_DONE:-}" != "1" ]; then
         seed_action_types_and_workflows
     fi
 }
 
-# Detect the kube-state-metrics scrape interval on OCP and warn if it
-# exceeds 30s.  A slow scrape interval delays metric propagation after
-# remediation, causing the EffectivenessMonitor to sample stale data.
+# Ensure kube-state-metrics scrape interval on OCP is at most 30s.
+# The default OCP ServiceMonitor uses 1m, which delays alert detection
+# and causes the EffectivenessMonitor to sample stale data.
+# CMO may reconcile the ServiceMonitor back; this patch is idempotent.
 # See kubernaut-demo-scenarios#293.
 _warn_slow_ksm_scrape() {
     local interval
@@ -361,8 +405,24 @@ _warn_slow_ksm_scrape() {
         seconds=$((seconds * 60))
     fi
     if [ "$seconds" -gt 30 ]; then
-        echo "  NOTE: OCP kube-state-metrics scrape interval is ${interval} (>${seconds}s)."
-        echo "  The OCP values file sets stabilizationWindow: 120s to compensate (#293)."
+        echo "  NOTE: OCP kube-state-metrics scrape interval is ${interval} (>${seconds}s). Patching to 30s..."
+        local num_endpoints
+        num_endpoints=$(kubectl get servicemonitor kube-state-metrics -n openshift-monitoring \
+            -o jsonpath='{.spec.endpoints}' 2>/dev/null | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+        local patch="["
+        for i in $(seq 0 $((num_endpoints - 1))); do
+            [ "$i" -gt 0 ] && patch="${patch},"
+            patch="${patch}{\"op\":\"replace\",\"path\":\"/spec/endpoints/${i}/interval\",\"value\":\"30s\"}"
+            patch="${patch},{\"op\":\"replace\",\"path\":\"/spec/endpoints/${i}/scrapeTimeout\",\"value\":\"30s\"}"
+        done
+        patch="${patch}]"
+        if kubectl patch servicemonitor kube-state-metrics -n openshift-monitoring \
+            --type=json -p="${patch}" 2>/dev/null; then
+            echo "  kube-state-metrics scrape interval set to 30s."
+        else
+            echo "  WARNING: Could not patch kube-state-metrics ServiceMonitor (insufficient permissions?)."
+            echo "  The OCP values file sets stabilizationWindow: 120s to compensate (#293)."
+        fi
     fi
 }
 

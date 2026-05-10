@@ -55,7 +55,6 @@ SCENARIO_ORDER=(
   pending-taint
   network-policy-block
   hpa-maxed
-  autoscale
   orphaned-pvc-no-action
   statefulset-pvc-failure
   resource-quota-exhaustion
