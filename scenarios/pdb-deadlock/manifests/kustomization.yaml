@@ -4,6 +4,7 @@ resources:
   - namespace.yaml
   - configmap.yaml
   - deployment.yaml
+  - resource-quota.yaml
   - prometheus-rule.yaml
 components:
   - ../../components/metrics-servicemonitor
