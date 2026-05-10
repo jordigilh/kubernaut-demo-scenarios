@@ -17,21 +17,47 @@ spec:
         } == 1)
       for: 120s
       labels:
-        severity: high
+        severity: critical
         namespace: demo-operator
         subscription: etcd
+        target_resource_name: etcd
+        target_resource_kind: Subscription
       annotations:
-        summary: >
-          Operator etcdoperator CSV in namespace demo-operator is no longer
-          in Succeeded state (deleted or failed). The csv_succeeded metric
-          has disappeared, indicating the ClusterServiceVersion was removed.
+        summary: "etcd operator CSV absent -- Subscription etcd in demo-operator needs restoration"
+        target_resource: "Subscription/etcd in demo-operator"
+        investigation_scope: "demo-operator"
+        runbook_url: "https://kubernaut.ai/runbooks/restore-operator-csv"
         description: >
-          The ClusterServiceVersion for the etcd operator (installed via
-          Subscription "etcd" in namespace "demo-operator") has been deleted
-          or has failed. The operator is no longer reconciling its custom
-          resources. Investigate: (1) check Subscription status with
-          "kubectl get subscription etcd -n demo-operator",
-          (2) check for InstallPlans with
-          "kubectl get installplan -n demo-operator",
-          (3) check if the CSV can be restored by approving a new InstallPlan
-          or by deleting and recreating the Subscription.
+          AFFECTED RESOURCE: Subscription/etcd in namespace demo-operator
+          (NOT the Namespace itself -- the prompt Resource field may
+          incorrectly show Namespace/demo-operator due to a known
+          enrichment limitation; the actual target is the OLM
+          Subscription named "etcd").
+
+          PROBLEM: The etcdoperator CSV is absent from demo-operator and
+          WILL NOT self-recover. The etcd Subscription exists but its
+          spec.source was corrupted to "removed-catalog" (a CatalogSource
+          that does not exist), preventing OLM from reinstalling the CSV.
+          This is NOT transient -- the operator is permanently down.
+
+          FIRST INVESTIGATION STEPS (follow in order):
+          1. kubectl get subscription etcd -n demo-operator -o yaml
+             -- confirm spec.source is "removed-catalog" (corrupted).
+          2. kubectl get csv -n demo-operator
+             -- confirm etcdoperator CSV is absent.
+          3. kubectl get configmap operator-restore-spec -n demo-operator -o yaml
+             -- this ConfigMap contains the original correct Subscription
+             spec including the valid CatalogSource reference.
+
+          VERIFICATION CHECKPOINT: After steps 1-3, confirm that the
+          Subscription source is corrupted before investigating anything
+          else. If spec.source is NOT the legitimate CatalogSource, the
+          root cause is confirmed: the Subscription needs recreation.
+
+          SCOPE CONSTRAINT: Investigate ONLY namespace demo-operator and
+          the etcd Subscription. Other CSVs in this namespace (such as
+          rhdh-operator, serverless-operator) are cluster-scoped copies
+          managed by OLM and are unrelated to this incident. Do NOT
+          follow them to other namespaces.
+
+          REMEDIATION TARGET: Subscription/etcd in demo-operator.

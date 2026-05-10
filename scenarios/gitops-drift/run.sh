@@ -36,6 +36,8 @@ source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 require_infra gitea
 require_infra argocd
 
+preflight_check metrics-pipeline
+
 enable_prometheus_toolset
 
 # Ensure the git-revert-v2 workflow is seeded. It depends on gitea-repo-creds,
@@ -308,6 +310,8 @@ done
 if [ "$active_rs" -gt 1 ]; then
   echo "  WARNING: ${active_rs} active ReplicaSets after ${rs_elapsed}s — stale alert risk remains."
 fi
+
+postdeploy_check prometheusrule:KubePodCrashLooping
 
 # Step 3: Establish baseline (let Prometheus scrape healthy metrics)
 echo ""

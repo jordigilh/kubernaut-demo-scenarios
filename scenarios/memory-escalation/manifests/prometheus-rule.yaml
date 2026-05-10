@@ -15,7 +15,7 @@ spec:
           namespace="demo-memory-escalation",
           reason="OOMKilled"
         } > 0
-      for: 30s
+      for: 10s
       labels:
         severity: critical
       annotations:

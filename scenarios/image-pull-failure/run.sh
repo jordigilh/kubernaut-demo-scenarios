@@ -44,23 +44,28 @@ echo "==> Step 1: Deploying scenario resources..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
-echo "==> Step 2: Waiting for deployment to be healthy..."
+echo "==> Step 2: Setting up OCP internal registry (private source namespace)..."
+bash "${SCRIPT_DIR}/setup-registry.sh"
+echo ""
+
+echo "==> Step 3: Waiting for deployment to be healthy..."
 kubectl wait --for=condition=Available deployment/inventory-api \
   -n "${NAMESPACE}" --timeout=120s
 echo "  inventory-api is running with a valid ImagePullSecret."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
-echo "==> Step 3: Establishing healthy baseline (20s)..."
+echo "==> Step 4: Establishing healthy baseline (20s)..."
+echo "  (pods may need a moment to pull after secret creation)"
 sleep 20
 echo "  Baseline established."
 echo ""
 
-echo "==> Step 4: Injecting expired credentials (delete ImagePullSecret)..."
+echo "==> Step 5: Injecting expired credentials (delete ImagePullSecret)..."
 bash "${SCRIPT_DIR}/inject-expired-credentials.sh"
 echo ""
 
-echo "==> Step 5: Waiting for ImagePullBackOff and alert (~2 min)..."
+echo "==> Step 6: Waiting for ImagePullBackOff and alert (~2 min)..."
 echo "  The kubelet cannot find the referenced registry-credentials secret."
 echo ""
 sleep 10

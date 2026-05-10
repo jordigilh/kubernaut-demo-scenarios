@@ -30,10 +30,10 @@ spec:
             component: deployment
           annotations:
             summary: "Node {{ $labels.instance }} predicted to exhaust disk within 30 minutes"
+            node_name: '{{ $labels.instance }}'
             description: >-
-              Linear regression on node {{ $labels.instance }} filesystem usage
-              over the last minute predicts available space will reach
-              zero within 30 minutes. This is likely caused by emptyDir growth
-              from the postgres-emptydir deployment in demo-diskpressure
-              namespace. Proactive remediation can migrate the database to
-              persistent storage before data loss occurs.
+              Linear regression on node {{ $labels.instance }} filesystem
+              (/var/lib/kubelet) predicts available space will reach zero
+              within 30 minutes based on current write rate. Investigate
+              emptyDir-backed workloads in the affected namespace for
+              unbounded growth patterns.

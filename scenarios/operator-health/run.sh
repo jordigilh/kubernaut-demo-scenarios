@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-operator"
+export NAMESPACE="${NAMESPACE:-demo-operator}"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
@@ -33,8 +33,31 @@ echo ""
 
 ensure_clean_slate "${NAMESPACE}"
 
+# No cluster-wide preflight needed. The alert annotations and signal labels
+# direct the LLM to focus on the etcd Subscription in demo-operator.
+# Copied CSVs from cluster-scoped operators are harmless -- the alert's
+# investigation_scope annotation constrains the LLM's investigation.
+
 echo "==> Step 1: Deploying scenario resources..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+
+# When NAMESPACE is overridden, create a temp copy of the entire scenario
+# tree with the namespace replaced everywhere (YAML metadata, PromQL
+# expressions, annotations, kustomize overlay references).
+DEFAULT_NS="demo-operator"
+if [ "${NAMESPACE}" != "${DEFAULT_NS}" ]; then
+    TEMP_SCENARIO_DIR=$(mktemp -d)
+    trap 'rm -rf "${TEMP_SCENARIO_DIR}"' EXIT
+    cp -r "${SCRIPT_DIR}/manifests" "${TEMP_SCENARIO_DIR}/manifests"
+    if [ -d "${SCRIPT_DIR}/overlays" ]; then
+        cp -r "${SCRIPT_DIR}/overlays" "${TEMP_SCENARIO_DIR}/overlays"
+    fi
+    find "${TEMP_SCENARIO_DIR}" -type f \( -name '*.yaml' -o -name '*.yml' \) -exec \
+        sed -i.bak "s/${DEFAULT_NS}/${NAMESPACE}/g" {} +
+    find "${TEMP_SCENARIO_DIR}" -name '*.bak' -delete
+    MANIFEST_DIR=$(get_manifest_dir "${TEMP_SCENARIO_DIR}")
+fi
+
 kubectl apply -k "${MANIFEST_DIR}"
 
 echo "==> Step 2: Waiting for InstallPlan..."
@@ -53,20 +76,22 @@ fi
 echo "  Approving InstallPlan ${IP_NAME}..."
 kubectl patch installplan "${IP_NAME}" -n "${NAMESPACE}" --type=merge -p '{"spec":{"approved":true}}'
 
-echo "==> Step 3: Waiting for operator CSV to reach Succeeded..."
+echo "==> Step 3: Waiting for etcd operator CSV to reach Succeeded..."
 CSV_PHASE=""
 for _i in $(seq 1 60); do
-    CSV_PHASE=$(kubectl get csv -n "${NAMESPACE}" --no-headers -o custom-columns=PHASE:.status.phase 2>/dev/null | grep -v "^$" | head -1)
+    CSV_PHASE=$(kubectl get csv -n "${NAMESPACE}" --no-headers \
+      -o custom-columns=NAME:.metadata.name,PHASE:.status.phase 2>/dev/null \
+      | grep "^etcd" | awk '{print $2}' | head -1 || true)
     if [ "${CSV_PHASE}" = "Succeeded" ]; then
         break
     fi
     sleep 5
 done
 if [ "${CSV_PHASE}" != "Succeeded" ]; then
-    echo "ERROR: CSV did not reach Succeeded within timeout (current: ${CSV_PHASE})" >&2
+    echo "ERROR: etcd CSV did not reach Succeeded within timeout (current: ${CSV_PHASE})" >&2
     exit 1
 fi
-echo "  Operator CSV is Succeeded."
+echo "  Etcd operator CSV is Succeeded."
 
 echo "==> Step 4: Establishing healthy baseline (20s)..."
 sleep 20

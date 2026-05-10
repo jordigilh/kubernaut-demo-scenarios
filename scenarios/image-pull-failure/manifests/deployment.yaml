@@ -19,6 +19,6 @@ spec:
         - name: registry-credentials
       containers:
         - name: inventory-api
-          image: registry.k8s.io/e2e-test-images/busybox:1.29-2
+          image: image-registry.openshift-image-registry.svc:5000/demo-imagepull-source/inventory-api:v1
           imagePullPolicy: Always
           command: ["/bin/sh", "-c", "while true; do sleep 3600; done"]

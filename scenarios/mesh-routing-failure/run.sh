@@ -33,6 +33,8 @@ ensure_user_workload_monitoring
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
+preflight_check metrics-pipeline
+
 echo "============================================="
 echo " Istio Mesh Routing Failure Demo (#136)"
 echo "============================================="
@@ -56,6 +58,8 @@ kubectl get pods -n "${NAMESPACE}"
 # On OCP, the UWM prometheus-operator may not pick up the new ServiceMonitor
 # until restarted (#129). No-op on Kind.
 refresh_uwm_scrape_config
+
+postdeploy_check istio-scraping prometheusrule:IstioHighDenyRate
 echo ""
 
 # Step 2: Baseline -- let traffic flow so Prometheus scrapes healthy metrics

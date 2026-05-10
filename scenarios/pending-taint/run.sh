@@ -33,6 +33,13 @@ echo " Pending Pods - Taint Removal Demo (#122)"
 echo "============================================="
 echo ""
 
+_rc=0
+trap 'echo "==> Restoring EM configuration..."; restore_em || true; exit "${_rc}"' EXIT
+
+echo "==> Configuring EM for fast EA convergence..."
+configure_em "30s" "120s"
+echo ""
+
 ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Apply taint to worker node FIRST (before deploying pods)

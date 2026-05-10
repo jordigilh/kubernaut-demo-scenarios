@@ -18,9 +18,13 @@ done
 
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+# shellcheck source=../../scripts/monitoring-helper.sh
+source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 require_demo_ready
+
+preflight_check metrics-pipeline storage
 
 echo "============================================="
 echo " StatefulSet PVC Failure Demo (#137)"

@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-operator"
+NAMESPACE="${NAMESPACE:-demo-operator}"
 APPROVE_MODE="${1:---auto-approve}"
 
 # shellcheck source=../../scripts/validation-helper.sh
@@ -53,8 +53,10 @@ assert_neq "$confidence" "" "AA confidence present"
 wfe_phase=$(get_wfe_phase "${NAMESPACE}")
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
-csv_phase=$(kubectl get csv -n "${NAMESPACE}" --no-headers -o custom-columns=PHASE:.status.phase 2>/dev/null | grep -v "^$" | head -1)
-assert_eq "${csv_phase}" "Succeeded" "CSV phase after remediation"
+csv_phase=$(kubectl get csv -n "${NAMESPACE}" --no-headers \
+  -o custom-columns=NAME:.metadata.name,PHASE:.status.phase 2>/dev/null \
+  | grep "^etcd" | awk '{print $2}' | head -1 || true)
+assert_eq "${csv_phase}" "Succeeded" "etcd CSV phase after remediation"
 
 operator_running=$(kubectl get pods -n "${NAMESPACE}" --no-headers 2>/dev/null \
   | awk '$3=="Running"{c++}END{print c+0}')

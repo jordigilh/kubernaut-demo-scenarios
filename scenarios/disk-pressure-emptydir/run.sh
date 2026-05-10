@@ -48,6 +48,89 @@ require_infra awx-engine
 require_infra gitea
 require_infra argocd
 
+# ── Deep preflight: verify heavy dependencies are actually healthy ───────────
+_preflight_dependencies() {
+    local fail=false
+
+    # Gitea: pod must be Running + Ready, and HTTP must respond
+    local gitea_ready
+    gitea_ready=$(kubectl get pods -n "${GITEA_NAMESPACE}" -l app.kubernetes.io/name=gitea \
+      -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+    if [ "$gitea_ready" != "True" ]; then
+        echo "ERROR: Gitea pod is not Ready (status: ${gitea_ready:-not found})."
+        echo "  Check: kubectl get pods -n ${GITEA_NAMESPACE}"
+        fail=true
+    else
+        local gitea_pod
+        gitea_pod=$(kubectl get pods -n "${GITEA_NAMESPACE}" -l app.kubernetes.io/name=gitea \
+          -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+        local http_code
+        http_code=$(kubectl exec -n "${GITEA_NAMESPACE}" "${gitea_pod}" -- \
+          curl -sf -o /dev/null -w '%{http_code}' http://localhost:3000/api/v1/version 2>/dev/null || echo "000")
+        if [ "$http_code" != "200" ]; then
+            echo "ERROR: Gitea HTTP not responding (code: ${http_code}). Pod is Running but service is not ready."
+            echo "  Check: kubectl logs -n ${GITEA_NAMESPACE} ${gitea_pod}"
+            fail=true
+        else
+            echo "  Gitea: Ready (HTTP 200)"
+        fi
+    fi
+
+    # Argo CD: server pod must be Running + Ready
+    local argocd_ns
+    argocd_ns=$(get_argocd_namespace 2>/dev/null || echo "openshift-gitops")
+    local argocd_ready
+    argocd_ready=$(kubectl get pods -n "${argocd_ns}" -l app.kubernetes.io/name=openshift-gitops-server \
+      -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+    if [ "$argocd_ready" != "True" ]; then
+        argocd_ready=$(kubectl get pods -n "${argocd_ns}" -l app.kubernetes.io/name=argocd-server \
+          -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+    fi
+    if [ "$argocd_ready" != "True" ]; then
+        echo "ERROR: Argo CD server pod is not Ready (status: ${argocd_ready:-not found})."
+        echo "  Check: kubectl get pods -n ${argocd_ns}"
+        fail=true
+    else
+        echo "  Argo CD: Ready"
+    fi
+
+    # AWX/AAP: controller pod must be Running + Ready
+    local aap_ns="${AAP_NAMESPACE:-aap}"
+    local awx_ready
+    awx_ready=$(kubectl get pods -n "${aap_ns}" -l app.kubernetes.io/managed-by=automationcontroller-operator \
+      -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+    if [ "$awx_ready" != "True" ]; then
+        awx_ready=$(kubectl get pods -n "${aap_ns}" -l app.kubernetes.io/managed-by=awx-operator \
+          -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || echo "")
+    fi
+    if [ "$awx_ready" != "True" ]; then
+        echo "ERROR: AWX/AAP controller pod is not Ready (status: ${awx_ready:-not found})."
+        echo "  Check: kubectl get pods -n ${aap_ns}"
+        fail=true
+    else
+        echo "  AWX/AAP: Ready"
+    fi
+
+    # StorageClass: at least one with allowVolumeExpansion (PVC migration target)
+    local sc_expand
+    sc_expand=$(kubectl get sc -o jsonpath='{.items[?(@.allowVolumeExpansion==true)].metadata.name}' 2>/dev/null | awk '{print $1}')
+    if [ -n "$sc_expand" ]; then
+        echo "  StorageClass: ${sc_expand} (expansion enabled)"
+    else
+        echo "  WARNING: No StorageClass with allowVolumeExpansion found."
+    fi
+
+    if [ "$fail" = true ]; then
+        echo ""
+        echo "  Preflight FAILED: fix the above dependencies before running."
+        exit 1
+    fi
+    echo "  Preflight passed."
+}
+echo "==> Preflight: verifying dependency health..."
+_preflight_dependencies
+echo ""
+
 # Platform-specific PostgreSQL settings (top-level so both setup and inject see them)
 if [ "$PLATFORM" = "ocp" ]; then
     PG_IMAGE="quay.io/sclorg/postgresql-16-c9s"
@@ -254,6 +337,163 @@ _ensure_gitea_repo_creds() {
     echo "  gitea-repo-creds secret ensured in ${ns}."
 }
 
+# Self-heal missing AAP credentials by creating them via the AAP API.
+# Creates the K8s bearer-token credential type + credential and the Gitea
+# credential, then attaches both to all relevant job templates.
+_heal_aap_credentials() {
+    local aap_ns="${AAP_NAMESPACE:-aap}"
+    local aap_svc
+    aap_svc=$(kubectl get svc -n "$aap_ns" -o name 2>/dev/null \
+        | grep -m1 'controller-service' | sed 's|^service/||' || true)
+    [ -z "$aap_svc" ] && { echo "ERROR: no AAP controller-service found"; return 1; }
+
+    local aap_pass
+    aap_pass=$(kubectl get secret -n "$aap_ns" \
+        -l app.kubernetes.io/component=automationcontroller \
+        -o jsonpath='{.items[0].data.password}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    [ -z "$aap_pass" ] && aap_pass=$(kubectl get secret "${aap_svc%-service}-admin-password" -n "$aap_ns" \
+        -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    [ -z "$aap_pass" ] && { echo "ERROR: cannot retrieve AAP admin password"; return 1; }
+
+    local pf_port=18053
+    kubectl port-forward -n "$aap_ns" "svc/${aap_svc}" "${pf_port}:80" &>/dev/null &
+    local pf_pid=$!
+    trap '[ -n "${pf_pid:-}" ] && kill "$pf_pid" 2>/dev/null && wait "$pf_pid" 2>/dev/null || true' RETURN
+    sleep 3
+
+    local _auth="admin:${aap_pass}"
+    local _url="http://localhost:${pf_port}"
+
+    local org_id
+    org_id=$(curl -sf "${_url}/api/v2/organizations/?name=Kubernaut+Demo" -u "$_auth" | \
+        python3 -c "import json,sys; d=json.load(sys.stdin); print(d['results'][0]['id'] if d.get('results') else '')" 2>/dev/null || echo "")
+    if [ -z "$org_id" ]; then
+        org_id=$(curl -sf -X POST "${_url}/api/v2/organizations/" -u "$_auth" \
+            -H 'Content-Type: application/json' \
+            -d '{"name":"Kubernaut Demo","description":"Demo organization"}' | \
+            python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "1")
+    fi
+    echo "Org ID: ${org_id}"
+
+    # Ensure the SA + token exist for K8s credential
+    kubectl apply -f - <<EOFSA
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: awx-ee-reader
+  namespace: ${aap_ns}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: awx-ee-reader-token
+  namespace: ${aap_ns}
+  annotations:
+    kubernetes.io/service-account.name: awx-ee-reader
+type: kubernetes.io/service-account-token
+EOFSA
+
+    local sa_token=""
+    local deadline=$(($(date +%s) + 30))
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+        sa_token=$(kubectl get secret awx-ee-reader-token -n "$aap_ns" \
+            -o jsonpath='{.data.token}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
+        [ -n "$sa_token" ] && break
+        sleep 2
+    done
+    [ -z "$sa_token" ] && { echo "ERROR: SA token not available"; return 1; }
+
+    # Ensure custom credential type with env injectors
+    local ct_name="Kubernetes API Token (env injected)"
+    local ct_id
+    ct_id=$(curl -sf "${_url}/api/v2/credential_types/?search=env+injected" -u "$_auth" | \
+        python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
+    if [ -z "$ct_id" ]; then
+        ct_id=$(curl -sf -X POST "${_url}/api/v2/credential_types/" -u "$_auth" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg name "$ct_name" '{
+                name:$name, description:"Injects K8S_AUTH env vars for kubernetes.core", kind:"cloud",
+                inputs:{fields:[{id:"host",type:"string",label:"API Host"},{id:"bearer_token",type:"string",label:"Bearer Token",secret:true},{id:"verify_ssl",type:"boolean",label:"Verify SSL"}],required:["host","bearer_token"]},
+                injectors:{env:{K8S_AUTH_HOST:"{{host}}",K8S_AUTH_API_KEY:"{{bearer_token}}",K8S_AUTH_VERIFY_SSL:"{{verify_ssl}}"}}}')" | \
+            python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
+    fi
+    echo "K8s credential type ID: ${ct_id}"
+
+    # Upsert K8s credential
+    local k8s_cred_id
+    k8s_cred_id=$(curl -sf "${_url}/api/v2/credentials/?name=kubernaut-k8s-reader" -u "$_auth" | \
+        python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
+    local _k8s_body
+    _k8s_body=$(jq -n --argjson org "$org_id" --argjson ct "$ct_id" --arg token "$sa_token" \
+        '{name:"kubernaut-k8s-reader",description:"In-cluster K8s read access for AAP EE",organization:$org,credential_type:$ct,inputs:{host:"https://kubernetes.default.svc",bearer_token:$token,verify_ssl:false}}')
+    if [ -n "$k8s_cred_id" ]; then
+        curl -sf -X PATCH "${_url}/api/v2/credentials/${k8s_cred_id}/" -u "$_auth" \
+            -H 'Content-Type: application/json' -d "$_k8s_body" >/dev/null
+        echo "K8s credential refreshed (id=${k8s_cred_id})"
+    else
+        k8s_cred_id=$(curl -sf -X POST "${_url}/api/v2/credentials/" -u "$_auth" \
+            -H 'Content-Type: application/json' -d "$_k8s_body" | \
+            python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
+        echo "K8s credential created (id=${k8s_cred_id})"
+    fi
+
+    # Upsert Gitea credential type
+    local gitea_ct_id
+    gitea_ct_id=$(curl -sf "${_url}/api/v2/credential_types/?name=kubernaut-secret-gitea-repo-creds" -u "$_auth" | \
+        python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
+    if [ -z "$gitea_ct_id" ]; then
+        gitea_ct_id=$(curl -sf -X POST "${_url}/api/v2/credential_types/" -u "$_auth" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n '{name:"kubernaut-secret-gitea-repo-creds",description:"Gitea repo credentials",kind:"cloud",
+                inputs:{fields:[{id:"username",type:"string",label:"Username"},{id:"password",type:"string",label:"Password",secret:true}],required:["username","password"]},
+                injectors:{extra_vars:{GITEA_USER:"{{username}}",GITEA_PASS:"{{password}}"}}}')" | \
+            python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
+    fi
+    echo "Gitea credential type ID: ${gitea_ct_id}"
+
+    # Upsert Gitea credential
+    local gitea_user="${GITEA_ADMIN_USER:-kubernaut}"
+    local gitea_pass_val="${GITEA_ADMIN_PASS:-kubernaut123}"
+    local gitea_cred_id
+    gitea_cred_id=$(curl -sf "${_url}/api/v2/credentials/?name=kubernaut-gitea-creds" -u "$_auth" | \
+        python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
+    if [ -z "$gitea_cred_id" ]; then
+        local _gitea_body
+        _gitea_body=$(jq -n --argjson org "$org_id" --argjson ct "$gitea_ct_id" \
+            --arg user "$gitea_user" --arg pass "$gitea_pass_val" \
+            '{name:"kubernaut-gitea-creds",description:"Gitea credentials for GitOps playbooks",organization:$org,credential_type:$ct,inputs:{username:$user,password:$pass}}')
+        gitea_cred_id=$(curl -sf -X POST "${_url}/api/v2/credentials/" -u "$_auth" \
+            -H 'Content-Type: application/json' -d "$_gitea_body" | \
+            python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
+        echo "Gitea credential created (id=${gitea_cred_id})"
+    else
+        echo "Gitea credential exists (id=${gitea_cred_id})"
+    fi
+
+    # Attach credentials to all relevant job templates
+    local tmpl_ids
+    tmpl_ids=$(curl -sf "${_url}/api/v2/job_templates/" -u "$_auth" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+for t in d.get('results', []):
+    if 'migrate' in t.get('name','').lower() or 'memory' in t.get('name','').lower():
+        print(t['id'])
+" 2>/dev/null || true)
+
+    for tid in $tmpl_ids; do
+        if [ -n "$k8s_cred_id" ]; then
+            curl -sf -X POST "${_url}/api/v2/job_templates/${tid}/credentials/" -u "$_auth" \
+                -H 'Content-Type: application/json' -d "{\"id\":${k8s_cred_id}}" >/dev/null 2>&1 || true
+        fi
+        if [ -n "$gitea_cred_id" ]; then
+            curl -sf -X POST "${_url}/api/v2/job_templates/${tid}/credentials/" -u "$_auth" \
+                -H 'Content-Type: application/json' -d "{\"id\":${gitea_cred_id}}" >/dev/null 2>&1 || true
+        fi
+        echo "Credentials attached to template ${tid}"
+    done
+    echo "AAP credential self-heal complete."
+}
+
 # Warn (non-fatal) if required secrets are missing before setup proceeds.
 # See: kubernaut-demo-scenarios#3 sub-issue 3.7
 _check_prerequisites() {
@@ -270,7 +510,16 @@ _check_prerequisites() {
     fi
 
     if ! _check_aap_credentials; then
-        missing=true
+        echo "  AAP credentials missing — self-healing via AAP API..."
+        if _heal_aap_credentials 2>&1 | sed 's/^/    /'; then
+            echo "  Re-checking AAP credentials after self-heal..."
+            if ! _check_aap_credentials; then
+                missing=true
+            fi
+        else
+            echo "  WARNING: AAP credential self-heal failed."
+            missing=true
+        fi
     fi
 
     if [ "$missing" = true ]; then
@@ -347,7 +596,7 @@ for t in d.get('results', []):
         has_k8s=$(echo "$creds" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
-print('yes' if any(c.get('credential_type') in (17, 18) for c in d.get('results',[])) else 'no')
+print('yes' if any(c.get('credential_type') in (17, 18) or 'k8s' in c.get('name','').lower() for c in d.get('results',[])) else 'no')
 " 2>/dev/null || echo "unknown")
         has_gitea=$(echo "$creds" | python3 -c "
 import json, sys
@@ -359,13 +608,35 @@ print('yes' if any('gitea' in c.get('name','').lower() for c in d.get('results',
             echo "  WARNING: AAP template '${tmpl_name}' (id=${tmpl_id}) is missing credentials:"
             [ "$has_k8s" = "no" ] && echo "    - K8s credential (cluster access for Ansible playbooks)"
             [ "$has_gitea" = "no" ] && echo "    - Gitea credential (GitOps push access)"
-            echo "    Fix: bash scripts/aap-helper.sh --configure-only"
+            echo "    Self-heal will attempt to fix this automatically."
             any_missing=true
         fi
     done
 
     if [ "$any_missing" = false ] && [ -n "$tmpl_ids" ]; then
         echo "  AAP job template credentials verified."
+    fi
+
+    local injectors_ok
+    injectors_ok=$(curl -sf "http://localhost:${pf_port}/api/v2/credential_types/?search=env+injected" \
+        -u "admin:${aap_pass}" 2>/dev/null | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+for ct in d.get('results', []):
+    inj = ct.get('injectors', {})
+    env = inj.get('env', {})
+    if 'K8S_AUTH_HOST' in env and 'K8S_AUTH_API_KEY' in env:
+        print('yes')
+        sys.exit(0)
+print('no')
+" 2>/dev/null || echo "unknown")
+
+    if [ "$injectors_ok" = "no" ]; then
+        echo "  ERROR: No AAP credential type with K8s env injectors found."
+        echo "    kubernetes.core modules will fail with 'No configuration found'."
+        any_missing=true
+    elif [ "$injectors_ok" = "yes" ]; then
+        echo "  AAP K8s credential type injectors verified."
     fi
 
     [ "$any_missing" = false ]
@@ -675,203 +946,11 @@ data:
     $$;
 MANIFEST
 
-cat > disk-pressure-emptydir/noise-deployments.yaml <<'MANIFEST'
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-cache
-  namespace: demo-diskpressure
-  labels:
-    app: nginx-cache
-    role: noise
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: nginx-cache
-  template:
-    metadata:
-      labels:
-        app: nginx-cache
-        role: noise
-    spec:
-      nodeSelector:
-        scenario: disk-pressure
-      tolerations:
-      - key: scenario
-        value: disk-pressure
-        effect: NoSchedule
-      - key: node.kubernetes.io/disk-pressure
-        operator: Exists
-        effect: NoSchedule
-      initContainers:
-      - name: cache-warmup
-        image: registry.k8s.io/e2e-test-images/busybox:1.29-2
-        command:
-        - /bin/sh
-        - -c
-        - |
-          echo "Warming up nginx cache (~200MB)..."
-          for i in $(seq 1 200); do
-            dd if=/dev/urandom bs=1M count=1 of=/tmp/nginx-cache/cached-page-${i}.dat 2>/dev/null
-            sleep 1
-          done
-          echo "Cache warm-up complete."
-        volumeMounts:
-        - name: cache
-          mountPath: /tmp/nginx-cache
-      containers:
-      - name: nginx
-        image: nginxinc/nginx-unprivileged:1.27-alpine
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "50m"
-          limits:
-            memory: "128Mi"
-            cpu: "100m"
-        volumeMounts:
-        - name: cache
-          mountPath: /tmp/nginx-cache
-      volumes:
-      - name: cache
-        emptyDir:
-          sizeLimit: 250Mi
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: log-collector
-  namespace: demo-diskpressure
-  labels:
-    app: log-collector
-    role: noise
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: log-collector
-  template:
-    metadata:
-      labels:
-        app: log-collector
-        role: noise
-    spec:
-      nodeSelector:
-        scenario: disk-pressure
-      tolerations:
-      - key: scenario
-        value: disk-pressure
-        effect: NoSchedule
-      - key: node.kubernetes.io/disk-pressure
-        operator: Exists
-        effect: NoSchedule
-      containers:
-      - name: logger
-        image: registry.k8s.io/e2e-test-images/busybox:1.29-2
-        command:
-        - /bin/sh
-        - -c
-        - |
-          i=0
-          while true; do
-            dd if=/dev/urandom bs=32K count=1 of=/var/log/app/logfile-${i}.log 2>/dev/null
-            i=$((i + 1))
-            sleep 60
-          done
-        resources:
-          requests:
-            memory: "32Mi"
-            cpu: "25m"
-          limits:
-            memory: "64Mi"
-            cpu: "50m"
-        volumeMounts:
-        - name: logs
-          mountPath: /var/log/app
-      volumes:
-      - name: logs
-        emptyDir:
-          sizeLimit: 50Mi
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: redis-scratch
-  namespace: demo-diskpressure
-  labels:
-    app: redis-scratch
-    role: noise
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: redis-scratch
-  template:
-    metadata:
-      labels:
-        app: redis-scratch
-        role: noise
-    spec:
-      nodeSelector:
-        scenario: disk-pressure
-      tolerations:
-      - key: scenario
-        value: disk-pressure
-        effect: NoSchedule
-      - key: node.kubernetes.io/disk-pressure
-        operator: Exists
-        effect: NoSchedule
-      containers:
-      - name: redis
-        image: redis:7-alpine
-        args: ["--appendonly", "yes", "--dir", "/data"]
-        resources:
-          requests:
-            memory: "64Mi"
-            cpu: "50m"
-          limits:
-            memory: "128Mi"
-            cpu: "100m"
-        volumeMounts:
-        - name: data
-          mountPath: /data
-      - name: session-loader
-        image: registry.k8s.io/e2e-test-images/busybox:1.29-2
-        command:
-        - /bin/sh
-        - -c
-        - |
-          i=0
-          while [ $i -lt 200 ]; do
-            dd if=/dev/urandom bs=512K count=1 of=/data/aof-segment-${i}.dat 2>/dev/null
-            i=$((i + 1))
-            sleep 2
-          done
-          echo "Session data stable at ~100MB."
-          while true; do sleep 3600; done
-        resources:
-          requests:
-            memory: "16Mi"
-            cpu: "10m"
-          limits:
-            memory: "32Mi"
-            cpu: "50m"
-        volumeMounts:
-        - name: data
-          mountPath: /data
-      volumes:
-      - name: data
-        emptyDir:
-          sizeLimit: 150Mi
-MANIFEST
-
 cat > disk-pressure-emptydir/kustomization.yaml <<'MANIFEST'
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - deployment.yaml
-  - noise-deployments.yaml
   - secret.yaml
   - service.yaml
   - configmap.yaml
@@ -894,14 +973,12 @@ rm -rf "${WORK_DIR}"
 echo "==> Step 1b: Ensuring gitea-repo-creds secret..."
 _ensure_gitea_repo_creds
 
-# Step 1c: Register the disk-pressure-emptydir workflow if not already present.
-# The Helm seed job and require_demo_ready() may have skipped it due to missing
-# secrets or AWX detection at install time.
+# Step 1c: Register the postgres-specific emptyDir-to-PVC workflow.
 _WF_YAML="${SCRIPT_DIR}/../../deploy/remediation-workflows/disk-pressure-emptydir/disk-pressure-emptydir.yaml"
 if [ -f "$_WF_YAML" ]; then
     _WF_NAME=$(awk '/kind: RemediationWorkflow/{found=1} found && /^  name:/{print $2; exit}' "$_WF_YAML")
     if ! kubectl get remediationworkflow "$_WF_NAME" -n "${PLATFORM_NS}" &>/dev/null; then
-        echo "==> Step 1c: Registering disk-pressure-emptydir workflow..."
+        echo "==> Step 1c: Registering workflow ${_WF_NAME}..."
         kubectl apply -f "$_WF_YAML" 2>&1 | sed 's/^/  /'
     else
         echo "==> Step 1c: Workflow ${_WF_NAME} already registered."
@@ -918,6 +995,7 @@ echo "  Ensuring Alertmanager RBAC..."
 _ensure_alertmanager_rbac
 
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+
 kubectl apply --server-side --force-conflicts -k "${MANIFEST_DIR}"
 
 # Patch PrometheusRule with correct instance and mountpoint for the target
@@ -939,21 +1017,25 @@ elif [ "${PLATFORM:-kind}" = "ocp" ]; then
 else
     _MOUNTPOINT="/"
 fi
-_EXPR="predict_linear(node_filesystem_avail_bytes{mountpoint=\"${_MOUNTPOINT}\", instance=~\"${_INSTANCE_RE}\"}[1m], 1800) < 0"
+_EXPR="max by (mountpoint, instance) (predict_linear(node_filesystem_avail_bytes{mountpoint=\"${_MOUNTPOINT}\", instance=~\"${_INSTANCE_RE}\"}[1m], 1800)) < 0"
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
     _PROM_NS="openshift-monitoring"
 else
     _PROM_NS="${NAMESPACE}"
 fi
-echo "  Patching PrometheusRule: mountpoint=${_MOUNTPOINT}, instance=~${_INSTANCE_RE}"
+echo "  Patching PrometheusRule: mountpoint=${_MOUNTPOINT}, instance=~${_INSTANCE_RE}, node=${_SCENARIO_NODE}"
 kubectl get prometheusrule demo-diskpressure-rules -n "${_PROM_NS}" -o json \
   | python3 -c "
 import json, sys
+node_name = '''${_SCENARIO_NODE}'''
 rule = json.load(sys.stdin)
 for g in rule['spec']['groups']:
     for r in g['rules']:
         if r.get('alert') == 'PredictedDiskPressure':
             r['expr'] = '''${_EXPR}'''
+            r['labels']['node'] = node_name
+            r['annotations']['node_name'] = node_name
+            r['annotations']['summary'] = f'Node {node_name} predicted to exhaust disk within 30 minutes'
 json.dump(rule, sys.stdout)
 " | kubectl apply -f - 2>/dev/null
 echo "  PrometheusRule patched."
@@ -979,21 +1061,11 @@ for i in $(seq 1 60); do
     sleep 5
 done
 
-echo "==> Step 4: Waiting for PostgreSQL and noise pods readiness..."
-echo "  (nginx-cache has a ~3 min init container for cache warm-up)"
+echo "==> Step 4: Waiting for PostgreSQL pod readiness..."
+kubectl rollout status deployment/postgres-emptydir -n "${NAMESPACE}" --timeout=180s
 kubectl wait --for=condition=Available deployment/postgres-emptydir \
   -n "${NAMESPACE}" --timeout=180s
 echo "  PostgreSQL is running with emptyDir storage."
-for noise_dep in log-collector redis-scratch; do
-    kubectl wait --for=condition=Available "deployment/${noise_dep}" \
-      -n "${NAMESPACE}" --timeout=120s 2>/dev/null && \
-      echo "  ${noise_dep} is running." || \
-      echo "  WARNING: ${noise_dep} not ready (non-fatal)."
-done
-kubectl wait --for=condition=Available deployment/nginx-cache \
-  -n "${NAMESPACE}" --timeout=300s 2>/dev/null && \
-  echo "  nginx-cache is running (cache warm-up complete)." || \
-  echo "  WARNING: nginx-cache not ready (non-fatal)."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 
@@ -1135,12 +1207,6 @@ echo "  Rate:       ${RATE_MB_S} MB/s (batch=${BATCH_SIZE} rows, sleep=${SLEEP_M
 echo "  Iterations: ${ITERATIONS}"
 echo "  Estimate:   PredictedDiskPressure at ~${EST_ALERT_MIN} min, eviction at ~${EST_EVICT_MIN} min"
 echo ""
-echo "  Noise writers:"
-echo "    Log-collector: ~32 KB/min unbounded (reduced to avoid LLM target ambiguity)"
-echo "    Nginx cache:   ~200 MB burst then stable"
-echo "    Redis scratch:  ~100 MB gradual then stable"
-echo ""
-
 echo "  Starting postgres continuous data growth..."
 kubectl exec -n "${NAMESPACE}" "${POD}" -- \
   psql -U postgres -d postgres -c "CALL simulate_data_growth(${BATCH_SIZE}, ${ITERATIONS}, ${SLEEP_MS});" &
