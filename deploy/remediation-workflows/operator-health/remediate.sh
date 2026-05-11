@@ -90,6 +90,12 @@ echo "Waiting for OLM to install operator CSV..."
 TIMEOUT=300
 ELAPSED=0
 while [ "$ELAPSED" -lt "$TIMEOUT" ]; do
+    # Auto-approve any unapproved InstallPlans (required when installPlanApproval=Manual)
+    for IP in $(kubectl get installplan -n "$NS" -o jsonpath='{range .items[?(@.spec.approved==false)]}{.metadata.name}{"\n"}{end}' 2>/dev/null); do
+        echo "  Approving InstallPlan ${IP}..."
+        kubectl patch installplan "$IP" -n "$NS" --type=merge -p '{"spec":{"approved":true}}' 2>/dev/null || true
+    done
+
     NEW_CSV=$(kubectl get subscription.operators.coreos.com "$SUB_NAME" -n "$NS" \
       -o jsonpath='{.status.currentCSV}' 2>/dev/null || echo "")
     if [ -n "$NEW_CSV" ]; then
