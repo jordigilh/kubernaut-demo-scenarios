@@ -16,11 +16,18 @@ if [ "${PLATFORM:-kind}" = "ocp" ]; then
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
+kubectl delete pvc --all -n demo-pvc-forecast --ignore-not-found --wait=false 2>/dev/null || true
 kubectl delete namespace demo-pvc-forecast --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
+_elapsed=0
 while kubectl get ns demo-pvc-forecast &>/dev/null; do
   sleep 2
+  _elapsed=$((_elapsed + 2))
+  if [ "$_elapsed" -ge 120 ]; then
+    echo "  WARNING: Namespace demo-pvc-forecast still terminating after 120s, proceeding..."
+    break
+  fi
 done
 
 echo "==> Silencing stale alerts in AlertManager..."

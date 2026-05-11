@@ -48,7 +48,6 @@ SCENARIOS=(
   db-connection-saturation
   etcd-defrag-forecast
   image-pull-failure
-  node-notready
   pvc-capacity-forecast
   rbac-failure
   red-herring-noise

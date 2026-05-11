@@ -60,6 +60,14 @@ ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Deploy scenario resources
 echo "==> Step 1: Deploying scenario resources..."
+if kubectl get pvc data-service-data -n "${NAMESPACE}" &>/dev/null; then
+    echo "  Removing stale PVC from previous run..."
+    kubectl delete pvc data-service-data -n "${NAMESPACE}" --force --grace-period=0 2>/dev/null || true
+    for _i in $(seq 1 30); do
+        kubectl get pvc data-service-data -n "${NAMESPACE}" &>/dev/null || break
+        sleep 2
+    done
+fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 

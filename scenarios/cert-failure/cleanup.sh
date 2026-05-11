@@ -31,6 +31,9 @@ fi
 
 purge_pipeline_crds
 
+echo "==> Restoring EM configuration..."
+restore_em || true
+
 echo "==> Cleanup complete."
 echo "    NOTE: cert-manager itself is NOT removed. To remove:"
 echo "    kubectl delete -f https://github.com/cert-manager/cert-manager/releases/download/v1.17.1/cert-manager.yaml"
