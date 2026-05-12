@@ -54,6 +54,8 @@ SCENARIOS=(
   route-misconfiguration
   scc-violation
   severity-misdirection
+  alert-misdirection
+  prompt-injection
   disk-pressure-emptydir
 )
 
