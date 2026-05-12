@@ -57,6 +57,8 @@ SCENARIOS=(
   alert-misdirection
   prompt-injection
   disk-pressure-emptydir
+  autoscale
+  node-notready
 )
 
 _check_cluster_auth
