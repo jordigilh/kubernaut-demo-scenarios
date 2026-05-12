@@ -516,6 +516,10 @@ for r in json.load(sys.stdin):
         print(r.get('app_version', 'unknown'))
         break
 " 2>/dev/null || echo "unknown")
+if [ "$CHART_VERSION" = "unknown" ]; then
+    CHART_VERSION=$(kubectl get kubernaut kubernaut -n "$PLATFORM_NS" \
+        -o jsonpath='{.status.version}' 2>/dev/null || echo "unknown (operator)")
+fi
 
 CLUSTER_NAME=$(kubectl config current-context 2>/dev/null || echo "unknown")
 

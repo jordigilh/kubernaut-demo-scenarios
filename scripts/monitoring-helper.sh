@@ -33,7 +33,7 @@ require_infra() {
             if [ "${PLATFORM:-}" = "ocp" ]; then
                 kubectl get namespace openshift-gitops &>/dev/null && return 0
                 echo "ERROR: OpenShift GitOps is not installed."
-                echo "  Install via: oc apply -f operators/openshift-gitops-subscription.yaml"
+                echo "  Install from OperatorHub: OpenShift GitOps operator"
             else
                 kubectl get namespace argocd &>/dev/null && return 0
                 echo "ERROR: ArgoCD is not installed. Run: bash scripts/setup-demo-cluster.sh"

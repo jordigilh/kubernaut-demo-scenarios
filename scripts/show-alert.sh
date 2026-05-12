@@ -7,12 +7,23 @@
 set -euo pipefail
 
 ALERT_NAME="${1:?Usage: show-alert.sh <alert-name>}"
-AM_POD="alertmanager-kube-prometheus-stack-alertmanager-0"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "${SCRIPT_DIR}/platform-helper.sh" ]; then
+  source "${SCRIPT_DIR}/platform-helper.sh"
+fi
+if [ "${PLATFORM:-}" = "ocp" ]; then
+  AM_POD="alertmanager-main-0"
+  AM_NS="openshift-monitoring"
+else
+  AM_POD="alertmanager-kube-prometheus-stack-alertmanager-0"
+  AM_NS="monitoring"
+fi
 
 if [ -n "${ALERT_CACHE:-}" ] && [ -f "$ALERT_CACHE" ]; then
   ALERTS_JSON=$(cat "$ALERT_CACHE")
 else
-  ALERTS_JSON=$(kubectl exec -n monitoring "$AM_POD" -- \
+  ALERTS_JSON=$(kubectl exec -n "$AM_NS" "$AM_POD" -- \
     amtool alert query "alertname=$ALERT_NAME" \
     --alertmanager.url=http://localhost:9093 \
     --output=json 2>/dev/null)
