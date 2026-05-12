@@ -55,7 +55,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --skip-infra          Skip optional infrastructure (cert-manager, Gitea, etc.)"
             echo "  --with-awx            Install AWX Operator for Ansible engine demos (#312)"
             echo "  --kind-config PATH    Override Kind cluster config (default: multinode)"
-            echo "  --chart-version VER   Pin Helm chart version (e.g. 1.1.0-rc1); required for pre-release tags"
+            echo "  --chart-version VER   Pin Helm chart version (e.g. 1.4.0); required for pre-release tags"
             exit 0
             ;;
         *)

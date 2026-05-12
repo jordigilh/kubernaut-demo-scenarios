@@ -1,4 +1,4 @@
-# Slack notification configuration (rc13+).
+# Slack notification configuration.
 # Layer this on top of the platform values file to enable Slack delivery.
 #
 # Prerequisites:

@@ -28,8 +28,8 @@ WORKFLOW_ONLY=false
 LOCAL_ONLY=false
 SEED_AFTER=false
 CREATE_MANIFEST=false
-IMAGE_TAG="${IMAGE_TAG:-demo-v1.0}"
-VERSION="${VERSION:-v1.0.0}"
+IMAGE_TAG="${IMAGE_TAG:-v1.4.0}"
+VERSION="${VERSION:-v1.4.0}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -75,8 +75,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --local                Local build only (no push to registry)"
             echo "  --seed                 Register workflow in DataStorage after push"
             echo "  --manifest             Create multi-arch manifests for service images (requires both arches pushed)"
-            echo "  --image-tag TAG        Platform service image tag (default: demo-v1.0)"
-            echo "  --version TAG          Workflow image version tag (default: v1.0.0)"
+            echo "  --image-tag TAG        Platform service image tag (default: v1.4.0)"
+            echo "  --version TAG          Workflow image version tag (default: v1.4.0)"
             echo ""
             echo "Available services: datastorage gateway aianalysis authwebhook notification"
             echo "                    remediationorchestrator signalprocessing workflowexecution"

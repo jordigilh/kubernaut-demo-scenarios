@@ -561,10 +561,8 @@ seed_scenario_workflow() {
 #   - slack-webhook     (notification credential store, issue #104)
 # Also labels the namespace for Helm adoption if it was pre-created.
 #
-# Recommended on v1.1.0-rc13 (prevents credential drift when helm
-# rollback regenerates secrets with different passwords).
-# Required on v1.1.0-rc14+ (kubernaut#557) where the chart no longer
-# auto-generates database credentials.
+# Required (kubernaut#557) — the chart does not auto-generate database
+# credentials. Pre-creating prevents credential drift on rollback.
 _ensure_pre_install_secrets() {
     if ! command -v openssl &>/dev/null; then
         echo "ERROR: openssl is required to generate database passwords."

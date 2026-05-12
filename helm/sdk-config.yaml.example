@@ -8,18 +8,18 @@
 #   Option A -- Inline via Helm (CI / dev):
 #     cp helm/sdk-config.yaml.example ~/.kubernaut/sdk-config.yaml
 #     # Edit with your provider details
-#     helm install kubernaut charts/kubernaut/ \
+#     helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
 #       --set-file kubernautAgent.sdkConfigContent=$HOME/.kubernaut/sdk-config.yaml
 #
 #   Option B -- Pre-created ConfigMap (production):
 #     kubectl create configmap kubernaut-agent-sdk-config \
 #       --from-file=sdk-config.yaml=~/.kubernaut/sdk-config.yaml -n kubernaut-system
-#     helm install kubernaut charts/kubernaut/ \
+#     helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
 #       --set kubernautAgent.existingSdkConfigMap=kubernaut-agent-sdk-config
 #
 # Note: For simple setups (OpenAI, Anthropic) you can skip this file entirely
 # and use the quickstart flags instead:
-#   helm install kubernaut charts/kubernaut/ \
+#   helm upgrade --install kubernaut oci://quay.io/kubernaut-ai/charts/kubernaut \
 #     --set kubernautAgent.llm.provider=anthropic \
 #     --set kubernautAgent.llm.model=claude-sonnet-4-20250514
 

@@ -440,7 +440,7 @@ Without this, KA loads the Prometheus toolset but cannot execute queries (401
 from Prometheus). The LLM still functions using kubectl-based investigation, but
 lacks real-time metrics for disk growth rate analysis.
 
-## Pipeline Timeline (OCP observed, 1.1.0-rc14 on OCP 4.21)
+## Pipeline Timeline (OCP observed)
 
 Wall-clock times from a live run on a 4-node OCP 4.21 cluster with a 5 GB constrained
 filesystem on the scenario worker node, using Claude Sonnet 4 as the LLM backend.
@@ -487,7 +487,7 @@ The LLM correctly identified PostgreSQL as the root cause using 27 tool calls ac
 > improved prompt steering, the LLM consistently identifies `postgres-emptydir`
 > as the primary root cause across runs (observed confidence: 0.90–0.92).
 
-### LLM Analysis (OCP observed — v1.1.0-rc14)
+### LLM Analysis (OCP observed — v1.1.0-rc14, historical)
 
 ```
 Root cause:    PostgreSQL deployment using unbounded emptyDir storage with
