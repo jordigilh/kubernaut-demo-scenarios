@@ -38,7 +38,7 @@ git clone https://github.com/jordigilh/kubernaut-demo-scenarios.git
 cd kubernaut-demo-scenarios
 ```
 
-The Kubernaut Helm chart is installed automatically from the OCI registry (`oci://quay.io/kubernaut-ai/charts/kubernaut`). If you have the [main Kubernaut repo](https://github.com/jordigilh/kubernaut) cloned as a sibling directory, the scripts will use the local chart instead (useful for development).
+The Kubernaut platform is installed via the **Kubernaut Operator** (recommended for OCP) or the **Helm chart** (Kind / dev). The Helm chart is available from the OCI registry (`oci://quay.io/kubernaut-ai/charts/kubernaut`). If you have the [main Kubernaut repo](https://github.com/jordigilh/kubernaut) cloned as a sibling directory, the scripts will use the local chart instead (useful for development).
 
 ### 3. Configure your LLM provider
 
@@ -72,10 +72,10 @@ This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys 
 ./scripts/setup-demo-cluster.sh
 ```
 
-> **Pre-release charts:** Helm's OCI resolver skips pre-release tags by default. To install a specific version (e.g. `1.1.0-rc1`), pass `--chart-version`:
+> **Pre-release charts:** Helm's OCI resolver skips pre-release tags by default. To install a specific version (e.g. `1.4.0`), pass `--chart-version`:
 >
 > ```bash
-> ./scripts/setup-demo-cluster.sh --chart-version 1.1.0-rc1
+> ./scripts/setup-demo-cluster.sh --chart-version 1.4.0
 > ```
 
 </details>
@@ -83,9 +83,9 @@ This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys 
 <details>
 <summary><strong>Option B: Bring your own cluster</strong> (existing Kind or OCP)</summary>
 
-If you already have a cluster, install the platform manually.
+If you already have a cluster, install the platform manually. For **OCP**, the recommended approach is the **Kubernaut Operator** (see [kubernaut-operator](https://github.com/jordigilh/kubernaut-operator)); the Helm path below is an alternative for Kind or development clusters. If using the operator on OCP, skip to **Step B2b** (seed ActionTypes and workflows) after the operator finishes deploying.
 
-> **OCP prerequisites:** Before deploying the Helm chart on OCP:
+> **OCP prerequisites:** Before deploying Kubernaut on OCP (Helm or operator):
 >
 > 1. **Storage:** A default StorageClass must exist (e.g. ODF, LVM Storage, or any CSI provisioner). The chart creates PVCs for postgresql (10Gi) and valkey (512Mi).
 > 2. **cert-manager:** Install the `openshift-cert-manager-operator` from OperatorHub, then create the ClusterIssuer referenced by the chart:
@@ -117,9 +117,9 @@ If you already have a cluster, install the platform manually.
 
 **Step B1: Create the namespace and pre-install secrets:**
 
-> **Important:** Pre-creating database secrets is **recommended** on v1.1.0-rc13 (prevents
-> credential drift on rollback) and **required** on v1.1.0-rc14+ where the chart no longer
-> auto-generates them. See kubernaut#557 and #243 for background.
+> **Important:** Pre-creating database secrets is **required** — the chart does not
+> auto-generate them. This prevents credential drift on rollback.
+> See kubernaut#557 and #243 for background.
 
 ```bash
 # OCP: ensure you're logged in (oc login ...)
@@ -152,7 +152,11 @@ cp credentials/<your-provider>-example.yaml my-llm-credentials.yaml
 kubectl apply -f my-llm-credentials.yaml
 ```
 
-**Step B2: Install the platform.** Pick the command matching your LLM config from Step 3:
+**Step B2: Install the platform.**
+
+> **OCP (recommended):** Use the [Kubernaut Operator](https://github.com/jordigilh/kubernaut-operator) for production-like deployments on OpenShift. Install it from OperatorHub or apply the operator manifests directly. Once the operator is running, create a `Kubernaut` CR — the operator manages all platform services, CRDs, and upgrades. Skip to **Step B2b** after the operator finishes deploying.
+
+For **Kind** or **OCP via Helm** (dev/alternative), pick the command matching your LLM config from Step 3:
 
 For **Kind** with quickstart (env vars):
 
@@ -220,16 +224,16 @@ Replace `<aap-or-awx-url>`, `<token-secret>`, and `<namespace>` with your actual
 > ConfigMap with these values, so you can skip this if you run the helper scripts after install.
 
 > **Chart version:** The latest stable version is installed by default. Helm's OCI resolver
-> skips pre-release tags (e.g., `1.1.0-rc0`), so add `--version` to pin a specific release:
+> skips pre-release tags, so add `--version` to pin a specific release:
 >
 > ```
-> --version 1.1.0-rc0
+> --version 1.4.0
 > ```
 >
 > **Re-install / upgrade:** If upgrading from a previous version or re-installing after `helm uninstall`,
 > add `--skip-crds` to avoid CRD field manager conflicts. See [Troubleshooting](docs/troubleshooting.md#helm-upgrade-fails-with-crd-field-manager-conflict) for details.
 
-**Step B2b: Seed ActionTypes and RemediationWorkflows.** As of v1.3, the chart no longer bundles demo content. Wait for the authwebhook to be ready, then apply from this repo:
+**Step B2b: Seed ActionTypes and RemediationWorkflows.** The chart and operator do not bundle demo content. Wait for the authwebhook to be ready, then apply from this repo:
 
 ```bash
 kubectl rollout status deployment/authwebhook -n kubernaut-system --timeout=120s
@@ -333,7 +337,7 @@ Prometheus alert fires (KubePodCrashLooping)
   -> Notification delivers the final result including effectiveness assessment
 ```
 
-Each of the 22 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
+Each of the 37 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
 
 ## Scenario Prerequisites Matrix
 
@@ -349,12 +353,32 @@ but this matrix lets you plan ahead:
 | **Istio / Service Mesh** | mesh-routing-failure | OCP: OpenShift Service Mesh (OSSM) from OperatorHub. Kind: `--with-istio`. |
 | **metrics-server** | autoscale, hpa-maxed | Built-in on OCP. Kind: installed by `setup-demo-cluster.sh`. |
 | **KA Prometheus toolset** | autoscale, hpa-maxed, memory-leak, memory-escalation, slo-burn, disk-pressure-emptydir, resource-contention, resource-quota-exhaustion | Auto-enabled by `run.sh`. [Manual enablement](docs/prometheus-toolset.md). |
+| **LVMS / expandable StorageClass** | pvc-capacity-forecast | StorageClass with `allowVolumeExpansion: true` (e.g. `lvms-vg1`). |
+| **postgres\_exporter** | db-connection-saturation | Deployed as sidecar (included in scenario manifests). |
+| **Shadow agent enabled** | prompt-injection, alert-misdirection | Enabled by default since v1.4. Auto-configured by `run.sh`. |
 | **Podman (Kind only)** | node-notready | Kind-only scenario. Not supported on OCP (#287). |
 
-Scenarios not listed above (crashloop, crashloop-helm, duplicate-alert-suppression,
-concurrent-cross-namespace, memory-escalation, network-policy-block, orphaned-pvc-no-action,
-pdb-deadlock, pending-taint, resource-contention, resource-quota-exhaustion,
-statefulset-pvc-failure, stuck-rollout) require only the base Kubernaut platform.
+All other scenarios (crashloop, crashloop-helm, stuck-rollout, pending-taint, pdb-deadlock,
+network-policy-block, orphaned-pvc-no-action, statefulset-pvc-failure,
+duplicate-alert-suppression, concurrent-cross-namespace, resource-contention,
+resource-quota-exhaustion, image-pull-failure, route-misconfiguration, build-failure,
+scc-violation, operator-health, rbac-failure, cascading-service-failure,
+etcd-defrag-forecast, cross-namespace-dependency, severity-misdirection,
+red-herring-noise) require only the base Kubernaut platform.
+
+## Shadow Agent (Alignment Check)
+
+Kubernaut v1.4 includes a **shadow agent** that reviews each AI investigation for signs of prompt injection or reasoning manipulation. After the primary LLM completes its analysis, the shadow agent independently evaluates the full conversation — tool calls, results, and reasoning — and produces a verdict:
+
+- **`aligned`** — Investigation is clean; remediation proceeds normally.
+- **`suspicious`** — Shadow agent detected potential injection or reasoning manipulation. The pipeline halts and escalates to `ManualReviewRequired` with `humanReviewReason: alignment_check_failed`.
+
+The shadow agent is enabled by default via the `alignmentCheck` field on the Kubernaut CR / agent spec. Two scenarios specifically validate this capability:
+
+- **[prompt-injection](scenarios/prompt-injection/)** — Embeds an authority-impersonation payload in a ConfigMap; the shadow agent detects and blocks it.
+- **[alert-misdirection](scenarios/alert-misdirection/)** — Tests LLM resilience against misleading alert descriptions; the shadow agent should *not* flag legitimate reasoning.
+
+Shadow agent verdicts are recorded in the audit trail and visible via `extract-audit-trace.sh --investigation`.
 
 ## Extracting Audit Traces
 
@@ -384,7 +408,7 @@ The `--investigation` filter is particularly useful for validating prompt change
 | Guide | Description |
 |-------|-------------|
 | **[Setup Guide](docs/setup.md)** | Prerequisites, LLM providers (Vertex AI, Anthropic, OpenAI, local), bootstrap flags, Slack notifications |
-| **[Scenario Catalog](docs/scenarios.md)** | All 22 scenarios with alerts, fault injection, and remediation details |
+| **[Scenario Catalog](docs/scenarios.md)** | All 37 scenarios with alerts, fault injection, and remediation details |
 | **[Verification and Cleanup](docs/verification.md)** | Inspect pipeline status, monitoring, per-scenario cleanup, teardown |
 | **[Troubleshooting](docs/troubleshooting.md)** | Common issues and fixes |
 | **[Building Workflow Images](docs/building.md)** | For contributors rebuilding scenario OCI images |
