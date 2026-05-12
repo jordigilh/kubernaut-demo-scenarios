@@ -56,18 +56,20 @@ echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
 enable_prometheus_toolset
 echo ""
 
+# PVCs with LVMS finalizers can block namespace termination for minutes.
+# Strip finalizers before ensure_clean_slate so the namespace can terminate.
+if kubectl get ns "${NAMESPACE}" &>/dev/null; then
+    for _pvc in $(kubectl get pvc -n "${NAMESPACE}" -o name 2>/dev/null); do
+        kubectl patch "${_pvc}" -n "${NAMESPACE}" --type=json \
+          -p '[{"op":"remove","path":"/metadata/finalizers"}]' 2>/dev/null || true
+    done
+    kubectl delete pvc --all -n "${NAMESPACE}" --force --grace-period=0 2>/dev/null || true
+fi
+
 ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Deploy scenario resources
 echo "==> Step 1: Deploying scenario resources..."
-if kubectl get pvc data-service-data -n "${NAMESPACE}" &>/dev/null; then
-    echo "  Removing stale PVC from previous run..."
-    kubectl delete pvc data-service-data -n "${NAMESPACE}" --force --grace-period=0 2>/dev/null || true
-    for _i in $(seq 1 30); do
-        kubectl get pvc data-service-data -n "${NAMESPACE}" &>/dev/null || break
-        sleep 2
-    done
-fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 

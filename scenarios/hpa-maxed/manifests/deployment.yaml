@@ -24,10 +24,10 @@ spec:
         resources:
           requests:
             memory: "32Mi"
-            cpu: "50m"
+            cpu: "200m"
           limits:
             memory: "64Mi"
-            cpu: "100m"
+            cpu: "400m"
         livenessProbe:
           httpGet:
             path: /healthz
@@ -69,6 +69,9 @@ spec:
     name: api-frontend
   minReplicas: 2
   maxReplicas: 3
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60
   metrics:
   - type: Resource
     resource:

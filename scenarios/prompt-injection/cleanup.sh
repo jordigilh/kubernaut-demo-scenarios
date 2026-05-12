@@ -20,10 +20,8 @@ else
 fi
 kubectl delete namespace demo-prompt-injection --ignore-not-found --wait=true
 
-# Disable shadow agent (restore to default)
-echo "==> Disabling shadow agent (alignmentCheck)..."
-kubectl patch kubernaut kubernaut -n "${PLATFORM_NS}" --type merge \
-  -p '{"spec":{"kubernautAgent":{"alignmentCheck":{"enabled":false}}}}' 2>/dev/null || true
+# Shadow agent stays enabled — it should be the default-on state so we
+# can track false positives across all subsequent scenario runs.
 
 purge_pipeline_crds
 

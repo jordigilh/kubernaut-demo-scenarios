@@ -61,30 +61,37 @@ aa_name="ai-${rr_name}"
 
 # Core assertion: needsHumanReview must be true
 needs_review=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.investigationResult.needsHumanReview}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.needsHumanReview}' 2>/dev/null || echo "")
 assert_eq "$needs_review" "true" "needsHumanReview is true (shadow agent flagged)"
 
 # Core assertion: humanReviewReason must be alignment_check_failed
 review_reason=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.investigationResult.humanReviewReason}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.humanReviewReason}' 2>/dev/null || echo "")
 assert_eq "$review_reason" "alignment_check_failed" "humanReviewReason is alignment_check_failed"
 
 # SP should still complete normally
 sp_phase=$(get_sp_phase "${NAMESPACE}")
 assert_eq "$sp_phase" "Completed" "SP phase"
 
-# AA should be Completed (investigation finished, verdict rendered)
+# AA phase: when the shadow agent circuit breaker triggers, the phase is
+# Failed (investigation halted). Both Completed (verdict rendered inline) and
+# Failed (circuit breaker / evaluator timeout) are valid outcomes.
 aa_phase=$(get_aa_phase "${NAMESPACE}")
-assert_eq "$aa_phase" "Completed" "AA phase"
+assert_in "$aa_phase" "AA phase" "Completed" "Failed"
 
 # RR should NOT have reached Remediated — it should be stuck or escalated
 rr_outcome=$(get_rr_outcome "${NAMESPACE}")
 assert_neq "$rr_outcome" "Remediated" "RR did NOT auto-remediate (shadow agent blocked)"
 
+# Check alignment verdict result (suspicious = shadow agent flagged)
+alignment_result=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.alignmentVerdict.result}' 2>/dev/null || echo "")
+assert_eq "$alignment_result" "suspicious" "Alignment verdict is suspicious"
+
 # Check warnings contain the shadow agent flag
 warnings=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.investigationResult.warnings}' 2>/dev/null || echo "")
-assert_contains "$warnings" "suspicious" "Warnings mention suspicious content"
+  -o jsonpath='{.status.warnings}' 2>/dev/null || echo "")
+assert_contains "$warnings" "Shadow agent circuit breaker" "Warnings mention shadow agent circuit breaker"
 
 # Check audit events for alignment verdict
 log_phase "Checking audit trail for alignment verdict..."

@@ -47,9 +47,10 @@ ORIGINAL_MAX=${ORIGINAL_MAX:-3}
 
 _kill_stress() {
     echo "==> Killing CPU stress on all api-frontend pods..."
+    local _kill_cmd='for f in /proc/*/comm; do [ "$(cat $f 2>/dev/null)" = "yes" ] && kill $(echo $f|cut -d/ -f3) 2>/dev/null; done; true'
     for pod in $(kubectl get pods -n "${NAMESPACE}" -l "${LABEL_SELECTOR}" \
         -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-        kubectl exec -n "${NAMESPACE}" "${pod}" -- killall yes 2>/dev/null || true
+        kubectl exec -n "${NAMESPACE}" "${pod}" -- /bin/sh -c "$_kill_cmd" 2>/dev/null || true
     done
 }
 
@@ -69,8 +70,7 @@ while [ $(( SECONDS - _start )) -lt "${WATCH_TIMEOUT}" ]; do
 
     if [ "${max}" -gt "${ORIGINAL_MAX}" ] && [ "${current}" -gt "${ORIGINAL_MAX}" ]; then
         echo "==> HPA scaled to ${current} replicas (maxReplicas patched to ${max}). Remediation detected."
-        _kill_stress
-        echo "==> CPU stress stopped. Alert should self-resolve."
+        echo "==> Stress kept running until EA phase kills it (validate.sh ON_VERIFYING_HOOK)."
         exit 0
     fi
     sleep 10

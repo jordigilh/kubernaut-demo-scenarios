@@ -13,7 +13,7 @@ disable_prometheus_toolset || true
 
 # Kill any CPU stress processes running inside pods
 for pod in $(kubectl get pods -n demo-hpa -l app=api-frontend -o name 2>/dev/null); do
-    kubectl exec -n demo-hpa "$pod" -- killall yes 2>/dev/null || true
+    kubectl exec -n demo-hpa "$pod" -- /bin/sh -c 'for f in /proc/*/comm; do [ "$(cat $f 2>/dev/null)" = "yes" ] && kill $(echo $f|cut -d/ -f3) 2>/dev/null; done; true' 2>/dev/null || true
 done
 
 # Delete pipeline CRDs targeting this namespace
