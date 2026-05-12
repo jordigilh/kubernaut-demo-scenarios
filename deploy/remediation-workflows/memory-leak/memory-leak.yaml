@@ -67,7 +67,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: graceful-restart-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:6b7c13823adc8504862cef7c8ac2617c7cc55e782a4f7e0c4269b141d66523fb
+    bundle: quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:c43d3b31fe5cfe53dfbefbe6c48fd50cd707cf8ee6199dbf92aae16ef068d8a5
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

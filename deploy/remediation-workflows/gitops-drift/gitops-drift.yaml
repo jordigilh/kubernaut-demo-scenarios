@@ -67,7 +67,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: git-revert-v2-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:66225b6546c9f7d9decaeb92958036bb82f4af0c45d1e796ad988b84df37cbc9
+    bundle: quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:bb4dc9a8675fe8961a5db4985c59a8f5067441b6c88bce0a0c8716e90fb6a234
 
   dependencies:
     secrets:

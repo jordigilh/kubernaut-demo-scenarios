@@ -64,7 +64,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: increase-memory-limits-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/increase-memory-limits-job@sha256:b3cbc4c63105a343ca686633b5f01a9b946af0364206709149bc4f362ba9eda8
+    bundle: quay.io/kubernaut-cicd/test-workflows/increase-memory-limits-job@sha256:168bbb8e5512bc4d693fb402d360bce6dbdb82c21094addab9b2b26815653a39
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

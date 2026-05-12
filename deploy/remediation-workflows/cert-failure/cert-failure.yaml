@@ -67,7 +67,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-certificate-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:e87c66e50d5faa490f8abe73e94c0506293b78a49b0e3bcc9025aa5987584f61
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-certificate-job@sha256:c627f97c17b886816c0c94003a9a96ea46e9b5747934175cef70392e410df336
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

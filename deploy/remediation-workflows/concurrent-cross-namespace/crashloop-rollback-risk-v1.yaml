@@ -68,7 +68,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: crashloop-rollback-risk-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:cddcdcc68e2698e9a1d9034ce0d69378292e058420940aa5e517067c8860a345
+    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:d6e1bd870cbdc8ea8be80ddf384a83a1562705e56fdd4a0ad204ccdbd4101467
 
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE

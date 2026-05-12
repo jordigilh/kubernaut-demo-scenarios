@@ -71,7 +71,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: hotfix-config-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:482af1795dd62b9283d23c20c63702acec409b255775456ae828f70580844152
+    bundle: quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:b946a26a2de74cde0211375acbc0cb7bc7b820d5e2788370cda57336dd7dce4c
 
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE

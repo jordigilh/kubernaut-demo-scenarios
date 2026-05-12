@@ -67,7 +67,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-network-policy-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:85a387a3637053dde5daac6d4129a546c4000f7a3e802d648260038571c67e29
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:b5052617b4df6640a2cb9d74d0ae7931b97e29bd55bde955273e8e5628918957
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
