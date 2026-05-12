@@ -10,7 +10,7 @@ RUN curl -fsSL -o /usr/local/bin/kubectl \
     "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
     chmod +x /usr/local/bin/kubectl
 
-COPY remediate.sh /scripts/remediate.sh
+COPY scale-replicas-remediate.sh /scripts/remediate.sh
 RUN chmod +x /scripts/remediate.sh
 
 USER 1001

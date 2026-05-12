@@ -24,7 +24,6 @@ WORKFLOWS=(
     "mesh-routing-failure:fix-authz-policy-job"
     "statefulset-pvc-failure:fix-statefulset-pvc-job"
     "network-policy-block:fix-network-policy-job"
-    "resource-contention:increase-memory-limits-job"
     "disk-pressure-emptydir:migrate-emptydir-to-pvc-gitops"
     "concurrent-cross-namespace:hotfix-config-job"
     "pvc-capacity-forecast:expand-pvc-job"
