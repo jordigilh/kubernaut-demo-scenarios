@@ -455,7 +455,13 @@ ensure_platform() {
     _ensure_pre_install_secrets
 
     if helm status kubernaut -n "${PLATFORM_NS}" &>/dev/null; then
-        echo "  Kubernaut platform already installed."
+        echo "  Kubernaut platform already installed (Helm)."
+        _check_llm_credentials
+        return 0
+    fi
+
+    if kubectl get kubernaut kubernaut -n "${PLATFORM_NS}" &>/dev/null; then
+        echo "  Kubernaut platform already installed (operator-managed)."
         _check_llm_credentials
         return 0
     fi
