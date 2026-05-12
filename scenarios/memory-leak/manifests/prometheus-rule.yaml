@@ -32,10 +32,14 @@ spec:
         severity: warning
       annotations:
         summary: >
-          Container {{ $labels.container }} in pod {{ $labels.pod }} is predicted
-          to exhaust its memory limit within 30 minutes based on current growth rate.
+          Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }}
+          predicted to exceed memory limit within 30 minutes.
         description: >
-          Memory usage in the leaker container of deployment leaky-app is growing
-          linearly. At the current rate, it will exceed the 192Mi limit and be
-          OOMKilled. A proactive graceful restart is recommended to reset memory
-          usage before the crash occurs.
+          Linear extrapolation of container_memory_working_set_bytes over the last
+          5 minutes projects that container {{ $labels.container }} in pod
+          {{ $labels.pod }} (namespace {{ $labels.namespace }}) will exceed its
+          configured memory limit within approximately 30 minutes at the current
+          growth rate. The memory usage pattern is monotonically increasing,
+          consistent with a memory leak or unbounded allocation. If unaddressed,
+          the kubelet will OOMKill the container, potentially disrupting the
+          service.

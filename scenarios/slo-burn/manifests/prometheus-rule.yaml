@@ -32,7 +32,8 @@ spec:
           SLO target: 99.9% (0.1% error budget). At this rate, the budget
           will exhaust within approximately 1 hour.
         description: >
-          The 5-minute rolling error rate for api-gateway in demo-slo has exceeded
-          the sustainable burn rate threshold (14.4x). This is measured via blackbox
-          probing of the /api/ endpoint. Proactive rollback is recommended to
-          preserve the SLO.
+          The 5-minute rolling error rate for api-gateway in namespace demo-slo
+          has exceeded the sustainable burn rate threshold (14.4x the 0.1% error
+          budget). At this rate, the entire monthly error budget will be exhausted
+          within approximately 1 hour. The error rate is measured via blackbox
+          probing of the /api/ endpoint.

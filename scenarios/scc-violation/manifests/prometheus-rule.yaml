@@ -28,8 +28,9 @@ spec:
           Deployment metrics-agent in namespace demo-scc has zero available
           replicas despite spec.replicas > 0.
         description: >
-          The Deployment metrics-agent cannot create pods. Check ReplicaSet
-          events for pod creation failures. On OpenShift, this is commonly
+          Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }}
+          has zero available replicas despite a non-zero replica spec. The
+          ReplicaSet is unable to create pods. On OpenShift, this is commonly
           caused by a SecurityContext that violates the namespace's Security
           Context Constraints (SCC) policy, such as requesting privileged
           capabilities or running as root when only restricted-v2 is allowed.

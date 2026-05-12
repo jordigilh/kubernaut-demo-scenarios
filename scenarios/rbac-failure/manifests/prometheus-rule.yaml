@@ -28,8 +28,8 @@ spec:
               Deployment metrics-collector in namespace demo-rbac has zero
               available replicas despite spec.replicas > 0.
             description: >
-              The metrics-collector Deployment cannot pass its readiness probe.
-              This is commonly caused by a missing or revoked RBAC RoleBinding
-              for the ServiceAccount, resulting in 403 Forbidden errors when
-              accessing the Kubernetes API. Check the ServiceAccount's
-              RoleBindings and verify API access permissions.
+              Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }}
+              has zero available replicas. The pods are failing their readiness
+              probes. This is commonly caused by a missing or misconfigured RBAC
+              RoleBinding for the pod's ServiceAccount, resulting in 403 Forbidden
+              errors when the application attempts to access the Kubernetes API.

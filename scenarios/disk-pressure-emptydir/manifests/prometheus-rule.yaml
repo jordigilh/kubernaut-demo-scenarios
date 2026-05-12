@@ -34,6 +34,6 @@ spec:
             description: >-
               Linear regression on node {{ $labels.instance }} filesystem
               (/var/lib/kubelet) predicts available space will reach zero
-              within 30 minutes based on current write rate. Investigate
-              emptyDir-backed workloads in the affected namespace for
-              unbounded growth patterns.
+              within 30 minutes based on the current write rate. If disk
+              space is exhausted, the kubelet will begin evicting pods and
+              the node may enter DiskPressure condition.

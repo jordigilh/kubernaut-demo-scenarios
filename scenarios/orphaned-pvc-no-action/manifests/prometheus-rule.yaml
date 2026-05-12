@@ -29,6 +29,7 @@ spec:
           Namespace {{ $labels.namespace }} has more than 3 bound PVCs, indicating
           possible orphaned storage from completed batch jobs.
         description: >
-          The demo-orphaned-pvc namespace has accumulated multiple bound PVCs that
-          may be from completed or failed batch jobs. These orphaned PVCs are dangling
-          resources that should be cleaned up as part of regular housekeeping.
+          Namespace {{ $labels.namespace }} has accumulated more than 3 bound
+          PersistentVolumeClaims. These may include PVCs from completed or failed
+          batch jobs that are no longer referenced by any running workload,
+          consuming storage capacity unnecessarily.

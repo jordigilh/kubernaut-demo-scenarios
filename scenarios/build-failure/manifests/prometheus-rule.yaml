@@ -36,10 +36,8 @@ spec:
           BuildConfig {{ $labels.buildconfig }} in namespace {{ $labels.namespace }}
           has failing builds with no successful completions.
         description: >
-          The BuildConfig {{ $labels.buildconfig }} in namespace {{ $labels.namespace }}
-          is producing failed builds. The remediation target is
-          BuildConfig/{{ $labels.buildconfig }} in namespace {{ $labels.namespace }}.
-          Check the latest Build resource status and build pod logs. Common causes
-          include broken Git source references (wrong URL or branch), missing
-          source secrets, or invalid builder image tags. Fix the BuildConfig's
-          spec.source.git.uri or spec.source.git.ref to point to a valid repository.
+          BuildConfig {{ $labels.buildconfig }} in namespace {{ $labels.namespace }}
+          is producing failed builds with no recent successful completions.
+          Common causes include invalid Git source references, missing source
+          secrets, or incompatible builder image tags. The CI/CD pipeline for
+          this component is effectively broken until the build succeeds.

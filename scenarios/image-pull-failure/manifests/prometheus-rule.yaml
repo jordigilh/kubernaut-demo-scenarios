@@ -24,6 +24,7 @@ spec:
               in ImagePullBackOff for container {{ $labels.container }}.
             description: >
               The container {{ $labels.container }} in pod {{ $labels.pod }} cannot
-              pull its image. This is typically caused by expired or missing registry
-              credentials (ImagePullSecret), an incorrect image reference, or registry
-              rate limiting. Verify the ImagePullSecret and image reference.
+              pull its image. Common causes include expired or missing registry
+              credentials, an incorrect image reference, a deleted tag, or
+              registry rate limiting. The pod will remain in a non-ready state
+              until the image can be pulled successfully.

@@ -25,6 +25,7 @@ spec:
           has {{ $value }} fewer ready pods than desired. ResourceQuota likely
           prevents pod creation.
         description: >
-          A ReplicaSet in the demo-quota namespace cannot reach its desired replica
-          count because ResourceQuota prevents pod creation at admission (FailedCreate).
-          Check: kubectl describe quota -n demo-quota && kubectl describe rs {{ $labels.replicaset }} -n demo-quota
+          ReplicaSet {{ $labels.replicaset }} in namespace {{ $labels.namespace }}
+          cannot reach its desired replica count. Pod creation is being rejected
+          at admission, typically because the namespace ResourceQuota has been
+          exhausted for one or more resources (cpu, memory, or pod count).

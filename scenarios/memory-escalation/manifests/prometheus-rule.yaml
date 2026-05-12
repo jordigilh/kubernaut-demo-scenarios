@@ -23,7 +23,8 @@ spec:
           Container {{ $labels.container }} in pod {{ $labels.pod }} was OOMKilled
           in the last 5 minutes.
         description: >
-          The ml-worker container is being OOMKilled because its memory limit
-          is too low for the workload. Kubernaut will attempt to increase
-          memory limits. If the issue persists after multiple limit increases,
-          this indicates a memory leak requiring human investigation.
+          Container {{ $labels.container }} in pod {{ $labels.pod }} (namespace
+          {{ $labels.namespace }}) was terminated by the kernel OOM killer
+          because it exceeded its memory limit. The container will be restarted
+          by the kubelet, but if the memory pressure persists, repeated OOMKill
+          events are expected.

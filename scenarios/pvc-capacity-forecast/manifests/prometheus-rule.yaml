@@ -30,9 +30,9 @@ spec:
           PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}
           is projected to exhaust capacity within 1 hour at current growth rate.
         description: >
-          Storage usage on PVC data-service-data (StorageClass: lvms-vg1,
-          allowVolumeExpansion: true) is growing linearly due to PostgreSQL
-          database growth (audit_log table). At the current rate, it will
-          exceed the provisioned 512Mi capacity before the next hour.
-          The data is legitimate application data that must be preserved.
-          Expand the PVC to prevent data loss and database crashes.
+          Linear extrapolation of kubelet_volume_stats_used_bytes over the last
+          5 minutes projects that PVC {{ $labels.persistentvolumeclaim }} in
+          namespace {{ $labels.namespace }} will exceed its provisioned capacity
+          within approximately 1 hour at the current write rate. If the volume
+          fills completely, applications writing to this volume will encounter
+          I/O errors and potential data corruption.
