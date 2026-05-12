@@ -42,11 +42,16 @@ authwebhook:
     runAsUser: 65534
 
 effectivenessmonitor:
-  external:
-    prometheusEnabled: true
-    alertManagerEnabled: true
   containerSecurityContext:
     runAsUser: 65534
+
+monitoring:
+  prometheus:
+    enabled: true
+    url: "http://kube-prometheus-stack-prometheus.monitoring.svc:9090"
+  alertManager:
+    enabled: true
+    url: "http://kube-prometheus-stack-alertmanager.monitoring.svc:9093"
 
 remediationorchestrator:
   config:
@@ -66,3 +71,9 @@ workflowexecution:
 aianalysis:
   containerSecurityContext:
     runAsUser: 65534
+
+# Kind clusters do not need NetworkPolicies; the chart's default deny-all
+# ingress rules block inter-service traffic because the monitoring namespace
+# and service ports differ from the OCP assumptions baked into the chart.
+networkPolicies:
+  enabled: false
