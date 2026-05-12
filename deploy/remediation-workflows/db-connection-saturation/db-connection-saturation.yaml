@@ -1,0 +1,104 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: increase-db-connections-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: increase-db-connections-v1
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "patch", "update"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: increase-db-connections-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: increase-db-connections-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: increase-db-connections-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: increase-db-connections-v1
+subjects:
+  - kind: ServiceAccount
+    name: increase-db-connections-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: increase-db-connections-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: increase-db-connections-v1
+  namespace: kubernaut-system
+spec:
+  version: "1.4.0"
+  description:
+    what: >
+      Increases the PostgreSQL max_connections limit by patching the database
+      ConfigMap and restarting the database Deployment, relieving connection
+      pool exhaustion so blocked clients can reconnect.
+    whenToUse: >
+      When a DatabaseConnectionPoolExhausted or similar alert indicates that
+      active database connections have reached or exceeded max_connections,
+      and legitimate workloads are being denied connections. The ConfigMap
+      holding the connection limit (e.g. POSTGRESQL_MAX_CONNECTIONS) is
+      identifiable and the database supports dynamic pool expansion via restart.
+    whenNotToUse: >
+      When the exhaustion is caused solely by a connection leak that will
+      re-saturate any higher limit — scale down or restart the leaking
+      workload instead. Also avoid when the database is at its hardware
+      memory ceiling and cannot support more connections.
+    preconditions: >
+      A ConfigMap holds the POSTGRESQL_MAX_CONNECTIONS value, the database
+      Deployment reads it via envFrom, and the database has sufficient memory
+      headroom to handle the increased connection count.
+
+  actionType: PatchConfiguration
+
+  labels:
+    severity: [critical, high]
+    environment: [production, staging]
+    component: [configmap, deployment]
+    priority: "*"
+
+  execution:
+    engine: job
+    serviceAccountName: increase-db-connections-v1-runner
+    bundle: quay.io/kubernaut-cicd/test-workflows/increase-db-connections-job@sha256:a60d06a29a519cebc18a358b6e196aea68ed5212460512333c74f2da4e2f0ca3
+
+  parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: true
+      description: "Namespace of the database Deployment"
+    - name: TARGET_RESOURCE_NAME
+      type: string
+      required: true
+      description: "Name of the database Deployment"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Must be Deployment or ConfigMap"
+    - name: TARGET_CONFIGMAP_NAME
+      type: string
+      required: false
+      description: "Name of the ConfigMap holding connection settings (auto-detected from Deployment envFrom if omitted)"

@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: demo-db-saturation
+  labels:
+    app: order-service
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+      - name: app
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        command: ["sh", "-c"]
+        args:
+        - |
+          echo "[order-service] Starting order processing service"
+          while true; do
+            result=$(PGPASSWORD=demo psql -h postgres -U demo -d demo -t -c "SELECT 'order-query-ok'" 2>&1)
+            if echo "$result" | grep -q "order-query-ok"; then
+              echo "[order-service] Query completed successfully"
+            else
+              echo "[order-service] ERROR: Database query failed: $result"
+            fi
+            sleep 15
+          done
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "5m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: report-generator
+  namespace: demo-db-saturation
+  labels:
+    app: report-generator
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: report-generator
+  template:
+    metadata:
+      labels:
+        app: report-generator
+    spec:
+      containers:
+      - name: app
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        command: ["sh", "-c"]
+        args:
+        - |
+          echo "[report-generator] Starting report generation service"
+          while true; do
+            result=$(PGPASSWORD=demo psql -h postgres -U demo -d demo -t -c "SELECT 'report-query-ok'" 2>&1)
+            if echo "$result" | grep -q "report-query-ok"; then
+              echo "[report-generator] Query completed successfully"
+            else
+              echo "[report-generator] ERROR: Database query failed: $result"
+            fi
+            sleep 20
+          done
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "5m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"

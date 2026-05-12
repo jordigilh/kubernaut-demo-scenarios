@@ -21,7 +21,11 @@ for kind in remediationrequests signalprocessings aianalyses workflowexecutions 
   done
 done
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule contention-app-alerts -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace "$NAMESPACE" --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."

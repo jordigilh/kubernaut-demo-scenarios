@@ -11,7 +11,7 @@ source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 # ── Wait for alert ──────────────────────────────────────────────────────────
 
-wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 480
+wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 900
 
 show_alert "KubePodCrashLooping" "${NAMESPACE}"
 

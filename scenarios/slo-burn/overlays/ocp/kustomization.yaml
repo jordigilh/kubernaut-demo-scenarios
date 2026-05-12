@@ -22,6 +22,9 @@ patches:
     patch: |
       - op: remove
         path: /metadata/labels/release
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-monitoring
       # OCP kube-state-metrics scrape interval is 1m (vs 30s on Kind).
       # A [5m] window needs ~6m of clean probes to clear on OCP, which
       # exceeds the 5m EA stabilization window and causes Inconclusive.

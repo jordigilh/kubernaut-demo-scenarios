@@ -6,9 +6,11 @@
 # This script runs OUTSIDE Kubernetes, started by run.sh.
 set -euo pipefail
 
-echo "[provisioner] Watching for ScaleRequest in kubernaut-system..."
+PROVISIONER_TIMEOUT=${PROVISIONER_TIMEOUT:-1800}
+echo "[provisioner] Watching for ScaleRequest in kubernaut-system... [timeout: ${PROVISIONER_TIMEOUT}s]"
 
-while true; do
+_start=$SECONDS
+while [ $(( SECONDS - _start )) -lt "${PROVISIONER_TIMEOUT}" ]; do
   STATUS=$(kubectl get cm scale-request -n kubernaut-system \
     -o jsonpath='{.data.status}' 2>/dev/null || echo "none")
 
@@ -68,3 +70,6 @@ while true; do
 
   sleep 3
 done
+
+echo "[provisioner] Timeout (${PROVISIONER_TIMEOUT}s). Exiting."
+exit 1

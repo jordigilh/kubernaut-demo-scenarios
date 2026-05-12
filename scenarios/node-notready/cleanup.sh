@@ -24,7 +24,11 @@ if [ -n "$WORKER_NODE" ]; then
   kubectl uncordon "$WORKER_NODE" 2>/dev/null || true
 fi
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule kubernaut-node-notready-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace demo-node --ignore-not-found
 
 # Remove Kubernaut signal labels from the target node

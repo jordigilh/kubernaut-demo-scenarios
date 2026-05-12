@@ -1,0 +1,37 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-operator-rules
+  namespace: demo-operator
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: demo-operator
+    rules:
+    - alert: OperatorCSVFailed
+      expr: |
+        absent(csv_succeeded{
+          name=~"etcdoperator.*",
+          exported_namespace="demo-operator"
+        } == 1)
+      for: 120s
+      labels:
+        severity: critical
+        namespace: demo-operator
+        subscription: etcd
+        target_resource_name: etcd
+        target_resource_kind: Subscription
+      annotations:
+        summary: >
+          etcd operator CSV absent in namespace {{ $labels.namespace }}.
+          The OLM Subscription is not producing a healthy ClusterServiceVersion.
+        target_resource: "Subscription/etcd in demo-operator"
+        investigation_scope: "demo-operator"
+        runbook_url: "https://kubernaut.ai/runbooks/restore-operator-csv"
+        description: >
+          The etcd operator ClusterServiceVersion (CSV) is absent from namespace
+          {{ $labels.namespace }}. The OLM Subscription named "etcd" exists but
+          is not producing a healthy CSV, indicating the operator is not running
+          and will not self-recover through normal OLM reconciliation. Workloads
+          depending on this operator's CRDs are affected.

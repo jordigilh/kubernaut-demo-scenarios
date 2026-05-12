@@ -225,7 +225,7 @@ print(json.dumps({
 }, indent=2))
 " 2>/dev/null || echo '{}')
 
-# Get Helm chart version
+# Get platform version (Helm chart or operator)
 CHART_VERSION=$(helm list -n "$NS" -o json 2>/dev/null | python3 -c "
 import json, sys
 releases = json.load(sys.stdin)
@@ -234,6 +234,10 @@ for r in releases:
         print(r.get('app_version', 'unknown'))
         break
 " 2>/dev/null || echo "unknown")
+if [ "$CHART_VERSION" = "unknown" ]; then
+    CHART_VERSION=$(kubectl get kubernaut kubernaut -n "$NS" \
+        -o jsonpath='{.status.version}' 2>/dev/null || echo "unknown (operator)")
+fi
 
 # Assemble the golden transcript
 mkdir -p "$OUTPUT_DIR"

@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: demo-severity-misdirection
+  labels:
+    app: postgres
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRESQL_USER
+          value: demo
+        - name: POSTGRESQL_PASSWORD
+          value: demo
+        - name: POSTGRESQL_DATABASE
+          value: demo
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "demo"]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: demo-severity-misdirection
+  labels:
+    app: postgres
+    kubernaut.ai/managed: "true"
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP

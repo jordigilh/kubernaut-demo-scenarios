@@ -1,0 +1,123 @@
+{
+  "scenario": "concurrent-cross-namespace-beta",
+  "incidentId": "rr-3428160586f8-eea5940a",
+  "signal": {
+    "signalName": "KubePodCrashLooping",
+    "namespace": "demo-team-beta",
+    "resourceKind": "Pod",
+    "resourceName": "worker-857f7756cd-7q626",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.97,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "ConfigMap",
+        "TARGET_RESOURCE_NAME": "worker-config",
+        "TARGET_CONFIGMAP_NAME": "worker-config",
+        "TARGET_RESOURCE_NAMESPACE": "demo-team-beta"
+      },
+      "workflowId": "47fb77e3-aa40-530f-9790-6b49e557869d",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:482af1795dd62b9283d23c20c63702acec409b255775456ae828f70580844152"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Pod worker-857f7756cd-7q626 is in CrashLoopBackOff (5 restarts, 2m40s back-off) because ConfigMap worker-config was patched via kubectl-patch at 2026-05-04T02:28:57Z injecting an invalid_directive: true field into config.yaml. A kubectl rollout restart one second later forced all pods to reload the broken config. The demo-http-server application performs strict config validation at startup and aborts immediately (exit code 1) on encountering any unknown directive. The fix is to remove the invalid_directive: true key from worker-config, which will allow the application to start successfully.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: Pod worker-857f7756cd-7q626 is in CrashLoopBackOff (5 restarts, exit code 1, ~1s runtime each cycle)",
+        "Why? Container logs show '[emerg] invalid directive found in /etc/demo-http-server/config.yaml \u2014 aborting' \u2014 the app aborts immediately on startup",
+        "Why? The config file at /etc/demo-http-server/config.yaml (sourced from ConfigMap worker-config) contains an unrecognized field: invalid_directive: true",
+        "Why? ConfigMap worker-config was patched via kubectl-patch at 2026-05-04T02:28:57Z, introducing the invalid_directive: true field into config.yaml",
+        "Root cause: A bad patch was applied to ConfigMap worker-config that injected an invalid configuration directive, combined with a rollout restart that forced pods to reload the broken config, causing all new pods to crash immediately on startup"
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "Targeting ConfigMap/worker-config because it is the resource containing the invalid configuration directive that causes the crash. Removing invalid_directive: true from its config.yaml data is a precise, targeted fix. The Deployment and Pod are symptoms/reporters, not the source of the misconfiguration. An automated hotfix-config workflow can patch this ConfigMap directly.",
+        "proportionality": "Remediation is precisely scoped: a single-field removal from one ConfigMap fixes the crash loop. The Deployment is not misconfigured (correct image, correct mount path, correct resource limits). No other workloads are affected by this specific ConfigMap.",
+        "scopeCompleteness": "Investigated: pod (describe, events, current logs, previous logs), ConfigMap worker-config (describe/content), Deployment worker (describe), Node dev-worker-2 (describe/conditions). Also checked other worker deployments across namespaces for context. Did not investigate network policies or RBAC (not relevant to config parse failure).",
+        "causalCompleteness": "Traced fully: CrashLoopBackOff \u2192 exit code 1 / 1s runtime \u2192 config parse failure logged \u2192 invalid_directive in ConfigMap \u2192 kubectl-patch introduced it \u2192 rollout restart forced reload. Cannot go deeper without knowing who/what triggered the kubectl-patch (no audit log access).",
+        "evidenceSufficiency": "All claims are backed by tool output: (1) pod describe confirms CrashLoopBackOff, 5 restarts, exit code 1, ~1s runtime, ConfigMap mount; (2) kubectl_logs and kubectl_previous_logs both show the exact fatal log line; (3) ConfigMap describe shows invalid_directive: true in config.yaml and kubectl-patch as last manager at 02:28:57Z; (4) node describe confirms no resource pressure. No inaccessible data sources affected the core findings.",
+        "regressionAwareness": "No prior remediation history exists for ConfigMap/worker-config in demo-team-beta (confirmed via get_namespaced_resource_context: tier1 and tier2 history both empty). N/A \u2014 no previously failed remediations to regress against.",
+        "alternativeHypotheses": "OOMKill: ruled out \u2014 exit code is 1 (application error), not 137 (OOM signal); node has 49.8 GiB allocatable memory with no MemoryPressure. Image corruption: ruled out \u2014 image quay.io/kubernaut-cicd/demo-http-server:1.0.0 was confirmed present on node and container starts successfully before crashing. Node pressure: ruled out \u2014 all node conditions (Memory, Disk, PID) are False/healthy. Missing secret/volume: ruled out \u2014 the ConfigMap is successfully mounted (no volume mount errors in events); the crash is from config content, not mount failure.",
+        "confidenceCalibration": "0.97: Starting at 1.0. -0.02 for not having audit log access to confirm who/what triggered the kubectl-patch (minor gap \u2014 the ConfigMap content itself is the definitive evidence regardless of origin). -0.01 for not verifying whether the application's config parser is strictly validated or if there could be a version mismatch causing a previously-valid directive to become invalid. All core evidence is directly observed from tool output."
+      },
+      "remediationTarget": {
+        "kind": "ConfigMap",
+        "name": "worker-config",
+        "namespace": "demo-team-beta"
+      },
+      "contributingFactors": [
+        "ConfigMap worker-config was patched via kubectl-patch at 2026-05-04T02:28:57Z, injecting the invalid_directive field into config.yaml",
+        "A kubectl rollout restart was triggered at 2026-05-04T02:28:58Z, forcing all pods to pick up the broken config",
+        "The application performs strict config validation at startup and aborts (exit code 1) on encountering any unknown directive, causing ~1-second crash cycles",
+        "The container has restarted 5 times with 25 BackOff events recorded, accumulating a 2m40s back-off delay",
+        "Node dev-worker-2.redhat-internal.com is healthy \u2014 node conditions are not a contributing factor"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.97,
+    "analysis": "Pod worker-857f7756cd-7q626 is in CrashLoopBackOff (5 restarts, 2m40s back-off) because ConfigMap worker-config was patched via kubectl-patch at 2026-05-04T02:28:57Z injecting an invalid_directive: true field into config.yaml. A kubectl rollout restart one second later forced all pods to reload the broken config. The demo-http-server application performs strict config validation at startup and aborts immediately (exit code 1) on encountering any unknown directive. The fix is to remove the invalid_directive: true key from worker-config, which will allow the application to start successfully."
+  },
+  "traceStats": {
+    "totalTokens": 169174,
+    "llmTurns": 16,
+    "totalToolCalls": 12
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_logs",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_previous_logs",
+      "index": 3
+    },
+    {
+      "tool": "kubectl_find_resource",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 1
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

@@ -31,7 +31,11 @@ for NODE in $EXTRA_NODES; do
 done
 
 # Delete namespace and Prometheus rules
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule kubernaut-autoscale-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace demo-autoscale --ignore-not-found
 
 purge_pipeline_crds

@@ -4,12 +4,13 @@
 
 This guide covers the full setup process for running Kubernaut demo scenarios. If you just want to get started quickly, see the [Quick Start](../README.md#quick-start) in the README.
 
-There are two deployment paths:
+There are three deployment paths:
 
 - **Option A** -- Run `setup-demo-cluster.sh` to create a new Kind cluster with everything pre-configured (recommended for first-time users).
-- **Option B** -- Bring your own cluster (existing Kind or OpenShift) and install the platform manually via Helm.
+- **Option B** -- Bring your own cluster (existing Kind or OCP) and install the platform via Helm (Kind / dev).
+- **Option C** -- Use the [Kubernaut Operator](https://github.com/jordigilh/kubernaut-operator) on OCP (recommended for production and demos on OpenShift).
 
-This guide covers both. Steps marked "(Option B only)" can be skipped if you use the bootstrap script.
+This guide covers all three. Steps marked "(Option B only)" can be skipped if you use the bootstrap script or operator.
 
 ## Prerequisites
 
@@ -45,7 +46,7 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 ### OCP prerequisites
 
-When deploying on OpenShift (Option B), ensure the following before installing the Helm chart:
+When deploying on OpenShift (Option B or C), ensure the following before installing:
 
 **Storage:** A default StorageClass must exist (e.g. ODF, LVM Storage, or any CSI provisioner). The chart creates PVCs for postgresql (10Gi) and valkey (512Mi). Verify with:
 
@@ -78,13 +79,13 @@ git clone https://github.com/jordigilh/kubernaut-demo-scenarios.git
 cd kubernaut-demo-scenarios
 ```
 
-The Kubernaut Helm chart is installed automatically from the OCI registry (`oci://quay.io/kubernaut-ai/charts/kubernaut`). If you have the [main Kubernaut repo](https://github.com/jordigilh/kubernaut) cloned as a sibling directory, the scripts will use the local chart instead (useful for development).
+The Kubernaut platform is installed via the **Kubernaut Operator** (recommended for OCP) or the **Helm chart** (Kind / dev). The Helm chart is available from the OCI registry (`oci://quay.io/kubernaut-ai/charts/kubernaut`). If you have the [main Kubernaut repo](https://github.com/jordigilh/kubernaut) cloned as a sibling directory, the scripts will use the local chart instead (useful for development).
 
 ## LLM Provider Configuration
 
 Kubernaut uses an LLM to analyze Kubernetes issues and select remediation workflows. You need credentials for at least one provider.
 
-The v1.1.0 chart offers two configuration paths:
+The chart offers two configuration paths:
 
 - **Quickstart** (Anthropic, OpenAI) -- set `KUBERNAUT_LLM_PROVIDER` and `KUBERNAUT_LLM_MODEL` environment variables. The chart auto-generates a minimal SDK config.
 - **SDK config file** (Vertex AI, Azure, local models, toolsets, MCP) -- copy `helm/sdk-config.yaml.example` to `~/.kubernaut/sdk-config.yaml` and edit it. The bootstrap passes it via `--set-file kubernautAgent.sdkConfigContent=...`.
@@ -231,7 +232,7 @@ This takes ~10 minutes on first run and performs the following steps:
 2. **Monitoring stack** -- Installs kube-prometheus-stack (Prometheus, AlertManager, Grafana, kube-state-metrics) and the Kubernaut Grafana dashboard
 3. **Infrastructure dependencies** -- cert-manager, metrics-server, Istio, blackbox-exporter, Gitea, ArgoCD
 4. **Kubernaut platform** -- Pre-creates required Secrets (`postgresql-secret`, `valkey-secret`, `llm-credentials`, `slack-webhook`), then installs the Helm chart (from OCI registry, or local sibling if present), including CRDs and all 10 platform services
-5. **Workflow catalog** (post-install) -- Waits for the authwebhook to become ready, then applies ActionType CRDs and RemediationWorkflow definitions from this repo. As of v1.3, these are no longer bundled in the Helm chart.
+5. **Workflow catalog** (post-install) -- Waits for the authwebhook to become ready, then applies ActionType CRDs and RemediationWorkflow definitions from this repo (not bundled in the chart or operator).
 
 Every step is idempotent -- you can safely re-run the script if it fails partway through.
 
@@ -260,7 +261,7 @@ kubectl taint nodes <control-plane-node> node-role.kubernetes.io/control-plane:N
 | `--skip-infra` | Skip optional infrastructure (cert-manager, Istio, Gitea, ArgoCD) |
 | `--with-awx` | Install AWX (required for OCP-only Ansible-engine scenario: `disk-pressure-emptydir`) |
 | `--kind-config PATH` | Custom Kind cluster config (default: `scenarios/kind-config-multinode.yaml`) |
-| `--chart-version VER` | Pin Helm chart version (e.g. `1.1.0-rc1`); required for pre-release tags |
+| `--chart-version VER` | Pin Helm chart version (e.g. `1.4.0`); required for pre-release tags |
 
 ### AWX/AAP Ansible Engine Configuration
 
@@ -290,9 +291,8 @@ the helper scripts automatically:
 
 ### Pre-create Database Secrets (Option B only)
 
-> **Recommended on v1.1.0-rc13** (prevents credential drift on rollback),
-> **required on v1.1.0-rc14+** where the chart no longer auto-generates database
-> credentials (kubernaut#557, #243). Option A handles this automatically.
+> **Required** — the chart does not auto-generate database credentials
+> (kubernaut#557, #243). Option A handles this automatically.
 > **Run these commands before `helm install`** (see README Step B1 for the full ordering).
 
 ```bash
@@ -342,7 +342,7 @@ Each scenario's `run.sh` does three things:
 
 > `run.sh` does **not** create the Kind cluster or install the platform. That is handled by `setup-demo-cluster.sh`. If you see an error like `"ERROR: Cannot connect to Kubernetes cluster"`, run the bootstrap first.
 
-Browse all 22 available scenarios in the [Scenario Catalog](scenarios.md).
+Browse all 37 available scenarios in the [Scenario Catalog](scenarios.md).
 
 > **Infrastructure dependencies:** Some scenarios require components like cert-manager, Istio, or AWX that are only installed when `setup-demo-cluster.sh` runs without `--skip-infra`. If a required component is missing, `run.sh` will exit with a clear error message. See the [dependency table](scenarios.md#dependencies) for details.
 

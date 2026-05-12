@@ -66,7 +66,7 @@ spec:
 ${POD_SEC}
   containers:
   - name: touch
-    image: busybox:1.36
+    image: registry.k8s.io/e2e-test-images/busybox:1.29-2
     command: ["sh", "-c", "echo bound > /data/marker && sleep 3600"]
 ${CTR_SEC}
     volumeMounts:

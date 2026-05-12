@@ -1,0 +1,171 @@
+{
+  "scenario": "disk-pressure-emptydir",
+  "incidentId": "rr-342b9276dfac-ad949c78",
+  "signal": {
+    "signalName": "PredictedDiskPressure",
+    "namespace": "demo-diskpressure",
+    "resourceKind": "Node",
+    "resourceName": "dev-worker-1.redhat-internal.com",
+    "severity": "high"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.93,
+      "parameters": {
+        "PVC_SIZE": "10Gi",
+        "NODE_NAME": "dev-worker-1.redhat-internal.com",
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "postgres-emptydir",
+        "TARGET_RESOURCE_NAMESPACE": "demo-diskpressure"
+      },
+      "workflowId": "6b8b0231-d050-5fa1-a6c6-ab1e41176ad0",
+      "executionBundle": "https://github.com/jordigilh/kubernaut-test-playbooks.git"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "The demo-diskpressure namespace contains multiple workloads deliberately designed to exhaust node ephemeral storage via large emptyDir writes, causing repeated DiskPressure eviction cycles on dev-worker-1.redhat-internal.com. The primary contributor is postgres-emptydir, which uses an 8Gi emptyDir volume for its PostgreSQL data directory \u2014 the single largest allocation. Combined emptyDir limits (~10 GiB) across all workloads exceed the node's allocatable ephemeral storage (~7.9 GiB), triggering a rolling eviction cycle every 25-35 minutes. The node is GitOps-managed via ArgoCD, making a GitOps-driven migration of the emptyDir to a PVC the correct remediation path.",
+      "severity": "high",
+      "causalChain": [
+        "Signal: DiskPressure predicted (and confirmed) on node dev-worker-1.redhat-internal.com",
+        "Why? Kubelet fired EvictionThresholdMet for ephemeral-storage at 13:20:21 UTC, entering DiskPressure condition at 13:20:28 UTC",
+        "Why? Multiple pods in demo-diskpressure namespace are actively writing large volumes of data to emptyDir volumes backed by node ephemeral storage",
+        "Why? Combined emptyDir allocations (~10 GiB across 4 Deployments) exceed the node's 7.9 GiB allocatable ephemeral storage, and the rolling eviction cycle causes continuous re-writes as evicted pods are rescheduled",
+        "Root cause: The demo-diskpressure namespace Deployments (especially postgres-emptydir with 8Gi emptyDir) are deliberately configured to saturate node ephemeral storage with no persistent storage backend, causing a self-reinforcing eviction-reschedule-rewrite cycle"
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "Targeting postgres-emptydir Deployment because its 8Gi emptyDir is the single largest contributor to ephemeral storage exhaustion. Migrating this to a PVC is the most targeted fix. Other contributing deployments (nginx-cache, log-collector, redis-scratch) are listed in contributing_factors. The node itself is the signal reporter, not the fix target.",
+        "proportionality": "Remediation target (postgres-emptydir) is the most specifically remediable resource \u2014 its 8Gi emptyDir can be replaced with a PVC in a well-defined workflow. The other deployments are secondary contributors and listed in contributing_factors. Scaling down the entire namespace is also valid if this is a completed test.",
+        "scopeCompleteness": "Investigated: node describe + events, all 5 pods in demo-diskpressure namespace, all 4 Deployments (log-collector, nginx-cache, postgres-emptydir, redis-scratch), Prometheus filesystem metrics (range + instant), container_fs_usage_bytes per pod, node_filesystem_avail/size_bytes. Did not investigate: kubelet configuration for eviction thresholds (not directly accessible), LVMS/TopoLVM volume groups (not relevant to emptyDir pressure).",
+        "causalCompleteness": "Traced from signal \u2192 eviction event \u2192 emptyDir writes \u2192 combined allocation exceeding node capacity \u2192 specific deployment configurations. Cannot go deeper as the workloads are intentionally designed for disk pressure simulation. The postgres-emptydir 8Gi emptyDir is the deepest specific configuration cause.",
+        "evidenceSufficiency": "All claims backed by: kubectl_describe (node conditions, deployment specs), kubectl_events (EvictionThresholdMet at 13:20:21, NodeHasDiskPressure at 13:20:28), Prometheus range queries (pod eviction cycle over 110 minutes, /var filesystem at 72.6% and trending up), node_filesystem_avail/size_bytes (17.5 GiB free on /dev/vda4). Deployment command specs confirm exact write patterns. No inaccessible data sources.",
+        "regressionAwareness": "No prior remediation history available for this node or the demo-diskpressure namespace workloads per get_cluster_resource_context output.",
+        "alternativeHypotheses": "Considered: (1) Node-level OS disk fill from non-pod sources \u2014 ruled out: /var at 72.6% with 17.5 GiB free; pressure is specifically on ephemeral-storage accounting layer. (2) Container image layer accumulation \u2014 possible minor contributor but not the primary driver given the explicit write commands in pod specs. (3) Single workload responsible \u2014 ruled out: multiple workloads all contribute, but postgres-emptydir's 8Gi limit is the dominant factor. (4) Transient/one-time event \u2014 ruled out: 4 successive eviction cycles observed over 110 minutes confirms persistent, recurring pressure.",
+        "confidenceCalibration": "0.93: Starting at 1.0. -0.04 for not being able to directly inspect kubelet eviction threshold configuration (to confirm exact threshold values). -0.03 for the fact that the emptyDir sizeLimit is a soft limit enforced by kubelet, and actual disk consumption may differ from the declared limits. The core causal chain is fully evidenced."
+      },
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "postgres-emptydir",
+        "namespace": "demo-diskpressure"
+      },
+      "contributingFactors": [
+        "postgres-emptydir uses an 8Gi emptyDir for PostgreSQL data directory \u2014 the largest single ephemeral storage contributor",
+        "nginx-cache init container writes ~200MB of random data on every pod start to emptyDir (512Mi limit)",
+        "log-collector writes a new 32K file every 60 seconds indefinitely (up to 512Mi emptyDir)",
+        "redis-scratch session-loader sidecar writes ~100MB at startup per pod (\u00d72 pods)",
+        "Combined emptyDir limits (~10 GiB) exceed the node's allocatable ephemeral storage (~7.9 GiB)",
+        "Node /var filesystem at 72.6% used and trending upward",
+        "Rolling eviction cycle: 4 successive pod generations evicted and rescheduled every 25-35 minutes",
+        "NoSchedule taint applied at 13:32:06 UTC prevents new scheduling but does not stop existing disk-writing pods"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "AwaitingApproval"
+  },
+  "kaResponse": {
+    "confidence": 0.93,
+    "analysis": "The demo-diskpressure namespace contains multiple workloads deliberately designed to exhaust node ephemeral storage via large emptyDir writes, causing repeated DiskPressure eviction cycles on dev-worker-1.redhat-internal.com. The primary contributor is postgres-emptydir, which uses an 8Gi emptyDir volume for its PostgreSQL data directory \u2014 the single largest allocation. Combined emptyDir limits (~10 GiB) across all workloads exceed the node's allocatable ephemeral storage (~7.9 GiB), triggering a rolling eviction cycle every 25-35 minutes. The node is GitOps-managed via ArgoCD, making a GitOps-driven migration of the emptyDir to a PVC the correct remediation path."
+  },
+  "traceStats": {
+    "totalTokens": 276409,
+    "llmTurns": 17,
+    "totalToolCalls": 23
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "get_metric_names",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 3
+    },
+    {
+      "tool": "get_metric_names",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 2
+    },
+    {
+      "tool": "execute_prometheus_range_query",
+      "index": 2
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 0
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 3
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 2
+    },
+    {
+      "tool": "execute_prometheus_range_query",
+      "index": 0
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 3
+    },
+    {
+      "tool": "execute_prometheus_range_query",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 1
+    },
+    {
+      "tool": "execute_prometheus_range_query",
+      "index": 1
+    },
+    {
+      "tool": "get_cluster_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

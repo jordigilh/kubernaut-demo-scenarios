@@ -3,3 +3,4 @@ proactive_signal_mappings:
   PredictedCPUThrottling: CPUThrottling
   PredictedDiskPressure: DiskPressure
   PredictedNodeNotReady: NodeNotReady
+  PredictedPVCExhaustion: PVCExhaustion

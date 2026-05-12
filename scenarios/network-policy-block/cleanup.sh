@@ -9,7 +9,11 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 echo "==> Cleaning up NetworkPolicy Traffic Block demo..."
 
 kubectl delete -f "${SCRIPT_DIR}/manifests/deny-all-netpol.yaml" --ignore-not-found
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule kubernaut-netpol-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete -f "${SCRIPT_DIR}/manifests/networkpolicy-allow.yaml" --ignore-not-found
 kubectl delete -f "${SCRIPT_DIR}/manifests/deployment.yaml" --ignore-not-found
 kubectl delete namespace demo-netpol --ignore-not-found --wait=true

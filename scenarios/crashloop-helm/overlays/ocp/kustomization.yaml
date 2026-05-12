@@ -16,3 +16,12 @@ patches:
     patch: |
       - op: remove
         path: /metadata/labels/release
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-monitoring
+      # OCP kube-state-metrics scrape interval is 1m. CrashLoopBackOff exponential
+      # backoff slows restarts to ~1/5min after several cycles. Widen window and
+      # lower threshold so the alert fires reliably despite backoff.
+      - op: replace
+        path: /spec/groups/0/rules/0/expr
+        value: "increase(\n  kube_pod_container_status_restarts_total{\n    namespace=\"demo-crashloop-helm\",\n    container=\"worker\"\n  }[15m]\n) > 2\n"

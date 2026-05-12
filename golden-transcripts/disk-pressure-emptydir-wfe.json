@@ -1,0 +1,91 @@
+{
+    "apiVersion": "kubernaut.ai/v1alpha1",
+    "kind": "WorkflowExecution",
+    "metadata": {
+        "creationTimestamp": "2026-04-27T03:50:12Z",
+        "finalizers": [
+            "workflowexecution.kubernaut.ai/workflowexecution-cleanup"
+        ],
+        "generation": 1,
+        "name": "we-rr-6f5490d9b422-651aa044",
+        "namespace": "kubernaut-system",
+        "ownerReferences": [
+            {
+                "apiVersion": "kubernaut.ai/v1alpha1",
+                "blockOwnerDeletion": true,
+                "controller": true,
+                "kind": "RemediationRequest",
+                "name": "rr-6f5490d9b422-651aa044",
+                "uid": "8d3af32c-2c97-4d5e-a413-b8b3ea4b744d"
+            }
+        ],
+        "resourceVersion": "52521695",
+        "uid": "28602043-2264-4e0e-91db-82a16ae76a1a"
+    },
+    "spec": {
+        "confidence": 0.82,
+        "executionConfig": {
+            "timeout": "30m0s"
+        },
+        "parameters": {
+            "NODE_NAME": "dev-worker-0.redhat-internal.com",
+            "PVC_SIZE": "10Gi",
+            "TARGET_RESOURCE_KIND": "Deployment",
+            "TARGET_RESOURCE_NAME": "postgres-emptydir",
+            "TARGET_RESOURCE_NAMESPACE": "demo-diskpressure"
+        },
+        "rationale": "The migrate-emptydir-to-pvc-gitops-v1 workflow is the sole available action type and is a strong structural match for the primary root cause: postgres-emptydir is a stateful PostgreSQL database running on a 4Gi emptyDir volume, which is exactly the use case this workflow targets. The workflow performs a live pg_dump backup, commits an emptyDir-to-PVC migration via GitOps (ArgoCD), and restores data to a persistent volume — eliminating the structural cause of the node-local disk growth. This is a proactive signal (pod is still running, backup is feasible per workflow guidance). Confidence is modestly capped at 0.82 rather than higher because: (1) other workloads (log-collector, nginx-cache, redis-scratch) also contribute disk pressure and are NOT addressed by this workflow; (2) ArgoCD management of the namespace is inferred but not explicitly confirmed in the enrichment context; (3) the workflow targets one of four disk-pressure sources — additional manual remediation of the other three deployments may be required.",
+        "remediationRequestRef": {
+            "apiVersion": "kubernaut.ai/v1alpha1",
+            "kind": "RemediationRequest",
+            "name": "rr-6f5490d9b422-651aa044",
+            "namespace": "kubernaut-system",
+            "uid": "8d3af32c-2c97-4d5e-a413-b8b3ea4b744d"
+        },
+        "targetResource": "demo-diskpressure/Deployment/postgres-emptydir",
+        "workflowRef": {
+            "executionBundle": "https://github.com/jordigilh/kubernaut-test-playbooks.git",
+            "version": "1.3.3",
+            "workflowId": "6b8b0231-d050-5fa1-a6c6-ab1e41176ad0"
+        }
+    },
+    "status": {
+        "completionTime": "2026-04-27T03:50:12Z",
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-04-27T03:50:12Z",
+                "message": "Failed to create PipelineRun: failed to resolve workflow catalog from DS for workflow 6b8b0231-d050-5fa1-a6c6-ab1e41176ad0: DS query failed for workflow 6b8b0231-d050-5fa1-a6c6-ab1e41176ad0: decode response: unexpected status code: 400\nread tcp 10.132.6.206:56394-\u003e172.30.72.100:8080: read: connection reset by peer",
+                "observedGeneration": 1,
+                "reason": "ExecutionCreationFailed",
+                "status": "False",
+                "type": "ExecutionCreated"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:50:12Z",
+                "message": "Workflow execution failed",
+                "observedGeneration": 1,
+                "reason": "NotReady",
+                "status": "False",
+                "type": "Ready"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:50:12Z",
+                "message": "Audit event workflow.failed recorded to DataStorage",
+                "observedGeneration": 1,
+                "reason": "AuditSucceeded",
+                "status": "True",
+                "type": "AuditRecorded"
+            }
+        ],
+        "failureDetails": {
+            "failedAt": "2026-04-27T03:50:12Z",
+            "failedTaskIndex": 0,
+            "failedTaskName": "",
+            "message": "failed to resolve workflow catalog from DS for workflow 6b8b0231-d050-5fa1-a6c6-ab1e41176ad0: DS query failed for workflow 6b8b0231-d050-5fa1-a6c6-ab1e41176ad0: decode response: unexpected status code: 400\nread tcp 10.132.6.206:56394-\u003e172.30.72.100:8080: read: connection reset by peer",
+            "naturalLanguageSummary": "Workflow '6b8b0231-d050-5fa1-a6c6-ab1e41176ad0' failed on target 'demo-diskpressure/Deployment/postgres-emptydir'.\nReason: ConfigurationError\nError: failed to resolve workflow catalog from DS for workflow 6b8b0231-d050-5fa1-a6c6-ab1e41176ad0: DS query failed for workflow 6b8b0231-d050-5fa1-a6c6-ab1e41176ad0: decode response: unexpected status code: 400\nread tcp 10.132.6.206:56394-\u003e172.30.72.100:8080: read: connection reset by peer\n",
+            "reason": "ConfigurationError"
+        },
+        "observedGeneration": 1,
+        "phase": "Failed"
+    }
+}

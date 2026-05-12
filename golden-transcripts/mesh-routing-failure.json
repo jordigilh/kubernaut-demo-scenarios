@@ -1,0 +1,186 @@
+{
+  "scenario": "mesh-routing-failure",
+  "incidentId": "rr-ba256202544e-a6683a0e",
+  "signal": {
+    "signalName": "IstioHighDenyRate",
+    "namespace": "demo-mesh-failure",
+    "resourceKind": "Unknown",
+    "resourceName": "unknown",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.97,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Unknown",
+        "TARGET_RESOURCE_NAME": "unknown",
+        "TARGET_RESOURCE_NAMESPACE": "demo-mesh-failure"
+      },
+      "workflowId": "a285f0e0-0e3a-5c3c-90f1-993520101065",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/fix-authz-policy-job@sha256:3f779955039ee3154c46f551037a3093673f189099facbbaafa2d4bf3900be9d"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "An Istio AuthorizationPolicy named 'deny-all-traffic' with action=DENY and a single empty rule ({}) is unconditionally blocking ALL inbound traffic to every workload in the demo-mesh-failure namespace, causing 100% request denial and triggering the IstioHighDenyRate alert. The policy was applied 53 seconds after pod startup, cutting off previously flowing traffic. The traffic-gen pod silently sustains the deny rate at 2 req/sec indefinitely.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: IstioHighDenyRate firing in demo-mesh-failure \u2014 Envoy sidecars are denying a high percentage of requests",
+        "Why? All HTTP requests from traffic-gen to api-server are returning 403 Forbidden via Istio's RBAC filter",
+        "Why? An Istio AuthorizationPolicy named 'deny-all-traffic' with action=DENY and rules=[{}] is active in the namespace",
+        "Why? The empty rule object {} in a DENY policy matches ALL requests unconditionally \u2014 no source, operation, or condition constraints are specified",
+        "Root cause: AuthorizationPolicy 'deny-all-traffic' in namespace 'demo-mesh-failure' was deliberately applied with an unrestricted DENY rule that blocks 100% of inbound mesh traffic to all workloads in the namespace"
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "The remediation target is AuthorizationPolicy/deny-all-traffic in demo-mesh-failure. This is the exact resource whose deletion or modification (adding specific rule conditions or changing action to ALLOW) would immediately fix the deny rate. The api-server Deployment and traffic-gen Deployment are functioning correctly \u2014 they are victims, not causes.",
+        "proportionality": "The remediation is precisely scoped: delete or modify the single AuthorizationPolicy 'deny-all-traffic'. This is the minimum change needed to restore traffic. No other resources need modification.",
+        "scopeCompleteness": "Investigated: all pods (3), all services (2), all AuthorizationPolicies (1 \u2014 the culprit), PeerAuthentications (none), VirtualServices (none), DestinationRules (none), Deployments (2), pod logs (api-server and traffic-gen), Prometheus metrics (no data returned), Prometheus rules (no IstioHighDenyRate rule found \u2014 alert likely from external system). Did not check: global/root namespace AuthorizationPolicies (istio-system level), though the namespace-scoped policy is sufficient to explain the issue.",
+        "causalCompleteness": "Fully traced: IstioHighDenyRate \u2192 403 denials \u2192 RBAC filter enforcement \u2192 deny-all AuthorizationPolicy \u2192 empty rule matches everything. Cannot go deeper \u2014 this is a direct Istio configuration issue. The policy itself IS the root cause; no deeper infrastructure or application issue underlies it.",
+        "evidenceSufficiency": "The AuthorizationPolicy spec was confirmed via both kubectl_get_by_kind_in_namespace and kubectl_get_yaml \u2014 both show action=DENY, rules=[{}]. Pod inspection confirms all 3 pods are Running with 0 restarts. Prometheus istio_requests_total returned no data (likely metrics pipeline lag or collection gap), so the deny rate itself was not directly measured via Prometheus \u2014 this is an investigation limitation. The causal mechanism (empty DENY rule = deny all) is well-documented Istio behavior.",
+        "regressionAwareness": "No remediation history available for this target (confirmed via get_namespaced_resource_context \u2014 remediation_history shows no prior tier1/tier2 actions). N/A \u2014 no prior failed remediations to avoid.",
+        "alternativeHypotheses": "1) mTLS misconfiguration \u2014 ruled out: no PeerAuthentication resources exist; mTLS would cause connection errors, not 403s. 2) Network policy blocking traffic \u2014 ruled out: pods are communicating via Istio mesh; the 403 response code from Envoy RBAC is specific to AuthorizationPolicy. 3) Application-level error \u2014 ruled out: api-server logs show only successful startup; no application errors. 4) Node-level issue \u2014 ruled out: all pods Running on healthy nodes with 0 restarts.",
+        "confidenceCalibration": "Starting at 1.0. Deductions: -0.05 for Prometheus metrics returning no data (could not directly observe the deny rate metric, relying on resource inspection alone); -0.03 for not checking istio-system namespace for global AuthorizationPolicies that could contribute (though the namespace-level policy alone is sufficient). Final confidence: 0.92."
+      },
+      "remediationTarget": {
+        "kind": "Unknown",
+        "name": "unknown",
+        "namespace": "demo-mesh-failure"
+      },
+      "contributingFactors": [
+        "AuthorizationPolicy 'deny-all-traffic' was applied at 00:22:14Z \u2014 approximately 53 seconds AFTER pod startup \u2014 meaning traffic initially flowed, then was cut off, consistent with the alert firing shortly after deployment",
+        "The policy has action=DENY with rules=[{}] \u2014 an empty rule object matches ALL requests unconditionally (no source, no operation, no condition constraints), making it a universal deny-all",
+        "The 'traffic-gen' deployment continuously fires requests every 0.5s to api-server:8080 (2 req/sec), creating a sustained high deny rate as all requests are blocked by Envoy's RBAC filter",
+        "No PeerAuthentication, VirtualService, or DestinationRule resources exist in the namespace \u2014 the only mesh policy active is this deny-all AuthorizationPolicy",
+        "The curl-loop command uses '|| true' to suppress errors, meaning the traffic generator silently continues despite all requests being denied \u2014 sustaining the deny rate indefinitely"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.97,
+    "analysis": "An Istio AuthorizationPolicy named 'deny-all-traffic' with action=DENY and a single empty rule ({}) is unconditionally blocking ALL inbound traffic to every workload in the demo-mesh-failure namespace, causing 100% request denial and triggering the IstioHighDenyRate alert. The policy was applied 53 seconds after pod startup, cutting off previously flowing traffic. The traffic-gen pod silently sustains the deny rate at 2 req/sec indefinitely."
+  },
+  "traceStats": {
+    "totalTokens": 247726,
+    "llmTurns": 20,
+    "totalToolCalls": 28
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "get_metric_names",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 3
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 3
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "get_metric_names",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 0
+    },
+    {
+      "tool": "list_prometheus_rules",
+      "index": 3
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 3
+    },
+    {
+      "tool": "kubectl_logs_all_containers",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 1
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 2
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 2
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 3
+    },
+    {
+      "tool": "fetch_pod_logs",
+      "index": 2
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "fetch_pod_logs",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_yaml",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

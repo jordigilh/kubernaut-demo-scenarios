@@ -26,6 +26,8 @@ done
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
+# shellcheck source=../../scripts/monitoring-helper.sh
+source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
@@ -47,6 +49,8 @@ ensure_clean_slate "${NAMESPACE}"
 echo "==> Step 1: Deploying namespace and alerting rules..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
+
+postdeploy_check "prometheusrule:KubePodCrashLooping"
 
 # Step 2: Install Helm chart into the pre-created namespace.
 echo "==> Step 2: Installing workload via Helm chart..."

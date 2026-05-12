@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-rbac-rules
+  namespace: demo-rbac
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: demo-rbac
+      rules:
+        - alert: RBACPolicyDenied
+          expr: |
+            kube_deployment_status_replicas_available{
+              namespace="demo-rbac",
+              deployment="metrics-collector"
+            } == 0
+            and
+            kube_deployment_spec_replicas{
+              namespace="demo-rbac",
+              deployment="metrics-collector"
+            } > 0
+          for: 60s
+          labels:
+            severity: high
+          annotations:
+            summary: >
+              Deployment metrics-collector in namespace demo-rbac has zero
+              available replicas despite spec.replicas > 0.
+            description: >
+              Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }}
+              has zero available replicas. The pods are failing their readiness
+              probes. This is commonly caused by a missing or misconfigured RBAC
+              RoleBinding for the pod's ServiceAccount, resulting in 403 Forbidden
+              errors when the application attempts to access the Kubernetes API.

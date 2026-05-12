@@ -100,12 +100,48 @@ fi
 
 _find_rr_name() {
     local target_ns="$1"
-    # Find the most recent RR whose signalLabels.namespace exactly matches the
+    # Find the best RR whose signalLabels.namespace exactly matches the
     # target namespace.  Uses awk instead of grep to avoid substring collisions
     # (e.g. "demo-crashloop" matching "demo-crashloop-helm") — #148.
-    kubectl get remediationrequests -n "$PLATFORM_NS" \
-        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
-        | awk -F'\t' -v ns="$target_ns" '$2 == ns { print $1 }' | tail -1
+    #
+    # Priority (multi-RR dedup scenarios): Completed+Remediated > any
+    # Completed (Inconclusive, etc.) > active pipeline
+    # (Analyzing/Executing/Verifying/AwaitingApproval) > any non-Blocked >
+    # any.  Within each tier prefer the oldest RR (head -1) because the
+    # platform processes the first signal's pipeline first.
+    #
+    # Completed pipelines rank above active ones so that assertions run
+    # against the finished pipeline even when a re-fired alert spawns a
+    # second RR.
+    local _all_rrs
+    _all_rrs=$(kubectl get remediationrequests -n "$PLATFORM_NS" \
+        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\t"}{.status.overallPhase}{"\t"}{.status.outcome}{"\n"}{end}' 2>/dev/null \
+        | awk -F'\t' -v ns="$target_ns" '$2 == ns { print $1 "\t" $3 "\t" $4 }')
+
+    if [ -z "$_all_rrs" ]; then
+        return
+    fi
+
+    local _preferred
+
+    # 1. Completed + Remediated (definitively successful pipeline)
+    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 == "Completed" && $3 == "Remediated" { print $1 }' | head -1)
+    [ -n "$_preferred" ] && { echo "$_preferred"; return; }
+
+    # 2. Any Completed (even non-Remediated — e.g. Inconclusive)
+    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 == "Completed" { print $1 }' | head -1)
+    [ -n "$_preferred" ] && { echo "$_preferred"; return; }
+
+    # 3. Active pipeline (not yet terminal)
+    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 != "Blocked" && $2 != "Failed" && $2 != "Completed" { print $1 }' | head -1)
+    [ -n "$_preferred" ] && { echo "$_preferred"; return; }
+
+    # 4. Any non-Blocked
+    _preferred=$(echo "$_all_rrs" | awk -F'\t' '$2 != "Blocked" { print $1 }' | head -1)
+    [ -n "$_preferred" ] && { echo "$_preferred"; return; }
+
+    # 5. Fall back to oldest
+    echo "$_all_rrs" | awk -F'\t' '{ print $1 }' | head -1
 }
 
 get_rr_phase() {
@@ -213,6 +249,11 @@ wait_for_alert() {
 wait_for_rr() {
     local target_ns="$1"
     local timeout="${2:-240}"
+    # Allow a global env-var override for parallel/batch runs where the
+    # gateway may take longer to create RRs from batched alert payloads.
+    if [ -n "${WAIT_FOR_RR_TIMEOUT:-}" ] && [ "$WAIT_FOR_RR_TIMEOUT" -gt "$timeout" ] 2>/dev/null; then
+        timeout="$WAIT_FOR_RR_TIMEOUT"
+    fi
     local elapsed=0
     local interval=5
 
@@ -659,6 +700,11 @@ poll_pipeline() {
     local target_ns="$1"
     local _default_timeout; _default_timeout=$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 600)
     local timeout="${2:-$_default_timeout}"
+    # Allow a global env-var override for parallel/batch runs where LLM
+    # concurrency and batched alerts can extend overall pipeline time.
+    if [ -n "${POLL_PIPELINE_TIMEOUT:-}" ] && [ "$POLL_PIPELINE_TIMEOUT" -gt "$timeout" ] 2>/dev/null; then
+        timeout="$POLL_PIPELINE_TIMEOUT"
+    fi
     local approve_mode="${3:---auto-approve}"
     local elapsed=0
     local interval=10

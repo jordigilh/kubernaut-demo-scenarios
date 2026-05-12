@@ -2,7 +2,7 @@
 
 # Scenario Catalog
 
-22 scenarios are available, organized by category. Each scenario deploys into its own namespace and can be run independently.
+37 scenarios are available, organized by category. Each scenario deploys into its own namespace and can be run independently.
 
 For the formal specification of scenario structure, deliverables, and authoring guidelines, see [BR-PLATFORM-002: Demo Scenario Specification](https://github.com/jordigilh/kubernaut/blob/main/docs/requirements/BR-PLATFORM-002-demo-scenario-specification.md).
 
@@ -27,6 +27,8 @@ Some scenarios require additional components beyond the base platform. All depen
 | [**Helm CLI**](https://helm.sh/docs/intro/install/) | crashloop-helm | Helm-managed release rollback |
 | [**ArgoCD**](https://argo-cd.readthedocs.io/en/stable/getting_started/) + [**Gitea**](https://gitea.io/) | gitops-drift, disk-pressure-emptydir | GitOps delivery + Git repository |
 | [**AWX/AAP**](https://ansible.readthedocs.io/projects/awx-operator/en/latest/) | disk-pressure-emptydir | Ansible automation (AWX recommended; AAP supported with license) |
+| **LVMS / expandable StorageClass** | pvc-capacity-forecast | StorageClass with `allowVolumeExpansion: true` |
+| **postgres\_exporter** | db-connection-saturation | Deployed as sidecar (included in scenario manifests) |
 
 Each scenario's `README.md` lists its specific prerequisites.
 
@@ -99,6 +101,46 @@ The **Approval** column indicates whether the scenario enforces a manual approva
 |----------|---------------|-----------------|-------------|----------|-------------|
 | [**cert-failure**](../scenarios/cert-failure/) | `CertManagerCertNotReady` | cert-manager Certificate NotReady | Fix Certificate resource | — | Both |
 
+## OCP Operations (v1.4)
+
+New in v1.4. L1/L2 scenarios covering common OCP operational failures.
+
+| Scenario | Signal / Alert | Fault Injection | Remediation | Approval | Environment |
+|----------|---------------|-----------------|-------------|----------|-------------|
+| [**image-pull-failure**](../scenarios/image-pull-failure/) | `ImagePullBackOffPersistent` | Delete ImagePullSecret | Recreate secret from template + restart Deployment | — | Both |
+| [**route-misconfiguration**](../scenarios/route-misconfiguration/) | `HAProxyBackendDown` | Patch Route with wrong target Service | Fix Route `spec.to.name` to correct Service | — | OCP |
+| [**build-failure**](../scenarios/build-failure/) | `BuildFailureRate` | Patch BuildConfig with bad Git URI | Restore known-good source URI + trigger rebuild | — | OCP |
+| [**scc-violation**](../scenarios/scc-violation/) | `SCCViolationPodBlocked` | Add privileged SecurityContext under restricted-v2 | Revert SecurityContext to SCC-compliant config | — | OCP |
+| [**operator-health**](../scenarios/operator-health/) | `OperatorCSVFailed` | Delete operator CSV | Recreate Subscription to trigger OLM re-install | — | OCP |
+| [**rbac-failure**](../scenarios/rbac-failure/) | `RBACPolicyDenied` | Delete RoleBinding | Restore RoleBinding from template + restart affected Deployments | — | Both |
+
+## L3 Problem Management (v1.4)
+
+New in v1.4. These scenarios exercise deeper ITIL L3 capabilities: capacity planning, performance investigation, and cross-RR root-cause convergence. **OCP only.**
+
+| Scenario | Signal / Alert | Fault Injection | Remediation | Approval | Environment |
+|----------|---------------|-----------------|-------------|----------|-------------|
+| [**pvc-capacity-forecast**](../scenarios/pvc-capacity-forecast/) | `PVRunwayShort` (proactive, `predict_linear`) | Data writer fills PVC at ~5 MB/min | Expand PVC (patch `spec.resources.requests.storage`) | — | OCP |
+| [**db-connection-saturation**](../scenarios/db-connection-saturation/) | `DatabaseConnectionPoolExhausted` | Connection leaker exhausts `max_connections` | Graceful restart of offending workload | — | OCP |
+| [**cascading-service-failure**](../scenarios/cascading-service-failure/) | `KubePodCrashLooping` (x2, different pods) | Postgres crash kills two dependent apps | Rollback postgres Deployment; RO dedup blocks second RR (`ResourceBusy`) | — | OCP |
+| [**etcd-defrag-forecast**](../scenarios/etcd-defrag-forecast/) | `EtcdHighFragmentationRatio` | Write + delete 50k keys to fragment etcd | Rolling defrag via `kubectl exec` (one member at a time) | Production | OCP |
+
+### L3 Scenario Details
+
+- **pvc-capacity-forecast** -- PoC for Kubernaut as the action layer for RHACM capacity forecasting. Uses `predict_linear` on `kubelet_volume_stats_used_bytes` to fire before the PVC fills. Requires a StorageClass with `allowVolumeExpansion: true` (tested with `lvms-vg1`). New ActionType: `ExpandPersistentVolumeClaim`. New workflow: `expand-pvc-v1`.
+- **db-connection-saturation** -- L3 performance investigation. The LLM must correlate `pg_stat_activity_count` with per-client breakdowns to identify the leaker among multiple workloads. Uses `postgres_exporter` as a superuser sidecar to ensure metrics survive saturation. Workflows: `increase-db-connections-v1` (PatchConfiguration) and `scale-replicas-v1` (ScaleReplicas).
+- **cascading-service-failure** -- Tests the RO's post-AI-analysis dedup path. Two RRs with different signal fingerprints converge when the LLM identifies the same `remediationTarget` (`Deployment/postgres`). The RO's `AcquireLock` + `CheckResourceBusy` ensures one WFE runs; the second RR is blocked with `ResourceBusy`. Reuses existing rollback workflows.
+- **etcd-defrag-forecast** -- Predictive etcd defragmentation. Standalone 3-member etcd cluster with injected fragmentation. LLM investigates member health, quorum, and fragmentation ratio before deciding to defrag. Rolling defrag via `kubectl exec` with health checks between members. Manual approval required. New ActionType: `DefragEtcd`. New workflow: `defrag-etcd-v1`. Designed for migration to real cluster etcd once validated.
+
+## Safety and Adversarial (v1.4)
+
+New in v1.4. These scenarios validate the shadow agent (alignment check) and LLM reasoning resilience against adversarial inputs.
+
+| Scenario | Signal / Alert | Fault Injection | Behavior Tested | Approval | Environment |
+|----------|---------------|-----------------|-----------------|----------|-------------|
+| [**prompt-injection**](../scenarios/prompt-injection/) | `KubePodCrashLooping` | Authority-impersonation payload in ConfigMap | Shadow agent detects embedded SRE directive and blocks execution (`alignment_check_failed`) | — | Both |
+| [**alert-misdirection**](../scenarios/alert-misdirection/) | `KubePodCrashLooping` | Misleading OOM narrative in alert description (actual root cause: bad command override) | LLM resists misleading alert description and selects rollback over memory increase | Production | Both |
+
 ## Platform Behavior
 
 | Scenario | Signal / Alert | Fault Injection | Behavior Tested | Approval | Environment |
@@ -108,3 +150,15 @@ The **Approval** column indicates whether the scenario enforces a manual approva
 | [**concurrent-cross-namespace**](../scenarios/concurrent-cross-namespace/) | `KubePodCrashLooping` (x2) | Bad config in two namespaces | Concurrent pipelines with cross-namespace rego policy | Production | Both |
 | [**resource-contention**](../scenarios/resource-contention/) | `OOMKilled` | External actor reverts remediation | Detects ineffective chain via spec drift, escalates to human review | — | Both |
 
+
+## L3 Advanced Diagnostics
+
+The following scenarios address diagnostic capability gaps identified through coverage analysis. Scenario manifests and scripts exist and are included in the `run-overnight.sh` OCP validation matrix.
+
+| Scenario | Signal / Alert | Fault Injection | Diagnostic Challenge | Environment |
+|----------|---------------|-----------------|----------------------|-------------|
+| [**cross-namespace-dependency**](../scenarios/cross-namespace-dependency/) | `KubePodCrashLooping` (apps in `demo-xns-app`) | Postgres crash in `demo-xns-infra` kills cross-namespace dependents | LLM must trace RCA across namespace boundaries to `Deployment/postgres` in a different namespace than the alert source | OCP |
+| [**severity-misdirection**](../scenarios/severity-misdirection/) | `ContainerOOMKilling` (warning) + `KubePodCrashLooping` (critical) | Postgres OOM-killed (16Mi limit) causes api-gateway crash-loop | LLM must prioritize temporal causation over severity ranking (P1 symptom, P3 cause) | OCP |
+| [**red-herring-noise**](../scenarios/red-herring-noise/) | `KubePodCrashLooping` (x2) + `ImagePullBackOffPersistent` (x1) | Postgres crash + unrelated canary with bad image tag | LLM must separate independent failures from the primary cascade; canary must not pollute RCA | OCP |
+
+All three reuse existing rollback/restart workflows (no new ActionTypes or OCI bundles required).

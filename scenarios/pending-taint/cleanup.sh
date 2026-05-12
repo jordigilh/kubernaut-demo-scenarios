@@ -16,9 +16,16 @@ if [ -n "$TARGET_NODE" ]; then
   kubectl taint nodes "${TARGET_NODE}" maintenance- 2>/dev/null || true
 fi
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule kubernaut-pending-taint-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace demo-taint --ignore-not-found
 
 purge_pipeline_crds
+
+echo "==> Restoring EM configuration..."
+restore_em || true
 
 echo "==> Cleanup complete."

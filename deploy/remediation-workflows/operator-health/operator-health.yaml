@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: restore-operator-csv-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restore-operator-csv-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: restore-operator-csv-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restore-operator-csv-v1
+rules:
+  - apiGroups: ["operators.coreos.com"]
+    resources: ["subscriptions"]
+    verbs: ["get", "list", "delete", "create"]
+  - apiGroups: ["operators.coreos.com"]
+    resources: ["clusterserviceversions"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: ["operators.coreos.com"]
+    resources: ["installplans"]
+    verbs: ["get", "list", "patch"]
+  - apiGroups: ["operators.coreos.com"]
+    resources: ["operatorgroups"]
+    verbs: ["get", "list", "create"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: restore-operator-csv-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: restore-operator-csv-v1
+subjects:
+  - kind: ServiceAccount
+    name: restore-operator-csv-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: restore-operator-csv-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: restore-operator-csv-v1
+  namespace: kubernaut-system
+spec:
+  version: "1.4.0"
+  description:
+    what: "Restores a failed, deleted, or cycling operator CSV by deleting and recreating the OLM Subscription with correct settings, triggering OLM to cleanly re-install the operator's ClusterServiceVersion"
+    whenToUse: "When csv_succeeded drops to 0 for an operator and the CSV shows phase Failed, Replacing, or is missing entirely. Also when the Subscription is stuck in UpgradePending, the adoption controller cannot find the Subscription anchor, or the CSV is caught in a repeating install/delete cycle. Common causes: accidental CSV deletion, corrupted or unreachable CatalogSource, installPlanApproval blocking new cycles, or failed operator upgrade. The workflow reads the original Subscription spec from an operator-restore-spec ConfigMap (if present) or from the live Subscription, deletes the broken Subscription, and recreates it with the correct CatalogSource to allow OLM to re-install the CSV."
+    whenNotToUse: "When the operator CSV is Succeeded but the operator's workload pods are failing for other reasons (CrashLoopBackOff, resource limits). When the CatalogSource itself is intentionally being migrated. When the operator is being uninstalled."
+    preconditions: "The CatalogSource serving the operator's package is healthy (the workflow restores the original CatalogSource reference from a ConfigMap if the Subscription's source was corrupted). The operator's channel and package name are known or recoverable from the ConfigMap."
+
+  actionType: RestoreOperatorCSV
+
+  labels:
+    severity: [critical, high]
+    environment: [production, staging]
+    component: [subscription, clusterserviceversion, operator]
+    priority: "*"
+
+  execution:
+    engine: job
+    serviceAccountName: restore-operator-csv-v1-runner
+    bundle: quay.io/kubernaut-cicd/test-workflows/restore-operator-csv-job@sha256:1c958e697580a5e1ec6c940d839766cf3a56f3427e74c020c0574570a1f6c23b
+  parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: true
+      description: "Namespace containing the operator Subscription (may be empty when target kind is Namespace)"
+    - name: TARGET_RESOURCE_NAME
+      type: string
+      required: true
+      description: "Name of the Subscription to recreate, or the namespace name when target kind is Namespace"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Subscription or Namespace (when Namespace, the script reads the Subscription name from the operator-restore-spec ConfigMap)"

@@ -1,0 +1,12 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: ActionType
+metadata:
+  name: fix-route-target
+  namespace: kubernaut-system
+spec:
+  name: FixRouteTarget
+  description:
+    what: "Patches an OCP Route whose spec.to.name points to a non-existent or wrong Service, restoring external traffic flow."
+    whenToUse: "An OCP Route returns 503/404 because spec.to.name references a Service that was renamed, deleted, or never created."
+    whenNotToUse: "When the backend Service exists but the pods behind it are unhealthy. When TLS termination is misconfigured."
+    preconditions: "The correct backend Service name is known. The Route exists and is owned by the target application."

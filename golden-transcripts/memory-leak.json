@@ -1,0 +1,100 @@
+{
+  "scenario": "memory-leak",
+  "incidentId": "rr-cab245311260-6d1d6b1d",
+  "signal": {
+    "signalName": "ContainerMemoryExhaustionPredicted",
+    "namespace": "demo-memory-leak",
+    "resourceKind": "Pod",
+    "resourceName": "leaky-app-544b75986-n677l",
+    "severity": "warning"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.88,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "leaky-app",
+        "TARGET_RESOURCE_NAMESPACE": "demo-memory-leak"
+      },
+      "workflowId": "547b1310-16b1-58a2-a899-3d5a3aa811e9",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:ad48f2bfc989598d49b846a58a9e18dd11693f32a92cdd7f0f240872553d5018",
+      "workflowName": "graceful-restart-v1"
+    },
+    "approvalRequired": false,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Intentional memory leak via a 'leaker' sidecar container writing 1MiB/5s to a RAM-backed emptyDir volume (medium:Memory, sizeLimit 256Mi), causing progressive memory exhaustion predicted to hit the pod's 192Mi leaker container limit. Both replicas (on separate nodes) are accumulating leaked memory at ~12MiB/min with no restarts yet, making OOM kill or node memory pressure inevitable without intervention.",
+      "severity": "medium",
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "leaky-app",
+        "namespace": "demo-memory-leak"
+      },
+      "contributingFactors": [
+        "The 'leaker' container runs an infinite loop using 'dd' to write 1MiB random data every 5 seconds to /data (mounted as a RAM-backed emptyDir volume with medium:Memory)",
+        "The emptyDir volume is backed by host RAM (medium:Memory) with a sizeLimit of 256Mi \u2014 every byte written consumes node memory, not disk",
+        "The leaker container has a memory limit of 192Mi vs a request of 32Mi (Burstable QoS), making it a candidate for OOM kill once memory climbs",
+        "The emptyDir sizeLimit of 256Mi exceeds the leaker container's own memory limit (192Mi), so the volume could grow until the container itself is OOM-killed",
+        "Two replicas are running on separate nodes (kubernaut-demo-worker and kubernaut-demo-worker2), multiplying memory pressure across nodes",
+        "Pod QoS class is Burstable, making it an eviction candidate under node memory pressure before Guaranteed pods",
+        "No remediation history exists for this deployment \u2014 this is the first incident for this workload"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.88,
+    "analysis": "Intentional memory leak via a 'leaker' sidecar container writing 1MiB/5s to a RAM-backed emptyDir volume (medium:Memory, sizeLimit 256Mi), causing progressive memory exhaustion predicted to hit the pod's 192Mi leaker container limit. Both replicas (on separate nodes) are accumulating leaked memory at ~12MiB/min with no restarts yet, making OOM kill or node memory pressure inevitable without intervention."
+  },
+  "traceStats": {
+    "totalTokens": 113333,
+    "llmTurns": 14,
+    "totalToolCalls": 10
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_top_pods",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 2
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_top_nodes",
+      "index": 1
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

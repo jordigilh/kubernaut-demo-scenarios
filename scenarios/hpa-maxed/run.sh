@@ -63,9 +63,10 @@ echo "==> Step 3: Establishing baseline (15s)..."
 sleep 15
 echo ""
 
-# Step 4: Inject CPU load
+# Step 4: Inject CPU load (background — watch for remediation while validation runs)
 echo "==> Step 4: Generating CPU load to push HPA to ceiling..."
-bash "${SCRIPT_DIR}/inject-load.sh"
+bash "${SCRIPT_DIR}/inject-load.sh" &
+INJECT_PID=$!
 echo ""
 
 # Step 5: Wait for alert
@@ -75,8 +76,13 @@ echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus
 echo ""
 
 # Step 6: Validate pipeline
+_rc=0
 if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
-    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
+    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}" || _rc=$?
 fi
+
+kill "$INJECT_PID" 2>/dev/null || true
+wait "$INJECT_PID" 2>/dev/null || true
+exit "${_rc}"

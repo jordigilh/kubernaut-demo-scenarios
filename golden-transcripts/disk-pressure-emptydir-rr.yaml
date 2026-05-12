@@ -1,0 +1,171 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationRequest
+metadata:
+  annotations:
+    kubernaut.ai/created-at: "2026-05-10T02:24:02Z"
+  creationTimestamp: "2026-05-10T02:24:02Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/component: remediation
+    app.kubernetes.io/managed-by: gateway-service
+  name: rr-a46194c375c3-e7161c3e
+  namespace: kubernaut-system
+  resourceVersion: "69577224"
+  uid: 2e22e608-3946-4cb7-a781-b5780e0298b8
+spec:
+  firingTime: "2026-05-10T02:23:57Z"
+  originalPayload: |
+    {"receiver":"gateway-webhook","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"PredictedDiskPressure","component":"deployment","environment":"production","instance":"dev-worker-0.redhat-internal.com","mountpoint":"/var/lib/kubelet","namespace":"demo-diskpressure","node":"dev-worker-0.redhat-internal.com","openshift_io_alert_source":"platform","prometheus":"openshift-monitoring/k8s","severity":"high"},"annotations":{"description":"Linear regression on node dev-worker-0.redhat-internal.com filesystem (/var/lib/kubelet) predicts available space will reach zero within 30 minutes based on current write rate. Investigate emptyDir-backed workloads in the affected namespace for unbounded growth patterns.","node_name":"dev-worker-0.redhat-internal.com","summary":"Node dev-worker-0.redhat-internal.com predicted to exhaust disk within 30 minutes"},"startsAt":"2026-05-10T02:23:57.688Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"https://console-openshift-console.apps.dev.redhat-internal.com/monitoring/graph?g0.expr=max+by+%28mountpoint%2C+instance%29+%28predict_linear%28node_filesystem_avail_bytes%7Binstance%3D~%22dev-worker-0.redhat-internal.com%22%2Cmountpoint%3D%22%2Fvar%2Flib%2Fkubelet%22%7D%5B1m%5D%2C+1800%29%29+%3C+0\u0026g0.tab=1","fingerprint":"8e2d30957c0540dc"}],"groupLabels":{"alertname":"PredictedDiskPressure","namespace":"demo-diskpressure"},"commonLabels":{"alertname":"PredictedDiskPressure","component":"deployment","environment":"production","instance":"dev-worker-0.redhat-internal.com","mountpoint":"/var/lib/kubelet","namespace":"demo-diskpressure","node":"dev-worker-0.redhat-internal.com","openshift_io_alert_source":"platform","prometheus":"openshift-monitoring/k8s","severity":"high"},"commonAnnotations":{"description":"Linear regression on node dev-worker-0.redhat-internal.com filesystem (/var/lib/kubelet) predicts available space will reach zero within 30 minutes based on current write rate. Investigate emptyDir-backed workloads in the affected namespace for unbounded growth patterns.","node_name":"dev-worker-0.redhat-internal.com","summary":"Node dev-worker-0.redhat-internal.com predicted to exhaust disk within 30 minutes"},"externalURL":"https://console-openshift-console.apps.dev.redhat-internal.com/monitoring","version":"4","groupKey":"{}/{namespace=~\"^(?:demo-.*)$\"}:{alertname=\"PredictedDiskPressure\", namespace=\"demo-diskpressure\"}","truncatedAlerts":0}
+  providerData: '{"labels":{"alertname":"PredictedDiskPressure","component":"deployment","environment":"production","instance":"dev-worker-0.redhat-internal.com","mountpoint":"/var/lib/kubelet","namespace":"demo-diskpressure","node":"dev-worker-0.redhat-internal.com","openshift_io_alert_source":"platform","prometheus":"openshift-monitoring/k8s","severity":"high"},"namespace":"demo-diskpressure"}'
+  receivedTime: "2026-05-10T02:24:02Z"
+  severity: high
+  signalAnnotations:
+    description: Linear regression on node dev-worker-0.redhat-internal.com filesystem
+      (/var/lib/kubelet) predicts available space will reach zero within 30 minutes
+      based on current write rate. Investigate emptyDir-backed workloads in the affected
+      namespace for unbounded growth patterns.
+    node_name: dev-worker-0.redhat-internal.com
+    summary: Node dev-worker-0.redhat-internal.com predicted to exhaust disk within
+      30 minutes
+  signalFingerprint: a46194c375c3995ef871fca1ddc13b732b0b52b28bcb1b37cc4e0c1e88049677
+  signalLabels:
+    alertname: PredictedDiskPressure
+    component: deployment
+    environment: production
+    instance: dev-worker-0.redhat-internal.com
+    mountpoint: /var/lib/kubelet
+    namespace: demo-diskpressure
+    node: dev-worker-0.redhat-internal.com
+    openshift_io_alert_source: platform
+    prometheus: openshift-monitoring/k8s
+    severity: high
+  signalName: PredictedDiskPressure
+  signalSource: prometheus
+  signalType: alert
+  targetResource:
+    kind: Unknown
+    name: unknown
+    namespace: demo-diskpressure
+  targetType: kubernetes
+status:
+  aiAnalysisRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: AIAnalysis
+    name: ai-rr-a46194c375c3-e7161c3e
+    namespace: kubernaut-system
+  analyzingStartTime: "2026-05-10T02:24:03Z"
+  completedAt: "2026-05-10T02:44:23Z"
+  conditions:
+  - lastTransitionTime: "2026-05-10T02:24:03Z"
+    message: SignalProcessing CRD sp-rr-a46194c375c3-e7161c3e created successfully
+    observedGeneration: 1
+    reason: SignalProcessingCreated
+    status: "True"
+    type: SignalProcessingReady
+  - lastTransitionTime: "2026-05-10T02:31:23Z"
+    message: Remediation completed, verifying effectiveness
+    observedGeneration: 1
+    reason: Verifying
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-05-10T02:24:03Z"
+    message: AIAnalysis CRD ai-rr-a46194c375c3-e7161c3e created successfully
+    observedGeneration: 1
+    reason: AIAnalysisCreated
+    status: "True"
+    type: AIAnalysisReady
+  - lastTransitionTime: "2026-05-10T02:24:03Z"
+    message: SignalProcessing completed successfully
+    observedGeneration: 1
+    reason: SignalProcessingSucceeded
+    status: "True"
+    type: SignalProcessingComplete
+  - lastTransitionTime: "2026-05-10T02:28:49Z"
+    message: AIAnalysis completed successfully
+    observedGeneration: 1
+    reason: AIAnalysisSucceeded
+    status: "True"
+    type: AIAnalysisComplete
+  - lastTransitionTime: "2026-05-10T02:28:49Z"
+    message: Pre-remediation hash captured
+    observedGeneration: 1
+    reason: HashCaptured
+    status: "True"
+    type: PreRemediationHashCaptured
+  - lastTransitionTime: "2026-05-10T02:28:49Z"
+    message: WorkflowExecution CRD we-rr-a46194c375c3-e7161c3e created successfully
+    observedGeneration: 1
+    reason: WorkflowExecutionCreated
+    status: "True"
+    type: WorkflowExecutionReady
+  - lastTransitionTime: "2026-05-10T02:31:23Z"
+    message: WorkflowExecution completed successfully
+    observedGeneration: 1
+    reason: WorkflowSucceeded
+    status: "True"
+    type: WorkflowExecutionComplete
+  - lastTransitionTime: "2026-05-10T02:44:23Z"
+    message: 'Effectiveness assessment completed (reason: Full)'
+    observedGeneration: 1
+    reason: AssessmentCompleted
+    status: "True"
+    type: EffectivenessAssessed
+  - lastTransitionTime: "2026-05-10T02:44:23Z"
+    message: Notification delivered successfully
+    observedGeneration: 1
+    reason: DeliverySucceeded
+    status: "True"
+    type: NotificationDelivered
+  confidence: "0.92"
+  deduplication:
+    firstSeenAt: "2026-05-10T02:24:02Z"
+    lastSeenAt: "2026-05-10T02:29:03Z"
+    occurrenceCount: 7
+  effectivenessAssessmentRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: EffectivenessAssessment
+    name: ea-rr-a46194c375c3-e7161c3e
+    namespace: kubernaut-system
+  executingStartTime: "2026-05-10T02:28:49Z"
+  lastModifiedAt: "2026-05-10T02:24:02Z"
+  lastModifiedBy: system:serviceaccount:kubernaut-system:remediationorchestrator-controller
+  notificationRequestRefs:
+  - apiVersion: notification.kubernaut.ai/v1alpha1
+    kind: NotificationRequest
+    name: nr-completion-rr-a46194c375c3-e7161c3e
+    namespace: kubernaut-system
+  notificationStatus: Sent
+  observedGeneration: 1
+  outcome: Remediated
+  overallPhase: Completed
+  preRemediationSpecHash: sha256:bdb12bbbc3ffb0078d6122b4531a30218da8bc1b066f2f5707a3307e9506465c
+  processingStartTime: "2026-05-10T02:24:03Z"
+  remediationTarget:
+    kind: Deployment
+    name: postgres-emptydir
+    namespace: demo-diskpressure
+  retentionExpiryTime: "2026-05-11T02:44:23Z"
+  selectedWorkflowRef:
+    executionBundle: https://github.com/jordigilh/kubernaut-test-playbooks.git
+    version: 1.4.0
+    workflowId: fdd276ac-14d9-5d45-b533-f0b6a3330e25
+  signalProcessingRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: SignalProcessing
+    name: sp-rr-a46194c375c3-e7161c3e
+    namespace: kubernaut-system
+  signalTargetDisplay: Unknown/unknown
+  startTime: "2026-05-10T02:24:02Z"
+  targetDisplay: Deployment/postgres-emptydir
+  timeoutConfig:
+    analyzing: 10m0s
+    executing: 30m0s
+    global: 1h0m0s
+    processing: 5m0s
+  verificationDeadline: "2026-05-10T02:49:53Z"
+  workflowDisplayName: MigrateEmptyDirToPVC:migrate-postgres-emptydir-to-pvc-gitops-v1
+  workflowExecutionRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: WorkflowExecution
+    name: we-rr-a46194c375c3-e7161c3e
+    namespace: kubernaut-system

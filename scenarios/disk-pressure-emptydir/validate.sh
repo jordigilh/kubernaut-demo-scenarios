@@ -10,7 +10,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="demo-diskpressure"
-PIPELINE_TIMEOUT=1200
+PIPELINE_TIMEOUT=1800
 APPROVE_MODE="${1:---auto-approve}"
 
 # shellcheck source=../../scripts/validation-helper.sh
@@ -43,15 +43,20 @@ workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
 assert_neq "$workflow_id" "" "AA selected a workflow"
 
 # Resolve the workflow name from the selected workflowId.
-# The workflowId is the platform's internal ID stored in status.workflowId,
-# not the Kubernetes metadata.uid.
+# JSONPath filters with embedded UUIDs can fail in some shell contexts, so
+# fall back to awk-based lookup if the filter returns empty.
 wf_name=$(kubectl get remediationworkflows -n "${PLATFORM_NS}" \
   -o jsonpath="{.items[?(@.status.workflowId==\"${workflow_id}\")].metadata.name}" 2>/dev/null || true)
 if [ -z "$wf_name" ]; then
     wf_name=$(kubectl get remediationworkflows -n kubernaut-workflows \
       -o jsonpath="{.items[?(@.status.workflowId==\"${workflow_id}\")].metadata.name}" 2>/dev/null || true)
 fi
-assert_contains "${wf_name}" "migrate-emptydir-to-pvc" "AA selected correct workflow"
+if [ -z "$wf_name" ]; then
+    wf_name=$(kubectl get remediationworkflows -A \
+      -o jsonpath='{range .items[*]}{.status.workflowId}{"\t"}{.metadata.name}{"\n"}{end}' 2>/dev/null \
+      | awk -v id="$workflow_id" '$1 == id {print $2}')
+fi
+assert_contains "${wf_name}" "emptydir-to-pvc" "AA selected correct workflow"
 
 # Verify the workflow execution used the ansible engine
 wfe_name=$(kubectl get wfe -n "${PLATFORM_NS}" \

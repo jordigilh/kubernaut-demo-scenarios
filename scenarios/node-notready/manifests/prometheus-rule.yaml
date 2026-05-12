@@ -11,7 +11,9 @@ spec:
     rules:
     - alert: KubeNodeNotReady
       expr: |
-        kube_node_status_condition{condition="Ready", status="true"} == 0
+        max by (node) (
+          kube_node_status_condition{condition="Ready", status="true"} == 0
+        )
       for: 30s
       labels:
         severity: critical
@@ -20,7 +22,8 @@ spec:
         summary: >
           Node {{ $labels.node }} is in NotReady state for more than 1 minute.
         description: >
-          A Kubernetes node has transitioned to NotReady status, indicating it is
-          no longer healthy. Pods on this node may be disrupted. The node should
-          be cordoned to prevent new scheduling and drained to reschedule existing
-          workloads to healthy nodes.
+          Node {{ $labels.node }} has transitioned to NotReady status, indicating
+          the kubelet is no longer reporting healthy. Pods scheduled on this node
+          may experience disruption. If the condition persists beyond the
+          pod-eviction-timeout, the controller manager will begin evicting pods
+          from the node.

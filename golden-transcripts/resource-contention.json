@@ -1,0 +1,104 @@
+{
+  "scenario": "resource-contention",
+  "incidentId": "rr-8219a27ec7a7-c3a026a6",
+  "signal": {
+    "signalName": "ContainerOOMKilling",
+    "namespace": "demo-resource-contention",
+    "resourceKind": "Pod",
+    "resourceName": "contention-app-7cf6f79fb8-mr26v",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.95,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "contention-app",
+        "MEMORY_INCREASE_FACTOR": "2",
+        "TARGET_RESOURCE_NAMESPACE": "demo-resource-contention"
+      },
+      "workflowId": "1f772a48-4d6f-5bb8-8e68-b19a5558d3e1",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/increase-memory-limits-job@sha256:05e87df060a18a71ab3d106148444f81a3166c7135fcdad6c22d0dd2f273fb88",
+      "workflowName": "increase-memory-limits-v1"
+    },
+    "approvalRequired": false,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Container 'worker' in contention-app is OOMKilled because the stress tool is configured to allocate 64MB of virtual memory (--vm-bytes 64M) while the container memory limit is also 64Mi, leaving zero headroom for process overhead. This causes repeated OOM kills (exit code 137) and CrashLoopBackOff. The node is healthy with ample memory (~9.68GiB capacity, ~407Mi used); the issue is purely a container-level memory limit misconfiguration.",
+      "severity": "critical",
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "contention-app",
+        "namespace": "demo-resource-contention"
+      },
+      "contributingFactors": [
+        "Memory limit (64Mi) is equal to the stress tool's requested allocation (--vm-bytes 64M), leaving zero headroom for process overhead",
+        "Container requests (32Mi) are half of limits, creating a burstable QoS class with risk of OOM eviction",
+        "The stress command uses '--vm-hang 0' meaning it holds the allocated memory indefinitely, guaranteeing OOM kill",
+        "Container has restarted at least 3 times and is in CrashLoopBackOff with back-off increasing to 40s",
+        "No node-level memory pressure detected \u2014 this is a container-level memory limit issue, not a node resource exhaustion issue",
+        "No remediation history exists for this deployment, meaning this is a fresh or unresolved misconfiguration"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.95,
+    "analysis": "Container 'worker' in contention-app is OOMKilled because the stress tool is configured to allocate 64MB of virtual memory (--vm-bytes 64M) while the container memory limit is also 64Mi, leaving zero headroom for process overhead. This causes repeated OOM kills (exit code 137) and CrashLoopBackOff. The node is healthy with ample memory (~9.68GiB capacity, ~407Mi used); the issue is purely a container-level memory limit misconfiguration."
+  },
+  "traceStats": {
+    "totalTokens": 135696,
+    "llmTurns": 15,
+    "totalToolCalls": 11
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_previous_logs",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_top_nodes",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_top_pods",
+      "index": 1
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 1
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    },
+    {
+      "tool": "get_workflow",
+      "index": 1
+    }
+  ]
+}

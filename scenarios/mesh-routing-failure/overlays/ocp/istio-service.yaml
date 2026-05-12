@@ -10,7 +10,7 @@ spec:
     security.istio.io/tlsMode: istio
   ports:
     - name: http-envoy-prom
-      port: 15020
-      targetPort: 15020
+      port: 15090
+      targetPort: 15090
       protocol: TCP
   clusterIP: None

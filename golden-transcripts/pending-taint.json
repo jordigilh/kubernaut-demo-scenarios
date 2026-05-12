@@ -1,0 +1,93 @@
+{
+  "scenario": "pending-taint",
+  "incidentId": "rr-b731ec2bbe20-caaaa35c",
+  "signal": {
+    "signalName": "KubePodNotScheduled",
+    "namespace": "demo-taint",
+    "resourceKind": "Pod",
+    "resourceName": "batch-processor-64c79f4bdd-99r8f",
+    "severity": "warning"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.78,
+      "parameters": {
+        "NODE_NAME": "kubernaut-demo-worker",
+        "TAINT_KEY": "maintenance",
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "batch-processor",
+        "TARGET_RESOURCE_NAMESPACE": "demo-taint"
+      },
+      "workflowId": "5833f8f1-7b2d-5efb-b0d3-1e3618a5bc26",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/remove-taint-job@sha256:bcd38c0d4b7b040afd3ee8006727b12571d40d1eb4e7d395ffe153dc7b569416",
+      "workflowName": "remove-taint-v1"
+    },
+    "approvalRequired": false,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Pod cannot schedule because its only eligible node (kubernaut-demo-worker, matching nodeSelector kubernaut.ai/demo-taint-target=true) has a NoSchedule taint (maintenance=scheduled) that the pod has no toleration for. Both Deployment replicas are 100% unavailable as a result.",
+      "severity": "medium",
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "batch-processor",
+        "namespace": "demo-taint"
+      },
+      "contributingFactors": [
+        "Deployment batch-processor uses nodeSelector kubernaut.ai/demo-taint-target=true, which only matches a single node: kubernaut-demo-worker",
+        "kubernaut-demo-worker has a NoSchedule taint (maintenance=scheduled) applied at 2026-04-23T16:33:46Z \u2014 exactly when the pod was created",
+        "The pod spec has no toleration for the maintenance=scheduled taint, making all 3 cluster nodes ineligible",
+        "The remaining 2 nodes (control-plane and worker2) are excluded because they lack the kubernaut.ai/demo-taint-target=true label",
+        "Both replicas of the Deployment are affected, resulting in 100% unavailability (unavailableReplicas=2)",
+        "No prior remediation history exists for this Deployment, suggesting this is a first-time or freshly deployed workload encountering a pre-planned maintenance taint"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.78,
+    "analysis": "Pod cannot schedule because its only eligible node (kubernaut-demo-worker, matching nodeSelector kubernaut.ai/demo-taint-target=true) has a NoSchedule taint (maintenance=scheduled) that the pod has no toleration for. Both Deployment replicas are 100% unavailable as a result."
+  },
+  "traceStats": {
+    "totalTokens": 124817,
+    "llmTurns": 16,
+    "totalToolCalls": 8
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_cluster",
+      "index": 0
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

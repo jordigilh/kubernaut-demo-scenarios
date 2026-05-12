@@ -1,0 +1,25 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: webapp
+  namespace: demo-build
+  labels:
+    app: webapp
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/sclorg/httpd-ex.git
+      ref: master
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        namespace: openshift
+        name: httpd:2.4-ubi9
+  output:
+    to:
+      kind: ImageStreamTag
+      name: webapp:latest
+  triggers: []

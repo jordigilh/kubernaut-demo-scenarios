@@ -21,6 +21,9 @@ patches:
     patch: |
       - op: remove
         path: /metadata/labels/release
+      - op: replace
+        path: /metadata/namespace
+        value: openshift-monitoring
   # Category E: ServiceMonitor - remove release label for OCP
   - target:
       kind: ServiceMonitor

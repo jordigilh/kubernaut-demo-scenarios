@@ -9,6 +9,11 @@
 # or CheckIneffectiveRemediationChain (Issue #214: for Completed-but-ineffective
 # RRs detected via DataStorage hash chain and spec_drift analysis).
 #
+# NOTE: This scenario MUST run sequentially (not in parallel with others).
+# It temporarily lowers the gateway cooldownPeriod from 5m to 1m so that
+# re-fired alerts are processed quickly enough for 3 escalation cycles to
+# complete within the timeout window.
+#
 # Prerequisites:
 #   - Kind cluster with Kubernaut platform deployed
 #   - Prometheus with kube-state-metrics
@@ -48,6 +53,42 @@ ensure_clean_slate "${NAMESPACE}"
 echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
 enable_prometheus_toolset
 force_production_approval
+echo ""
+
+# Lower gateway deduplication cooldown so re-fired alerts aren't suppressed
+# for 5m between cycles. Restored in cleanup trap below.
+_ORIG_COOLDOWN=$(kubectl get cm gateway-config -n "${PLATFORM_NS}" \
+  -o jsonpath='{.data.config\.yaml}' 2>/dev/null \
+  | grep 'cooldownPeriod' | awk '{print $2}' || echo "5m")
+_restore_cooldown() {
+    echo "==> Restoring gateway cooldownPeriod to ${_ORIG_COOLDOWN}..."
+    kubectl get cm gateway-config -n "${PLATFORM_NS}" -o json 2>/dev/null \
+      | python3 -c "
+import sys, json, re
+cm = json.load(sys.stdin)
+cfg = cm['data']['config.yaml']
+cfg = re.sub(r'cooldownPeriod:.*', 'cooldownPeriod: ${_ORIG_COOLDOWN}', cfg)
+cm['data']['config.yaml'] = cfg
+json.dump(cm, sys.stdout)
+" | kubectl apply -f - >/dev/null 2>&1
+    kubectl rollout restart deployment/gateway -n "${PLATFORM_NS}" >/dev/null 2>&1
+    kubectl rollout status deployment/gateway -n "${PLATFORM_NS}" --timeout=60s >/dev/null 2>&1 || true
+}
+trap '_restore_cooldown' EXIT
+
+echo "==> Lowering gateway cooldownPeriod to 1m for escalation cycles..."
+kubectl get cm gateway-config -n "${PLATFORM_NS}" -o json 2>/dev/null \
+  | python3 -c "
+import sys, json, re
+cm = json.load(sys.stdin)
+cfg = cm['data']['config.yaml']
+cfg = re.sub(r'cooldownPeriod:.*', 'cooldownPeriod: 1m', cfg)
+cm['data']['config.yaml'] = cfg
+json.dump(cm, sys.stdout)
+" | kubectl apply -f - >/dev/null 2>&1
+kubectl rollout restart deployment/gateway -n "${PLATFORM_NS}" >/dev/null 2>&1
+kubectl rollout status deployment/gateway -n "${PLATFORM_NS}" --timeout=60s
+echo "  Gateway cooldownPeriod set to 1m (was ${_ORIG_COOLDOWN})."
 echo ""
 
 # Step 1: Deploy scenario resources

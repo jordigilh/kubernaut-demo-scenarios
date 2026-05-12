@@ -44,10 +44,11 @@ wait_for_rr "$NAMESPACE" 120
 
 # Kill stress when entering Verifying phase so CPU drops, HPA backs off the
 # ceiling, and the alert resolves naturally within the EA verification window.
+_kill_yes='for f in /proc/*/comm; do [ "$(cat $f 2>/dev/null)" = "yes" ] && kill $(echo $f|cut -d/ -f3) 2>/dev/null; done; true'
 on_verifying() {
     log_phase "Killing CPU stress processes (root cause fix)..."
     for pod in $(kubectl get pods -n "$NAMESPACE" -l app=api-frontend -o name 2>/dev/null); do
-        kubectl exec -n "$NAMESPACE" "$pod" -- /bin/sh -c 'killall yes 2>/dev/null || true' 2>/dev/null || true
+        kubectl exec -n "$NAMESPACE" "$pod" -- /bin/sh -c "$_kill_yes" 2>/dev/null || true
     done
 }
 ON_VERIFYING_HOOK="on_verifying"
@@ -60,7 +61,7 @@ EA_PHASE=$(get_ea_phase "$NAMESPACE")
 MAX_REPLICAS=$(kubectl get hpa api-frontend -n "$NAMESPACE" -o jsonpath='{.spec.maxReplicas}' 2>/dev/null || echo "0")
 
 assert_eq "$PHASE" "Completed" "RR overallPhase"
-assert_in "$OUTCOME" "RR outcome" "Remediated" "Inconclusive"
+assert_eq "$OUTCOME" "Remediated" "RR outcome"
 assert_gt "$MAX_REPLICAS" 3 "HPA maxReplicas raised"
 assert_eq "$EA_PHASE" "Completed" "EA phase"
 

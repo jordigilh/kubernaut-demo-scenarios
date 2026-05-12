@@ -12,35 +12,35 @@ spec:
     # Detect PDB blocking disruptions (0 allowed disruptions for extended period)
     - alert: KubePodDisruptionBudgetAtLimit
       expr: |
-        kube_poddisruptionbudget_status_pod_disruptions_allowed{
-          namespace="demo-pdb",
-          poddisruptionbudget="payment-service-pdb"
-        } == 0
-        and
-        kube_poddisruptionbudget_status_expected_pods{
-          namespace="demo-pdb",
-          poddisruptionbudget="payment-service-pdb"
-        }
-        ==
-        kube_poddisruptionbudget_status_current_healthy{
-          namespace="demo-pdb",
-          poddisruptionbudget="payment-service-pdb"
-        }
+        max by (namespace, poddisruptionbudget) (
+          kube_poddisruptionbudget_status_pod_disruptions_allowed{
+            namespace="demo-pdb",
+            poddisruptionbudget="payment-service-pdb"
+          } == 0
+          and
+          kube_poddisruptionbudget_status_expected_pods{
+            namespace="demo-pdb",
+            poddisruptionbudget="payment-service-pdb"
+          }
+          ==
+          kube_poddisruptionbudget_status_current_healthy{
+            namespace="demo-pdb",
+            poddisruptionbudget="payment-service-pdb"
+          }
+        )
       for: 30s
       labels:
         severity: warning
+        namespace: demo-pdb
+        poddisruptionbudget: payment-service-pdb
       annotations:
         summary: >
           PDB {{ $labels.poddisruptionbudget }} in namespace {{ $labels.namespace }}
           is at disruption limit - blocking node drain/eviction
         description: >
-          The PodDisruptionBudget is preventing pod evictions because minAvailable
-          equals current available pods. This typically occurs during node maintenance
-          (drain/cordon) when the PDB blocks eviction of the last available replica.
-          The PDB should be temporarily relaxed to allow at least 1 disruption.
+          PodDisruptionBudget {{ $labels.poddisruptionbudget }} in namespace
+          {{ $labels.namespace }} has zero allowed disruptions because
+          minAvailable equals the current number of healthy pods. Pod evictions
+          are blocked, which can stall node drains, rollouts, and cluster
+          maintenance operations.
         runbook_url: "https://kubernaut.ai/runbooks/relax-pdb"
-        kubernaut_ai_hint_action_type: "RelaxPDB"
-        kubernaut_ai_hint_context: >
-          PDB is blocking node drain. Temporarily relaxing minAvailable will
-          unblock evictions. Investigate the PDB spec and matched pods before
-          selecting a remediation workflow.

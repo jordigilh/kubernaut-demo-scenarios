@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "_metadata": {
+    "captured_at": "2026-05-11T18:28:50Z",
+    "ka_image": "quay.io/kubernaut-ai/kubernautagent@sha256:7c4b0ea258593a5a8b49d7acb634a58a00052a2166b89b48a8a957ac1b6de371",
+    "model": "",
+    "cluster": "default/api-dev-redhat-internal-com:6443/kube:admin",
+    "chart_version": ""
+  },
+  "scenario": "hpa-maxed",
+  "signalName": "",
+  "remediationRequest": {
+    "name": "rr-e095df38b620-b1f2f72d",
+    "phase": "Unknown",
+    "outcome": "Unknown"
+  },
+  "analysis": {
+    "remediationId": null,
+    "signal": {
+      "signalName": null,
+      "severity": null,
+      "environment": null,
+      "targetResource": null,
+      "businessPriority": null
+    },
+    "investigation": {
+      "sessionId": null,
+      "durationMs": null,
+      "pollCount": null
+    },
+    "rootCauseAnalysis": null,
+    "rootCauseSummary": null,
+    "postRCAContext": null,
+    "selectedWorkflow": null,
+    "alternativeWorkflows": null,
+    "actionability": null,
+    "approvalRequired": null,
+    "approvalReason": null,
+    "needsHumanReview": null,
+    "humanReviewReason": null,
+    "phase": null,
+    "_enriched_from_audit": true
+  },
+  "llmTrace": [],
+  "traceStats": {
+    "totalTokens": 0,
+    "llmTurns": 0,
+    "totalToolCalls": 0,
+    "k8sToolCalls": 0,
+    "model": ""
+  },
+  "kaResponse": {},
+  "effectivenessAssessment": {}
+}

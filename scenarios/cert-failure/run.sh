@@ -34,6 +34,13 @@ source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 enable_prometheus_toolset
 
+_rc=0
+trap 'echo "==> Restoring EM configuration..."; restore_em || true; exit "${_rc}"' EXIT
+
+echo "==> Configuring EM for fast EA convergence..."
+configure_em "30s" "120s"
+echo ""
+
 echo "============================================="
 echo " cert-manager Certificate Failure Demo (#133)"
 echo "============================================="

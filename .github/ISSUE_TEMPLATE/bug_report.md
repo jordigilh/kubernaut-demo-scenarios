@@ -27,8 +27,8 @@ What actually happened.
 ## Environment
 
 - **Platform**: (Kind / OCP)
-- **Kubernaut version**: (e.g., 1.1.0-rc4)
-- **Helm chart version**: (e.g., 1.1.0-rc4)
+- **Kubernaut version**: (e.g., 1.4.0)
+- **Install method**: (Operator / Helm chart)
 - **Scenario**: (e.g., memory-leak, slo-burn)
 
 ## Logs / Evidence

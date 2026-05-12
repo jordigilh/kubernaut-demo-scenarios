@@ -10,14 +10,16 @@
 #   bash scripts/capture-eval.sh [--rr NAME] [--namespace NS] [--scenario NAME] [--output DIR]
 #
 # Options:
-#   --rr NAME        Target a specific RemediationRequest (default: latest)
-#   --namespace NS   Filter RRs by signal target namespace (for multi-RR
-#                    scenarios like concurrent-cross-namespace)
-#   --scenario NAME  Override auto-detected scenario name (must match eval-matrix key)
-#   --output DIR     Output directory (default: golden-transcripts/)
-#   --wait           Wait for the RR to reach a terminal phase before capture
+#   --rr NAME              Target a specific RemediationRequest (default: latest)
+#   --namespace NS         Filter RRs by signal target namespace (for multi-RR
+#                          scenarios like concurrent-cross-namespace)
+#   --scenario NAME        Override auto-detected scenario name (must match eval-matrix key)
+#   --output DIR           Output directory (default: golden-transcripts/)
+#   --wait                 Wait for the RR to reach a terminal phase before capture
+#   --archive-version VER  Also copy transcript to archive/<VER>/ for historical comparison
 #
 # Output: golden-transcripts/<scenario>-<signal>.json
+#         golden-transcripts/archive/<VER>/<scenario>-<signal>.json  (if --archive-version)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,15 +31,17 @@ SCENARIO_OVERRIDE=""
 OUTPUT_DIR="${REPO_ROOT}/golden-transcripts"
 WAIT_FOR_COMPLETE=false
 PLATFORM_NS="kubernaut-system"
+ARCHIVE_VERSION=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --rr)        RR_NAME="$2"; shift 2 ;;
-        --namespace) TARGET_NS="$2"; shift 2 ;;
-        --scenario)  SCENARIO_OVERRIDE="$2"; shift 2 ;;
-        --output)    OUTPUT_DIR="$2"; shift 2 ;;
-        --wait)      WAIT_FOR_COMPLETE=true; shift ;;
-        *)           echo "Unknown option: $1"; exit 1 ;;
+        --rr)              RR_NAME="$2"; shift 2 ;;
+        --namespace)       TARGET_NS="$2"; shift 2 ;;
+        --scenario)        SCENARIO_OVERRIDE="$2"; shift 2 ;;
+        --output)          OUTPUT_DIR="$2"; shift 2 ;;
+        --wait)            WAIT_FOR_COMPLETE=true; shift ;;
+        --archive-version) ARCHIVE_VERSION="$2"; shift 2 ;;
+        *)                 echo "Unknown option: $1"; exit 1 ;;
     esac
 done
 
@@ -110,9 +114,9 @@ if [ "$WAIT_FOR_COMPLETE" = true ]; then
     echo "  Waiting for RR to reach terminal phase..."
     for _ in $(seq 1 120); do
         PHASE=$(kubectl get rr "$RR_NAME" -n "$PLATFORM_NS" \
-            -o jsonpath='{.status.conditions[?(@.type=="Ready")].reason}' 2>/dev/null)
+            -o jsonpath='{.status.overallPhase}' 2>/dev/null)
         case "$PHASE" in
-            Completed|TimedOut|Failed|ManualIntervention) break ;;
+            Completed|Failed|TimedOut) break ;;
         esac
         sleep 5
     done
@@ -220,6 +224,89 @@ result = {
 
 print(json.dumps(result, indent=2))
 ")
+
+# ── Enrich AA from audit traces when reconstructed from DB ────────────────────
+
+if [ "${_AA_FROM_DB:-false}" = "true" ]; then
+    echo "  Enriching analysis from audit traces..."
+    # Pull structured data from richer audit events
+    _ENRICH_DATA=$(psql_readonly "
+        SELECT json_build_object(
+            'rca', (SELECT event_data->'response_data' FROM audit_events
+                    WHERE correlation_id='$RR_NAME' AND event_type='aiagent.rca.complete'
+                    ORDER BY event_timestamp DESC LIMIT 1),
+            'wfe', (SELECT event_data FROM audit_events
+                    WHERE correlation_id='$RR_NAME' AND event_type='workflowexecution.selection.completed'
+                    ORDER BY event_timestamp DESC LIMIT 1),
+            'signal', (SELECT event_data FROM audit_events
+                       WHERE correlation_id='$RR_NAME' AND event_type='gateway.crd.created'
+                       ORDER BY event_timestamp DESC LIMIT 1),
+            'approval', (SELECT event_data FROM audit_events
+                         WHERE correlation_id='$RR_NAME' AND event_type='aianalysis.approval.decision'
+                         ORDER BY event_timestamp DESC LIMIT 1),
+            'rego', (SELECT event_data FROM audit_events
+                     WHERE correlation_id='$RR_NAME' AND event_type='aianalysis.rego.evaluation'
+                     ORDER BY event_timestamp DESC LIMIT 1)
+        )
+    ")
+    if [ -n "$_ENRICH_DATA" ] && [ "$_ENRICH_DATA" != "" ]; then
+        AA_STRUCTURED=$(echo "$AA_STRUCTURED" | python3 -c "
+import json, sys
+a = json.load(sys.stdin)
+enrich = json.loads('''$_ENRICH_DATA''')
+
+rca = enrich.get('rca') or {}
+wfe = enrich.get('wfe') or {}
+sig = enrich.get('signal') or {}
+approval = enrich.get('approval') or {}
+
+if rca:
+    a['rootCauseAnalysis'] = rca.get('rootCauseAnalysis')
+    a['rootCauseSummary'] = rca.get('analysis', a.get('rootCauseSummary'))
+    a['needsHumanReview'] = rca.get('needsHumanReview')
+    target = rca.get('rootCauseAnalysis', {}).get('remediationTarget', {})
+    if target:
+        a['signal'] = a.get('signal', {})
+        a['signal']['targetResource'] = target
+    a['_rca_source'] = 'aiagent.rca.complete'
+
+if wfe:
+    img = wfe.get('container_image', '')
+    # Derive workflow job name from image: quay.io/.../fix-security-context-job@sha256:... -> fix-security-context-job
+    wf_name = img.split('/')[-1].split('@')[0].split(':')[0] if img else wfe.get('workflow_id')
+    a['selectedWorkflow'] = wf_name
+    a['_workflowImage'] = img
+    a['_workflowVersion'] = wfe.get('workflow_version', '')
+    tr = wfe.get('target_resource', '')
+    if tr and '/' in tr:
+        parts = tr.split('/')
+        if len(parts) >= 3:
+            a['signal'] = a.get('signal', {})
+            a['signal']['targetResource'] = {
+                'namespace': parts[0], 'kind': parts[1], 'name': parts[2]
+            }
+
+if sig:
+    a['signal'] = a.get('signal', {})
+    a['signal']['signalName'] = sig.get('signal_name')
+    a['signal']['severity'] = sig.get('severity')
+
+if approval:
+    conf = approval.get('confidence')
+    if conf:
+        a['_confidence'] = float(conf)
+
+rego = enrich.get('rego') or {}
+if rego:
+    a['approvalRequired'] = rego.get('outcome') == 'requires_approval'
+elif approval:
+    a['approvalRequired'] = approval.get('approval_required', False)
+
+a['_enriched_from_audit'] = True
+print(json.dumps(a, indent=2))
+" 2>/dev/null) || true
+    fi
+fi
 
 # ── Workaround #769: source RCA from audit event if AA discarded it ──────────
 
@@ -357,14 +444,27 @@ else
             ELSE 'Unknown'
         END
     ")
-    RR_OUTCOME=$(psql_readonly "
-        SELECT COALESCE(
-            (SELECT event_data->>'outcome' FROM audit_events
-             WHERE correlation_id='$RR_NAME' AND event_type='orchestrator.lifecycle.completed'
-             ORDER BY event_timestamp DESC LIMIT 1),
-            'Remediated'
-        )
+    # Map orchestrator outcome (Success) to RR outcome (Remediated) using EA and WFE events
+    _HAS_WFE=$(psql_readonly "
+        SELECT count(*) FROM audit_events
+        WHERE correlation_id='$RR_NAME' AND event_type='workflowexecution.workflow.completed'
     ")
+    _HAS_EA=$(psql_readonly "
+        SELECT count(*) FROM audit_events
+        WHERE correlation_id='$RR_NAME' AND event_type='effectiveness.assessment.completed'
+    ")
+    _ORCH_OUTCOME=$(psql_readonly "
+        SELECT event_data->>'outcome' FROM audit_events
+        WHERE correlation_id='$RR_NAME' AND event_type='orchestrator.lifecycle.completed'
+        ORDER BY event_timestamp DESC LIMIT 1
+    ")
+    if [ "${_HAS_WFE:-0}" -gt 0 ] && [ "${_HAS_EA:-0}" -gt 0 ] && [ "${_ORCH_OUTCOME}" = "Success" ]; then
+        RR_OUTCOME="Remediated"
+    elif [ "${_ORCH_OUTCOME}" = "ManualReviewRequired" ] || [ "${_ORCH_OUTCOME}" = "manual_review" ]; then
+        RR_OUTCOME="ManualReviewRequired"
+    else
+        RR_OUTCOME="${_ORCH_OUTCOME:-Unknown}"
+    fi
     RR_JSON='{}'
 fi
 
@@ -380,6 +480,30 @@ print(json.dumps({
 }, indent=2))
 " 2>/dev/null || echo '{}')
 
+if [ "$EA_SCORES" = '{}' ]; then
+    echo "  WARN: EA not on cluster, enriching from DB..."
+    EA_SCORES=$(psql_readonly "
+        SELECT event_data FROM audit_events
+        WHERE correlation_id='$RR_NAME' AND event_type='effectiveness.assessment.completed'
+        ORDER BY event_timestamp DESC LIMIT 1
+    " | python3 -c "
+import json, sys
+raw = sys.stdin.read().strip()
+if not raw: print('{}'); sys.exit(0)
+try:
+    d = json.loads(raw)
+    print(json.dumps({
+        'metricsScore': d.get('metricsScore'),
+        'alertScore': d.get('alertScore'),
+        'healthScore': d.get('healthScore'),
+        'components_assessed': d.get('components_assessed'),
+        'assessment_duration_seconds': d.get('assessment_duration_seconds'),
+        '_source': 'audit_event',
+    }, indent=2))
+except: print('{}')
+" 2>/dev/null || echo '{}')
+fi
+
 # ── Metadata ─────────────────────────────────────────────────────────────────
 
 KA_IMAGE=$(kubectl get pod -n "$PLATFORM_NS" -l app=kubernaut-agent \
@@ -392,6 +516,10 @@ for r in json.load(sys.stdin):
         print(r.get('app_version', 'unknown'))
         break
 " 2>/dev/null || echo "unknown")
+if [ "$CHART_VERSION" = "unknown" ]; then
+    CHART_VERSION=$(kubectl get kubernaut kubernaut -n "$PLATFORM_NS" \
+        -o jsonpath='{.status.version}' 2>/dev/null || echo "unknown (operator)")
+fi
 
 CLUSTER_NAME=$(kubectl config current-context 2>/dev/null || echo "unknown")
 
@@ -441,6 +569,25 @@ import json, sys
 aa = json.load(sys.stdin)
 print(aa.get('spec',{}).get('analysisRequest',{}).get('signalContext',{}).get('signalName','unknown'))
 ")
+
+if [ "$SIGNAL_NAME" = "unknown" ] || [ -z "$SIGNAL_NAME" ]; then
+    # Fall back to the enriched AA_STRUCTURED or gateway.crd.created event
+    SIGNAL_NAME=$(echo "$AA_STRUCTURED" | python3 -c "
+import json, sys
+a = json.load(sys.stdin)
+sig = a.get('signal', {})
+name = sig.get('signalName', '')
+print(name if name else 'unknown')
+" 2>/dev/null || echo "unknown")
+fi
+
+if [ "$SIGNAL_NAME" = "unknown" ] || [ -z "$SIGNAL_NAME" ]; then
+    SIGNAL_NAME=$(psql_readonly "
+        SELECT event_data->>'signal_name' FROM audit_events
+        WHERE correlation_id='$RR_NAME' AND event_type='gateway.crd.created'
+        ORDER BY event_timestamp DESC LIMIT 1
+    " 2>/dev/null || echo "unknown")
+fi
 
 # ── Assemble golden transcript ───────────────────────────────────────────────
 
@@ -501,6 +648,15 @@ print(json.dumps(transcript, indent=2))
     "$RR_PHASE" \
     "$RR_OUTCOME" \
     > "$OUTFILE"
+
+# ── Archive versioned copy ───────────────────────────────────────────────────
+
+if [ -n "$ARCHIVE_VERSION" ]; then
+    ARCHIVE_DIR="${OUTPUT_DIR}/archive/${ARCHIVE_VERSION}"
+    mkdir -p "$ARCHIVE_DIR"
+    cp "$OUTFILE" "${ARCHIVE_DIR}/$(basename "$OUTFILE")"
+    echo "  Archived to: ${ARCHIVE_DIR}/$(basename "$OUTFILE")"
+fi
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 

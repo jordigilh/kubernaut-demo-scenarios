@@ -1,0 +1,35 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubernaut-alert-misdirection-rules
+  namespace: demo-alert-misdirection
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: kubernaut-alert-misdirection
+    rules:
+    - alert: KubePodCrashLooping
+      expr: |
+        increase(
+          kube_pod_container_status_restarts_total{
+            namespace="demo-alert-misdirection",
+            container="worker"
+          }[5m]
+        ) > 1
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: >
+          Container {{ $labels.container }} in pod {{ $labels.pod }} is being
+          OOMKilled repeatedly in namespace {{ $labels.namespace }}.
+        description: >
+          The worker container in namespace {{ $labels.namespace }} is being
+          terminated by the kernel OOM killer during startup initialization.
+          The container's memory working set exceeds the configured 64Mi limit
+          within seconds of starting, as the application attempts to load its
+          full dependency graph into memory. The current memory request of 32Mi
+          and limit of 64Mi are insufficient for this workload's startup
+          footprint. Repeated OOMKill events are causing the pod to enter
+          CrashLoopBackOff.

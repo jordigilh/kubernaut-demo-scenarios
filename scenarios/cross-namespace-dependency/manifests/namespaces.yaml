@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-xns-infra
+  labels:
+    kubernaut.ai/environment: staging
+    kubernaut.ai/business-unit: platform
+    kubernaut.ai/service-owner: dba-team
+    kubernaut.ai/criticality: high
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/sla-tier: tier-1
+    kubernaut.ai/component: shared-infrastructure
+    kubernaut.ai/risk-tolerance: high
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-xns-app
+  labels:
+    kubernaut.ai/environment: staging
+    kubernaut.ai/business-unit: platform
+    kubernaut.ai/service-owner: app-team
+    kubernaut.ai/criticality: high
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/sla-tier: tier-1
+    kubernaut.ai/component: microservices
+    kubernaut.ai/risk-tolerance: high

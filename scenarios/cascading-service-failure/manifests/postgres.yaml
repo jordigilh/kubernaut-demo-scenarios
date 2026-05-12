@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: demo-cascade
+  labels:
+    app: postgres
+    kubernaut.ai/managed: "true"
+data:
+  config.yaml: |
+    startup: enabled
+    database: demo
+    port: 5432
+    max_connections: 100
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: demo-cascade
+  labels:
+    app: postgres
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        command: ["sh", "-c"]
+        args:
+        - |
+          CONFIG=/etc/postgres-config/config.yaml
+          if grep -q "invalid_directive" "$CONFIG" 2>/dev/null; then
+            echo "FATAL: invalid_directive detected in $CONFIG -- aborting startup"
+            exit 1
+          fi
+          exec /usr/bin/run-postgresql
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRESQL_USER
+          value: demo
+        - name: POSTGRESQL_PASSWORD
+          value: demo
+        - name: POSTGRESQL_DATABASE
+          value: demo
+        volumeMounts:
+        - name: config
+          mountPath: /etc/postgres-config/config.yaml
+          subPath: config.yaml
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "demo"]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      volumes:
+      - name: config
+        configMap:
+          name: postgres-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: demo-cascade
+  labels:
+    app: postgres
+    kubernaut.ai/managed: "true"
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP

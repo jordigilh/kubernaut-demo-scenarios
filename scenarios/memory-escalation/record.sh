@@ -98,6 +98,10 @@ while [ "$(kubectl exec -n "${_AM_NS}" "${_AM_POD}" \
   sleep 10
   ALERT_WAIT=$((ALERT_WAIT + 10))
   echo "    Still waiting... (${ALERT_WAIT}s)"
+  if [ "$ALERT_WAIT" -ge 600 ]; then
+    echo "    TIMEOUT: Alert not fired after ${ALERT_WAIT}s"
+    exit 1
+  fi
 done
 echo "    Alert fired! Capturing alert data..."
 kubectl exec -n "${_AM_NS}" "${_AM_POD}" \
@@ -111,6 +115,10 @@ while ! kubectl get remediationrequests -n "${PLATFORM_NS}" 2>/dev/null | grep -
   sleep 5
   AA_WAIT=$((AA_WAIT + 5))
   echo "    Still waiting... (${AA_WAIT}s)"
+  if [ "$AA_WAIT" -ge 900 ]; then
+    echo "    TIMEOUT: AwaitingApproval not reached after ${AA_WAIT}s"
+    exit 1
+  fi
 done
 echo "    RR is AwaitingApproval. Approving RAR in 3s..."
 sleep 3
@@ -124,6 +132,10 @@ while ! kubectl get remediationrequests -n "${PLATFORM_NS}" 2>/dev/null | grep -
   sleep 5
   CYCLE1_WAIT=$((CYCLE1_WAIT + 5))
   echo "    Still waiting for Completed... (${CYCLE1_WAIT}s)"
+  if [ "$CYCLE1_WAIT" -ge 1200 ]; then
+    echo "    TIMEOUT: Completed not reached after ${CYCLE1_WAIT}s"
+    exit 1
+  fi
 done
 echo "    Cycle 1 complete — first RR reached Completed."
 
@@ -135,6 +147,10 @@ while [ "$(kubectl get remediationrequests -n "${PLATFORM_NS}" -o name 2>/dev/nu
   sleep 5
   CYCLE2_WAIT=$((CYCLE2_WAIT + 5))
   echo "    Still waiting for second RR... (${CYCLE2_WAIT}s)"
+  if [ "$CYCLE2_WAIT" -ge 900 ]; then
+    echo "    TIMEOUT: Second RR not created after ${CYCLE2_WAIT}s"
+    exit 1
+  fi
 done
 echo "    Second RR created — Cycle 2 started."
 
@@ -145,6 +161,10 @@ while ! kubectl get remediationrequests -n "${PLATFORM_NS}" 2>/dev/null | grep -
   sleep 5
   MRR_WAIT=$((MRR_WAIT + 5))
   echo "    Still waiting for ManualReviewRequired... (${MRR_WAIT}s)"
+  if [ "$MRR_WAIT" -ge 1200 ]; then
+    echo "    TIMEOUT: ManualReviewRequired not reached after ${MRR_WAIT}s"
+    exit 1
+  fi
 done
 echo "    Second RR reached ManualReviewRequired — escalation complete."
 

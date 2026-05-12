@@ -1,0 +1,12 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: ActionType
+metadata:
+  name: fix-build-source
+  namespace: kubernaut-system
+spec:
+  name: FixBuildSource
+  description:
+    what: "Patches an OCP BuildConfig's source URI or ref to point to a valid Git repository, then triggers a new build."
+    whenToUse: "Builds fail repeatedly because the BuildConfig references a non-existent Git repository, wrong branch, or unreachable URI."
+    whenNotToUse: "When the build fails due to image builder errors, insufficient resources, or registry push failures."
+    preconditions: "The correct Git URI and ref are known. The BuildConfig exists and the builder image is available."

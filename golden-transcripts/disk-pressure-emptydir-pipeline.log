@@ -1,0 +1,187 @@
+==> Default preflight: metrics-pipeline...
+  Preflight [metrics-pipeline]: checking kube-state-metrics...
+  Preflight [metrics-pipeline]: OK (1 series)
+==> Seeding ActionType CRDs...
+==> Seeding RemediationWorkflow CRDs (namespace: kubernaut-system)...
+    Applied 31 workflow(s), skipped 0, failed 0.
+==> Preflight: verifying dependency health...
+  Gitea: Ready (HTTP 200)
+  Argo CD: Ready
+  AWX/AAP: Ready
+  StorageClass: lvms-vg1 (expansion enabled)
+  Preflight passed.
+
+=============================================
+ DiskPressure emptyDir Migration Demo (#324)
+ emptyDir growth -> PredictedDiskPressure
+ (proactive, BR-SP-106) -> Ansible/AWX
+ -> GitOps PVC migration -> DB restore
+
+ Rate auto-tuned to node filesystem capacity
+=============================================
+
+==> Checking prerequisites...
+  AAP job template credentials verified.
+  AAP K8s credential type injectors verified.
+==> Enabling Kubernaut Agent Prometheus toolset for this scenario...
+  Prometheus toolset enabled (local SDK config + cluster ConfigMap).
+
+==> Tuning RO timing for webhook-based GitOps (gitOpsSyncDelay=30s, stabilization=3m, alertDelay=3m)...
+
+==> Step 0: Ensuring a worker node is labeled for this scenario...
+  Labeling node dev-worker-0.redhat-internal.com for disk-pressure scenario...
+node/dev-worker-0.redhat-internal.com labeled
+==> Step 0b: Setting up constrained filesystem on worker node...
+  Creating 10240MB constrained filesystem on dev-worker-0.redhat-internal.com (via oc debug)...
+Starting pod/dev-worker-0redhat-internalcom-debug-6hh5t ...
+To use host binaries, run `chroot /host`. Instead, if you need to access host namespaces, run `nsenter -a -t 1`.
+mount: /var/lib/kubelet: /tmp/nodefs-constrained.img is already mounted.
+
+Removing debug pod ...
+  Waiting for node dev-worker-0.redhat-internal.com to become Ready...
+  Node dev-worker-0.redhat-internal.com is Ready with 10240MB constrained filesystem.
+==> Step 0c: Applying NoSchedule taint to scenario node...
+node/dev-worker-0.redhat-internal.com modified
+  Tainted dev-worker-0.redhat-internal.com with scenario=disk-pressure:NoSchedule
+
+==> Step 1: Pushing deployment manifests to Gitea...
+Forwarding from 127.0.0.1:3032 -> 3000
+Forwarding from [::1]:3032 -> 3000
+Handling connection for 3032
+Handling connection for 3032
+Handling connection for 3032
+  Gitea repo already has deployment manifests.
+==> Step 1b: Ensuring gitea-repo-creds secret...
+secret/gitea-repo-creds unchanged
+  gitea-repo-creds secret ensured in kubernaut-workflows.
+==> Step 1c: Workflow migrate-postgres-emptydir-to-pvc-gitops-v1 already registered.
+==> Step 2: Applying manifests (namespace, Prometheus rule, ArgoCD Application)...
+  Verifying webhook CA bundles...
+  WARNING: authwebhook-ca ConfigMap not found or empty; skipping CA bundle check.
+  Ensuring Alertmanager RBAC...
+  Alertmanager ClusterRoleBinding already exists.
+namespace/demo-diskpressure serverside-applied
+configmap/postgres-init-sql serverside-applied
+secret/postgres-credentials serverside-applied
+service/postgres-emptydir serverside-applied
+deployment.apps/postgres-emptydir serverside-applied
+application.argoproj.io/demo-diskpressure serverside-applied
+prometheusrule.monitoring.coreos.com/demo-diskpressure-rules serverside-applied
+  Patching PrometheusRule: mountpoint=/var/lib/kubelet, instance=~dev-worker-0.redhat-internal.com, node=dev-worker-0.redhat-internal.com
+prometheusrule.monitoring.coreos.com/demo-diskpressure-rules configured
+  PrometheusRule patched.
+configmap/argocd-cm patched (no change)
+==> Step 2b: Ensuring Gitea webhook notifies ArgoCD on push...
+  ArgoCD webhook.gitea.secret already present.
+  Removed stale webhook (id=9).
+  Removed stale webhook (id=10).
+  Gitea webhook created -> https://openshift-gitops-server.openshift-gitops.svc/api/webhook
+==> Step 3: Waiting for ArgoCD sync...
+  ArgoCD synced deployment (attempt 1).
+==> Step 4: Waiting for PostgreSQL pod readiness...
+deployment "postgres-emptydir" successfully rolled out
+deployment.apps/postgres-emptydir condition met
+  PostgreSQL is running with emptyDir storage.
+NAME                                 READY   STATUS    RESTARTS      AGE
+postgres-emptydir-69679b77bb-9f9f9   1/1     Running   1 (17s ago)   21s
+
+==> Step 5: Running init SQL...
+    CREATE TABLE
+    CREATE PROCEDURE
+  simulate_data_growth() procedure is available.
+
+==> Labeling node dev-worker-0.redhat-internal.com for Kubernaut signal acceptance...
+node/dev-worker-0.redhat-internal.com labeled
+==> Target node: dev-worker-0.redhat-internal.com
+==> Injecting fault: dynamic postgres data growth to fill emptyDir...
+  Node:       dev-worker-0.redhat-internal.com
+  Disk:       9979 MB total, 9147 MB available
+  Threshold:  1496 MB (15%), usable: 7651 MB
+  Rate:       6.0 MB/s (batch=153 rows, sleep=50ms)
+  Iterations: 52206
+  Estimate:   PredictedDiskPressure at ~1.2 min, eviction at ~21 min
+
+  Starting postgres continuous data growth...
+
+  Data growth running in background. Waiting for PredictedDiskPressure...
+  Monitor: kubectl get nodes -o custom-columns='NAME:.metadata.name,DISK_PRESSURE:.status.conditions[?(@.type=="DiskPressure")].status'
+
+==> Pipeline in progress...
+
+  Expected flow (proactive, BR-SP-106):
+    1. PredictedDiskPressure alert fires (predict_linear, before kubelet eviction)
+    2. SP classifies as proactive, normalizes signal to DiskPressure
+    3. KA uses proactive prompt (predict & prevent, not RCA)
+    4. AI detects emptyDir antipattern + ArgoCD management
+    5. AI selects MigrateEmptyDirToPVC workflow
+    6. RAR created -- human approval required
+    7. AWX dispatches Ansible playbook (engine=ansible)
+    8. Playbook: cordon -> pg_dump -> git commit (PVC + remove nodeSelector) -> ArgoCD sync -> pg_restore -> uncordon
+    9. EA verifies DiskPressure never materialized + DB accessible
+
+
+==> Running validation pipeline...
+[22:22:48] Waiting for PredictedDiskPressure alert (timeout: 600s)...
+[22:24:08] Alert PredictedDiskPressure fired in AlertManager
+           Alert: PredictedDiskPressure | Severity: high | Namespace: demo-diskpressure
+           Summary: Node dev-worker-0.redhat-internal.com predicted to exhaust disk within
+                    30 minutes
+[22:24:11] Waiting for RemediationRequest (target: demo-diskpressure)...
+[22:24:14] RemediationRequest rr-a46194c375c3-e7161c3e created -> Phase: Analyzing
+[22:24:14] Polling pipeline (timeout: 1800s, approval: --auto-approve)...
+[22:24:16] AI Analysis in progress...
+[22:28:57] Phase: Analyzing -> Executing
+
+           AI Analysis
+           ──────────────────────────────────────────
+           Root Cause:    PostgreSQL Deployment uses an emptyDir volume with sizeLimit:8Gi on node dev-worker-0 which has only ~7.9 GiB allocatable ephemeral storage. As PostgreSQL writes WAL segments, data pages, and log files, the kubelet will trigger pod eviction before the declared sizeLimit is reached, causing an imminent DiskPressure condition. The node's /var filesystem (XFS, /dev/vda4) already shows a ~1.7 GiB drop in 30 minutes around deployment time. The fix requires migrating from emptyDir to a PersistentVolumeClaim (LVMS/TopoLVM available), and since ArgoCD manages this Deployment, the change must be applied via GitOps.
+           Severity:      high
+           Target:        Deployment/postgres-emptydir (ns: demo-diskpressure)
+           Workflow:      fdd276ac-14d9-5d45-b533-f0b6a3330e25 (https://github.com/jordigilh/kubernaut-test-playbooks.git)
+           Confidence:    0.92
+           Rationale:     This workflow is purpose-built for exactly this scenario: DiskPressure...
+           Approval:      not required
+
+[22:29:07] WorkflowExecution running...
+           WFE Phase: Running
+           WFE Phase: Running
+           WFE Phase: Running
+           WFE Phase: Running
+           WFE Phase: Running
+           WFE Phase: Running
+           WFE Phase: Running
+command terminated with exit code 137
+           WFE Phase: Running
+           WFE Phase: Running
+[22:31:25] Phase: Executing -> Verifying
+[22:31:25] EffectivenessAssessment verification in progress...
+[22:44:34] Phase: Verifying -> Completed
+[22:44:35] Pipeline completed (outcome: Remediated)
+[22:44:37] Waiting for EffectivenessAssessment to complete...
+
+           Effectiveness Assessment
+           ──────────────────────────────────────────
+           Phase:         Completed
+           Reason:        Full
+           Message:       Assessment completed: Full
+           Alert Score:   1
+           Health Score:  0.75
+           Metrics Score: 0
+
+[22:44:47] Running assertions...
+           [PASS] RR phase = Completed
+           [PASS] RR outcome = Remediated
+           [PASS] AA selected a workflow = fdd276ac-14d9-5d45-b533-f0b6a3330e25 (not )
+           [FAIL] AA selected correct workflow does not contain "migrate-emptydir-to-pvc"
+           [PASS] No nodes with DiskPressure = 0
+           [PASS] PVC postgres-data exists = 1 (> 0)
+           [PASS] At least 1 healthy Running postgres pod = 1 (> 0)
+           [PASS] Database has rows after migration (data survived) = 1097622 (> 0)
+
+           Scenario Assertions
+           ──────────────────────────────────────────
+
+           ============================================
+            RESULT: FAIL (7/8 passed, 1 failed)
+           ============================================
+

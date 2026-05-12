@@ -1,0 +1,227 @@
+{
+  "schema_version": 1,
+  "_metadata": {
+    "captured_at": "2026-05-09T14:44:31Z",
+    "ka_image": "unknown",
+    "model": "claude-sonnet-4-6",
+    "cluster": "default/api-dev-redhat-internal-com:6443/kube:admin",
+    "chart_version": "",
+    "platform": "ocp"
+  },
+  "scenario": "pdb-deadlock",
+  "signalName": "KubePodDisruptionBudgetAtLimit",
+  "remediationRequest": {
+    "name": "rr-5983825e6301-ea6ae90b",
+    "phase": "Completed",
+    "outcome": "Remediated"
+  },
+  "analysis": {
+    "remediationId": "rr-5983825e6301-ea6ae90b",
+    "signal": {
+      "signalName": "KubePodDisruptionBudgetAtLimit",
+      "severity": "medium",
+      "environment": "Production",
+      "targetResource": {
+        "kind": "PodDisruptionBudget",
+        "name": "payment-service-pdb",
+        "namespace": "demo-pdb"
+      },
+      "businessPriority": "P3"
+    },
+    "investigation": {
+      "sessionId": "8677f940-8aa5-4e8a-bf38-b5f28d0cffea",
+      "duration_ms": 135970,
+      "pollCount": 9,
+      "toolCalls": [
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_describe",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_get_by_kind_in_namespace",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_describe",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_get_by_kind_in_namespace",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_get_by_kind_in_namespace",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "get_namespaced_resource_context",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_top_nodes",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "get_namespaced_resource_context",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "list_available_actions",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "list_workflows",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "get_workflow",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        }
+      ]
+    },
+    "rootCauseAnalysis": {
+      "contributingFactors": [
+        "Deployment payment-service configured with only 2 replicas \u2014 exactly matching the PDB's minAvailable threshold",
+        "PDB condition DisruptionAllowed=False with reason InsufficientPods \u2014 zero disruptions permitted",
+        "Rolling updates (maxUnavailable: 25%) cannot proceed safely since the PDB blocks any pod removal",
+        "Node drains on dev-worker-0 or dev-worker-2 would be blocked by this PDB",
+        "Both pods running on separate nodes (dev-worker-0, dev-worker-2) \u2014 no redundancy headroom"
+      ],
+      "remediationTarget": {
+        "kind": "PodDisruptionBudget",
+        "name": "payment-service-pdb",
+        "namespace": "demo-pdb"
+      },
+      "severity": "medium",
+      "signalType": "KubePodDisruptionBudgetAtLimit",
+      "summary": "PodDisruptionBudget payment-service-pdb has minAvailable: 2 equal to the Deployment's replica count of 2, resulting in disruptionsAllowed: 0 and blocking all voluntary disruptions. Both pods are healthy \u2014 the issue is a pure configuration mismatch between the PDB threshold and replica count."
+    },
+    "selectedWorkflow": {
+      "confidence": 0.95,
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:ae3ed55181d40cfdbd2702c7c3a15e98cf2fd9c0cd900d3d5c0a3bdc209395b2",
+      "executionBundleDigest": "ae3ed55181d40cfdbd2702c7c3a15e98cf2fd9c0cd900d3d5c0a3bdc209395b2",
+      "executionEngine": "job",
+      "parameters": {
+        "TARGET_RESOURCE_API_VERSION": "policy/v1",
+        "TARGET_RESOURCE_KIND": "PodDisruptionBudget",
+        "TARGET_RESOURCE_NAME": "payment-service-pdb",
+        "TARGET_RESOURCE_NAMESPACE": "demo-pdb"
+      },
+      "rationale": "relax-pdb-v1 is purpose-built for exactly this scenario: a PDB with minAvailable equal to the replica count leaving disruptionsAllowed=0 and blocking voluntary disruptions. All preconditions are met \u2014 both pods are healthy with 0 restarts and the blockage is purely due to an overly conservative minAvailable setting. The workflow will temporarily reduce minAvailable to restore disruption headroom.",
+      "version": "1.3.5",
+      "workflowId": "3e9cb054-9365-555e-8bba-d0326f5735ec"
+    },
+    "approvalRequired": false,
+    "postRCAContext": {
+      "detectedLabels": {
+        "gitOpsManaged": false,
+        "helmManaged": false,
+        "hpaEnabled": false,
+        "networkIsolated": false,
+        "pdbProtected": false,
+        "resourceQuotaConstrained": false,
+        "stateful": false
+      },
+      "setAt": "2026-05-09T14:34:09Z"
+    }
+  },
+  "workflowExecution": {
+    "name": "we-rr-5983825e6301-ea6ae90b",
+    "phase": "Completed",
+    "result": "",
+    "parameters": {
+      "TARGET_RESOURCE_API_VERSION": "policy/v1",
+      "TARGET_RESOURCE_KIND": "PodDisruptionBudget",
+      "TARGET_RESOURCE_NAME": "payment-service-pdb",
+      "TARGET_RESOURCE_NAMESPACE": "demo-pdb"
+    },
+    "duration_ms": "20s"
+  },
+  "effectivenessAssessment": {
+    "name": "ea-rr-5983825e6301-ea6ae90b",
+    "phase": "Completed",
+    "verdict": "Full",
+    "components": {
+      "alertAssessed": true,
+      "alertScore": 1,
+      "currentSpecHash": "sha256:35ccbd5dc0845ef1b0e9f6926ee65f36108d012c2d464abe9cd1c16eb935b7be",
+      "hashComputed": true,
+      "healthAssessed": true,
+      "metricsAssessed": true,
+      "metricsScore": 0,
+      "postRemediationSpecHash": "sha256:35ccbd5dc0845ef1b0e9f6926ee65f36108d012c2d464abe9cd1c16eb935b7be"
+    }
+  },
+  "deduplication": {
+    "firstSeenAt": "2026-05-09T14:31:54Z",
+    "lastSeenAt": "2026-05-09T14:35:24Z",
+    "occurrenceCount": 6
+  },
+  "timeline": {
+    "signalReceived": "2026-05-09T14:31:53Z",
+    "analysisStarted": "2026-05-09T14:31:54Z",
+    "analysisCompleted": "2026-05-09T14:34:10Z",
+    "executionStarted": "2026-05-09T14:34:10Z",
+    "executionCompleted": "",
+    "verificationCompleted": "2026-05-09T14:39:30Z",
+    "overallCompleted": "2026-05-09T14:39:30Z"
+  },
+  "validationResult": {
+    "pass": true,
+    "assertions": 10,
+    "passed": 10,
+    "details": [
+      "RR phase = Completed",
+      "RR outcome = Remediated",
+      "SP phase = Completed",
+      "AA phase = Completed",
+      "AA selected a workflow",
+      "AA selected correct workflow contains relax-pdb-job",
+      "AA confidence present = 0.95",
+      "WFE phase = Completed",
+      "PDB allows disruptions after relaxation = 1 (> 0)",
+      "At least 1 healthy Running pod = 2 (> 0)"
+    ]
+  }
+}

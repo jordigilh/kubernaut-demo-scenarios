@@ -23,7 +23,8 @@ spec:
           HPA {{ $labels.horizontalpodautoscaler }} in namespace {{ $labels.namespace }}
           has reached its maxReplicas ceiling and cannot scale further.
         description: >
-          The api-frontend HPA is at its maximum replica count (3) but the deployment
-          is still under high CPU pressure. The autoscaler cannot add more pods to
-          handle the load. Consider temporarily increasing maxReplicas to allow the
-          HPA to absorb the traffic spike.
+          HPA {{ $labels.horizontalpodautoscaler }} in namespace {{ $labels.namespace }}
+          has scaled to its maximum replica count and cannot add more pods.
+          The deployment remains under resource pressure with the autoscaler
+          at its ceiling. Service degradation may occur if the load continues
+          to exceed the capacity of the current replica count.

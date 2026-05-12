@@ -12,12 +12,22 @@ echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 restore_production_approval || true
 
-kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule kubernaut-quota-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+fi
 kubectl delete namespace demo-quota --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
+_elapsed=0
 while kubectl get ns demo-quota &>/dev/null; do
   sleep 2
+  _elapsed=$((_elapsed + 2))
+  if [ "$_elapsed" -ge 120 ]; then
+    echo "  WARNING: Namespace demo-quota still terminating after 120s, proceeding..."
+    break
+  fi
 done
 
 # Restart AlertManager so stale alert groups (repeat_interval=1h) don't

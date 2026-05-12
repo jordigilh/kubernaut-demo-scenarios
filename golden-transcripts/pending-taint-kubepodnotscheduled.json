@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "_metadata": {
+    "captured_at": "2026-05-09T15:06:49Z",
+    "ka_image": "unknown",
+    "model": "claude-sonnet-4-6",
+    "cluster": "default/api-dev-redhat-internal-com:6443/kube:admin",
+    "chart_version": "",
+    "platform": "ocp"
+  },
+  "scenario": "pending-taint",
+  "signalName": "KubePodNotScheduled",
+  "remediationRequest": {
+    "name": "rr-b731ec2bbe20-849f096c",
+    "phase": "Completed",
+    "outcome": "Remediated"
+  },
+  "analysis": {
+    "remediationId": "rr-b731ec2bbe20-849f096c",
+    "signal": {
+      "signalName": "KubePodNotScheduled",
+      "severity": "medium",
+      "environment": "Staging",
+      "targetResource": {
+        "kind": "Deployment",
+        "name": "batch-processor",
+        "namespace": "demo-taint"
+      },
+      "businessPriority": "P2"
+    },
+    "investigation": {
+      "sessionId": "12b49970-e85b-420b-a2d0-4b9d0a99e86f",
+      "duration_ms": 166446,
+      "pollCount": 11,
+      "toolCalls": [
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_describe",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_get_by_kind_in_cluster",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_get_by_kind_in_namespace",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_events",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "get_namespaced_resource_context",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_events",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "list_available_actions",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "list_workflows",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "get_workflow",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        }
+      ]
+    },
+    "rootCauseAnalysis": {
+      "contributingFactors": [
+        "nodeSelector kubernaut.ai/demo-taint-target=true restricts scheduling to a single node (dev-worker-0), eliminating all other nodes",
+        "Taint maintenance=scheduled:NoSchedule was applied to dev-worker-0 at 2026-05-09T14:48:24Z, just 3 seconds before the pods were created",
+        "The Deployment pod spec has no toleration for maintenance=scheduled, only for system taints (not-ready, unreachable, memory-pressure)",
+        "Preemption cannot help \u2014 no lower-priority pods exist to evict on any eligible node",
+        "Both replicas (batch-processor-64c79f4bdd-9ngg8 and batch-processor-64c79f4bdd-f4n9c) are stuck Pending since creation"
+      ],
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "batch-processor",
+        "namespace": "demo-taint"
+      },
+      "severity": "medium",
+      "signalType": "KubePodNotScheduled",
+      "summary": "Both batch-processor pods are unschedulable because the only node matching their nodeSelector (kubernaut.ai/demo-taint-target=true) \u2014 dev-worker-0 \u2014 has an active maintenance=scheduled:NoSchedule taint that the pod spec does not tolerate. The pod spec only tolerates system taints (not-ready, unreachable, memory-pressure) and has no toleration for the maintenance taint. The other two worker nodes (dev-worker-1, dev-worker-2) are healthy but excluded by the nodeSelector, leaving both replicas stuck Pending since creation."
+    },
+    "selectedWorkflow": {
+      "confidence": 0.82,
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/remove-taint-job@sha256:1211e1c357c3172505b26ed3fbf327968a869ba94948cadf81befd99cec5cf49",
+      "executionBundleDigest": "1211e1c357c3172505b26ed3fbf327968a869ba94948cadf81befd99cec5cf49",
+      "executionEngine": "job",
+      "parameters": {
+        "NODE_NAME": "dev-worker-0",
+        "TAINT_KEY": "maintenance",
+        "TARGET_RESOURCE_API_VERSION": "apps/v1",
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "batch-processor",
+        "TARGET_RESOURCE_NAMESPACE": "demo-taint"
+      },
+      "rationale": "remove-taint-v1 directly addresses the root cause: dev-worker-0 has a maintenance=scheduled:NoSchedule taint that is blocking both batch-processor pods from scheduling. The workflow removes the specified taint key from the node, immediately unblocking the scheduler. The workflow's labels match this incident (severity: medium, environment: staging). The slight confidence reduction from 1.0 accounts for the whenNotToUse caveat \u2014 the taint was applied intentionally for maintenance \u2014 however, the RCA indicates no active maintenance justification and the taint was applied 3 seconds before pod creation, suggesting it may have been applied in error or the maintenance window has ended.",
+      "version": "1.3.6",
+      "workflowId": "f3eb1cd0-cb43-5de5-94a7-128f28ab93d0"
+    },
+    "approvalRequired": false,
+    "postRCAContext": {
+      "detectedLabels": {
+        "gitOpsManaged": false,
+        "helmManaged": false,
+        "hpaEnabled": false,
+        "networkIsolated": false,
+        "pdbProtected": false,
+        "resourceQuotaConstrained": false,
+        "stateful": false
+      },
+      "setAt": "2026-05-09T14:58:34Z"
+    }
+  },
+  "workflowExecution": {
+    "name": "we-rr-b731ec2bbe20-849f096c",
+    "phase": "Completed",
+    "result": "",
+    "parameters": {
+      "NODE_NAME": "dev-worker-0",
+      "TAINT_KEY": "maintenance",
+      "TARGET_RESOURCE_API_VERSION": "apps/v1",
+      "TARGET_RESOURCE_KIND": "Deployment",
+      "TARGET_RESOURCE_NAME": "batch-processor",
+      "TARGET_RESOURCE_NAMESPACE": "demo-taint"
+    },
+    "duration_ms": "41s"
+  },
+  "effectivenessAssessment": {
+    "name": "ea-rr-b731ec2bbe20-849f096c",
+    "phase": "Completed",
+    "verdict": "Full",
+    "components": {
+      "alertAssessed": true,
+      "alertScore": 1,
+      "currentSpecHash": "sha256:7e9589ec37f63a6bc1c30e692fe50a2628bbd3119b0804abb8e187e61ac7ba9e",
+      "hashComputed": true,
+      "healthAssessed": true,
+      "healthScore": 1,
+      "metricsAssessed": true,
+      "metricsScore": 0.006729475100942127,
+      "postRemediationSpecHash": "sha256:7e9589ec37f63a6bc1c30e692fe50a2628bbd3119b0804abb8e187e61ac7ba9e"
+    }
+  },
+  "deduplication": {
+    "firstSeenAt": "2026-05-09T14:55:48Z",
+    "lastSeenAt": "2026-05-09T14:59:18Z",
+    "occurrenceCount": 12
+  },
+  "timeline": {
+    "signalReceived": "2026-05-09T14:55:47Z",
+    "analysisStarted": "2026-05-09T14:55:48Z",
+    "analysisCompleted": "2026-05-09T14:58:34Z",
+    "executionStarted": "2026-05-09T14:58:34Z",
+    "executionCompleted": "",
+    "verificationCompleted": "2026-05-09T15:04:14Z",
+    "overallCompleted": "2026-05-09T15:04:14Z"
+  },
+  "validationResult": {
+    "pass": true,
+    "assertions": 11,
+    "passed": 11,
+    "details": [
+      "RR phase = Completed",
+      "RR outcome = Remediated",
+      "SP phase = Completed",
+      "AA phase = Completed",
+      "AA selected a workflow",
+      "AA selected correct workflow contains remove-taint-job",
+      "AA confidence present = 0.82",
+      "WFE phase = Completed",
+      "Taint maintenance removed from target node",
+      "No Pending pods in demo-taint",
+      "At least 1 Running pod in demo-taint"
+    ]
+  }
+}

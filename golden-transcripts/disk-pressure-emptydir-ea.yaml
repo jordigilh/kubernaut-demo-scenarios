@@ -1,0 +1,77 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: EffectivenessAssessment
+metadata:
+  creationTimestamp: "2026-05-10T02:31:23Z"
+  generation: 1
+  name: ea-rr-a46194c375c3-e7161c3e
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: false
+    controller: true
+    kind: RemediationRequest
+    name: rr-a46194c375c3-e7161c3e
+    uid: 2e22e608-3946-4cb7-a781-b5780e0298b8
+  resourceVersion: "69577207"
+  uid: a1889964-c6f1-475f-8832-6d6bc928308b
+spec:
+  config:
+    alertCheckDelay: 5m0s
+    hashComputeDelay: 3m0s
+    stabilizationWindow: 5m0s
+  correlationID: rr-a46194c375c3-e7161c3e
+  preRemediationSpecHash: sha256:bdb12bbbc3ffb0078d6122b4531a30218da8bc1b066f2f5707a3307e9506465c
+  remediationCreatedAt: "2026-05-10T02:24:02Z"
+  remediationRequestPhase: Verifying
+  remediationTarget:
+    kind: Deployment
+    name: postgres-emptydir
+    namespace: demo-diskpressure
+  signalName: PredictedDiskPressure
+  signalTarget:
+    kind: Unknown
+    name: unknown
+    namespace: demo-diskpressure
+status:
+  alertManagerCheckAfter: "2026-05-10T02:44:23Z"
+  assessmentReason: Full
+  completedAt: "2026-05-10T02:44:23Z"
+  components:
+    alertAssessed: true
+    alertScore: 1
+    currentSpecHash: sha256:c2f70f07d23f4dbfdddfed8874b67317b482b53ae0488ab7eae0fdd5acff9974
+    hashComputed: true
+    healthAssessed: true
+    healthScore: 0.75
+    metricsAssessed: true
+    metricsScore: 0
+    postRemediationSpecHash: sha256:c2f70f07d23f4dbfdddfed8874b67317b482b53ae0488ab7eae0fdd5acff9974
+  conditions:
+  - lastTransitionTime: "2026-05-10T02:39:23Z"
+    message: Post-remediation spec hash captured
+    observedGeneration: 1
+    reason: PostHashCaptured
+    status: "True"
+    type: PostHashCaptured
+  - lastTransitionTime: "2026-05-10T02:39:23Z"
+    message: Target resource spec unchanged since post-remediation hash
+    observedGeneration: 1
+    reason: SpecUnchanged
+    status: "True"
+    type: SpecIntegrity
+  - lastTransitionTime: "2026-05-10T02:44:23Z"
+    message: Assessment completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-05-10T02:44:23Z"
+    message: 'Assessment completed: Full'
+    observedGeneration: 1
+    reason: AssessmentFull
+    status: "True"
+    type: AssessmentComplete
+  message: 'Assessment completed: Full'
+  phase: Completed
+  prometheusCheckAfter: "2026-05-10T02:39:23Z"
+  validityDeadline: "2026-05-10T02:49:23Z"

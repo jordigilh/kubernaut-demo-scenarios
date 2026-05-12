@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-service
+  namespace: demo-pvc-forecast
+  labels:
+    app: data-service
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-service
+  template:
+    metadata:
+      labels:
+        app: data-service
+    spec:
+      containers:
+      - name: postgres
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRESQL_USER
+          value: demo
+        - name: POSTGRESQL_PASSWORD
+          value: demo
+        - name: POSTGRESQL_DATABASE
+          value: demo
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/pgsql/data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "demo"]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+      - name: data-writer
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        command: ["sh", "-c"]
+        args:
+        - |
+          sleep 30
+          until pg_isready -h localhost -U demo -d demo; do sleep 2; done
+          PGPASSWORD=demo psql -h localhost -U demo -d demo <<'EOSQL'
+            CREATE TABLE IF NOT EXISTS audit_log (
+              id SERIAL PRIMARY KEY,
+              event_time TIMESTAMP DEFAULT now(),
+              payload TEXT
+            );
+            ALTER TABLE audit_log ALTER COLUMN payload SET STORAGE EXTERNAL;
+          EOSQL
+          i=0
+          while true; do
+            PGPASSWORD=demo psql -h localhost -U demo -d demo -c "
+              INSERT INTO audit_log (payload)
+              SELECT string_agg(md5(random()::text), '')
+              FROM generate_series(1, 500) s,
+                   generate_series(1, 128) r
+              GROUP BY s;"
+            i=$((i + 1))
+            echo "[data-writer] Batch $i: inserted 500 audit rows"
+            sleep 30
+          done
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "5m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: data-service-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-service
+  namespace: demo-pvc-forecast
+  labels:
+    app: data-service
+    kubernaut.ai/managed: "true"
+spec:
+  selector:
+    app: data-service
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP

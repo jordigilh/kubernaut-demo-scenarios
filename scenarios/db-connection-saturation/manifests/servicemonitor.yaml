@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres-exporter
+  namespace: demo-db-saturation
+  labels:
+    app: postgres
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: postgres
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics

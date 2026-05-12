@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: demo-severity-misdirection
+  labels:
+    app: api-gateway
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: app
+        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        command: ["sh", "-c"]
+        args:
+        - |
+          echo "[api-gateway] Starting -- depends on postgres:5432"
+          while true; do
+            if PGPASSWORD=demo psql -h postgres -U demo -d demo -t -c "SELECT 1" >/dev/null 2>&1; then
+              echo "[api-gateway] Health check OK -- postgres connection successful"
+              sleep 10
+            else
+              echo "[api-gateway] FATAL: Cannot connect to postgres:5432 -- exiting"
+              exit 1
+            fi
+          done
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "5m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"

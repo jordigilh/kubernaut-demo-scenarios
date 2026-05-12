@@ -1,0 +1,189 @@
+{
+    "apiVersion": "kubernaut.ai/v1alpha1",
+    "kind": "SignalProcessing",
+    "metadata": {
+        "creationTimestamp": "2026-04-27T03:46:11Z",
+        "generation": 1,
+        "name": "sp-rr-6f5490d9b422-651aa044",
+        "namespace": "kubernaut-system",
+        "ownerReferences": [
+            {
+                "apiVersion": "kubernaut.ai/v1alpha1",
+                "blockOwnerDeletion": true,
+                "controller": true,
+                "kind": "RemediationRequest",
+                "name": "rr-6f5490d9b422-651aa044",
+                "uid": "8d3af32c-2c97-4d5e-a413-b8b3ea4b744d"
+            }
+        ],
+        "resourceVersion": "52518846",
+        "uid": "f830faac-182c-4fac-80de-7600a1be26d1"
+    },
+    "spec": {
+        "enrichmentConfig": {},
+        "remediationRequestRef": {
+            "apiVersion": "kubernaut.ai/v1alpha1",
+            "kind": "RemediationRequest",
+            "name": "rr-6f5490d9b422-651aa044",
+            "namespace": "kubernaut-system",
+            "uid": "8d3af32c-2c97-4d5e-a413-b8b3ea4b744d"
+        },
+        "signal": {
+            "annotations": {
+                "description": "Linear regression on node dev-worker-0.redhat-internal.com filesystem usage over the last minute predicts available space will reach zero within 30 minutes. This is likely caused by emptyDir growth from the postgres-emptydir deployment in demo-diskpressure namespace. Proactive remediation can migrate the database to persistent storage before data loss occurs.",
+                "summary": "Node dev-worker-0.redhat-internal.com predicted to exhaust disk within 30 minutes"
+            },
+            "fingerprint": "6f5490d9b422dffc885d012c7bb7ec2c619050388ac3524f53c9a86933cd6b7f",
+            "firingTime": "2026-04-27T03:46:05Z",
+            "labels": {
+                "alertname": "PredictedDiskPressure",
+                "component": "deployment",
+                "container": "kube-rbac-proxy",
+                "device": "/dev/loop1",
+                "endpoint": "https",
+                "environment": "production",
+                "fstype": "ext4",
+                "instance": "dev-worker-0.redhat-internal.com",
+                "job": "node-exporter",
+                "mountpoint": "/var/lib/kubelet",
+                "namespace": "demo-diskpressure",
+                "node": "dev-worker-0.redhat-internal.com",
+                "openshift_io_alert_source": "platform",
+                "pod": "node-exporter-kh8lm",
+                "prometheus": "openshift-monitoring/k8s",
+                "service": "node-exporter",
+                "severity": "high"
+            },
+            "name": "PredictedDiskPressure",
+            "providerData": "{\"labels\":{\"alertname\":\"PredictedDiskPressure\",\"component\":\"deployment\",\"container\":\"kube-rbac-proxy\",\"device\":\"/dev/loop1\",\"endpoint\":\"https\",\"environment\":\"production\",\"fstype\":\"ext4\",\"instance\":\"dev-worker-0.redhat-internal.com\",\"job\":\"node-exporter\",\"mountpoint\":\"/var/lib/kubelet\",\"namespace\":\"demo-diskpressure\",\"node\":\"dev-worker-0.redhat-internal.com\",\"openshift_io_alert_source\":\"platform\",\"pod\":\"node-exporter-kh8lm\",\"prometheus\":\"openshift-monitoring/k8s\",\"service\":\"node-exporter\",\"severity\":\"high\"},\"namespace\":\"demo-diskpressure\"}",
+            "receivedTime": "2026-04-27T03:46:10Z",
+            "severity": "high",
+            "source": "prometheus",
+            "targetResource": {
+                "kind": "Node",
+                "name": "dev-worker-0.redhat-internal.com",
+                "namespace": "demo-diskpressure"
+            },
+            "targetType": "kubernetes",
+            "type": "alert"
+        }
+    },
+    "status": {
+        "businessClassification": {
+            "criticality": "Medium",
+            "slaRequirement": "Bronze"
+        },
+        "completionTime": "2026-04-27T03:46:11Z",
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-04-27T03:46:11Z",
+                "message": "K8s context enriched: Node demo-diskpressure/dev-worker-0.redhat-internal.com",
+                "observedGeneration": 1,
+                "reason": "EnrichmentSucceeded",
+                "status": "True",
+                "type": "EnrichmentComplete"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:46:11Z",
+                "message": "Classified: environment=Unknown (source=default), priority=P3 (source=rego-policy), severity=high (source=rego-policy), signalMode=proactive (normalized: PredictedDiskPressure → DiskPressure)",
+                "observedGeneration": 1,
+                "reason": "ClassificationSucceeded",
+                "status": "True",
+                "type": "ClassificationComplete"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:46:11Z",
+                "message": "Categorized: businessUnit=, criticality=Medium, sla=Bronze",
+                "observedGeneration": 1,
+                "reason": "CategorizationSucceeded",
+                "status": "True",
+                "type": "CategorizationComplete"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:46:11Z",
+                "message": "Signal processed successfully in 0.52s: P3 Unknown alert ready for remediation",
+                "observedGeneration": 1,
+                "reason": "ProcessingSucceeded",
+                "status": "True",
+                "type": "ProcessingComplete"
+            },
+            {
+                "lastTransitionTime": "2026-04-27T03:46:11Z",
+                "message": "Signal processing completed",
+                "observedGeneration": 1,
+                "reason": "Ready",
+                "status": "True",
+                "type": "Ready"
+            }
+        ],
+        "environmentClassification": {
+            "classifiedAt": "2026-04-27T03:46:11Z",
+            "environment": "Unknown",
+            "source": "default"
+        },
+        "kubernetesContext": {
+            "workload": {
+                "annotations": {
+                    "capacity.topolvm.io/00default": "635680325632",
+                    "capacity.topolvm.io/vg1": "635680325632",
+                    "csi.volume.kubernetes.io/nodeid": "{\"topolvm.io\":\"dev-worker-0.redhat-internal.com\"}",
+                    "k8s.ovn.org/host-cidrs": "[\"192.168.122.158/24\"]",
+                    "k8s.ovn.org/l3-gateway-config": "{\"default\":{\"mode\":\"shared\",\"bridge-id\":\"br-ex\",\"interface-id\":\"br-ex_dev-worker-0.redhat-internal.com\",\"mac-address\":\"52:54:00:dc:54:39\",\"ip-addresses\":[\"192.168.122.158/24\"],\"ip-address\":\"192.168.122.158/24\",\"next-hops\":[\"192.168.122.1\"],\"next-hop\":\"192.168.122.1\",\"node-port-enable\":\"true\",\"vlan-id\":\"0\"}}",
+                    "k8s.ovn.org/layer2-topology-version": "2.0",
+                    "k8s.ovn.org/node-chassis-id": "42c1ae2b-2420-4671-8ce4-d9f2bbe25b66",
+                    "k8s.ovn.org/node-encap-ips": "[\"192.168.122.158\"]",
+                    "k8s.ovn.org/node-id": "14",
+                    "k8s.ovn.org/node-masquerade-subnet": "{\"ipv4\":\"169.254.0.0/17\",\"ipv6\":\"fd69::/112\"}",
+                    "k8s.ovn.org/node-primary-ifaddr": "{\"ipv4\":\"192.168.122.158/24\"}",
+                    "k8s.ovn.org/node-subnets": "{\"default\":[\"10.132.6.0/23\"]}",
+                    "k8s.ovn.org/node-transit-switch-port-ifaddr": "{\"ipv4\":\"100.88.0.14/16\"}",
+                    "k8s.ovn.org/zone-name": "dev-worker-0.redhat-internal.com",
+                    "machineconfiguration.openshift.io/controlPlaneTopology": "SingleReplica",
+                    "machineconfiguration.openshift.io/currentConfig": "rendered-worker-e51fd4fd04671fe95d272b086f35556d",
+                    "machineconfiguration.openshift.io/desiredConfig": "rendered-worker-e51fd4fd04671fe95d272b086f35556d",
+                    "machineconfiguration.openshift.io/desiredDrain": "uncordon-rendered-worker-e51fd4fd04671fe95d272b086f35556d",
+                    "machineconfiguration.openshift.io/lastAppliedDrain": "uncordon-rendered-worker-e51fd4fd04671fe95d272b086f35556d",
+                    "machineconfiguration.openshift.io/lastObservedServerCAAnnotation": "false",
+                    "machineconfiguration.openshift.io/lastSyncedControllerConfigResourceVersion": "52516740",
+                    "machineconfiguration.openshift.io/reason": "",
+                    "machineconfiguration.openshift.io/state": "Done",
+                    "volumes.kubernetes.io/controller-managed-attach-detach": "true"
+                },
+                "kind": "Node",
+                "labels": {
+                    "beta.kubernetes.io/arch": "amd64",
+                    "beta.kubernetes.io/os": "linux",
+                    "kubernaut.ai/business-unit": "infrastructure",
+                    "kubernaut.ai/criticality": "high",
+                    "kubernaut.ai/demo-taint-target": "true",
+                    "kubernaut.ai/environment": "production",
+                    "kubernaut.ai/managed": "true",
+                    "kubernaut.ai/service-owner": "platform-team",
+                    "kubernaut.ai/sla-tier": "tier-1",
+                    "kubernetes.io/arch": "amd64",
+                    "kubernetes.io/hostname": "dev-worker-0.redhat-internal.com",
+                    "kubernetes.io/os": "linux",
+                    "node-role.kubernetes.io/worker": "",
+                    "node.openshift.io/os_id": "rhel",
+                    "scenario": "disk-pressure",
+                    "topology.topolvm.io/node": "dev-worker-0.redhat-internal.com"
+                },
+                "name": "dev-worker-0.redhat-internal.com"
+            }
+        },
+        "observedGeneration": 1,
+        "phase": "Completed",
+        "policyHash": "612f76f9e2d85760e6f8fa8906bf361ecda0aaad81b4e670eb54df33b0c9d287",
+        "priorityAssignment": {
+            "assignedAt": "2026-04-27T03:46:11Z",
+            "policyName": "default",
+            "priority": "P3",
+            "source": "rego-policy"
+        },
+        "severity": "high",
+        "signalMode": "proactive",
+        "signalName": "DiskPressure",
+        "sourceSignalName": "PredictedDiskPressure",
+        "startTime": "2026-04-27T03:46:11Z"
+    }
+}

@@ -1,19 +1,19 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: migrate-emptydir-to-pvc-gitops-v1-runner
+  name: migrate-postgres-emptydir-to-pvc-gitops-v1-runner
   namespace: kubernaut-workflows
   labels:
     kubernaut.ai/workflow-runner: "true"
-    kubernaut.ai/workflow: migrate-emptydir-to-pvc-gitops-v1
+    kubernaut.ai/workflow: migrate-postgres-emptydir-to-pvc-gitops-v1
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: migrate-emptydir-to-pvc-gitops-v1-runner
+  name: migrate-postgres-emptydir-to-pvc-gitops-v1-runner
   labels:
     kubernaut.ai/workflow-runner: "true"
-    kubernaut.ai/workflow: migrate-emptydir-to-pvc-gitops-v1
+    kubernaut.ai/workflow: migrate-postgres-emptydir-to-pvc-gitops-v1
 rules:
   - apiGroups: [""]
     resources: ["nodes"]
@@ -49,26 +49,26 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: migrate-emptydir-to-pvc-gitops-v1-runner
+  name: migrate-postgres-emptydir-to-pvc-gitops-v1-runner
   labels:
     kubernaut.ai/workflow-runner: "true"
-    kubernaut.ai/workflow: migrate-emptydir-to-pvc-gitops-v1
+    kubernaut.ai/workflow: migrate-postgres-emptydir-to-pvc-gitops-v1
 subjects:
   - kind: ServiceAccount
-    name: migrate-emptydir-to-pvc-gitops-v1-runner
+    name: migrate-postgres-emptydir-to-pvc-gitops-v1-runner
     namespace: kubernaut-workflows
 roleRef:
   kind: ClusterRole
-  name: migrate-emptydir-to-pvc-gitops-v1-runner
+  name: migrate-postgres-emptydir-to-pvc-gitops-v1-runner
   apiGroup: rbac.authorization.k8s.io
 ---
 apiVersion: kubernaut.ai/v1alpha1
 kind: RemediationWorkflow
 metadata:
-  name: migrate-emptydir-to-pvc-gitops-v1
+  name: migrate-postgres-emptydir-to-pvc-gitops-v1
   namespace: kubernaut-system
 spec:
-  version: "1.3.3"
+  version: "1.4.0"
   description:
     what: "Migrates a database from ephemeral emptyDir storage to a persistent volume claim via GitOps. Backs up the database via live pg_dump, commits the emptyDir-to-PVC migration to the source Git repository, waits for ArgoCD to sync the change, and restores the database to the new PVC-backed instance."
     whenToUse: "When PredictedDiskPressure or DiskPressure is caused by emptyDir growth from a stateful workload (database) running on ephemeral storage, and the namespace is managed by a GitOps tool (ArgoCD). Best used with proactive signals (BR-SP-106) where the pod is still running and backup is feasible."
@@ -89,11 +89,11 @@ spec:
   execution:
     engine: ansible
     bundle: https://github.com/jordigilh/kubernaut-test-playbooks.git
-    bundleDigest: "b7230c095963a5cbc5d7f88b068b7594321d3402"
+    bundleDigest: "27c5e6d5a189b2bb781ed88d4ab7171aae52519e"
     engineConfig:
       playbookPath: "playbooks/gitops-migrate-postgres-emptydir-to-pvc.yml"
-      jobTemplateName: "kubernaut-migrate-emptydir-to-pvc"
-    serviceAccountName: migrate-emptydir-to-pvc-gitops-v1-runner
+      jobTemplateName: "kubernaut-migrate-postgres-emptydir-to-pvc"
+    serviceAccountName: migrate-postgres-emptydir-to-pvc-gitops-v1-runner
 
   dependencies:
     secrets:

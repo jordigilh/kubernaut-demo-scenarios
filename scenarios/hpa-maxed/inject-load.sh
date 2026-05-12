@@ -47,14 +47,22 @@ ORIGINAL_MAX=${ORIGINAL_MAX:-3}
 
 _kill_stress() {
     echo "==> Killing CPU stress on all api-frontend pods..."
+    local _kill_cmd='for f in /proc/*/comm; do [ "$(cat $f 2>/dev/null)" = "yes" ] && kill $(echo $f|cut -d/ -f3) 2>/dev/null; done; true'
     for pod in $(kubectl get pods -n "${NAMESPACE}" -l "${LABEL_SELECTOR}" \
         -o jsonpath='{.items[*].metadata.name}' 2>/dev/null); do
-        kubectl exec -n "${NAMESPACE}" "${pod}" -- killall yes 2>/dev/null || true
+        kubectl exec -n "${NAMESPACE}" "${pod}" -- /bin/sh -c "$_kill_cmd" 2>/dev/null || true
     done
 }
 
-echo "==> Watching HPA for scale-up beyond original maxReplicas (${ORIGINAL_MAX})..."
-while true; do
+WATCH_TIMEOUT=${WATCH_TIMEOUT:-1800}
+echo "==> Watching HPA for scale-up beyond original maxReplicas (${ORIGINAL_MAX}) [timeout: ${WATCH_TIMEOUT}s]..."
+_start=$SECONDS
+while [ $(( SECONDS - _start )) -lt "${WATCH_TIMEOUT}" ]; do
+    if ! kubectl get ns "${NAMESPACE}" &>/dev/null; then
+        echo "==> Namespace ${NAMESPACE} no longer exists. Aborting watch."
+        exit 1
+    fi
+
     current=$(kubectl get hpa api-frontend -n "${NAMESPACE}" \
         -o jsonpath='{.status.currentReplicas}' 2>/dev/null || echo "0")
     max=$(kubectl get hpa api-frontend -n "${NAMESPACE}" \
@@ -62,9 +70,12 @@ while true; do
 
     if [ "${max}" -gt "${ORIGINAL_MAX}" ] && [ "${current}" -gt "${ORIGINAL_MAX}" ]; then
         echo "==> HPA scaled to ${current} replicas (maxReplicas patched to ${max}). Remediation detected."
-        _kill_stress
-        echo "==> CPU stress stopped. Alert should self-resolve."
+        echo "==> Stress kept running until EA phase kills it (validate.sh ON_VERIFYING_HOOK)."
         exit 0
     fi
     sleep 10
 done
+
+echo "==> TIMEOUT: HPA did not scale beyond maxReplicas=${ORIGINAL_MAX} within ${WATCH_TIMEOUT}s."
+_kill_stress
+exit 1

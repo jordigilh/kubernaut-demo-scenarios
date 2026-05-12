@@ -1,0 +1,36 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-scc-rules
+  namespace: demo-scc
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: demo-scc
+    rules:
+    - alert: SCCViolationPodBlocked
+      expr: |
+        kube_deployment_status_replicas_available{
+          namespace="demo-scc",
+          deployment="metrics-agent"
+        } == 0
+        and
+        kube_deployment_spec_replicas{
+          namespace="demo-scc",
+          deployment="metrics-agent"
+        } > 0
+      for: 60s
+      labels:
+        severity: high
+      annotations:
+        summary: >
+          Deployment metrics-agent in namespace demo-scc has zero available
+          replicas despite spec.replicas > 0.
+        description: >
+          Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }}
+          has zero available replicas despite a non-zero replica spec. The
+          ReplicaSet is unable to create pods. On OpenShift, this is commonly
+          caused by a SecurityContext that violates the namespace's Security
+          Context Constraints (SCC) policy, such as requesting privileged
+          capabilities or running as root when only restricted-v2 is allowed.

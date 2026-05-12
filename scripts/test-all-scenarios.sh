@@ -49,6 +49,16 @@ SCENARIO_ORDER=(
   pdb-deadlock
   node-notready
   pending-taint
+  pvc-capacity-forecast
+  db-connection-saturation
+  cascading-service-failure
+  image-pull-failure
+  route-misconfiguration
+  build-failure
+  scc-violation
+  operator-health
+  rbac-failure
+  etcd-defrag-forecast
 )
 
 START_FROM=""

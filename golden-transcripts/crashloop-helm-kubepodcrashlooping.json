@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "_metadata": {
+    "captured_at": "2026-05-09T15:12:31Z",
+    "ka_image": "unknown",
+    "model": "claude-sonnet-4-6",
+    "cluster": "default/api-dev-redhat-internal-com:6443/kube:admin",
+    "chart_version": "",
+    "platform": "ocp"
+  },
+  "scenario": "crashloop-helm",
+  "signalName": "KubePodCrashLooping",
+  "remediationRequest": {
+    "name": "rr-1b223d2cb297-93b94ce5",
+    "phase": "Completed",
+    "outcome": "Remediated"
+  },
+  "analysis": {
+    "remediationId": "rr-1b223d2cb297-93b94ce5",
+    "signal": {
+      "signalName": "KubePodCrashLooping",
+      "severity": "critical",
+      "environment": "Production",
+      "targetResource": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-crashloop-helm"
+      },
+      "businessPriority": "P0"
+    },
+    "investigation": {
+      "sessionId": "c4b2b1d7-20ba-4c52-ae0b-76fb56d9d953",
+      "duration_ms": 166294,
+      "pollCount": 11,
+      "toolCalls": [
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_get_by_kind_in_namespace",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_describe",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_previous_logs",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_events",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_get_by_name",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "kubectl_logs",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "get_namespaced_resource_context",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "list_available_actions",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "list_workflows",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "list_workflows",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "get_workflow",
+          "input": {},
+          "output_summary": ""
+        },
+        {
+          "tool": "todo_write",
+          "input": {},
+          "output_summary": ""
+        }
+      ]
+    },
+    "rootCauseAnalysis": {
+      "contributingFactors": [
+        "Helm upgrade (generation 2) introduced a new ReplicaSet 'worker-6dd948b48f' with a corrupted nginx ConfigMap containing 'invalid_directive_that_breaks_nginx' at line 11",
+        "Rolling update strategy allowed the bad pod to be scheduled but it cannot progress past startup, blocking the deployment rollout",
+        "Deployment is stuck with ProgressDeadlineExceeded \u2014 the rolling update has been stalled for over 10 minutes",
+        "Regression detected: remediation history shows this ConfigMap has been remediated multiple times before with matching pre-remediation spec hash, indicating a recurring misconfiguration pattern introduced by the Helm release"
+      ],
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-crashloop-helm"
+      },
+      "severity": "critical",
+      "signalType": "KubePodCrashLooping",
+      "summary": "ConfigMap 'worker-config' contains an invalid nginx directive 'invalid_directive_that_breaks_nginx' at line 11, causing nginx to fail on startup with exit code 1 and enter CrashLoopBackOff. The bad config was introduced by a Helm upgrade (generation 2) that created a new ReplicaSet 'worker-6dd948b48f', while the previous ReplicaSet 'worker-5674774b64' remains healthy. The deployment is stuck with ProgressDeadlineExceeded. Remediation history shows this is a recurring regression \u2014 the ConfigMap has been patched multiple times before but the bad config keeps being reintroduced, likely by a faulty Helm chart or CI/CD pipeline."
+    },
+    "selectedWorkflow": {
+      "confidence": 0.95,
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:93a44ca555172eff33f39837c1a86b94a36101504f27b92fb835b0bbee1fad83",
+      "executionBundleDigest": "93a44ca555172eff33f39837c1a86b94a36101504f27b92fb835b0bbee1fad83",
+      "executionEngine": "job",
+      "parameters": {
+        "TARGET_RESOURCE_API_VERSION": "apps/v1",
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "worker",
+        "TARGET_RESOURCE_NAMESPACE": "demo-crashloop-helm"
+      },
+      "rationale": "HelmRollback is the correct action type because: (1) helmManaged=true label is confirmed on the resource; (2) the bad ConfigMap was introduced by a Helm upgrade \u2014 rolling back the Helm release to the previous healthy revision will atomically restore the correct ConfigMap and terminate the bad ReplicaSet; (3) the previous ReplicaSet 'worker-5674774b64' is confirmed healthy, proving the prior Helm revision was good; (4) PatchConfiguration was rejected because the ConfigMap has been patched 4 times before with moderate effectiveness (0.58\u20130.66) and keeps reverting \u2014 a regression pattern indicating patch-only remediation does not address the Helm-driven root cause; (5) the workflow's detectedLabels match helmManaged=true and its component labels include both 'deployment' and 'configmap', directly matching this incident.",
+      "version": "1.3.6",
+      "workflowId": "7c1f0391-acf3-57c0-8908-73140cf180fb"
+    },
+    "approvalRequired": false,
+    "postRCAContext": {
+      "detectedLabels": {
+        "gitOpsManaged": false,
+        "helmManaged": true,
+        "hpaEnabled": false,
+        "networkIsolated": false,
+        "pdbProtected": false,
+        "resourceQuotaConstrained": false,
+        "stateful": false
+      },
+      "setAt": "2026-05-09T15:04:37Z"
+    }
+  },
+  "workflowExecution": {
+    "name": "we-rr-1b223d2cb297-93b94ce5",
+    "phase": "Completed",
+    "result": "",
+    "parameters": {
+      "TARGET_RESOURCE_API_VERSION": "apps/v1",
+      "TARGET_RESOURCE_KIND": "Deployment",
+      "TARGET_RESOURCE_NAME": "worker",
+      "TARGET_RESOURCE_NAMESPACE": "demo-crashloop-helm"
+    },
+    "duration_ms": "11s"
+  },
+  "effectivenessAssessment": {
+    "name": "ea-rr-1b223d2cb297-93b94ce5",
+    "phase": "Completed",
+    "verdict": "Full",
+    "components": {
+      "alertAssessed": true,
+      "alertScore": 1,
+      "currentSpecHash": "sha256:8c8ce0b8672a481e58de8fdd65af3b97b162398b4e368805e1b33e7e25521826",
+      "hashComputed": true,
+      "healthAssessed": true,
+      "healthScore": 1,
+      "metricsAssessed": true,
+      "metricsScore": 0,
+      "postRemediationSpecHash": "sha256:8c8ce0b8672a481e58de8fdd65af3b97b162398b4e368805e1b33e7e25521826"
+    }
+  },
+  "deduplication": {
+    "firstSeenAt": "2026-05-09T15:01:51Z",
+    "lastSeenAt": "2026-05-09T15:04:01Z",
+    "occurrenceCount": 3
+  },
+  "timeline": {
+    "signalReceived": "2026-05-09T15:01:51Z",
+    "analysisStarted": "2026-05-09T15:01:51Z",
+    "analysisCompleted": "2026-05-09T15:04:37Z",
+    "executionStarted": "2026-05-09T15:04:37Z",
+    "executionCompleted": "",
+    "verificationCompleted": "2026-05-09T15:09:47Z",
+    "overallCompleted": "2026-05-09T15:09:47Z"
+  },
+  "validationResult": {
+    "pass": true,
+    "assertions": 11,
+    "passed": 11,
+    "details": [
+      "RR phase = Completed",
+      "RR outcome = Remediated",
+      "SP phase = Completed",
+      "AA phase = Completed",
+      "AA selected a workflow",
+      "AA selected correct workflow contains helm-rollback-job",
+      "WFE phase = Completed",
+      "EA phase = Completed",
+      "Helm release status = deployed",
+      "Helm last revision is a rollback",
+      "All worker replicas ready = 2"
+    ]
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "scenario": "gitops-drift",
+  "incidentId": "rr-375dabb6be76-f35eb665",
+  "signal": {
+    "signalName": "KubePodCrashLooping",
+    "namespace": "demo-gitops",
+    "resourceKind": "Pod",
+    "resourceName": "web-frontend-c8dc85956-qm7hq",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.95,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "ConfigMap",
+        "TARGET_RESOURCE_NAME": "app-config",
+        "TARGET_RESOURCE_NAMESPACE": "demo-gitops"
+      },
+      "workflowId": "d8a24fb5-e068-5b7a-bfc0-3d6685bbc193",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:66225b6546c9f7d9decaeb92958036bb82f4af0c45d1e796ad988b84df37cbc9"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "Pod web-frontend-c8dc85956-qm7hq is in CrashLoopBackOff (4 restarts, exit code 1) because ConfigMap app-config contains an explicitly invalid directive ('invalid_directive: true') that causes demo-http-server to abort within ~1 second of start. The bad config was introduced by Git commit caa704e8 at 03:17:23Z, automatically synced by ArgoCD. With selfHeal:true enabled, any in-cluster patch to the ConfigMap will be immediately reverted to the broken Git state \u2014 the fix must be applied at the Git source via a revert.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: Pod web-frontend-c8dc85956-qm7hq is CrashLoopBackOff (4 restarts, exit code 1, back-off 1m20s)",
+        "Why? Container logs show '[emerg] invalid directive found in /etc/demo-http-server/config.yaml \u2014 aborting' \u2014 the app exits immediately on startup",
+        "Why? ConfigMap app-config contains 'invalid_directive: true' \u2014 an explicitly invalid key that the demo-http-server rejects at parse time",
+        "Why? ArgoCD Application 'web-frontend' synced Git commit caa704e85933790f15279fe7ee1f57dcf15a10db at 03:17:23Z, which introduced the invalid directive into the ConfigMap manifest",
+        "Root cause: A bad Git commit was pushed to the demo-gitops-repo (path: manifests/) containing an invalid ConfigMap configuration, and ArgoCD's automated selfHeal sync applied it to the cluster, overwriting the previously working config"
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "The remediation_target is ConfigMap/app-config because it is the resource containing the invalid configuration data that directly causes the crash. However, since ArgoCD selfHeal:true will revert any in-cluster change, the true fix is in the Git repo. The ConfigMap is the most specific remediable resource \u2014 a workflow can patch it (after pausing ArgoCD sync) or trigger a Git revert. The Deployment is not the target because its spec is valid; it only reflects the broken config-version annotation.",
+        "proportionality": "Single pod/deployment affected. The ConfigMap is the minimal, most targeted fix \u2014 correcting or removing the invalid_directive key resolves the crash. The ArgoCD Application is listed as a contributing factor (not primary target) because its selfHeal behavior perpetuates the problem, but the root fix is the config content.",
+        "scopeCompleteness": "Investigated: pod describe, pod events, current logs, previous logs, parent Deployment, ConfigMap content, ArgoCD Application (including sync history and source repo). Did not access the Git repo directly (no git tool available) to view the raw commit diff, but ArgoCD sync history provides sufficient evidence of the bad commit.",
+        "causalCompleteness": "Traced fully: CrashLoopBackOff \u2192 exit code 1 \u2192 app log confirms invalid config \u2192 ConfigMap content verified as containing explicit invalid_directive \u2192 ArgoCD sync history confirms the bad commit (caa704e8) introduced it at 03:17:23Z. Cannot go deeper without access to the Git repo to see the actual commit diff, but the chain is complete.",
+        "evidenceSufficiency": "All claims are backed by tool output: pod describe confirmed CrashLoopBackOff/exit code 1; kubectl_logs confirmed the '[emerg] invalid directive' error message; ConfigMap content directly shows the invalid_directive field with an explanatory comment; ArgoCD Application resource shows two sync revisions with timestamps matching the incident. No assumptions made.",
+        "regressionAwareness": "No prior remediation history available for ConfigMap/app-config (remediation_history shows empty tier1 and tier2 arrays). N/A \u2014 no previously failed remediations to regress against.",
+        "alternativeHypotheses": "Considered: (1) OOMKill \u2014 ruled out: exit code is 1 (application error), not 137 (OOMKill), and memory limits (64Mi) are not approached. (2) Image pull failure \u2014 ruled out: events show 'Container image already present on machine' and container starts successfully before crashing. (3) Node pressure \u2014 ruled out: pod scheduled and started normally on dev-worker-2.redhat-internal.com; no node condition events. (4) Missing ConfigMap \u2014 ruled out: ConfigMap exists and is mounted; the problem is its content.",
+        "confidenceCalibration": "Starting at 1.0. -0.03 for not being able to directly read the Git repo commit diff (caa704e8) to confirm the exact change made. -0.02 for not verifying whether the first working revision (8f4e501b) ConfigMap content is accessible for comparison. Final confidence: 0.95. Evidence is very strong \u2014 the ConfigMap content includes an explicit comment confirming it is intentionally invalid."
+      },
+      "remediationTarget": {
+        "kind": "ConfigMap",
+        "name": "app-config",
+        "namespace": "demo-gitops"
+      },
+      "contributingFactors": [
+        "ArgoCD Application 'web-frontend' (openshift-gitops namespace) automatically synced bad Git commit caa704e85933790f15279fe7ee1f57dcf15a10db at 03:17:23Z, introducing the invalid config",
+        "ArgoCD selfHeal:true prevents manual ConfigMap fixes from persisting \u2014 the broken Git state is continuously re-applied, making in-cluster patches futile",
+        "Deployment pod template carries annotation kubernaut.ai/config-version: 'broken', confirming the bad config was intentionally tracked and deployed via GitOps",
+        "Container crashes within ~1 second of start (03:19:01Z \u2192 03:19:02Z), preventing health probes from ever succeeding",
+        "With 4 restarts and 1m20s back-off, the pod is firmly in CrashLoopBackOff with no self-recovery path"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.95,
+    "analysis": "Pod web-frontend-c8dc85956-qm7hq is in CrashLoopBackOff (4 restarts, exit code 1) because ConfigMap app-config contains an explicitly invalid directive ('invalid_directive: true') that causes demo-http-server to abort within ~1 second of start. The bad config was introduced by Git commit caa704e8 at 03:17:23Z, automatically synced by ArgoCD. With selfHeal:true enabled, any in-cluster patch to the ConfigMap will be immediately reverted to the broken Git state \u2014 the fix must be applied at the Git source via a revert."
+  },
+  "traceStats": {
+    "totalTokens": 160810,
+    "llmTurns": 16,
+    "totalToolCalls": 11
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_events",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_previous_logs",
+      "index": 3
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_find_resource",
+      "index": 0
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_find_resource",
+      "index": 1
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

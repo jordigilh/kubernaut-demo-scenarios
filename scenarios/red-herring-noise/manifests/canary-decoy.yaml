@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: canary-v2
+  namespace: demo-red-herring
+  labels:
+    app: canary-v2
+    kubernaut.ai/managed: "true"
+  annotations:
+    kubernaut.ai/description: "Canary deployment for v2 rollout (unrelated to postgres)"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: canary-v2
+  template:
+    metadata:
+      labels:
+        app: canary-v2
+    spec:
+      containers:
+      - name: app
+        image: registry.example.com/myorg/api-server:v2.0.0-rc1-does-not-exist
+        ports:
+        - containerPort: 8080
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "5m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"

@@ -36,6 +36,8 @@ source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 require_infra gitea
 require_infra argocd
 
+preflight_check metrics-pipeline
+
 enable_prometheus_toolset
 
 # Ensure the git-revert-v2 workflow is seeded. It depends on gitea-repo-creds,
@@ -77,7 +79,7 @@ kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http \
   "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
 local pf_pid=$!
-wait_for_port "${GITEA_LOCAL_PORT}"
+wait_for_port "${GITEA_LOCAL_PORT}" 45
 
 # Create repo if it doesn't exist (idempotent)
 curl -sf -X POST "http://localhost:${GITEA_LOCAL_PORT}/api/v1/user/repos" \
@@ -309,6 +311,8 @@ if [ "$active_rs" -gt 1 ]; then
   echo "  WARNING: ${active_rs} active ReplicaSets after ${rs_elapsed}s — stale alert risk remains."
 fi
 
+postdeploy_check prometheusrule:KubePodCrashLooping
+
 # Step 3: Establish baseline (let Prometheus scrape healthy metrics)
 echo ""
 echo "==> Step 3: Establishing healthy baseline (30s)..."
@@ -326,7 +330,7 @@ WORK_DIR=$(mktemp -d)
 kill_stale_gitea_pf
 kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
 PF_PID=$!
-wait_for_port "${GITEA_LOCAL_PORT}"
+wait_for_port "${GITEA_LOCAL_PORT}" 45
 
 cd "${WORK_DIR}"
 git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo

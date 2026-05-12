@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: etcd-client
+  namespace: demo-etcd-defrag
+  labels:
+    app: etcd
+    kubernaut.ai/managed: "true"
+spec:
+  selector:
+    app: etcd
+  ports:
+  - name: client
+    port: 2379
+    targetPort: 2379
+  - name: metrics
+    port: 2381
+    targetPort: 2381
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: etcd-headless
+  namespace: demo-etcd-defrag
+  labels:
+    app: etcd
+    kubernaut.ai/managed: "true"
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: etcd
+  ports:
+  - name: client
+    port: 2379
+    targetPort: 2379
+  - name: peer
+    port: 2380
+    targetPort: 2380
+  - name: metrics
+    port: 2381
+    targetPort: 2381
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: etcd
+  namespace: demo-etcd-defrag
+  labels:
+    app: etcd
+    kubernaut.ai/managed: "true"
+spec:
+  serviceName: etcd-headless
+  podManagementPolicy: Parallel
+  replicas: 3
+  selector:
+    matchLabels:
+      app: etcd
+  template:
+    metadata:
+      labels:
+        app: etcd
+    spec:
+      containers:
+      - name: etcd
+        image: quay.io/coreos/etcd:v3.4.27
+        ports:
+        - containerPort: 2379
+          name: client
+        - containerPort: 2380
+          name: peer
+        - containerPort: 2381
+          name: metrics
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: CLUSTER_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        command:
+        - /usr/local/bin/etcd
+        args:
+        - --name=$(POD_NAME)
+        - --data-dir=/var/lib/etcd
+        - --listen-client-urls=http://0.0.0.0:2379
+        - --advertise-client-urls=http://$(POD_NAME).etcd-headless.$(CLUSTER_NAMESPACE).svc.cluster.local:2379
+        - --listen-peer-urls=http://0.0.0.0:2380
+        - --initial-advertise-peer-urls=http://$(POD_NAME).etcd-headless.$(CLUSTER_NAMESPACE).svc.cluster.local:2380
+        - --listen-metrics-urls=http://0.0.0.0:2381
+        - --initial-cluster=etcd-0=http://etcd-0.etcd-headless.$(CLUSTER_NAMESPACE).svc.cluster.local:2380,etcd-1=http://etcd-1.etcd-headless.$(CLUSTER_NAMESPACE).svc.cluster.local:2380,etcd-2=http://etcd-2.etcd-headless.$(CLUSTER_NAMESPACE).svc.cluster.local:2380
+        - --initial-cluster-token=demo-etcd-defrag
+        - --initial-cluster-state=new
+        - --auto-compaction-retention=1
+        - --quota-backend-bytes=2147483648
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "50m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: etcd-data
+          mountPath: /var/lib/etcd
+        readinessProbe:
+          exec:
+            command:
+            - /usr/local/bin/etcdctl
+            - --endpoints=http://localhost:2379
+            - endpoint
+            - health
+          initialDelaySeconds: 10
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: etcd-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
