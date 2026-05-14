@@ -74,6 +74,39 @@ if [ -n "$WORKER_NODE" ]; then
         --overwrite
 fi
 
+# Step 3b: Inject node-environment rules into SP policy.rego so
+# cluster-scoped Node signals are classified correctly (input.namespace.name == "").
+echo "==> Step 3b: Injecting node-environment rules into SP policy.rego..."
+
+EXISTING_B64=$(kubectl get configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+  -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-policy-rego}' 2>/dev/null || echo "")
+if [ -n "${EXISTING_B64}" ]; then
+    echo "  Restoring original policy from previous run's annotation..."
+    ORIGINAL_POLICY=$(echo "${EXISTING_B64}" | base64 -d)
+    kubectl patch configmap signalprocessing-policy -n "${PLATFORM_NS}" --type=merge \
+      -p "{\"data\":{\"policy.rego\":$(echo "${ORIGINAL_POLICY}" | jq -Rs .)}}"
+else
+    ORIGINAL_POLICY=$(kubectl get configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+      -o jsonpath='{.data.policy\.rego}')
+fi
+
+kubectl annotate configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+  "kubernaut.ai/original-policy-rego=$(echo "${ORIGINAL_POLICY}" | base64)" --overwrite
+
+NODE_ENV_RULES=$(grep -v -E '^(package |import )' "${SCRIPT_DIR}/rego/node-environment.rego")
+
+MERGED_POLICY="${ORIGINAL_POLICY}
+
+${NODE_ENV_RULES}"
+
+kubectl patch configmap signalprocessing-policy -n "${PLATFORM_NS}" --type=merge \
+  -p "{\"data\":{\"policy.rego\":$(echo "${MERGED_POLICY}" | jq -Rs .)}}"
+
+echo "  Restarting SignalProcessing controller to pick up policy change..."
+kubectl rollout restart deployment/signalprocessing-controller -n "${PLATFORM_NS}"
+kubectl rollout status deployment/signalprocessing-controller -n "${PLATFORM_NS}" --timeout=180s
+echo ""
+
 # Step 4: Simulate node failure
 echo "==> Step 4: Simulating node failure via podman pause..."
 bash "${SCRIPT_DIR}/inject-node-failure.sh"

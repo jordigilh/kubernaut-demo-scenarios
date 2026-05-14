@@ -42,6 +42,19 @@ if [ -n "$WORKER_NODE" ]; then
         kubernaut.ai/sla-tier- 2>/dev/null || true
 fi
 
+# Restore original policy.rego from annotation saved by run.sh
+ORIGINAL_B64=$(kubectl get configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+  -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-policy-rego}' 2>/dev/null || echo "")
+if [ -n "${ORIGINAL_B64}" ]; then
+  echo "  Restoring original SP policy.rego..."
+  ORIGINAL_POLICY=$(echo "${ORIGINAL_B64}" | base64 -d)
+  kubectl patch configmap signalprocessing-policy -n "${PLATFORM_NS}" --type=merge \
+    -p "{\"data\":{\"policy.rego\":$(echo "${ORIGINAL_POLICY}" | jq -Rs .)}}"
+  kubectl annotate configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+    "kubernaut.ai/original-policy-rego-" 2>/dev/null || true
+  kubectl rollout restart deployment/signalprocessing-controller -n "${PLATFORM_NS}" 2>/dev/null || true
+fi
+
 purge_pipeline_crds
 
 echo "==> Cleanup complete."
