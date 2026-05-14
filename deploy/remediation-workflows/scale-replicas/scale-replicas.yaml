@@ -52,21 +52,7 @@ spec:
       hog) that should be stopped entirely, or when capacity needs to be increased
       by adding replicas.
   execution:
-    bundle: quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:0ceee1443eac1f2e096df9fbe45a9fb44b97db707f3168e5316aa8369a274b2d
-    engine: job
-    serviceAccountName: scale-replicas-v1-runner
-  labels:
-    component:
-    - deployment
-    environment:
-    - production
-    - staging
-    priority: "*"
-    severity:
-    - low
-    - medium
-    - high
-    - critical
+    bundle: quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:a6c97cd5ee676c1d9f904e77be2ad20dc5c71bddc1172900a869c9b9a564e7f1
   parameters:
   - description: Namespace of the target Deployment
     name: TARGET_RESOURCE_NAMESPACE
@@ -84,4 +70,4 @@ spec:
     name: SCALE_REPLICAS
     required: false
     type: string
-  version: "1.4.1"
+  version: "1.4.2"
