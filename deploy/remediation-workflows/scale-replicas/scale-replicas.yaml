@@ -52,7 +52,7 @@ spec:
       hog) that should be stopped entirely, or when capacity needs to be increased
       by adding replicas.
   execution:
-    bundle: quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:8b00a2fbd2ee39802c52e16b1089c2a2711218a5e1b3d94acc15a797b1f05668
+    bundle: quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:0ceee1443eac1f2e096df9fbe45a9fb44b97db707f3168e5316aa8369a274b2d
     engine: job
     serviceAccountName: scale-replicas-v1-runner
   labels:
@@ -84,4 +84,4 @@ spec:
     name: SCALE_REPLICAS
     required: false
     type: string
-  version: "1.4.0"
+  version: "1.4.1"

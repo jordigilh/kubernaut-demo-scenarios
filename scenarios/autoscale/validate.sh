@@ -52,7 +52,7 @@ assert_neq "$workflow_id" "" "AA selected a workflow"
 
 bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
-assert_contains "$bundle" "provision-node-job" "AA selected correct workflow"
+assert_contains "$bundle" "provision-node-job\|scale-replicas-job" "AA selected valid capacity workflow"
 
 confidence=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || echo "")

@@ -1,0 +1,176 @@
+{
+  "scenario": "disk-pressure-emptydir",
+  "incidentId": "rr-a46194c375c3-f18fb836",
+  "signal": {
+    "signalName": "PredictedDiskPressure",
+    "namespace": "demo-diskpressure",
+    "resourceKind": "Unknown",
+    "resourceName": "unknown",
+    "severity": "high"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.92,
+      "parameters": {
+        "PVC_SIZE": "10Gi",
+        "NODE_NAME": "dev-worker-0.redhat-internal.com",
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "postgres-emptydir",
+        "TARGET_RESOURCE_NAMESPACE": "demo-diskpressure",
+        "TARGET_RESOURCE_API_VERSION": "apps/v1"
+      },
+      "workflowId": "fdd276ac-14d9-5d45-b533-f0b6a3330e25",
+      "executionBundle": "https://github.com/jordigilh/kubernaut-test-playbooks.git",
+      "workflowName": "migrate-postgres-emptydir-to-pvc-gitops-v1"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "PostgreSQL Deployment 'postgres-emptydir' in 'demo-diskpressure' namespace runs a disk-filling simulation via init.sql that continuously writes large payloads to an emptyDir volume backed by node ephemeral storage (/var/lib/kubelet on dev-worker-0.redhat-internal.com), causing rapid disk consumption that triggered a predictive DiskPressure alert.",
+      "severity": "high",
+      "causalChain": [
+        "Signal: Predictive DiskPressure alert \u2014 /var/lib/kubelet on dev-worker-0.redhat-internal.com predicted to exhaust within 30 minutes",
+        "Why? Node filesystem /var/lib/kubelet (10.46 GiB total) is dropping rapidly \u2014 observed ~1.9 GiB consumed in ~22 minutes during active write phase",
+        "Why? PostgreSQL pod 'postgres-emptydir-69679b77bb-9fgvb' is writing large volumes of data to an emptyDir volume backed by node ephemeral storage",
+        "Why? ConfigMap 'postgres-init-sql' injects init.sql defining simulate_data_growth() \u2014 500 rows \u00d7 200 iterations of 32\u00d7md5 random payloads \u2014 an intentional disk-filling simulation",
+        "Root cause: Deployment 'postgres-emptydir' is deliberately configured to simulate unbounded disk growth on a node with only 10.46 GiB of kubelet filesystem space, without ephemeral-storage resource limits to contain the impact at the pod level before node exhaustion"
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "Targeting Deployment/postgres-emptydir because it owns the pod that is consuming disk, and its spec (volumes, resources, init SQL) is what needs modification \u2014 either adding ephemeral-storage limits, reducing simulation parameters, or scaling to 0. The Node is the symptom reporter, not the fix target.",
+        "proportionality": "Remediation targets the specific Deployment causing the disk consumption. The fix is well-scoped: add ephemeral-storage resource limits to the container spec, which will cause kubelet to evict the pod before node-level DiskPressure occurs. Alternatively, scale to 0 if the scenario is complete.",
+        "scopeCompleteness": "Investigated: node conditions, node capacity, pod in demo-diskpressure namespace, pod events, pod logs (current and previous), Deployment spec, ConfigMap init.sql, Prometheus disk metrics (current and range), predict_linear queries, write rate metrics. Did not investigate other namespaces' pods on the same node \u2014 but the disk pattern (periodic drops + resets) is consistent with emptyDir lifecycle and sufficient to confirm the cause.",
+        "causalCompleteness": "Traced fully: alert \u2192 disk drop rate \u2192 pod writes \u2192 emptyDir on node fs \u2192 init.sql simulate_data_growth() procedure. The stored procedure is the deepest identifiable cause \u2014 it is the explicit mechanism generating disk writes. Cannot go deeper without inspecting whether the procedure is being called automatically (e.g., via a cron job or application code), but the init.sql itself is sufficient evidence.",
+        "evidenceSufficiency": "All claims backed by tool evidence: Prometheus range queries confirm disk drop rate and pattern; ConfigMap content directly shows simulate_data_growth() procedure; pod describe confirms emptyDir volume with 8Gi sizeLimit; node describe confirms 10.46 GiB total on /var/lib/kubelet; DiskPressure transition on 2026-05-11 from node describe confirms recurrence. No inaccessible data sources.",
+        "regressionAwareness": "No prior remediation history available for Deployment/postgres-emptydir or Node/dev-worker-0.redhat-internal.com per get_namespaced_resource_context and get_cluster_resource_context. N/A for regression check.",
+        "alternativeHypotheses": "Considered: (1) Other pods on the node consuming disk \u2014 ruled out, only one pod in demo-diskpressure namespace, and no other high-write workloads identified on the node. (2) System-level log accumulation or image layer storage \u2014 ruled out, the disk drops are periodic and correlated with pod restarts (emptyDir wipes), which is characteristic of pod-level writes. (3) Node-level system issue \u2014 ruled out, node is healthy (Ready=True, all conditions normal).",
+        "confidenceCalibration": "0.92: Starting at 1.0. -0.05 for not confirming whether simulate_data_growth() is called automatically at startup vs. manually (the init.sql defines the procedure but does not call it \u2014 actual invocation mechanism not verified). -0.03 for not inspecting other pods on the node that might contribute to /var/lib/kubelet usage. The core finding (disk drop pattern, ConfigMap content, emptyDir backing) is fully evidence-backed."
+      },
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "postgres-emptydir",
+        "namespace": "demo-diskpressure"
+      },
+      "contributingFactors": [
+        "ConfigMap 'postgres-init-sql' contains a stored procedure simulate_data_growth() that inserts 500 rows \u00d7 200 iterations of 32\u00d7md5 payloads into an events table \u2014 explicitly designed to fill disk",
+        "emptyDir volume with 8Gi sizeLimit is backed by node ephemeral storage at /var/lib/kubelet on /dev/loop1 (total: 10.46 GiB), so pod writes directly consume node filesystem space",
+        "Node /var/lib/kubelet filesystem dropped from ~9.8 GiB free to ~7.9 GiB free within ~10 minutes (write rate ~190 MB/min during active bursts)",
+        "DiskPressure condition previously transitioned on 2026-05-11T10:02:20Z, indicating this is a recurring pattern on this node",
+        "Pod restarts periodically reset emptyDir (wiping data), but the simulation immediately restarts and begins filling disk again",
+        "Node has only 10.46 GiB total on /var/lib/kubelet filesystem \u2014 very small for a PostgreSQL workload with unbounded data growth simulation",
+        "Deployment is labeled kubernaut.ai/managed:true and deployed via ArgoCD, indicating it is an intentional scenario deployment"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Remediated"
+  },
+  "kaResponse": {
+    "confidence": 0.92,
+    "analysis": "PostgreSQL Deployment 'postgres-emptydir' in 'demo-diskpressure' namespace runs a disk-filling simulation via init.sql that continuously writes large payloads to an emptyDir volume backed by node ephemeral storage (/var/lib/kubelet on dev-worker-0.redhat-internal.com), causing rapid disk consumption that triggered a predictive DiskPressure alert."
+  },
+  "traceStats": {
+    "totalTokens": 258013,
+    "llmTurns": 17,
+    "totalToolCalls": 24
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_find_resource",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 1
+    },
+    {
+      "tool": "get_metric_names",
+      "index": 2
+    },
+    {
+      "tool": "get_metric_names",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 2
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 0
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_previous_logs",
+      "index": 2
+    },
+    {
+      "tool": "execute_prometheus_range_query",
+      "index": 0
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 2
+    },
+    {
+      "tool": "execute_prometheus_range_query",
+      "index": 0
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_find_resource",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 0
+    },
+    {
+      "tool": "execute_prometheus_range_query",
+      "index": 1
+    },
+    {
+      "tool": "get_cluster_resource_context",
+      "index": 2
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "execute_prometheus_instant_query",
+      "index": 1
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 1
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 1
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    },
+    {
+      "tool": "get_workflow",
+      "index": 1
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 # Scale-Replicas - Runnable Job Container
-# Scenario: db-connection-saturation -- scale offending workload to zero
+# Scales a Deployment to a target replica count (default 0).
 #
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
@@ -10,7 +10,7 @@ RUN curl -fsSL -o /usr/local/bin/kubectl \
     "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
     chmod +x /usr/local/bin/kubectl
 
-COPY scale-replicas-remediate.sh /scripts/remediate.sh
+COPY remediate.sh /scripts/remediate.sh
 RUN chmod +x /scripts/remediate.sh
 
 USER 1001

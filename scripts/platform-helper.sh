@@ -486,8 +486,22 @@ ensure_platform() {
 
     local llm_flags=""
     if [ -f "${SDK_CONFIG}" ]; then
-        llm_flags="--set-file kubernautAgent.sdkConfigContent=${SDK_CONFIG}"
-        echo "  SDK config loaded from ${SDK_CONFIG}"
+        local _sdk_provider _sdk_model _sdk_endpoint _sdk_vertex_project _sdk_vertex_location
+        _sdk_provider=$(python3 -c "import yaml,sys; d=yaml.safe_load(open(sys.argv[1])); print(d.get('llm',{}).get('provider',''))" "${SDK_CONFIG}" 2>/dev/null || echo "")
+        _sdk_model=$(python3 -c "import yaml,sys; d=yaml.safe_load(open(sys.argv[1])); print(d.get('llm',{}).get('model',''))" "${SDK_CONFIG}" 2>/dev/null || echo "")
+        _sdk_endpoint=$(python3 -c "import yaml,sys; d=yaml.safe_load(open(sys.argv[1])); print(d.get('llm',{}).get('endpoint',''))" "${SDK_CONFIG}" 2>/dev/null || echo "")
+        _sdk_vertex_project=$(python3 -c "import yaml,sys; d=yaml.safe_load(open(sys.argv[1])); print(d.get('llm',{}).get('vertex_project',''))" "${SDK_CONFIG}" 2>/dev/null || echo "")
+        _sdk_vertex_location=$(python3 -c "import yaml,sys; d=yaml.safe_load(open(sys.argv[1])); print(d.get('llm',{}).get('vertex_location',''))" "${SDK_CONFIG}" 2>/dev/null || echo "")
+        if [ -n "$_sdk_provider" ]; then
+            llm_flags="--set kubernautAgent.llm.provider=${_sdk_provider}"
+            [ -n "$_sdk_model" ] && llm_flags="${llm_flags} --set kubernautAgent.llm.model=${_sdk_model}"
+            [ -n "$_sdk_endpoint" ] && llm_flags="${llm_flags} --set kubernautAgent.llm.endpoint=${_sdk_endpoint}"
+            [ -n "$_sdk_vertex_project" ] && llm_flags="${llm_flags} --set kubernautAgent.llm.vertexProject=${_sdk_vertex_project}"
+            [ -n "$_sdk_vertex_location" ] && llm_flags="${llm_flags} --set kubernautAgent.llm.vertexLocation=${_sdk_vertex_location}"
+            echo "  LLM config from SDK file: provider=${_sdk_provider} model=${_sdk_model:-<default>}"
+        else
+            echo "  WARNING: SDK config at ${SDK_CONFIG} has no llm.provider set."
+        fi
     elif [ -n "${KUBERNAUT_LLM_PROVIDER:-}" ] && [ -n "${KUBERNAUT_LLM_MODEL:-}" ]; then
         llm_flags="--set kubernautAgent.llm.provider=${KUBERNAUT_LLM_PROVIDER} --set kubernautAgent.llm.model=${KUBERNAUT_LLM_MODEL}"
         echo "  LLM quickstart: provider=${KUBERNAUT_LLM_PROVIDER} model=${KUBERNAUT_LLM_MODEL}"
@@ -538,6 +552,33 @@ ensure_platform() {
         --timeout 10m
 
     echo "  Kubernaut platform installed in ${PLATFORM_NS}."
+
+    # Workaround for kubernaut#1106: chart does not render vertexProject /
+    # vertexLocation into the static config. Patch the ConfigMap post-install
+    # until the chart is fixed.
+    if [ -n "${_sdk_vertex_project:-}" ]; then
+        local _static_yaml
+        _static_yaml=$(kubectl get configmap kubernaut-agent-config -n "${PLATFORM_NS}" -o jsonpath='{.data.config\.yaml}')
+        if echo "$_static_yaml" | grep -q 'vertexProject'; then
+            echo "  Static config already contains vertexProject — skipping patch."
+        else
+            echo "  Patching static config with vertexProject/vertexLocation (kubernaut#1106 workaround)..."
+            _static_yaml=$(echo "$_static_yaml" | python3 -c "
+import sys, yaml
+cfg = yaml.safe_load(sys.stdin)
+cfg.setdefault('ai', {}).setdefault('llm', {})['vertexProject'] = '${_sdk_vertex_project}'
+cfg['ai']['llm']['vertexLocation'] = '${_sdk_vertex_location:-global}'
+yaml.dump(cfg, sys.stdout, default_flow_style=False)
+")
+            kubectl create configmap kubernaut-agent-config \
+                -n "${PLATFORM_NS}" \
+                --from-literal="config.yaml=${_static_yaml}" \
+                --dry-run=client -o yaml | kubectl apply -f -
+            kubectl rollout restart deployment/kubernaut-agent -n "${PLATFORM_NS}"
+            echo "  Agent restarted with Vertex AI config."
+        fi
+    fi
+
     wait_platform_ready
     seed_action_types_and_workflows
     _check_llm_credentials

@@ -26,6 +26,16 @@ log_phase "Initial PVC size: ${INITIAL_PVC_SIZE}"
 wait_for_alert "PVRunwayShort" "${NAMESPACE}" 900
 show_alert "PVRunwayShort" "${NAMESPACE}"
 
+# ── Stop data writer once WFE starts so the alert resolves before EA ───────
+_stop_data_writer() {
+    log_phase "Stopping data writer (simulating root cause resolution)..."
+    kubectl patch deployment data-service -n "${NAMESPACE}" --type=json \
+      -p='[{"op":"remove","path":"/spec/template/spec/containers/1"}]' 2>/dev/null || true
+    kubectl rollout status deployment/data-service -n "${NAMESPACE}" --timeout=60s 2>/dev/null || true
+}
+export -f _stop_data_writer 2>/dev/null || true
+ON_EXECUTING_HOOK="_stop_data_writer"
+
 # ── Wait for pipeline ──────────────────────────────────────────────────────
 wait_for_rr "${NAMESPACE}" 120
 poll_pipeline "${NAMESPACE}" 900 "${APPROVE_MODE}"
@@ -37,7 +47,7 @@ rr_phase=$(get_rr_phase "${NAMESPACE}")
 assert_eq "$rr_phase" "Completed" "RR phase"
 
 rr_outcome=$(get_rr_outcome "${NAMESPACE}")
-assert_in "$rr_outcome" "RR outcome" "Remediated" "Inconclusive"
+assert_eq "$rr_outcome" "Remediated" "RR outcome"
 
 sp_phase=$(get_sp_phase "${NAMESPACE}")
 assert_eq "$sp_phase" "Completed" "SP phase"
@@ -84,12 +94,5 @@ for _i in $(seq 1 12); do
     sleep 10
 done
 assert_neq "${FINAL_PVC_SIZE}" "${INITIAL_PVC_SIZE}" "PVC expanded (${INITIAL_PVC_SIZE} -> ${FINAL_PVC_SIZE})"
-
-# ── Post-remediation cleanup ────────────────────────────────────────────────
-# Stop the data writer so the alert resolves and EM can verify effectiveness.
-log_phase "Stopping data writer (simulating root cause resolution)..."
-kubectl patch deployment data-service -n "${NAMESPACE}" --type=json \
-  -p='[{"op":"remove","path":"/spec/template/spec/containers/1"}]' 2>/dev/null || true
-kubectl rollout status deployment/data-service -n "${NAMESPACE}" --timeout=60s 2>/dev/null || true
 
 print_result "pvc-capacity-forecast"

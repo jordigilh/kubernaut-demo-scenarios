@@ -184,10 +184,24 @@ _prom_query() {
         prom_info=$(_prom_pod_and_ns)
         read -r prom_ns prom_pod <<< "$prom_info"
     fi
-    kubectl exec -n "$prom_ns" "$prom_pod" -- \
+    local result
+    result=$(kubectl exec -n "$prom_ns" "$prom_pod" -c prometheus -- \
         curl -sf --connect-timeout 5 \
         "http://localhost:9090/api/v1/query?query=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$query'))" 2>/dev/null || echo "$query")" \
-        2>/dev/null || echo '{"status":"error"}'
+        2>/dev/null) && { echo "$result"; return; }
+
+    # Fallback: Kind Prometheus images lack curl; use promtool and wrap output
+    # in JSON that _prom_result_count can parse.
+    local pt_out
+    pt_out=$(kubectl exec -n "$prom_ns" "$prom_pod" -c prometheus -- \
+        promtool query instant http://localhost:9090 "$query" 2>/dev/null) || { echo '{"status":"error"}'; return; }
+    if [ -z "$pt_out" ]; then
+        echo '{"data":{"result":[]}}'
+    else
+        local n_lines
+        n_lines=$(echo "$pt_out" | wc -l | tr -d ' ')
+        python3 -c "import json; print(json.dumps({'data':{'result':[{'value':[0,'1']}]*${n_lines}}}))"
+    fi
 }
 
 # Extract result count from a Prometheus query JSON response.
