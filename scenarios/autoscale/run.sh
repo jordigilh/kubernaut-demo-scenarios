@@ -90,7 +90,7 @@ TOTAL_ALLOC_KI=$(kubectl get nodes -l kubernaut.ai/managed=true \
   | sed 's/Ki$//' | awk '{s+=$1} END {printf "%.0f", s}')
 TOTAL_ALLOC_MI=$((TOTAL_ALLOC_KI / 1024))
 MAX_PODS=$((TOTAL_ALLOC_MI / POD_REQUEST_MI))
-PENDING_EXTRA="${PENDING_EXTRA:-4}"
+PENDING_EXTRA="${PENDING_EXTRA:-1}"
 REPLICAS=$((MAX_PODS + PENDING_EXTRA))
 [ "$REPLICAS" -lt 6 ] && REPLICAS=6
 

@@ -4,7 +4,11 @@
 #
 # Format: "scenario-directory:image-name"
 # The exec image is <registry>/<image-name>:<version>
-# The schema image is <registry>/<image-name>-schema:<version>
+#
+# Each scenario directory MUST contain a Dockerfile.exec and a <scenario>.yaml.
+# When a scenario has multiple workflow images, split them into separate
+# directories under deploy/remediation-workflows/ so each has its own
+# Dockerfile.exec and CRD YAML.
 
 WORKFLOWS=(
     "gitops-drift:git-revert-job"
@@ -35,4 +39,5 @@ WORKFLOWS=(
     "rbac-failure:restore-rolebinding-job"
     "etcd-defrag-forecast:defrag-etcd-job"
     "db-connection-saturation:increase-db-connections-job"
+    "scale-replicas:scale-replicas-job"
 )
