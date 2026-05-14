@@ -746,6 +746,10 @@ poll_pipeline() {
                         show_ai_analysis "$target_ns" || true
                         aa_shown=true
                     fi
+                    if [ -n "${ON_EXECUTING_HOOK:-}" ] && type "$ON_EXECUTING_HOOK" &>/dev/null; then
+                        "$ON_EXECUTING_HOOK"
+                        ON_EXECUTING_HOOK=""
+                    fi
                     log_phase "WorkflowExecution running..."
                     ;;
                 Verifying)
