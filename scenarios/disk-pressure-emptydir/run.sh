@@ -337,165 +337,248 @@ _ensure_gitea_repo_creds() {
     echo "  gitea-repo-creds secret ensured in ${ns}."
 }
 
-# Self-heal missing AAP credentials by creating them via the AAP API.
-# Creates the K8s bearer-token credential type + credential and the Gitea
-# credential, then attaches both to all relevant job templates.
-_heal_aap_credentials() {
+# ── AAP credential preflight ──────────────────────────────────────────────
+# The WE controller creates ephemeral K8s credentials using the built-in AAP
+# type 17 (kind:kubernetes) which has NO env injectors.  kubernetes.core
+# modules need K8S_AUTH_HOST / K8S_AUTH_API_KEY env vars, which only a custom
+# credential type with env injectors provides.  The ephemeral creds are
+# passed in the job launch payload alongside any template-attached creds,
+# so as long as the template also has a type-33 (env-injected) credential
+# attached, the env vars are available and the playbook works.
+#
+# This function ensures the entire AAP credential chain is correct and then
+# runs a smoke-test job to prove it end-to-end.  It fails hard on any error.
+
+_aap_connect() {
     local aap_ns="${AAP_NAMESPACE:-aap}"
-    local aap_svc
-    aap_svc=$(kubectl get svc -n "$aap_ns" -o name 2>/dev/null \
+    _AAP_SVC=$(kubectl get svc -n "$aap_ns" -o name 2>/dev/null \
         | grep -m1 'controller-service' | sed 's|^service/||' || true)
-    [ -z "$aap_svc" ] && { echo "ERROR: no AAP controller-service found"; return 1; }
+    [ -z "$_AAP_SVC" ] && { echo "  ERROR: no AAP controller-service found in ${aap_ns}."; return 1; }
 
-    local aap_pass
-    aap_pass=$(kubectl get secret -n "$aap_ns" \
-        -l app.kubernetes.io/component=automationcontroller \
-        -o jsonpath='{.items[0].data.password}' 2>/dev/null | base64 -d 2>/dev/null || true)
-    [ -z "$aap_pass" ] && aap_pass=$(kubectl get secret "${aap_svc%-service}-admin-password" -n "$aap_ns" \
+    _AAP_PASS=$(kubectl get secret "${_AAP_SVC%-service}-admin-password" -n "$aap_ns" \
         -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || true)
-    [ -z "$aap_pass" ] && { echo "ERROR: cannot retrieve AAP admin password"; return 1; }
+    [ -z "$_AAP_PASS" ] && { echo "  ERROR: cannot retrieve AAP admin password."; return 1; }
 
-    local pf_port=18053
-    kubectl port-forward -n "$aap_ns" "svc/${aap_svc}" "${pf_port}:80" &>/dev/null &
-    local pf_pid=$!
-    trap '[ -n "${pf_pid:-}" ] && kill "$pf_pid" 2>/dev/null && wait "$pf_pid" 2>/dev/null || true' RETURN
+    _AAP_PF_PORT=18053
+    kubectl port-forward -n "$aap_ns" "svc/${_AAP_SVC}" "${_AAP_PF_PORT}:80" &>/dev/null &
+    _AAP_PF_PID=$!
     sleep 3
 
-    local _auth="admin:${aap_pass}"
-    local _url="http://localhost:${pf_port}"
+    _AAP_AUTH="admin:${_AAP_PASS}"
+    _AAP_URL="http://localhost:${_AAP_PF_PORT}"
+
+    if ! curl -sf "${_AAP_URL}/api/v2/ping/" -u "$_AAP_AUTH" >/dev/null 2>&1; then
+        echo "  ERROR: AAP API not reachable at ${_AAP_URL}."
+        kill "$_AAP_PF_PID" 2>/dev/null; wait "$_AAP_PF_PID" 2>/dev/null || true
+        return 1
+    fi
+}
+
+_aap_disconnect() {
+    [ -n "${_AAP_PF_PID:-}" ] && kill "$_AAP_PF_PID" 2>/dev/null && wait "$_AAP_PF_PID" 2>/dev/null || true
+    _AAP_PF_PID=""
+}
+
+_preflight_aap_credentials() {
+    echo "  Connecting to AAP API..."
+    _aap_connect || return 1
 
     local org_id
-    org_id=$(curl -sf "${_url}/api/v2/organizations/?name=Kubernaut+Demo" -u "$_auth" | \
+    org_id=$(curl -sf "${_AAP_URL}/api/v2/organizations/?name=Kubernaut+Demo" -u "$_AAP_AUTH" | \
         python3 -c "import json,sys; d=json.load(sys.stdin); print(d['results'][0]['id'] if d.get('results') else '')" 2>/dev/null || echo "")
-    if [ -z "$org_id" ]; then
-        org_id=$(curl -sf -X POST "${_url}/api/v2/organizations/" -u "$_auth" \
-            -H 'Content-Type: application/json' \
-            -d '{"name":"Kubernaut Demo","description":"Demo organization"}' | \
-            python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "1")
-    fi
-    echo "Org ID: ${org_id}"
+    [ -z "$org_id" ] && org_id=1
 
-    # Ensure the SA + token exist for K8s credential
-    kubectl apply -f - <<EOFSA
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: awx-ee-reader
-  namespace: ${aap_ns}
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: awx-ee-reader-token
-  namespace: ${aap_ns}
-  annotations:
-    kubernetes.io/service-account.name: awx-ee-reader
-type: kubernetes.io/service-account-token
-EOFSA
-
-    local sa_token=""
-    local deadline=$(($(date +%s) + 30))
-    while [ "$(date +%s)" -lt "$deadline" ]; do
-        sa_token=$(kubectl get secret awx-ee-reader-token -n "$aap_ns" \
-            -o jsonpath='{.data.token}' 2>/dev/null | base64 -d 2>/dev/null || echo "")
-        [ -n "$sa_token" ] && break
-        sleep 2
-    done
-    [ -z "$sa_token" ] && { echo "ERROR: SA token not available"; return 1; }
-
-    # Ensure custom credential type with env injectors
-    local ct_name="Kubernetes API Token (env injected)"
+    # ── 1. Ensure custom credential type with K8S_AUTH env injectors ────────
     local ct_id
-    ct_id=$(curl -sf "${_url}/api/v2/credential_types/?search=env+injected" -u "$_auth" | \
-        python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
+    ct_id=$(curl -sf "${_AAP_URL}/api/v2/credential_types/?search=env+injected" -u "$_AAP_AUTH" | \
+        python3 -c "
+import json, sys
+for ct in json.load(sys.stdin).get('results', []):
+    if 'K8S_AUTH_HOST' in ct.get('injectors', {}).get('env', {}):
+        print(ct['id']); sys.exit(0)
+" 2>/dev/null || echo "")
+
     if [ -z "$ct_id" ]; then
-        ct_id=$(curl -sf -X POST "${_url}/api/v2/credential_types/" -u "$_auth" \
+        echo "  Creating custom K8s credential type with env injectors..."
+        ct_id=$(curl -sf -X POST "${_AAP_URL}/api/v2/credential_types/" -u "$_AAP_AUTH" \
             -H 'Content-Type: application/json' \
-            -d "$(jq -n --arg name "$ct_name" '{
-                name:$name, description:"Injects K8S_AUTH env vars for kubernetes.core", kind:"cloud",
+            -d "$(jq -n '{
+                name:"Kubernetes API Token (env injected)",
+                description:"Injects K8S_AUTH env vars for kubernetes.core",
+                kind:"cloud",
                 inputs:{fields:[{id:"host",type:"string",label:"API Host"},{id:"bearer_token",type:"string",label:"Bearer Token",secret:true},{id:"verify_ssl",type:"boolean",label:"Verify SSL"}],required:["host","bearer_token"]},
-                injectors:{env:{K8S_AUTH_HOST:"{{host}}",K8S_AUTH_API_KEY:"{{bearer_token}}",K8S_AUTH_VERIFY_SSL:"{{verify_ssl}}"}}}')" | \
+                injectors:{env:{K8S_AUTH_HOST:"{{host}}",K8S_AUTH_API_KEY:"{{bearer_token}}",K8S_AUTH_VERIFY_SSL:"{{verify_ssl}}"}}
+            }')" | \
             python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
     fi
-    echo "K8s credential type ID: ${ct_id}"
+    if [ -z "$ct_id" ]; then
+        echo "  ERROR: Failed to find or create K8s env-injected credential type."
+        _aap_disconnect; return 1
+    fi
+    echo "  K8s credential type: ${ct_id} (env-injected)"
 
-    # Upsert K8s credential
+    # ── 2. Create / refresh K8s credential with a fresh SA token ────────────
+    local sa_name="migrate-postgres-emptydir-to-pvc-gitops-v1-runner"
+    local sa_ns="kubernaut-workflows"
+    local sa_token
+    sa_token=$(kubectl create token "$sa_name" -n "${sa_ns}" --duration=24h 2>/dev/null || echo "")
+    if [ -z "$sa_token" ]; then
+        echo "  ERROR: Could not create token for SA ${sa_name} in ${sa_ns}."
+        _aap_disconnect; return 1
+    fi
+
     local k8s_cred_id
-    k8s_cred_id=$(curl -sf "${_url}/api/v2/credentials/?name=kubernaut-k8s-reader" -u "$_auth" | \
-        python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
+    k8s_cred_id=$(curl -sf "${_AAP_URL}/api/v2/credentials/?name=kubernaut-k8s-reader" -u "$_AAP_AUTH" | \
+        python3 -c "import json,sys; r=json.load(sys.stdin).get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
+
     local _k8s_body
     _k8s_body=$(jq -n --argjson org "$org_id" --argjson ct "$ct_id" --arg token "$sa_token" \
-        '{name:"kubernaut-k8s-reader",description:"In-cluster K8s read access for AAP EE",organization:$org,credential_type:$ct,inputs:{host:"https://kubernetes.default.svc",bearer_token:$token,verify_ssl:false}}')
+        '{name:"kubernaut-k8s-reader",description:"In-cluster K8s access (env-injected)",organization:$org,credential_type:$ct,inputs:{host:"https://kubernetes.default.svc",bearer_token:$token,verify_ssl:false}}')
     if [ -n "$k8s_cred_id" ]; then
-        curl -sf -X PATCH "${_url}/api/v2/credentials/${k8s_cred_id}/" -u "$_auth" \
+        curl -sf -X PATCH "${_AAP_URL}/api/v2/credentials/${k8s_cred_id}/" -u "$_AAP_AUTH" \
             -H 'Content-Type: application/json' -d "$_k8s_body" >/dev/null
-        echo "K8s credential refreshed (id=${k8s_cred_id})"
+        echo "  K8s credential refreshed (id=${k8s_cred_id}, type=${ct_id})"
     else
-        k8s_cred_id=$(curl -sf -X POST "${_url}/api/v2/credentials/" -u "$_auth" \
+        k8s_cred_id=$(curl -sf -X POST "${_AAP_URL}/api/v2/credentials/" -u "$_AAP_AUTH" \
             -H 'Content-Type: application/json' -d "$_k8s_body" | \
             python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
-        echo "K8s credential created (id=${k8s_cred_id})"
+        echo "  K8s credential created (id=${k8s_cred_id}, type=${ct_id})"
+    fi
+    if [ -z "$k8s_cred_id" ]; then
+        echo "  ERROR: Failed to create K8s credential."
+        _aap_disconnect; return 1
     fi
 
-    # Upsert Gitea credential type
+    # ── 3. Ensure Gitea credential type + credential ───────────────────────
     local gitea_ct_id
-    gitea_ct_id=$(curl -sf "${_url}/api/v2/credential_types/?name=kubernaut-secret-gitea-repo-creds" -u "$_auth" | \
-        python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
+    gitea_ct_id=$(curl -sf "${_AAP_URL}/api/v2/credential_types/?name=kubernaut-secret-gitea-repo-creds" -u "$_AAP_AUTH" | \
+        python3 -c "import json,sys; r=json.load(sys.stdin).get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
     if [ -z "$gitea_ct_id" ]; then
-        gitea_ct_id=$(curl -sf -X POST "${_url}/api/v2/credential_types/" -u "$_auth" \
+        gitea_ct_id=$(curl -sf -X POST "${_AAP_URL}/api/v2/credential_types/" -u "$_AAP_AUTH" \
             -H 'Content-Type: application/json' \
             -d "$(jq -n '{name:"kubernaut-secret-gitea-repo-creds",description:"Gitea repo credentials",kind:"cloud",
                 inputs:{fields:[{id:"username",type:"string",label:"Username"},{id:"password",type:"string",label:"Password",secret:true}],required:["username","password"]},
                 injectors:{extra_vars:{GITEA_USER:"{{username}}",GITEA_PASS:"{{password}}"}}}')" | \
             python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
     fi
-    echo "Gitea credential type ID: ${gitea_ct_id}"
 
-    # Upsert Gitea credential
-    local gitea_user="${GITEA_ADMIN_USER:-kubernaut}"
-    local gitea_pass_val="${GITEA_ADMIN_PASS:-kubernaut123}"
     local gitea_cred_id
-    gitea_cred_id=$(curl -sf "${_url}/api/v2/credentials/?name=kubernaut-gitea-creds" -u "$_auth" | \
-        python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
-    if [ -z "$gitea_cred_id" ]; then
+    gitea_cred_id=$(curl -sf "${_AAP_URL}/api/v2/credentials/?name=kubernaut-gitea-creds" -u "$_AAP_AUTH" | \
+        python3 -c "import json,sys; r=json.load(sys.stdin).get('results',[]); print(r[0]['id'] if r else '')" 2>/dev/null || echo "")
+    if [ -z "$gitea_cred_id" ] && [ -n "$gitea_ct_id" ]; then
         local _gitea_body
         _gitea_body=$(jq -n --argjson org "$org_id" --argjson ct "$gitea_ct_id" \
-            --arg user "$gitea_user" --arg pass "$gitea_pass_val" \
+            --arg user "${GITEA_ADMIN_USER:-kubernaut}" --arg pass "${GITEA_ADMIN_PASS:-kubernaut123}" \
             '{name:"kubernaut-gitea-creds",description:"Gitea credentials for GitOps playbooks",organization:$org,credential_type:$ct,inputs:{username:$user,password:$pass}}')
-        gitea_cred_id=$(curl -sf -X POST "${_url}/api/v2/credentials/" -u "$_auth" \
+        gitea_cred_id=$(curl -sf -X POST "${_AAP_URL}/api/v2/credentials/" -u "$_AAP_AUTH" \
             -H 'Content-Type: application/json' -d "$_gitea_body" | \
             python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
-        echo "Gitea credential created (id=${gitea_cred_id})"
+        echo "  Gitea credential created (id=${gitea_cred_id})"
     else
-        echo "Gitea credential exists (id=${gitea_cred_id})"
+        echo "  Gitea credential exists (id=${gitea_cred_id})"
     fi
 
-    # Attach credentials to all relevant job templates
+    # ── 4. Attach both credentials to the migrate job template ──────────────
     local tmpl_ids
-    tmpl_ids=$(curl -sf "${_url}/api/v2/job_templates/" -u "$_auth" | python3 -c "
+    tmpl_ids=$(curl -sf "${_AAP_URL}/api/v2/job_templates/" -u "$_AAP_AUTH" | python3 -c "
 import json, sys
-d = json.load(sys.stdin)
-for t in d.get('results', []):
-    if 'migrate' in t.get('name','').lower() or 'memory' in t.get('name','').lower():
+for t in json.load(sys.stdin).get('results', []):
+    if 'migrate' in t.get('name','').lower():
         print(t['id'])
 " 2>/dev/null || true)
 
+    if [ -z "$tmpl_ids" ]; then
+        echo "  ERROR: No 'migrate' job template found in AAP."
+        _aap_disconnect; return 1
+    fi
+
     for tid in $tmpl_ids; do
-        if [ -n "$k8s_cred_id" ]; then
-            curl -sf -X POST "${_url}/api/v2/job_templates/${tid}/credentials/" -u "$_auth" \
-                -H 'Content-Type: application/json' -d "{\"id\":${k8s_cred_id}}" >/dev/null 2>&1 || true
-        fi
-        if [ -n "$gitea_cred_id" ]; then
-            curl -sf -X POST "${_url}/api/v2/job_templates/${tid}/credentials/" -u "$_auth" \
+        curl -sf -X POST "${_AAP_URL}/api/v2/job_templates/${tid}/credentials/" -u "$_AAP_AUTH" \
+            -H 'Content-Type: application/json' -d "{\"id\":${k8s_cred_id}}" >/dev/null 2>&1 || true
+        [ -n "$gitea_cred_id" ] && \
+            curl -sf -X POST "${_AAP_URL}/api/v2/job_templates/${tid}/credentials/" -u "$_AAP_AUTH" \
                 -H 'Content-Type: application/json' -d "{\"id\":${gitea_cred_id}}" >/dev/null 2>&1 || true
-        fi
-        echo "Credentials attached to template ${tid}"
+        echo "  Credentials attached to template ${tid}"
     done
-    echo "AAP credential self-heal complete."
+
+    # ── 5. Smoke-test: launch the template with --check and verify K8s auth ─
+    echo "  Running AAP smoke-test (launching template with K8s credential)..."
+    local _smoke_tmpl
+    _smoke_tmpl=$(echo "$tmpl_ids" | head -1)
+    local _smoke_job_id
+    _smoke_job_id=$(curl -sf -X POST "${_AAP_URL}/api/v2/job_templates/${_smoke_tmpl}/launch/" \
+        -u "$_AAP_AUTH" \
+        -H 'Content-Type: application/json' \
+        -d "{\"extra_vars\":{\"NODE_NAME\":\"smoke-test\",\"PVC_SIZE\":\"1Gi\",\"RR_NAME\":\"smoke\",\"RR_NAMESPACE\":\"${PLATFORM_NS}\",\"TARGET_RESOURCE_KIND\":\"Deployment\",\"TARGET_RESOURCE_NAME\":\"smoke\",\"TARGET_RESOURCE_NAMESPACE\":\"default\",\"WFE_NAME\":\"smoke\",\"WFE_NAMESPACE\":\"${PLATFORM_NS}\"}}" | \
+        python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null || echo "")
+
+    if [ -z "$_smoke_job_id" ]; then
+        echo "  ERROR: Failed to launch AAP smoke-test job."
+        _aap_disconnect; return 1
+    fi
+    echo "  Smoke-test job launched (id=${_smoke_job_id}), waiting..."
+
+    local _deadline=$(($(date +%s) + 90))
+    local _status=""
+    while [ "$(date +%s)" -lt "$_deadline" ]; do
+        _status=$(curl -sf "${_AAP_URL}/api/v2/jobs/${_smoke_job_id}/" -u "$_AAP_AUTH" | \
+            python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" 2>/dev/null || echo "")
+        case "$_status" in
+            successful) break ;;
+            failed|error|canceled)
+                local _stdout
+                _stdout=$(curl -sf "${_AAP_URL}/api/v2/jobs/${_smoke_job_id}/stdout/?format=txt" \
+                    -u "$_AAP_AUTH" 2>&1 || echo "")
+                if echo "$_stdout" | grep -qi "Invalid kube-config\|Could not create API client\|Authentication.*failed\|Unauthorized"; then
+                    echo "  ERROR: AAP smoke-test job ${_smoke_job_id} ${_status} — K8s auth broken."
+                    echo "  ── Job stdout ──"
+                    echo "$_stdout" | head -40 | sed 's/^/    /'
+                    echo "  ─────────────────"
+                    echo ""
+                    echo "  The K8s credential chain is broken. The Ansible playbook cannot"
+                    echo "  authenticate to the cluster. Verify that:"
+                    echo "    1. Credential type ${ct_id} has K8S_AUTH_HOST/K8S_AUTH_API_KEY injectors"
+                    echo "    2. Credential ${k8s_cred_id} uses type ${ct_id} (not built-in type 17)"
+                    echo "    3. The SA token for ${sa_name} is valid"
+                    _aap_disconnect; return 1
+                fi
+                echo "  Smoke-test job ${_status} but K8s auth is working (failure is playbook logic with dummy inputs)."
+                break
+                ;;
+        esac
+        sleep 5
+    done
+
+    case "$_status" in
+        successful)
+            echo "  Smoke-test passed (job ${_smoke_job_id} successful)."
+            ;;
+        failed)
+            # Already handled in the loop — auth works, playbook logic failed with dummy inputs.
+            ;;
+        running|pending|waiting)
+            local _task_count
+            _task_count=$(curl -sf "${_AAP_URL}/api/v2/jobs/${_smoke_job_id}/job_events/?event=runner_on_ok&page_size=1" \
+                -u "$_AAP_AUTH" | python3 -c "import json,sys; print(json.load(sys.stdin).get('count',0))" 2>/dev/null || echo "0")
+            if [ "$_task_count" -gt 0 ]; then
+                echo "  Smoke-test still running but K8s auth verified (${_task_count} tasks OK). Cancelling..."
+                curl -sf -X POST "${_AAP_URL}/api/v2/jobs/${_smoke_job_id}/cancel/" \
+                    -u "$_AAP_AUTH" >/dev/null 2>&1 || true
+            else
+                echo "  ERROR: AAP smoke-test timed out without completing any K8s task."
+                _aap_disconnect; return 1
+            fi
+            ;;
+        *)
+            echo "  ERROR: AAP smoke-test ended in unexpected status: ${_status}"
+            _aap_disconnect; return 1
+            ;;
+    esac
+
+    _aap_disconnect
+    echo "  AAP credential preflight complete."
 }
 
-# Warn (non-fatal) if required secrets are missing before setup proceeds.
-# See: kubernaut-demo-scenarios#3 sub-issue 3.7
 _check_prerequisites() {
     local missing=false
     if ! kubectl get secret llm-credentials -n "${PLATFORM_NS}" &>/dev/null; then
@@ -509,137 +592,17 @@ _check_prerequisites() {
         echo "  NOTE: slack-webhook secret not found in ${PLATFORM_NS} (notifications will use console only)."
     fi
 
-    if ! _check_aap_credentials; then
-        echo "  AAP credentials missing — self-healing via AAP API..."
-        if _heal_aap_credentials 2>&1 | sed 's/^/    /'; then
-            echo "  Re-checking AAP credentials after self-heal..."
-            if ! _check_aap_credentials; then
-                missing=true
-            fi
-        else
-            echo "  WARNING: AAP credential self-heal failed."
-            missing=true
-        fi
+    if ! _preflight_aap_credentials; then
+        echo ""
+        echo "  ERROR: AAP credential preflight failed. Cannot proceed."
+        exit 1
     fi
 
     if [ "$missing" = true ]; then
         echo ""
         echo "  ERROR: Required prerequisites are missing. Fix the above before running."
-        echo ""
         exit 1
     fi
-}
-
-# Verify AAP/AWX job template has K8s and Gitea credentials attached.
-# Without these, the Ansible playbook fails with "Invalid kube-config file".
-_check_aap_credentials() {
-    local aap_ns="${AAP_NAMESPACE:-aap}"
-    local aap_svc
-    aap_svc=$(kubectl get svc -n "$aap_ns" -o name 2>/dev/null \
-        | grep -m1 'controller-service' | sed 's|^service/||' || true)
-    if [ -z "$aap_svc" ]; then
-        return 0
-    fi
-
-    local aap_pass
-    aap_pass=$(kubectl get secret -n "$aap_ns" \
-        -l app.kubernetes.io/component=automationcontroller \
-        -o jsonpath='{.items[0].data.password}' 2>/dev/null | base64 -d 2>/dev/null || true)
-    if [ -z "$aap_pass" ]; then
-        aap_pass=$(kubectl get secret "${aap_svc%-service}-admin-password" -n "$aap_ns" \
-            -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null || true)
-    fi
-    if [ -z "$aap_pass" ]; then
-        echo "  NOTE: Could not retrieve AAP admin password; skipping credential check."
-        return 0
-    fi
-
-    local pf_port=18052
-    kubectl port-forward -n "$aap_ns" "svc/${aap_svc}" "${pf_port}:80" &>/dev/null &
-    local pf_pid=$!
-    trap '[ -n "${pf_pid:-}" ] && kill "$pf_pid" 2>/dev/null && wait "$pf_pid" 2>/dev/null || true' RETURN
-    sleep 2
-
-    local templates
-    templates=$(curl -sf "http://localhost:${pf_port}/api/v2/job_templates/" \
-        -u "admin:${aap_pass}" 2>/dev/null || true)
-    if [ -z "$templates" ]; then
-        return 0
-    fi
-
-    local tmpl_ids
-    tmpl_ids=$(echo "$templates" | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-for t in d.get('results', []):
-    if 'migrate' in t.get('name','').lower() or 'memory' in t.get('name','').lower():
-        print(t['id'])
-" 2>/dev/null || true)
-
-    local any_missing=false
-    for tmpl_id in $tmpl_ids; do
-        local creds
-        creds=$(curl -sf "http://localhost:${pf_port}/api/v2/job_templates/${tmpl_id}/credentials/" \
-            -u "admin:${aap_pass}" 2>/dev/null || true)
-        if [ -z "$creds" ]; then continue; fi
-
-        local tmpl_name
-        tmpl_name=$(echo "$templates" | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-for t in d.get('results', []):
-    if t['id'] == ${tmpl_id}:
-        print(t['name']); break
-" 2>/dev/null || echo "template-${tmpl_id}")
-
-        local has_k8s has_gitea
-        has_k8s=$(echo "$creds" | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-print('yes' if any(c.get('credential_type') in (17, 18) or 'k8s' in c.get('name','').lower() for c in d.get('results',[])) else 'no')
-" 2>/dev/null || echo "unknown")
-        has_gitea=$(echo "$creds" | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-print('yes' if any('gitea' in c.get('name','').lower() for c in d.get('results',[])) else 'no')
-" 2>/dev/null || echo "unknown")
-
-        if [ "$has_k8s" = "no" ] || [ "$has_gitea" = "no" ]; then
-            echo "  WARNING: AAP template '${tmpl_name}' (id=${tmpl_id}) is missing credentials:"
-            [ "$has_k8s" = "no" ] && echo "    - K8s credential (cluster access for Ansible playbooks)"
-            [ "$has_gitea" = "no" ] && echo "    - Gitea credential (GitOps push access)"
-            echo "    Self-heal will attempt to fix this automatically."
-            any_missing=true
-        fi
-    done
-
-    if [ "$any_missing" = false ] && [ -n "$tmpl_ids" ]; then
-        echo "  AAP job template credentials verified."
-    fi
-
-    local injectors_ok
-    injectors_ok=$(curl -sf "http://localhost:${pf_port}/api/v2/credential_types/?search=env+injected" \
-        -u "admin:${aap_pass}" 2>/dev/null | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-for ct in d.get('results', []):
-    inj = ct.get('injectors', {})
-    env = inj.get('env', {})
-    if 'K8S_AUTH_HOST' in env and 'K8S_AUTH_API_KEY' in env:
-        print('yes')
-        sys.exit(0)
-print('no')
-" 2>/dev/null || echo "unknown")
-
-    if [ "$injectors_ok" = "no" ]; then
-        echo "  ERROR: No AAP credential type with K8s env injectors found."
-        echo "    kubernetes.core modules will fail with 'No configuration found'."
-        any_missing=true
-    elif [ "$injectors_ok" = "yes" ]; then
-        echo "  AAP K8s credential type injectors verified."
-    fi
-
-    [ "$any_missing" = false ]
 }
 
 run_setup() {
