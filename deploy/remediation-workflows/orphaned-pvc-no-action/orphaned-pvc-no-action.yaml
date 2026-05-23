@@ -46,7 +46,7 @@ metadata:
 spec:
   # Cleanup PVC Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #121 -- Orphaned PVCs consuming disk -> cleanup
-  version: "1.4.2"
+  version: "1.5.0"
   description:
     what: "Deletes orphaned PersistentVolumeClaims that are not mounted by any running pod"
     whenToUse: "When PVCs from completed or failed batch jobs accumulate and contribute to storage pressure"
@@ -58,7 +58,7 @@ spec:
   labels:
     severity: [low, medium, critical]
     environment: [production, staging]
-    component: [persistentvolumeclaim]
+    component: [v1/PersistentVolumeClaim]
     priority: "*"
   
   execution:

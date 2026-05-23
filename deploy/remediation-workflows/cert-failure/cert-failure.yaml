@@ -49,7 +49,7 @@ metadata:
 spec:
   # Fix Certificate Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #133 -- cert-manager Certificate NotReady -> recreate CA Secret
-  version: "1.4.2"
+  version: "1.5.0"
   description:
     what: "Recreates the CA Secret backing a cert-manager ClusterIssuer to restore certificate issuance"
     whenToUse: "When a cert-manager Certificate is stuck in NotReady because the CA Secret has been deleted or corrupted. Supply the issuer name in ISSUER_NAME and issuer kind in ISSUER_KIND so the job can locate the CA Secret."
@@ -61,7 +61,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [staging]
-    component: [certificate, clusterissuer]
+    component: [cert-manager.io/v1/Certificate, cert-manager.io/v1/ClusterIssuer]
     priority: "*"
   
   execution:

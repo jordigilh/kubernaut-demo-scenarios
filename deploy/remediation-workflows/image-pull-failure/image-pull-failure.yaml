@@ -47,7 +47,7 @@ metadata:
   name: refresh-pull-secret-v1
   namespace: kubernaut-system
 spec:
-  version: "1.4.2"
+  version: "1.5.0"
   description:
     what: "Recreates a missing or expired ImagePullSecret from a known-good credential source, then restarts the affected Deployment to recover pods stuck in ImagePullBackOff"
     whenToUse: "When pods are stuck in ImagePullBackOff because the referenced ImagePullSecret was deleted, expired, or corrupted. The ServiceAccount's imagePullSecrets reference a Secret that no longer exists or contains invalid credentials."
@@ -59,7 +59,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [production, staging]
-    component: [deployment]
+    component: [apps/v1/Deployment]
     priority: "*"
 
   execution:
