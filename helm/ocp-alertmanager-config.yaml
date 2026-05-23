@@ -29,5 +29,5 @@ receivers:
   - name: default
   - name: gateway-webhook
     webhook_configs:
-      - url: "http://gateway-service.kubernaut-system.svc.cluster.local:8080/api/v1/signals/prometheus"
+      - url: "https://gateway-service.kubernaut-system.svc.cluster.local:8443/api/v1/signals/prometheus"
         send_resolved: false
