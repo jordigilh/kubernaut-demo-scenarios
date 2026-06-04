@@ -1,0 +1,20 @@
+# FixImageReference - Runnable Job Container (BR-WE-014)
+# Corrects a Deployment's container image reference by reverting to the
+# last known-good image from rollout history.
+#
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+
+ARG TARGETARCH
+ARG KUBECTL_VERSION=v1.31.4
+
+RUN microdnf install -y python3 && microdnf clean all && \
+    curl -fsSL -o /usr/local/bin/kubectl \
+    "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
+    chmod +x /usr/local/bin/kubectl
+
+COPY remediate.sh /scripts/remediate.sh
+RUN chmod +x /scripts/remediate.sh
+
+USER 1001
+
+ENTRYPOINT ["/scripts/remediate.sh"]

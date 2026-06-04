@@ -40,4 +40,6 @@ WORKFLOWS=(
     "etcd-defrag-forecast:defrag-etcd-job"
     "db-connection-saturation:increase-db-connections-job"
     "scale-replicas:scale-replicas-job"
+    "patch-configuration:patch-configuration-job"
+    "fix-image-reference:fix-image-reference-job"
 )

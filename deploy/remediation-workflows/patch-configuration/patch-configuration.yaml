@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: patch-configuration-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: patch-configuration-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: patch-configuration-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: patch-configuration-v1
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: patch-configuration-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: patch-configuration-v1
+subjects:
+  - kind: ServiceAccount
+    name: patch-configuration-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: patch-configuration-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: patch-configuration-v1
+  namespace: kubernaut-system
+spec:
+  version: "1.5.0"
+  description:
+    what: "Patches a ConfigMap to remove invalid keys or restore known-good values from a backup ConfigMap, then restarts the Deployment that mounts it to recover from configuration-induced crashes"
+    whenToUse: "When a Deployment's pods are crashing because a mounted ConfigMap contains invalid data (bad directives, corrupted values, injected keys) and the Deployment spec itself has NOT changed — only the ConfigMap content was modified in-place. Look for: (1) CrashLoopBackOff with exit code 1 and startup errors referencing config files, (2) the Deployment's volume still references the same ConfigMap name as before, (3) the ConfigMap data contains keys or values that were recently added or modified. This is the correct workflow when the root cause is bad ConfigMap content, not a bad Deployment spec change."
+    whenNotToUse: "When the Deployment spec was changed to reference a different ConfigMap name (e.g. volumes[].configMap.name was modified) — use CrashloopRollback instead, which reverts the entire pod template. When the crash is caused by an image change, resource limits, or external dependency failure. When the ConfigMap is managed by a GitOps tool (ArgoCD/Flux) — use GitRevert instead."
+    preconditions: "The ConfigMap exists in the target namespace. Either a backup ConfigMap (<name>-backup, <name>-good, <name>-original) is available, or the bad keys can be identified and removed."
+
+  actionType: PatchConfiguration
+
+  labels:
+    severity: [critical, high]
+    environment: [production, staging]
+    component: [v1/ConfigMap, apps/v1/Deployment]
+    priority: "*"
+
+  execution:
+    engine: job
+    serviceAccountName: patch-configuration-v1-runner
+    bundle: quay.io/kubernaut-cicd/test-workflows/patch-configuration-job@sha256:854c036c51de0275c42b599835d6fb696ed7a1c06fdc0b9084ea05ba9a5a9cb1
+  parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: true
+      description: "Namespace of the ConfigMap and Deployment"
+    - name: TARGET_RESOURCE_NAME
+      type: string
+      required: true
+      description: "Name of the ConfigMap to patch, or the Deployment that mounts it"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "ConfigMap or Deployment"
