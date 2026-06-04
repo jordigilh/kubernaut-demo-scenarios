@@ -7,15 +7,21 @@
 #   nohup bash scripts/parallel-ocp-validation.sh 2>&1 | tee parallel-run.log &
 #
 # Groups:
-#   A (8 scenarios): crashloop, crashloop-helm, stuck-rollout, memory-leak,
-#                    resource-contention, hpa-maxed,
-#                    duplicate-alert-suppression, operator-oomkill-informer
+#   A (13 scenarios): crashloop, crashloop-helm, stuck-rollout, memory-leak,
+#                     resource-contention, hpa-maxed, duplicate-alert-suppression,
+#                     operator-oomkill-informer, db-connection-saturation,
+#                     image-pull-failure, rbac-failure, red-herring-noise,
+#                     severity-misdirection
+#   B (13 scenarios): network-policy-block, statefulset-pvc-failure,
+#                     resource-quota-exhaustion, cert-failure, slo-burn,
+#                     orphaned-pvc-no-action, concurrent-cross-namespace,
+#                     mesh-routing-failure, pending-taint,
+#                     cascading-service-failure, cross-namespace-dependency,
+#                     route-misconfiguration, scc-violation
 #   Excluded: autoscale (Kind-only), node-notready (Kind-only)
-#   B (9 scenarios): network-policy-block, statefulset-pvc-failure,
-#                    resource-quota-exhaustion, cert-failure, slo-burn,
-#                    orphaned-pvc-no-action, concurrent-cross-namespace,
-#                    mesh-routing-failure, pending-taint
-#   Solo (after both): pdb-deadlock, disk-pressure-emptydir
+#   Solo (after both): pdb-deadlock, disk-pressure-emptydir, etcd-defrag-forecast,
+#                      gitops-drift, pvc-capacity-forecast, operator-health,
+#                      build-failure
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,18 +31,19 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 RESULTS_DIR="${REPO_ROOT}/parallel-results-${TIMESTAMP}"
 mkdir -p "${RESULTS_DIR}"
 
-GROUP_A="crashloop,crashloop-helm,stuck-rollout,memory-leak,resource-contention,hpa-maxed,duplicate-alert-suppression,operator-oomkill-informer"
-GROUP_B="network-policy-block,statefulset-pvc-failure,resource-quota-exhaustion,cert-failure,slo-burn,orphaned-pvc-no-action,concurrent-cross-namespace,mesh-routing-failure,pending-taint"
+GROUP_A="crashloop,crashloop-helm,stuck-rollout,memory-leak,resource-contention,hpa-maxed,duplicate-alert-suppression,operator-oomkill-informer,db-connection-saturation,image-pull-failure,rbac-failure,red-herring-noise,severity-misdirection"
+GROUP_B="network-policy-block,statefulset-pvc-failure,resource-quota-exhaustion,cert-failure,slo-burn,orphaned-pvc-no-action,concurrent-cross-namespace,mesh-routing-failure,pending-taint,cascading-service-failure,cross-namespace-dependency,route-misconfiguration,scc-violation"
 
 echo "============================================="
-echo " RC5 Parallel OCP Validation"
+echo " v1.5 Parallel OCP Regression Validation"
 echo " $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "============================================="
 echo ""
 echo "  Results dir: ${RESULTS_DIR}"
 echo "  Group A: ${GROUP_A//,/, }"
 echo "  Group B: ${GROUP_B//,/, }"
-echo "  Solo:    pdb-deadlock, disk-pressure-emptydir"
+echo "  Solo:    pdb-deadlock, disk-pressure-emptydir, etcd-defrag-forecast,"
+echo "           gitops-drift, pvc-capacity-forecast, operator-health, build-failure"
 echo ""
 
 # ── 1. Preflight ─────────────────────────────────────────────────────────────
@@ -124,6 +131,22 @@ bash "${SCRIPT_DIR}/overnight-ocp-validation.sh" \
 EXIT_DP=$?
 echo "  disk-pressure-emptydir finished: exit=${EXIT_DP}"
 
+export KUBERNAUT_BATCH_SETUP_DONE=1
+sleep 15
+
+SOLO_SCENARIOS=(etcd-defrag-forecast gitops-drift pvc-capacity-forecast operator-health build-failure)
+SOLO_EXIT=0
+for solo in "${SOLO_SCENARIOS[@]}"; do
+    echo "  Running ${solo}..."
+    bash "${SCRIPT_DIR}/overnight-ocp-validation.sh" \
+        --skip-seed "--only=${solo}" \
+        > "${RESULTS_DIR}/solo-${solo}.log" 2>&1
+    _exit=$?
+    echo "  ${solo} finished: exit=${_exit}"
+    [ $_exit -ne 0 ] && SOLO_EXIT=1
+    sleep 15
+done
+
 echo ""
 
 # ── 5. Merge results ─────────────────────────────────────────────────────────
@@ -163,7 +186,7 @@ echo "              ${RESULTS_DIR}/group-b.log"
 echo ""
 
 # Exit non-zero if any group had failures
-if [ $EXIT_A -ne 0 ] || [ $EXIT_B -ne 0 ] || [ $EXIT_PDB -ne 0 ] || [ $EXIT_DP -ne 0 ]; then
+if [ $EXIT_A -ne 0 ] || [ $EXIT_B -ne 0 ] || [ $EXIT_PDB -ne 0 ] || [ $EXIT_DP -ne 0 ] || [ $SOLO_EXIT -ne 0 ]; then
     echo "  Some scenarios failed. Review logs for details."
     exit 1
 fi
