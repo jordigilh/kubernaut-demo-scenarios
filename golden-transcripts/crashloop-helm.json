@@ -1,0 +1,128 @@
+{
+  "scenario": "crashloop-helm",
+  "incidentId": "rr-c2dc7f50dc7b-1cffde60",
+  "signal": {
+    "signalName": "KubePodCrashLooping",
+    "namespace": "demo-storefront",
+    "resourceKind": "Deployment",
+    "resourceName": "worker",
+    "severity": "critical"
+  },
+  "analysis": {
+    "phase": "Completed",
+    "selectedWorkflow": {
+      "confidence": 0.9,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "ConfigMap",
+        "TARGET_RESOURCE_NAME": "worker-config",
+        "TARGET_RESOURCE_NAMESPACE": "demo-storefront",
+        "TARGET_RESOURCE_API_VERSION": "v1"
+      },
+      "workflowId": "47ec5289-a204-5e3d-bdf7-6b444be8cb46",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:79fc8838a10fcc697f68482b2c242c37c7e8d48edfa2b394baa532ebc1ed35f1"
+    },
+    "approvalRequired": true,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "rootCauseAnalysis": {
+      "summary": "ConfigMap 'worker-config' contains an invalid nginx directive 'invalid_directive_that_breaks_nginx' at line 11 of nginx.conf, introduced by a bad Helm rollout (Deployment generation 2), causing the worker container to crash immediately on startup with exit code 1. The previous Helm revision's pods remain healthy.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: Pod 'worker-8657dcd6f8-8lhvw' in CrashLoopBackOff with 5+ restarts, exit code 1 within ~2 seconds",
+        "Why does the container exit immediately? nginx fails to start because it encounters an unknown directive in its config file",
+        "Why does nginx encounter an unknown directive? ConfigMap 'worker-config' contains 'invalid_directive_that_breaks_nginx on;' at line 11 of nginx.conf",
+        "Why was this invalid config deployed? A Helm rollout (Deployment generation 2) introduced or updated the 'worker-config' ConfigMap with the invalid directive",
+        "Root cause: ConfigMap 'worker-config' in namespace 'demo-storefront' contains a syntactically invalid nginx directive that prevents the nginx process from starting \u2014 this is a regression from a previously fixed state"
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "The remediation target is ConfigMap 'worker-config' because it is the resource whose data (nginx.conf) directly causes the crash. The Deployment spec itself is correct \u2014 it properly mounts the ConfigMap. An automated workflow can patch the ConfigMap's data field to remove the invalid directive. The Deployment is NOT the target because changing the Deployment without fixing the ConfigMap would not resolve the crash.",
+        "proportionality": "The ConfigMap is the precise, minimal remediation target. Patching one field (removing the invalid directive from nginx.conf data) resolves the crash. Rolling back the Deployment would also work but is a broader action; fixing the ConfigMap is more targeted and allows the new rollout to proceed correctly.",
+        "scopeCompleteness": "Investigated: the crashing pod (describe + current logs + previous logs), the Deployment spec, all pods in the namespace (confirmed 2 healthy old RS pods + 1 crashing new RS pod), the ConfigMap 'worker-config' (confirmed invalid content), pod events (confirmed readiness probe failure pattern), node not explicitly checked but old pods on same nodes are healthy ruling out node-level issues.",
+        "causalCompleteness": "Fully traced: CrashLoopBackOff \u2192 exit code 1 \u2192 nginx [emerg] parse error \u2192 invalid directive in ConfigMap \u2192 bad Helm rollout. The nginx error message explicitly names the file and line number. Cannot go deeper without inspecting the Helm chart values/templates that generated the ConfigMap, but the ConfigMap content itself is the direct fix target.",
+        "evidenceSufficiency": "All claims are backed by direct tool evidence: (1) pod logs explicitly show the nginx [emerg] error with file/line reference; (2) ConfigMap content confirms the invalid directive at line 11 with a comment stating it is intentionally invalid; (3) pod describe shows 2-second runtime and exit code 1; (4) events show 'connection refused' on readiness probe; (5) pod listing confirms old RS pods are healthy while only new RS pod crashes; (6) resource context confirms regression_detected=true for this ConfigMap.",
+        "regressionAwareness": "Remediation history confirms regression_detected=true for ConfigMap 'worker-config'. A prior remediation (rr-c2dc7f50dc7b-464a27bd) resolved the signal at 2026-06-04T03:42:53Z with effectiveness_score=0.58, but the fix was not preserved \u2014 the invalid config was re-introduced in the subsequent Helm rollout at 13:06:59Z. Any fix must also address the Helm chart template or values to prevent re-introduction.",
+        "alternativeHypotheses": "OOMKill was considered \u2014 ruled out: exit code is 1 (Error), not 137 (SIGKILL); container runs only ~2s which is too fast for memory pressure. Node resource exhaustion was considered \u2014 ruled out: old RS pods on same nodes are healthy. Image pull failure was considered \u2014 ruled out: events show 'Pulled' with count 5 (cached image). Permission/securityContext issue was considered \u2014 ruled out: nginx starts its entrypoint scripts successfully before failing on config parsing.",
+        "confidenceCalibration": "0.97: Starting at 1.0. -0.02 for not inspecting the Helm chart values/templates that generated the ConfigMap (cannot confirm whether this is a chart bug or a values override). -0.01 for not verifying the exact diff between old and new ConfigMap versions (old RS pods' config not compared directly). The nginx error message, ConfigMap content, and log evidence are unambiguous \u2014 confidence is very high."
+      },
+      "remediationTarget": {
+        "kind": "ConfigMap",
+        "name": "worker-config",
+        "namespace": "demo-storefront"
+      },
+      "contributingFactors": [
+        "Bad Helm rollout (Deployment generation 2) introduced a broken nginx config into ConfigMap 'worker-config'",
+        "nginx exits with [emerg] error and code 1 when it encounters unknown directive 'invalid_directive_that_breaks_nginx', making the crash immediate (~2s runtime)",
+        "Readiness probe on /healthz:8080 fails with 'connection refused' because nginx never binds to the port",
+        "Regression detected: remediation history shows a prior fix to this ConfigMap with regression_detected=true, suggesting the invalid config was re-introduced by Helm",
+        "Old ReplicaSet 'worker-c547b545f' pods remain healthy, confirming the issue is isolated to the new rollout's config change",
+        "Prior in-place patch remediation had only moderate effectiveness (0.58) and did not persist across Helm upgrades"
+      ]
+    }
+  },
+  "remediationRequest": {
+    "outcome": "Processing"
+  },
+  "kaResponse": {
+    "confidence": 0.9,
+    "analysis": "ConfigMap 'worker-config' contains an invalid nginx directive 'invalid_directive_that_breaks_nginx' at line 11 of nginx.conf, introduced by a bad Helm rollout (Deployment generation 2), causing the worker container to crash immediately on startup with exit code 1. The previous Helm revision's pods remain healthy."
+  },
+  "traceStats": {
+    "totalTokens": 177518,
+    "llmTurns": 17,
+    "totalToolCalls": 13
+  },
+  "toolCalls": [
+    {
+      "tool": "kubectl_describe",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_describe",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_events",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_previous_logs",
+      "index": 0
+    },
+    {
+      "tool": "kubectl_logs",
+      "index": 1
+    },
+    {
+      "tool": "kubectl_get_by_name",
+      "index": 2
+    },
+    {
+      "tool": "kubectl_get_by_kind_in_namespace",
+      "index": 3
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 0
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 1
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    },
+    {
+      "tool": "get_workflow",
+      "index": 0
+    }
+  ]
+}

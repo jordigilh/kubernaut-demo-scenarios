@@ -77,6 +77,15 @@ fi
 
 wfe_phase=$(kubectl get workflowexecutions "wfe-${rr_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+if [ -z "$wfe_phase" ]; then
+    wfe_phase=$(kubectl get workflowexecutions "we-${rr_name}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+fi
+if [ -z "$wfe_phase" ]; then
+    wfe_phase=$(kubectl get wfe -n "${PLATFORM_NS}" \
+      -o jsonpath='{range .items[*]}{.metadata.labels.kubernaut\.ai/source-namespace}={.status.phase}{"\n"}{end}' 2>/dev/null \
+      | grep "^${NAMESPACE}=" | head -1 | cut -d= -f2 || true)
+fi
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
 # After remediation, pods should recover

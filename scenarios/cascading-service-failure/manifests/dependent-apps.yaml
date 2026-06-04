@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: order-processor
-  namespace: demo-fulfillment
+  namespace: demo-order-fulfillment
   labels:
     app: order-processor
     kubernaut.ai/managed: "true"
@@ -22,13 +22,13 @@ spec:
         command: ["sh", "-c"]
         args:
         - |
-          echo "[order-processor] Starting -- depends on postgres.demo-fulfillment.svc:5432"
+          echo "[order-processor] Starting -- depends on postgres.demo-order-fulfillment.svc:5432"
           while true; do
             if PGPASSWORD=demo psql -h postgres -U demo -d demo -t -c "SELECT 1" >/dev/null 2>&1; then
               echo "[order-processor] Health check OK -- postgres connection successful"
               sleep 10
             else
-              echo "[order-processor] FATAL: Cannot connect to postgres.demo-fulfillment.svc:5432 -- exiting"
+              echo "[order-processor] FATAL: Cannot connect to postgres.demo-order-fulfillment.svc:5432 -- exiting"
               exit 1
             fi
           done
@@ -44,7 +44,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: inventory-sync
-  namespace: demo-fulfillment
+  namespace: demo-order-fulfillment
   labels:
     app: inventory-sync
     kubernaut.ai/managed: "true"
@@ -64,13 +64,13 @@ spec:
         command: ["sh", "-c"]
         args:
         - |
-          echo "[inventory-sync] Starting -- depends on postgres.demo-fulfillment.svc:5432"
+          echo "[inventory-sync] Starting -- depends on postgres.demo-order-fulfillment.svc:5432"
           while true; do
             if PGPASSWORD=demo psql -h postgres -U demo -d demo -t -c "SELECT 1" >/dev/null 2>&1; then
               echo "[inventory-sync] Health check OK -- postgres connection successful"
               sleep 10
             else
-              echo "[inventory-sync] FATAL: Cannot connect to postgres.demo-fulfillment.svc:5432 -- exiting"
+              echo "[inventory-sync] FATAL: Cannot connect to postgres.demo-order-fulfillment.svc:5432 -- exiting"
               exit 1
             fi
           done

@@ -8,7 +8,7 @@
 # This aligns with hotfix-config-v1's PatchConfiguration remediation strategy.
 set -euo pipefail
 
-NAMESPACE="demo-fulfillment"
+NAMESPACE="demo-order-fulfillment"
 
 echo "==> Injecting PostgreSQL failure in ${NAMESPACE} (ConfigMap fault)..."
 

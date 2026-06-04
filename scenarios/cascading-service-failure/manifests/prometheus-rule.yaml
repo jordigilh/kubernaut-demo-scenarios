@@ -2,7 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: demo-app-alerts
-  namespace: demo-fulfillment
+  namespace: demo-order-fulfillment
   labels:
     release: prometheus
 spec:
@@ -13,7 +13,7 @@ spec:
       expr: |
         rate(
           kube_pod_container_status_restarts_total{
-            namespace="demo-fulfillment",
+            namespace="demo-order-fulfillment",
             container="app"
           }[5m]
         ) * 300 > 3

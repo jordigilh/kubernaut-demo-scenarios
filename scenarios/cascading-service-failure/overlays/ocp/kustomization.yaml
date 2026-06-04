@@ -5,7 +5,7 @@ resources:
 patches:
   - target:
       kind: Namespace
-      name: demo-fulfillment
+      name: demo-order-fulfillment
     patch: |
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
@@ -16,7 +16,7 @@ patches:
     patch: |
       - op: replace
         path: /metadata/name
-        value: demo-app-alerts-fulfillment
+        value: demo-app-alerts-order-fulfillment
       - op: remove
         path: /metadata/labels/release
       - op: replace
