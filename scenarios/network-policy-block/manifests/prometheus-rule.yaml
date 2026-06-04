@@ -30,13 +30,15 @@ spec:
           checks. Service traffic may not be reaching healthy endpoints.
     # Secondary signal: web-frontend replicas unavailable. Fires on platforms
     # where the CNI also blocks kubelet probes (e.g. OCP with OVN-Kubernetes).
+    # Staggered at 5m so the primary (traffic-gen) triggers the RR first and
+    # the AI agent isn't split across two concurrent investigations.
     - alert: KubeDeploymentReplicasMismatch
       expr: |
         kube_deployment_status_replicas_unavailable{
           namespace="demo-frontend",
           deployment="web-frontend"
         } > 0
-      for: 30s
+      for: 5m
       labels:
         severity: critical
       annotations:

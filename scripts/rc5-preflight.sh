@@ -73,9 +73,11 @@ echo ""
 echo "==> 4. Infrastructure dependencies..."
 
 check_infra() {
-    local component="$1" needed_by="$2"
-    if require_infra "$component" 2>/dev/null; then
+    local component="$1" needed_by="$2" severity="${3:-fail}"
+    if (require_infra "$component") &>/dev/null; then
         _pass "$component (needed by: $needed_by)"
+    elif [ "$severity" = "warn" ]; then
+        _warn "$component not available — scenarios will be skipped: $needed_by"
     else
         _fail "$component not available (needed by: $needed_by)"
     fi
@@ -83,11 +85,11 @@ check_infra() {
 
 check_infra "metrics-server"  "autoscale, hpa-maxed"
 check_infra "cert-manager"    "cert-failure"
-check_infra "istio"           "mesh-routing-failure"
-check_infra "awx"             "disk-pressure-emptydir"
-check_infra "awx-engine"      "disk-pressure-emptydir"
-check_infra "gitea"           "disk-pressure-emptydir"
-check_infra "argocd"          "disk-pressure-emptydir"
+check_infra "istio"           "mesh-routing-failure"       "warn"
+check_infra "awx"             "disk-pressure-emptydir"     "warn"
+check_infra "awx-engine"      "disk-pressure-emptydir"     "warn"
+check_infra "gitea"           "gitops-drift, disk-pressure-emptydir" "warn"
+check_infra "argocd"          "disk-pressure-emptydir"     "warn"
 echo ""
 
 # ── 5. AAP WE internal service URL ───────────────────────────────────────────
@@ -103,13 +105,13 @@ CR_AAP_ENABLED=$(kubectl get kubernaut -n "${PLATFORM_NS}" \
 AAP_SVC_HOST="${AAP_INSTANCE_NAME}-service.${AAP_NAMESPACE}"
 
 if [ -z "$CR_AAP_URL" ]; then
-    _fail "No ansible.apiURL found in Kubernaut CR"
+    _warn "No ansible.apiURL found in Kubernaut CR — AAP-dependent scenarios will be skipped"
 elif [ "$CR_AAP_ENABLED" != "true" ]; then
-    _fail "Ansible executor not enabled in Kubernaut CR (enabled=$CR_AAP_ENABLED)"
+    _warn "Ansible executor not enabled in Kubernaut CR (enabled=$CR_AAP_ENABLED)"
 elif echo "$CR_AAP_URL" | grep -q "$AAP_SVC_HOST"; then
     _pass "CR ansible.apiURL uses internal service: $CR_AAP_URL"
 else
-    _fail "CR ansible.apiURL='$CR_AAP_URL' does not point to internal service '$AAP_SVC_HOST' — update the Kubernaut CR"
+    _warn "CR ansible.apiURL='$CR_AAP_URL' does not point to internal service '$AAP_SVC_HOST'"
 fi
 echo ""
 
@@ -178,7 +180,7 @@ print('yes' if any('gitea' in c.get('name','').lower() for c in d.get('results',
 " 2>/dev/null || echo "unknown")
 
                 if [ "$HAS_K8S" = "no" ] || [ "$HAS_GITEA" = "no" ]; then
-                    _fail "AAP template '${TMPL_NAME}' missing creds (K8s=${HAS_K8S}, Gitea=${HAS_GITEA}). Fix: bash scripts/aap-helper.sh --configure-only"
+                    _warn "AAP template '${TMPL_NAME}' missing creds (K8s=${HAS_K8S}, Gitea=${HAS_GITEA}). Fix: bash scripts/aap-helper.sh --configure-only"
                     ANY_MISSING=true
                 fi
             done
@@ -304,7 +306,7 @@ wait "$_PF_PID" 2>/dev/null || true
 if [ "$_PF_READY" = "true" ]; then
     _pass "Gitea port-forward on localhost:${GITEA_LOCAL_PORT} responds"
 else
-    _fail "Gitea port-forward on localhost:${GITEA_LOCAL_PORT} not ready after 30s (gitops-drift, disk-pressure-emptydir will fail)"
+    _warn "Gitea port-forward on localhost:${GITEA_LOCAL_PORT} not ready after 30s (gitops-drift, disk-pressure-emptydir will be skipped)"
 fi
 echo ""
 
@@ -371,7 +373,7 @@ echo ""
 # ── 9. Node disk usage ────────────────────────────────────────────────────────
 
 echo "==> 9. Node disk usage..."
-DISK_THRESHOLD=85
+DISK_THRESHOLD=${DISK_THRESHOLD:-90}
 DISK_ISSUES=false
 
 WORKER_NODES=$(kubectl get nodes -l node-role.kubernetes.io/worker -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null)

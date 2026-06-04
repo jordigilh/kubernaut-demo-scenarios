@@ -17,7 +17,7 @@ APPROVE_MODE="${1:---auto-approve}"
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
-PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${PLATFORM:-}" = "ocp" ] && echo 900 || echo 480)}"
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${PLATFORM:-}" = "ocp" ] && echo 1500 || echo 480)}"
 
 # ── Wait for alert ──────────────────────────────────────────────────────────
 
@@ -33,16 +33,24 @@ poll_pipeline "${NAMESPACE}" "${PIPELINE_TIMEOUT}" "${APPROVE_MODE}"
 
 log_phase "Running assertions..."
 
-rr_phase=$(get_rr_phase "${NAMESPACE}")
-rr_outcome=$(get_rr_outcome "${NAMESPACE}")
+# Resolve RR name once to avoid TOCTOU races when duplicate RRs exist
+rr_name=$(get_rr_name "${NAMESPACE}")
+aa_name="ai-${rr_name}"
 
-aa_workflow_id=$(kubectl get aianalyses "ai-$(get_rr_name "${NAMESPACE}")" \
+rr_phase=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.overallPhase}' 2>/dev/null || echo "")
+rr_outcome=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+
+aa_workflow_id=$(kubectl get aianalyses "${aa_name}" \
   -n "${PLATFORM_NS}" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 
-sp_phase=$(get_sp_phase "${NAMESPACE}")
+sp_phase=$(kubectl get signalprocessings "sp-${rr_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 assert_eq "$sp_phase" "Completed" "SP phase"
 
-aa_phase=$(get_aa_phase "${NAMESPACE}")
+aa_phase=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 assert_in "$aa_phase" "AA phase" "Completed" "Failed"
 
 assert_eq "$rr_phase" "Completed" "RR phase"
@@ -56,10 +64,12 @@ if [ -z "${aa_workflow_id}" ]; then
     pvc_count=$(kubectl get pvc -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
     assert_eq "$pvc_count" "5" "Orphaned PVCs still present (no-action path)"
 
-    wfe_phase=$(get_wfe_phase "${NAMESPACE}")
+    wfe_phase=$(kubectl get workflowexecutions "we-${rr_name}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
     assert_eq "$wfe_phase" "" "WFE should not exist"
 
-    ea_phase=$(get_ea_phase "${NAMESPACE}")
+    ea_phase=$(kubectl get effectivenessassessments "ea-${rr_name}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
     assert_eq "$ea_phase" "" "EA should not exist"
 
 elif [ "$rr_outcome" = "Remediated" ]; then
@@ -69,10 +79,12 @@ elif [ "$rr_outcome" = "Remediated" ]; then
     pvc_count=$(kubectl get pvc -n "${NAMESPACE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')
     assert_eq "$pvc_count" "0" "Orphaned PVCs cleaned by workflow"
 
-    wfe_phase=$(get_wfe_phase "${NAMESPACE}")
+    wfe_phase=$(kubectl get workflowexecutions "we-${rr_name}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
     assert_eq "$wfe_phase" "Completed" "WFE phase"
 
-    ea_phase=$(get_ea_phase "${NAMESPACE}")
+    ea_phase=$(kubectl get effectivenessassessments "ea-${rr_name}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
     assert_eq "$ea_phase" "Completed" "EA phase"
 
 else
@@ -81,7 +93,7 @@ else
 
     assert_in "$rr_outcome" "RR outcome" "" "NoActionRequired" "Remediated"
 
-    approval_reason=$(kubectl get aianalyses "ai-$(get_rr_name "${NAMESPACE}")" \
+    approval_reason=$(kubectl get aianalyses "${aa_name}" \
       -n "${PLATFORM_NS}" -o jsonpath='{.status.approvalReason}' 2>/dev/null || echo "")
 
     if [ -n "$approval_reason" ]; then

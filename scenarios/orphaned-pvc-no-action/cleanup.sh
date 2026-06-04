@@ -20,12 +20,16 @@ while kubectl get ns demo-batch &>/dev/null; do
   sleep 2
 done
 
-# Restore the original approval policy if we backed it up during run.sh
-if [ -f "${SCRIPT_DIR}/.approval-rego-backup" ]; then
+# Restore the original approval policy if we backed it up during run.sh.
+# Skip during batch runs — the orchestrator manages the policy lifecycle.
+if [ -f "${SCRIPT_DIR}/.approval-rego-backup" ] && [ "${KUBERNAUT_BATCH_SETUP_DONE:-}" != "1" ]; then
     echo "==> Restoring original approval Rego policy..."
     kubectl patch configmap aianalysis-policies -n "${PLATFORM_NS}" --type=merge \
       -p "{\"data\":{\"approval.rego\":$(cat "${SCRIPT_DIR}/.approval-rego-backup" | jq -Rs .)}}"
     kubectl rollout restart deployment/aianalysis-controller -n "${PLATFORM_NS}" 2>/dev/null || true
+    rm -f "${SCRIPT_DIR}/.approval-rego-backup"
+elif [ -f "${SCRIPT_DIR}/.approval-rego-backup" ]; then
+    echo "==> Skipping Rego policy restore (batch mode)"
     rm -f "${SCRIPT_DIR}/.approval-rego-backup"
 fi
 

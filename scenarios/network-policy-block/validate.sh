@@ -32,20 +32,25 @@ poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"
 
 log_phase "Running assertions..."
 
-rr_phase=$(get_rr_phase "${NAMESPACE}")
-assert_eq "$rr_phase" "Completed" "RR phase"
-
-rr_outcome=$(get_rr_outcome "${NAMESPACE}")
-assert_eq "$rr_outcome" "Remediated" "RR outcome"
-
-sp_phase=$(get_sp_phase "${NAMESPACE}")
-assert_eq "$sp_phase" "Completed" "SP phase"
-
-aa_phase=$(get_aa_phase "${NAMESPACE}")
-assert_eq "$aa_phase" "Completed" "AA phase"
-
+# Resolve RR name once to avoid TOCTOU races when duplicate RRs exist
 rr_name=$(get_rr_name "${NAMESPACE}")
 aa_name="ai-${rr_name}"
+
+rr_phase=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.overallPhase}' 2>/dev/null || echo "")
+assert_eq "$rr_phase" "Completed" "RR phase"
+
+rr_outcome=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+assert_eq "$rr_outcome" "Remediated" "RR outcome"
+
+sp_phase=$(kubectl get signalprocessings "sp-${rr_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+assert_eq "$sp_phase" "Completed" "SP phase"
+
+aa_phase=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+assert_eq "$aa_phase" "Completed" "AA phase"
 
 workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
@@ -59,10 +64,12 @@ confidence=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || echo "")
 assert_neq "$confidence" "" "AA confidence present"
 
-wfe_phase=$(get_wfe_phase "${NAMESPACE}")
+wfe_phase=$(kubectl get workflowexecutions "we-${rr_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
-ea_phase=$(get_ea_phase "${NAMESPACE}")
+ea_phase=$(kubectl get effectivenessassessments "ea-${rr_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 assert_eq "$ea_phase" "Completed" "EA phase"
 
 # Verify default-network-policy was removed
