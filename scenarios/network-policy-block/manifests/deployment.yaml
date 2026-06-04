@@ -130,3 +130,4 @@ spec:
             command: ["curl", "-sf", "-o", "/dev/null", "-m", "3", "http://web-frontend.demo-frontend:8080/healthz"]
           initialDelaySeconds: 5
           periodSeconds: 5
+          timeoutSeconds: 5

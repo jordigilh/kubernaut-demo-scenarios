@@ -3,6 +3,8 @@ kind: NetworkPolicy
 metadata:
   name: default-network-policy
   namespace: demo-frontend
+  labels:
+    injected-by: kubernaut-demo
 spec:
   podSelector: {}
   policyTypes:
