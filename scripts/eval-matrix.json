@@ -40,7 +40,7 @@
       "needs_human_review": false,
       "human_review_reason": null,
       "signal": "ContainerOOMKilling",
-      "_note": "Cycle 1 must select increase-memory-limits-v1 (OOMKill exclusion on crashloop-rollback per #340). Outcome may be Inconclusive due to memory leak recurrence before EA stabilization window."
+      "_note": "DEPRECATED: replaced by operator-oomkill-informer. Cycle 1 must select increase-memory-limits-v1 (OOMKill exclusion on crashloop-rollback per #340). Outcome may be Inconclusive due to memory leak recurrence before EA stabilization window."
     },
     "memory-escalation-cycle2": {
       "expected_bundle": null,
@@ -54,7 +54,21 @@
       "needs_human_review": true,
       "human_review_reason": null,
       "signal": "ContainerOOMKilling",
-      "_note": "Escalation via platform guardrails (DuplicateInProgress/CheckIneffectiveRemediationChain per #616). LLM may still select increase-memory-limits but the RO blocks."
+      "_note": "DEPRECATED: replaced by operator-oomkill-informer. Escalation via platform guardrails (DuplicateInProgress/CheckIneffectiveRemediationChain per #616). LLM may still select increase-memory-limits but the RO blocks."
+    },
+    "operator-oomkill-informer": {
+      "expected_bundle": "increase-memory-limits-v1",
+      "expected_outcome": ["Remediated", "Inconclusive"],
+      "expected_severity": "critical",
+      "expected_target_kind": "Deployment",
+      "expected_aa_phase": "Completed",
+      "confidence_floor": 0.7,
+      "confidence_expected": 0.85,
+      "approval_expected": true,
+      "needs_human_review": false,
+      "human_review_reason": null,
+      "signal": "KubePodCrashLooping",
+      "_note": "Real-world vulnerability: kubeflow/spark-operator#2878. Unfiltered ConfigMap informer cache OOMKills the operator. Emergency triage increases memory limits; the real fix is adding label selectors."
     },
     "pdb-deadlock": {
       "expected_bundle": "relax-pdb-v1",
@@ -353,7 +367,7 @@
       "needs_human_review": false,
       "human_review_reason": null,
       "signal": "DatabaseConnectionPoolExhausted",
-      "_note": "v1.4.0 new. L3 Performance deep investigation. Primary path: increase-db-connections-v1 patches postgres-config ConfigMap to raise max_connections. Alternative: graceful-restart of connection-leaker."
+      "_note": "v1.4.0 new. L3 Performance deep investigation. Primary path: increase-db-connections-v1 patches postgres-config ConfigMap to raise max_connections. Alternative: graceful-restart of client-pool."
     },
     "cascading-service-failure": {
       "expected_bundle": ["crashloop-rollback", "rollback-deployment"],

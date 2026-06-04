@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Display the AI analysis result in a human-readable format for demo recordings.
 # Usage: bash scripts/show-ai-analysis.sh <scenario-namespace>
-# Example: bash scripts/show-ai-analysis.sh demo-crashloop
+# Example: bash scripts/show-ai-analysis.sh demo-checkout
 set -euo pipefail
 
 SCENARIO_NS="${1:?Usage: show-ai-analysis.sh <scenario-namespace>}"

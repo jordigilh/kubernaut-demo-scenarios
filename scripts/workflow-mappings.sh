@@ -15,7 +15,7 @@ WORKFLOWS=(
     "autoscale:provision-node-job"
     "slo-burn:proactive-rollback-job"
     "memory-leak:graceful-restart-job"
-    "memory-escalation:increase-memory-limits-job"
+    "operator-oomkill-informer:increase-memory-limits-job"
     "crashloop:crashloop-rollback-job"
     "hpa-maxed:patch-hpa-job"
     "pdb-deadlock:relax-pdb-job"

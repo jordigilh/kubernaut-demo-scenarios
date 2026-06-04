@@ -343,7 +343,7 @@ STALE_LABELS=$(kubectl get nodes -o json 2>/dev/null | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
 stale = []
-label_keys = {'kubernaut.ai/demo-taint-target', 'scenario'}
+label_keys = {'kubernaut.ai/workload-pool', 'scenario'}
 for node in data.get('items', []):
     name = node['metadata']['name']
     labels = node.get('metadata', {}).get('labels', {})

@@ -14,7 +14,7 @@
 # Required variables:
 #   SCENARIO_NAME      e.g., "crashloop"
 #   SCENARIO_DIR       absolute path to scenario directory
-#   DEMO_NS            demo namespace, e.g., "demo-crashloop"
+#   DEMO_NS            demo namespace, e.g., "demo-checkout"
 #   ALERT_NAME         Prometheus alert name, e.g., "KubePodCrashLooping"
 #   RESOURCE_TAPE      filename of resource watcher tape, e.g., "crashloop-pods.tape"
 #   SCREENS_TAPE       filename of screens tape, e.g., "crashloop-screens.tape"
