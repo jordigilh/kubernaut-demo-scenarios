@@ -11,7 +11,7 @@ disable_prometheus_toolset || true
 echo "==> Cleaning up Duplicate Alert Suppression demo..."
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule demo-app-alerts -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts-ingress -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi

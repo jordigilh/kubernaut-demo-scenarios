@@ -11,7 +11,7 @@ echo "==> Cleaning up Istio Mesh Routing Failure demo..."
 
 kubectl delete -f "${SCRIPT_DIR}/manifests/deny-policy.yaml" --ignore-not-found
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule demo-app-alerts -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts-mesh -n demo-mesh --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi

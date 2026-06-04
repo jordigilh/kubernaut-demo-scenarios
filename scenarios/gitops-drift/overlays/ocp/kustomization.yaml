@@ -19,6 +19,9 @@ patches:
       kind: PrometheusRule
       name: demo-app-alerts
     patch: |
+      - op: replace
+        path: /metadata/name
+        value: demo-app-alerts-webui
       - op: remove
         path: /metadata/labels/release
       - op: replace

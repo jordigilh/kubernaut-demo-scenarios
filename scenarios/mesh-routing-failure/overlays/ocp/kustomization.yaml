@@ -33,6 +33,9 @@ patches:
       kind: PrometheusRule
       name: demo-app-alerts
     patch: |
+      - op: replace
+        path: /metadata/name
+        value: demo-app-alerts-mesh
       - op: remove
         path: /metadata/labels/release
       - op: add

@@ -21,6 +21,9 @@ patches:
       kind: PrometheusRule
       name: cross-namespace-dependency-rules
     patch: |
+      - op: replace
+        path: /metadata/name
+        value: cross-namespace-dependency-rules-xns-app
       - op: remove
         path: /metadata/labels/release
       - op: replace

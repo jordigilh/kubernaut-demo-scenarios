@@ -19,8 +19,8 @@ for _wf in hotfix-config-v1 hotfix-config-production-v1 restart-pods-v1 crashloo
 done
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-  kubectl delete prometheusrule kubernaut-alpha-rules -n openshift-monitoring --ignore-not-found 2>/dev/null || true
-  kubectl delete prometheusrule kubernaut-beta-rules -n openshift-monitoring --ignore-not-found 2>/dev/null || true
+  kubectl delete prometheusrule kubernaut-alpha-rules-team-alpha -n openshift-monitoring --ignore-not-found 2>/dev/null || true
+  kubectl delete prometheusrule kubernaut-beta-rules-team-beta -n openshift-monitoring --ignore-not-found 2>/dev/null || true
 else
   for NS in demo-team-alpha demo-team-beta; do
     kubectl delete -f "${SCRIPT_DIR}/manifests/${NS#demo-}/prometheus-rule.yaml" --ignore-not-found 2>/dev/null || true

@@ -20,7 +20,7 @@ kubectl delete application demo-warehouse -n "${ARGOCD_NS}" --ignore-not-found 2
 
 # Delete PrometheusRule (lives in openshift-monitoring on OCP, demo-warehouse on Kind)
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule demo-app-alerts -n openshift-monitoring --ignore-not-found 2>/dev/null || true
+    kubectl delete prometheusrule demo-app-alerts-warehouse -n openshift-monitoring --ignore-not-found 2>/dev/null || true
 fi
 kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found 2>/dev/null || true
 

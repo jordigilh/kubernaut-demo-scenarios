@@ -45,6 +45,9 @@ patches:
       name: demo-app-alerts
     patch: |
       - op: replace
+        path: /metadata/name
+        value: demo-app-alerts-warehouse
+      - op: replace
         path: /metadata/namespace
         value: openshift-monitoring
       - op: remove
