@@ -7,16 +7,15 @@
 #   nohup bash scripts/parallel-ocp-validation.sh 2>&1 | tee parallel-run.log &
 #
 # Groups:
-#   A (7 scenarios): crashloop, crashloop-helm, stuck-rollout, memory-leak,
+#   A (8 scenarios): crashloop, crashloop-helm, stuck-rollout, memory-leak,
 #                    resource-contention, hpa-maxed,
-#                    duplicate-alert-suppression
+#                    duplicate-alert-suppression, operator-oomkill-informer
 #   Excluded: autoscale (Kind-only), node-notready (Kind-only)
 #   B (9 scenarios): network-policy-block, statefulset-pvc-failure,
 #                    resource-quota-exhaustion, cert-failure, slo-burn,
 #                    orphaned-pvc-no-action, concurrent-cross-namespace,
 #                    mesh-routing-failure, pending-taint
-#   Solo (after both): memory-escalation (patches gateway cooldown),
-#                      pdb-deadlock, disk-pressure-emptydir
+#   Solo (after both): pdb-deadlock, disk-pressure-emptydir
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,7 +25,7 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 RESULTS_DIR="${REPO_ROOT}/parallel-results-${TIMESTAMP}"
 mkdir -p "${RESULTS_DIR}"
 
-GROUP_A="crashloop,crashloop-helm,stuck-rollout,memory-leak,resource-contention,hpa-maxed,duplicate-alert-suppression"
+GROUP_A="crashloop,crashloop-helm,stuck-rollout,memory-leak,resource-contention,hpa-maxed,duplicate-alert-suppression,operator-oomkill-informer"
 GROUP_B="network-policy-block,statefulset-pvc-failure,resource-quota-exhaustion,cert-failure,slo-burn,orphaned-pvc-no-action,concurrent-cross-namespace,mesh-routing-failure,pending-taint"
 
 echo "============================================="
@@ -37,7 +36,7 @@ echo ""
 echo "  Results dir: ${RESULTS_DIR}"
 echo "  Group A: ${GROUP_A//,/, }"
 echo "  Group B: ${GROUP_B//,/, }"
-echo "  Solo:    memory-escalation, pdb-deadlock, disk-pressure-emptydir"
+echo "  Solo:    pdb-deadlock, disk-pressure-emptydir"
 echo ""
 
 # ── 1. Preflight ─────────────────────────────────────────────────────────────
@@ -106,15 +105,6 @@ echo "==> Phase 3: Solo scenarios (after both groups)..."
 # Let AlertManager settle between groups and solo
 sleep 30
 
-echo "  Running memory-escalation (patches gateway cooldown — must run solo)..."
-bash "${SCRIPT_DIR}/overnight-ocp-validation.sh" \
-    --skip-seed "--only=memory-escalation" \
-    > "${RESULTS_DIR}/solo-memory-escalation.log" 2>&1
-EXIT_ME=$?
-echo "  memory-escalation finished: exit=${EXIT_ME}"
-
-sleep 15
-
 echo "  Running pdb-deadlock..."
 bash "${SCRIPT_DIR}/overnight-ocp-validation.sh" \
     --skip-seed "--only=pdb-deadlock" \
@@ -173,7 +163,7 @@ echo "              ${RESULTS_DIR}/group-b.log"
 echo ""
 
 # Exit non-zero if any group had failures
-if [ $EXIT_A -ne 0 ] || [ $EXIT_B -ne 0 ] || [ $EXIT_ME -ne 0 ] || [ $EXIT_PDB -ne 0 ] || [ $EXIT_DP -ne 0 ]; then
+if [ $EXIT_A -ne 0 ] || [ $EXIT_B -ne 0 ] || [ $EXIT_PDB -ne 0 ] || [ $EXIT_DP -ne 0 ]; then
     echo "  Some scenarios failed. Review logs for details."
     exit 1
 fi

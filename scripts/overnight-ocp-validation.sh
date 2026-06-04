@@ -49,7 +49,7 @@ SCENARIO_ORDER=(
   crashloop-helm
   stuck-rollout
   memory-leak
-  memory-escalation
+  operator-oomkill-informer
   resource-contention
   pdb-deadlock
   pending-taint

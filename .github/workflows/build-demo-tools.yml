@@ -1,0 +1,168 @@
+name: Build Demo Tool Images
+
+# Builds multi-arch (amd64 + arm64) images for tools/ and pushes them to
+# quay.io/kubernaut-cicd/<tool-name>:<version>.
+#
+# Each tool directory under tools/ that contains a Dockerfile is detected
+# automatically. Changed tools are built and pushed, then manifest lists
+# are created for multi-arch support.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/**'
+      - '.github/workflows/build-demo-tools.yml'
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: 'Single tool to build (directory name under tools/, empty = all changed)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: quay.io/kubernaut-cicd
+
+jobs:
+  detect:
+    name: Detect Changed Tools
+    runs-on: ubuntu-latest
+    outputs:
+      tools: ${{ steps.detect.outputs.tools }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - id: detect
+        run: |
+          if [ -n "${{ inputs.tool }}" ]; then
+            TOOLS='["${{ inputs.tool }}"]'
+          else
+            TOOLS=$(git diff --name-only HEAD~1 HEAD -- 'tools/' \
+              | cut -d/ -f2 | sort -u \
+              | jq -Rsc 'split("\n") | map(select(length > 0))')
+          fi
+          echo "tools=${TOOLS}" >> "$GITHUB_OUTPUT"
+          echo "Building: ${TOOLS}"
+
+  build:
+    name: Build ${{ matrix.tool }} (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    needs: detect
+    if: needs.detect.outputs.tools != '[]'
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: ${{ fromJson(needs.detect.outputs.tools) }}
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check Dockerfile exists
+        id: check
+        run: |
+          if [ ! -f "tools/${{ matrix.tool }}/Dockerfile" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install QEMU for cross-arch builds
+        if: steps.check.outputs.skip == 'false' && matrix.arch != 'amd64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
+
+      - name: Login to Quay.io
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          podman login -u "${{ secrets.QUAY_ROBOT_USERNAME }}" \
+                       -p "${{ secrets.QUAY_ROBOT_TOKEN }}" \
+                       quay.io
+
+      - name: Read version
+        if: steps.check.outputs.skip == 'false'
+        id: version
+        run: |
+          if [ -f "tools/${{ matrix.tool }}/VERSION" ]; then
+            VER=$(cat "tools/${{ matrix.tool }}/VERSION")
+          else
+            VER="1.0.0"
+          fi
+          echo "tag=${VER}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          IMAGE="${REGISTRY}/${{ matrix.tool }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          ARCH="${{ matrix.arch }}"
+
+          podman build \
+            --platform "linux/${ARCH}" \
+            --build-arg "TARGETARCH=${ARCH}" \
+            -t "${IMAGE}:${TAG}-${ARCH}" \
+            "tools/${{ matrix.tool }}"
+
+          podman push "${IMAGE}:${TAG}-${ARCH}"
+          echo "Pushed ${IMAGE}:${TAG}-${ARCH}"
+
+  manifest:
+    name: Create Manifest ${{ matrix.tool }}
+    runs-on: ubuntu-latest
+    needs: [detect, build]
+    if: needs.detect.outputs.tools != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: ${{ fromJson(needs.detect.outputs.tools) }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check Dockerfile exists
+        id: check
+        run: |
+          if [ ! -f "tools/${{ matrix.tool }}/Dockerfile" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Login to Quay.io
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          podman login -u "${{ secrets.QUAY_ROBOT_USERNAME }}" \
+                       -p "${{ secrets.QUAY_ROBOT_TOKEN }}" \
+                       quay.io
+
+      - name: Read version
+        if: steps.check.outputs.skip == 'false'
+        id: version
+        run: |
+          if [ -f "tools/${{ matrix.tool }}/VERSION" ]; then
+            VER=$(cat "tools/${{ matrix.tool }}/VERSION")
+          else
+            VER="1.0.0"
+          fi
+          echo "tag=${VER}" >> "$GITHUB_OUTPUT"
+
+      - name: Create manifest list
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          IMAGE="${REGISTRY}/${{ matrix.tool }}"
+          TAG="${{ steps.version.outputs.tag }}"
+
+          podman manifest create "${IMAGE}:${TAG}" \
+            "${IMAGE}:${TAG}-amd64" \
+            "${IMAGE}:${TAG}-arm64"
+
+          podman manifest push "${IMAGE}:${TAG}" "docker://${IMAGE}:${TAG}"
+          echo "Created manifest ${IMAGE}:${TAG}"
+
+          podman manifest push "${IMAGE}:${TAG}" "docker://${IMAGE}:latest"
+          echo "Updated ${IMAGE}:latest"

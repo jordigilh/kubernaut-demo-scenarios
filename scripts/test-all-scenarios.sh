@@ -42,7 +42,7 @@ SCENARIO_ORDER=(
   statefulset-pvc-failure
   resource-quota-exhaustion
   concurrent-cross-namespace
-  memory-escalation
+  operator-oomkill-informer
   resource-contention
   cert-failure
   gitops-drift
