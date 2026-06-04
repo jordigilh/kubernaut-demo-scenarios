@@ -15,19 +15,19 @@ echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule memory-leak-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-kubectl delete namespace demo-memory-leak --ignore-not-found --wait=true
+kubectl delete namespace demo-telemetry --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
-while kubectl get ns demo-memory-leak &>/dev/null; do
+while kubectl get ns demo-telemetry &>/dev/null; do
   sleep 2
 done
 
 echo "==> Silencing stale alerts in AlertManager..."
-silence_alert "ContainerMemoryExhaustionPredicted" "demo-memory-leak" "2m"
+silence_alert "ContainerMemoryExhaustionPredicted" "demo-telemetry" "2m"
 
 purge_pipeline_crds
 

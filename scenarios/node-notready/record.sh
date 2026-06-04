@@ -6,7 +6,7 @@ set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO_NAME="node-notready"
-DEMO_NS="demo-node"
+DEMO_NS="demo-compute"
 ALERT_NAME="KubeNodeNotReady"
 RESOURCE_TAPE="node-notready-pods.tape"
 SCREENS_TAPE="node-notready-screens.tape"

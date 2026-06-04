@@ -118,14 +118,14 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-memory-escalation'"
+Type "narrate 'Healthy workload running in namespace demo-ml-pipeline'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-memory-escalation"
+Type "kubectl get pods -n demo-ml-pipeline"
 Enter
 Sleep 8s
 
@@ -249,7 +249,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-memory-escalation"
+Type "bash scripts/show-ai-analysis.sh demo-ml-pipeline"
 Enter
 Sleep 20s
 
@@ -269,7 +269,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-approval-reason.sh demo-memory-escalation"
+Type "bash scripts/show-approval-reason.sh demo-ml-pipeline"
 Enter
 Sleep 12s
 

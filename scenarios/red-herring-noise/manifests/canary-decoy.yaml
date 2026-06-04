@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: canary-v2
-  namespace: demo-red-herring
+  namespace: demo-microservices
   labels:
     app: canary-v2
     kubernaut.ai/managed: "true"

@@ -1,19 +1,19 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: cascading-failure-rules
-  namespace: demo-cascade
+  name: demo-app-alerts
+  namespace: demo-fulfillment
   labels:
     release: prometheus
 spec:
   groups:
-  - name: cascading-service-failure
+  - name: demo-app
     rules:
     - alert: KubePodCrashLooping
       expr: |
         rate(
           kube_pod_container_status_restarts_total{
-            namespace="demo-cascade",
+            namespace="demo-fulfillment",
             container="app"
           }[5m]
         ) * 300 > 3

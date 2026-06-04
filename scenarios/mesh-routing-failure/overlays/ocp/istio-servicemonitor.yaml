@@ -2,14 +2,14 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: istio-proxy
-  namespace: demo-mesh-failure
+  namespace: demo-mesh
 spec:
   selector:
     matchLabels:
       app: istio-metrics
   namespaceSelector:
     matchNames:
-      - demo-mesh-failure
+      - demo-mesh
   endpoints:
     - port: http-envoy-prom
       path: /stats/prometheus

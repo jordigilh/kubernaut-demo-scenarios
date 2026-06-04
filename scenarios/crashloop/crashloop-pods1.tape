@@ -35,7 +35,7 @@ Sleep 200ms
 Set TypingSpeed 50ms
 Show
 
-Type `kubectl get pods -n demo-crashloop -w`
+Type `kubectl get pods -n demo-checkout -w`
 Enter
 
 Wait+Screen@300s /CrashLoopBackOff/

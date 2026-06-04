@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO_NAME="cert-failure"
-DEMO_NS="demo-cert-failure"
+DEMO_NS="demo-portal"
 ALERT_NAME="CertManagerCertNotReady"
 RESOURCE_TAPE="cert-failure-certs.tape"
 SCREENS_TAPE="cert-failure-screens.tape"

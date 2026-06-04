@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: demo-severity-misdirection
+  namespace: demo-services
   labels:
     app: postgres
     kubernaut.ai/managed: "true"
@@ -45,7 +45,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: demo-severity-misdirection
+  namespace: demo-services
   labels:
     app: postgres
     kubernaut.ai/managed: "true"

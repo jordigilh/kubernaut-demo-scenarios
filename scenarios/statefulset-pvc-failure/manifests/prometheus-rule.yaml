@@ -1,23 +1,23 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-statefulset-rules
-  namespace: demo-statefulset
+  name: demo-app-alerts
+  namespace: demo-keystore
   labels:
     release: prometheus
 spec:
   groups:
-  - name: kubernaut-statefulset
+  - name: demo-app
     rules:
     - alert: KubeStatefulSetReplicasMismatch
       expr: |
         kube_statefulset_status_replicas_ready{
-          namespace="demo-statefulset",
+          namespace="demo-keystore",
           statefulset="kv-store"
         }
         <
         kube_statefulset_replicas{
-          namespace="demo-statefulset",
+          namespace="demo-keystore",
           statefulset="kv-store"
         }
       for: 30s
@@ -26,9 +26,7 @@ spec:
       annotations:
         summary: >
           StatefulSet {{ $labels.statefulset }} has
-          {{ $value }} ready replicas vs desired. A PVC issue may be preventing
-          pod scheduling.
+          {{ $value }} ready replicas vs desired.
         description: >
-          The kv-store StatefulSet in namespace demo-statefulset has fewer ready
-          replicas than desired. This typically indicates a PVC binding failure
-          or storage issue preventing a pod from starting.
+          The kv-store workload in namespace {{ $labels.namespace }} has fewer
+          ready replicas than desired. Service availability may be degraded.

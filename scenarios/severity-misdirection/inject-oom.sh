@@ -11,7 +11,7 @@
 # critical-level crash-loop.
 set -euo pipefail
 
-NAMESPACE="demo-severity-misdirection"
+NAMESPACE="demo-services"
 
 echo "==> Injecting OOM condition on postgres in ${NAMESPACE}..."
 

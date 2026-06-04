@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # External Actor Simulator -- Resource Contention Demo
 #
-# Watches for spec changes on the contention-app Deployment and reverts
+# Watches for spec changes on the analytics-worker Deployment and reverts
 # memory limits back to the original value (64Mi). Simulates a GitOps tool,
 # another controller, or a human operator that conflicts with Kubernaut's
 # remediation actions.
@@ -12,8 +12,8 @@
 # so the EM can assess effectiveness before the external drift occurs.
 set -euo pipefail
 
-NAMESPACE="demo-resource-contention"
-DEPLOYMENT="contention-app"
+NAMESPACE="demo-analytics"
+DEPLOYMENT="analytics-worker"
 ORIGINAL_LIMIT="64Mi"
 ORIGINAL_REQUEST="32Mi"
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"

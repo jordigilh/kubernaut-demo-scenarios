@@ -38,7 +38,7 @@ Type `announce() { printf '\e[3A\e[J\n\e[1;33m━━ %s ━━\e[0m\n\n' "$*"; }
 Enter
 Sleep 200ms
 
-Type `title_card() { printf '\e[3A\e[J\n\e[1;33m━━ Memory Leak Remediation ━━\e[0m\n\n\e[38;5;245mA leaker sidecar steadily consumes memory.\nPrometheus predicts exhaustion proactively.\nKubernaut restarts the pods to clear the leak and verifies recovery.\e[0m\n\n\e[1;33mAct 1\e[0m  \e[38;5;245mThe Problem     — memory leak in sidecar, proactive alert fires\e[0m\n\e[1;33mAct 2\e[0m  \e[38;5;245mThe Remediation — AI root cause analysis, auto-approved workflow runs\e[0m\n\e[1;33mAct 3\e[0m  \e[38;5;245mThe Result      — pods restarted, leak cleared, EA confirms fix\e[0m\n'; }`
+Type `title_card() { printf '\e[3A\e[J\n\e[1;33m━━ Memory Leak Remediation ━━\e[0m\n\n\e[38;5;245mA data-processor sidecar steadily consumes memory.\nPrometheus predicts exhaustion proactively.\nKubernaut restarts the pods to clear the leak and verifies recovery.\e[0m\n\n\e[1;33mAct 1\e[0m  \e[38;5;245mThe Problem     — memory leak in sidecar, proactive alert fires\e[0m\n\e[1;33mAct 2\e[0m  \e[38;5;245mThe Remediation — AI root cause analysis, auto-approved workflow runs\e[0m\n\e[1;33mAct 3\e[0m  \e[38;5;245mThe Result      — pods restarted, leak cleared, EA confirms fix\e[0m\n'; }`
 Enter
 Sleep 200ms
 
@@ -75,14 +75,14 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Workload with leaker sidecar in namespace demo-memory-leak'"
+Type "narrate 'Workload with data-processor sidecar in namespace demo-telemetry'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-memory-leak"
+Type "kubectl get pods -n demo-telemetry"
 Enter
 Sleep 8s
 
@@ -178,7 +178,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-memory-leak"
+Type "bash scripts/show-ai-analysis.sh demo-telemetry"
 Enter
 Sleep 20s
 
@@ -206,7 +206,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-memory-leak"
+Type "kubectl get pods -n demo-telemetry"
 Enter
 Sleep 8s
 
@@ -238,7 +238,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-memory-leak"
+Type "bash scripts/show-effectiveness.sh demo-telemetry"
 Enter
 Sleep 10s
 

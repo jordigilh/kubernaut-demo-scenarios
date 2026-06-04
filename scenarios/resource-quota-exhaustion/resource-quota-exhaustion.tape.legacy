@@ -91,7 +91,7 @@ Type `bash scenarios/resource-quota-exhaustion/cleanup.sh 2>/dev/null; true`
 Enter
 Sleep 5s
 
-Type `kubectl apply -f scenarios/resource-quota-exhaustion/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/resource-quota-exhaustion/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/api-server -n demo-quota --timeout=120s >/dev/null 2>&1 && sleep 20 && clear && echo SETUP"_"COMPLETE`
+Type `kubectl apply -f scenarios/resource-quota-exhaustion/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/resource-quota-exhaustion/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/api-server -n demo-platform --timeout=120s >/dev/null 2>&1 && sleep 20 && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -122,18 +122,18 @@ Sleep 300ms
 Type "announce 'Act 1: quota exhausted, pods cannot scale, alert fires'"
 Enter
 Sleep 300ms
-Type "narrate 'Workload in namespace demo-quota with a strict ResourceQuota'"
+Type "narrate 'Workload in namespace demo-platform with a strict ResourceQuota'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get resourcequota -n demo-quota"
+Type "kubectl get resourcequota -n demo-platform"
 Enter
 Sleep 5s
 
-Type "kubectl get pods -n demo-quota"
+Type "kubectl get pods -n demo-platform"
 Enter
 Sleep 5s
 
@@ -285,7 +285,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-quota"
+Type "bash scripts/show-ai-analysis.sh demo-platform"
 Enter
 Sleep 24s
 
@@ -342,7 +342,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get resourcequota -n demo-quota -o wide"
+Type "kubectl get resourcequota -n demo-platform -o wide"
 Enter
 Sleep 6s
 

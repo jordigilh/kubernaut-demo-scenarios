@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: metrics-collector
-  namespace: demo-rbac
+  namespace: demo-monitoring
   labels:
     app: metrics-collector
     kubernaut.ai/managed: "true"
@@ -25,7 +25,7 @@ spec:
             - -c
           args:
             - |
-              while true; do kubectl get pods -n demo-rbac > /dev/null 2>&1 && echo "$(date) OK" || echo "$(date) FORBIDDEN"; sleep 10; done
+              while true; do kubectl get pods -n demo-monitoring > /dev/null 2>&1 && echo "$(date) OK" || echo "$(date) FORBIDDEN"; sleep 10; done
           readinessProbe:
             exec:
               command:
@@ -35,7 +35,7 @@ spec:
                 - list
                 - pods
                 - -n
-                - demo-rbac
+                - demo-monitoring
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3

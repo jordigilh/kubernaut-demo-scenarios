@@ -51,7 +51,7 @@ Root cause analysis:
   - Insufficient namespace memory quota
   - Increased memory requirements in new pod specification
   - Rolling update strategy requiring temporary additional capacity
-- **Affected resource**: `Deployment/api-server` in `demo-quota`
+- **Affected resource**: `Deployment/api-server` in `demo-platform`
 
 The LLM correctly identified this as a policy constraint (ResourceQuota) rather than
 an infrastructure failure, found no matching workflow, and escalated with
@@ -129,7 +129,7 @@ kubectl apply -k scenarios/resource-quota-exhaustion/overlays/ocp/
 #### 2. Wait for healthy state
 
 ```bash
-kubectl wait --for=condition=Available deploy/api-server -n demo-quota --timeout=120s
+kubectl wait --for=condition=Available deploy/api-server -n demo-platform --timeout=120s
 ```
 
 #### 3. Exhaust quota
@@ -141,8 +141,8 @@ bash scenarios/resource-quota-exhaustion/exhaust-quota.sh
 #### 4. Observe FailedCreate
 
 ```bash
-kubectl describe rs -n demo-quota | grep -A3 FailedCreate
-kubectl describe quota -n demo-quota
+kubectl describe rs -n demo-platform | grep -A3 FailedCreate
+kubectl describe quota -n demo-platform
 ```
 
 #### 5. Wait for alert
@@ -212,7 +212,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | The `namespace-quota` ResourceQuota (512Mi memory limit) is fully exhausted by 2 running pods, blocking the Deployment `api-server` from scaling to its desired 3 replicas — the 3rd pod is permanently forbidden from being created. |
 | **Severity** | medium |
-| **Target Resource** | Deployment/api-server (ns: demo-quota) |
+| **Target Resource** | Deployment/api-server (ns: demo-platform) |
 | **Workflow Selected** | None — LLM declines (no workflow can adjust namespace quotas) |
 | **Outcome** | `ManualReviewRequired` |
 | **Approval** | n/a — escalated before approval gate |
@@ -300,7 +300,7 @@ Feature: Resource Quota Exhaustion — policy constraint escalation
 
   Background:
     Given a cluster with Kubernaut services and a real LLM backend
-      And namespace "demo-quota" has a ResourceQuota with 512Mi memory limit
+      And namespace "demo-platform" has a ResourceQuota with 512Mi memory limit
       And deployment "api-server" is running (1 replica, 128Mi)
 
   Scenario: Path A — LLM directly escalates (1 loop)

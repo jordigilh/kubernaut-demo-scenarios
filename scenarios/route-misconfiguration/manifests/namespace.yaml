@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: demo-route
+  name: demo-store
   labels:
     kubernaut.ai/managed: "true"
     kubernaut.ai/environment: production

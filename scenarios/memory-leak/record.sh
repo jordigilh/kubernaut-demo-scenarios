@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO_NAME="memory-leak"
-DEMO_NS="demo-memory-leak"
+DEMO_NS="demo-telemetry"
 ALERT_NAME="ContainerMemoryExhaustionPredicted"
 RESOURCE_TAPE="memory-leak-pods.tape"
 SCREENS_TAPE="memory-leak-screens.tape"

@@ -11,11 +11,11 @@ restore_production_approval || true
 echo "==> Cleaning up RBAC failure demo..."
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule demo-rbac-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-kubectl delete namespace demo-rbac --ignore-not-found --wait=true
+kubectl delete namespace demo-monitoring --ignore-not-found --wait=true
 
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 
@@ -28,7 +28,7 @@ kubectl rollout status deploy/remediationorchestrator-controller -n "$PLATFORM_N
 purge_pipeline_crds
 
 echo "==> Waiting for namespace deletion to complete..."
-while kubectl get ns demo-rbac &>/dev/null; do
+while kubectl get ns demo-monitoring &>/dev/null; do
   sleep 2
 done
 

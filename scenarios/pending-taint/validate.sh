@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-taint"
+NAMESPACE="demo-scheduler"
 APPROVE_MODE="${1:---auto-approve}"
 
 # shellcheck source=../../scripts/validation-helper.sh
@@ -62,7 +62,7 @@ wfe_phase=$(get_wfe_phase "${NAMESPACE}")
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
 # Verify taint was removed from the target node
-TARGET_NODE=$(kubectl get nodes -l kubernaut.ai/demo-taint-target=true -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+TARGET_NODE=$(kubectl get nodes -l kubernaut.ai/workload-pool=true -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 if [ -n "$TARGET_NODE" ]; then
   taints=$(kubectl get node "$TARGET_NODE" -o jsonpath='{.spec.taints[*].key}' 2>/dev/null || echo "")
   has_maintenance=$(echo "$taints" | grep -c "maintenance" || true)

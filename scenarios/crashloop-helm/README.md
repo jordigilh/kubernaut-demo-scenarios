@@ -28,7 +28,7 @@ kube_pod_container_status_restarts_total increasing → KubePodCrashLooping aler
     → LLM detects helmManaged=true from deployment labels
     → LLM selects HelmRollback workflow (not RollbackDeployment)
   → Remediation Orchestrator → Approval Request (confidence 0.95)
-  → WorkflowExecution: helm rollback demo-crashloop-helm 1
+  → WorkflowExecution: helm rollback demo-storefront 1
   → Effectiveness Monitor: healthScore=1 (all replicas ready)
 ```
 
@@ -101,16 +101,16 @@ The scenario includes a local Helm chart in `scenarios/crashloop-helm/chart/` th
 deploys an nginx-based worker Deployment with 2 replicas.
 
 ```bash
-helm upgrade --install demo-crashloop-helm scenarios/crashloop-helm/chart \
-  -n demo-crashloop-helm --create-namespace --wait --timeout 120s
+helm upgrade --install demo-storefront scenarios/crashloop-helm/chart \
+  -n demo-storefront --create-namespace --wait --timeout 120s
 ```
 
 <details>
 <summary><strong>OCP</strong></summary>
 
 ```bash
-helm upgrade --install demo-crashloop-helm scenarios/crashloop-helm/chart \
-  -n demo-crashloop-helm --create-namespace --wait --timeout 120s \
+helm upgrade --install demo-storefront scenarios/crashloop-helm/chart \
+  -n demo-storefront --create-namespace --wait --timeout 120s \
   -f scenarios/crashloop-helm/chart/values-ocp.yaml
 ```
 
@@ -137,12 +137,12 @@ This creates a `PrometheusRule` that fires `KubePodCrashLooping` when
 #### 3. Verify healthy state
 
 ```bash
-kubectl get pods -n demo-crashloop-helm
+kubectl get pods -n demo-storefront
 # NAME                      READY   STATUS    RESTARTS   AGE
 # worker-55cb79fcbc-jbbnm   1/1     Running   0          30s
 # worker-55cb79fcbc-jhdhs   1/1     Running   0          30s
 
-helm history demo-crashloop-helm -n demo-crashloop-helm
+helm history demo-storefront -n demo-storefront
 # REVISION  STATUS    DESCRIPTION
 # 1         deployed  Install complete
 ```
@@ -164,10 +164,10 @@ nginx: [emerg] unknown directive "invalid_directive_that_breaks_nginx"
 #### 5. Observe CrashLoopBackOff
 
 ```bash
-kubectl get pods -n demo-crashloop-helm
+kubectl get pods -n demo-storefront
 # worker pods cycling: Error -> CrashLoopBackOff -> Error
 
-helm history demo-crashloop-helm -n demo-crashloop-helm
+helm history demo-storefront -n demo-storefront
 # REVISION  STATUS      DESCRIPTION
 # 1         superseded  Install complete
 # 2         deployed    Upgrade complete
@@ -249,7 +249,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | CrashLoopBackOff caused by an invalid nginx directive (`invalid_directive_that_breaks_nginx on;`) in the worker-config ConfigMap deployed via a Helm upgrade, preventing nginx from starting. The rolling update stalled with the new ReplicaSet pod crash-looping while the old ReplicaSet continues serving. |
 | **Severity** | critical |
-| **Target Resource** | Deployment/worker (ns: demo-crashloop-helm) |
+| **Target Resource** | Deployment/worker (ns: demo-storefront) |
 | **Workflow Selected** | helm-rollback-v1 (`HelmRollback`) |
 | **Confidence** | 0.97 |
 | **Approval** | required (production environment) |
@@ -312,10 +312,10 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
 After approval and workflow execution:
 
 ```bash
-kubectl get pods -n demo-crashloop-helm
+kubectl get pods -n demo-storefront
 # All pods Running/Ready with no recent restarts
 
-helm history demo-crashloop-helm -n demo-crashloop-helm
+helm history demo-storefront -n demo-storefront
 # REVISION  STATUS      DESCRIPTION
 # 1         superseded  Install complete
 # 2         superseded  Upgrade complete
@@ -342,7 +342,7 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 Feature: Helm-managed CrashLoopBackOff remediation
 
   Scenario: Bad config via helm upgrade triggers CrashLoopBackOff
-    Given a Helm-managed deployment in namespace "demo-crashloop-helm"
+    Given a Helm-managed deployment in namespace "demo-storefront"
       And the deployment has label "app.kubernetes.io/managed-by: Helm"
       And the workload is healthy with 2 replicas (Helm revision 1)
 

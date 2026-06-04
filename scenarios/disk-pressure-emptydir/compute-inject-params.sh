@@ -16,12 +16,12 @@
 # printed command and run it when you are ready.
 set -euo pipefail
 
-NAMESPACE="${NAMESPACE:-demo-diskpressure}"
+NAMESPACE="${NAMESPACE:-demo-warehouse}"
 
-POD=$(kubectl get pod -n "${NAMESPACE}" -l app=postgres-emptydir \
+POD=$(kubectl get pod -n "${NAMESPACE}" -l app=postgres \
   -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
 if [ -z "$POD" ]; then
-    echo "ERROR: No postgres-emptydir pod found in ${NAMESPACE}."
+    echo "ERROR: No postgres pod found in ${NAMESPACE}."
     echo "       Run setup first: ./scenarios/disk-pressure-emptydir/run.sh setup"
     exit 1
 fi

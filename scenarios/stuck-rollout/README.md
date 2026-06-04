@@ -101,7 +101,7 @@ export PLATFORM=ocp
 kubectl apply -k scenarios/stuck-rollout/manifests/
 
 kubectl wait --for=condition=Available deployment/checkout-api \
-  -n demo-rollout --timeout=120s
+  -n demo-shipping --timeout=120s
 ```
 
 <details>
@@ -111,7 +111,7 @@ kubectl wait --for=condition=Available deployment/checkout-api \
 kubectl apply -k scenarios/stuck-rollout/overlays/ocp/
 
 kubectl wait --for=condition=Available deployment/checkout-api \
-  -n demo-rollout --timeout=120s
+  -n demo-shipping --timeout=120s
 ```
 
 </details>
@@ -122,7 +122,7 @@ a Service, and a PrometheusRule.
 #### 2. Verify healthy state
 
 ```bash
-kubectl get pods -n demo-rollout
+kubectl get pods -n demo-shipping
 # NAME                            READY   STATUS    RESTARTS   AGE
 # checkout-api-84b5c88cd4-98m5t   1/1     Running   0          6s
 # checkout-api-84b5c88cd4-c8crh   1/1     Running   0          6s
@@ -144,7 +144,7 @@ New pods enter `ImagePullBackOff` immediately. The rollout strategy (`RollingUpd
 keeps the old pods running while the new ReplicaSet fails to become ready.
 
 ```bash
-kubectl get pods -n demo-rollout
+kubectl get pods -n demo-shipping
 # checkout-api-84b5c88cd4-98m5t   1/1     Running             0          2m
 # checkout-api-84b5c88cd4-c8crh   1/1     Running             0          2m
 # checkout-api-84b5c88cd4-qxjvx   1/1     Running             0          2m
@@ -250,7 +250,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | Deployment rollout stuck due to a non-existent image tag (`99.99.99-doesnotexist`) causing ImagePullBackOff on all new pods, exceeding the progress deadline. |
 | **Severity** | critical |
-| **Target Resource** | Deployment/checkout-api (ns: demo-rollout) |
+| **Target Resource** | Deployment/checkout-api (ns: demo-shipping) |
 | **Workflow Selected** | rollback-deployment-v1 |
 | **Confidence** | 0.98 |
 | **Approval** | required (production environment) |
@@ -333,10 +333,10 @@ kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=stat
 Verify remediation:
 
 ```bash
-kubectl get pods -n demo-rollout
+kubectl get pods -n demo-shipping
 # All 3 replicas Running with quay.io/kubernaut-cicd/demo-http-server:1.0.0 (no ImagePullBackOff pods)
 
-kubectl rollout history deployment/checkout-api -n demo-rollout
+kubectl rollout history deployment/checkout-api -n demo-shipping
 # REVISION  CHANGE-CAUSE
 # 2         <none>        (bad image)
 # 3         <none>        (rollback to revision 1)
@@ -378,7 +378,7 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 Feature: Stuck rollout remediation via deployment rollback
 
   Scenario: Non-existent image tag causes stuck rollout
-    Given a deployment "checkout-api" in namespace "demo-rollout"
+    Given a deployment "checkout-api" in namespace "demo-shipping"
       And the deployment has 3 healthy replicas running quay.io/kubernaut-cicd/demo-http-server:1.0.0
       And progressDeadlineSeconds is 120s
       And the "rollback-deployment-v1" workflow is registered

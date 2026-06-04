@@ -92,14 +92,14 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-slo'"
+Type "narrate 'Healthy workload running in namespace demo-api'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-slo"
+Type "kubectl get pods -n demo-api"
 Enter
 Sleep 8s
 
@@ -223,7 +223,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-slo"
+Type "bash scripts/show-ai-analysis.sh demo-api"
 Enter
 Sleep 20s
 
@@ -243,7 +243,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-approval-reason.sh demo-slo"
+Type "bash scripts/show-approval-reason.sh demo-api"
 Enter
 Sleep 12s
 
@@ -316,11 +316,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-slo"
+Type "kubectl get pods -n demo-api"
 Enter
 Sleep 4s
 
-Type "kubectl rollout history deployment/api-gateway -n demo-slo"
+Type "kubectl rollout history deployment/api-gateway -n demo-api"
 Enter
 Sleep 8s
 
@@ -360,7 +360,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-slo"
+Type "bash scripts/show-effectiveness.sh demo-api"
 Enter
 Sleep 10s
 

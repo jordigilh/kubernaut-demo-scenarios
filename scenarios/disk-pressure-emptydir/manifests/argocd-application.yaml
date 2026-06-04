@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: demo-diskpressure
+  name: demo-warehouse
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: http://gitea-http.gitea:3000/kubernaut/demo-diskpressure-repo.git
+    repoURL: http://gitea-http.gitea:3000/kubernaut/demo-warehouse-repo.git
     targetRevision: main
     path: disk-pressure-emptydir
   destination:
     server: https://kubernetes.default.svc
-    namespace: demo-diskpressure
+    namespace: demo-warehouse
   syncPolicy:
     automated:
       prune: true

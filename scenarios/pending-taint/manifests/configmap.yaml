@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: batch-processor-config
-  namespace: demo-taint
+  namespace: demo-scheduler
 data:
   config.yaml: |
     port: 8080

@@ -11,7 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-crashloop-helm"
+NAMESPACE="demo-storefront"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
@@ -58,7 +58,7 @@ HELM_VALUES_ARGS=""
 if [ "$PLATFORM" = "ocp" ]; then
     HELM_VALUES_ARGS="-f ${SCRIPT_DIR}/chart/values-ocp.yaml"
 fi
-helm upgrade --install demo-crashloop-helm "${SCRIPT_DIR}/chart" \
+helm upgrade --install demo-storefront "${SCRIPT_DIR}/chart" \
   -n "${NAMESPACE}" --wait --timeout 120s ${HELM_VALUES_ARGS}
 echo "  Helm release installed. Deployment has app.kubernetes.io/managed-by: Helm label."
 kubectl get pods -n "${NAMESPACE}"

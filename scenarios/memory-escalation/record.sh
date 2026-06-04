@@ -69,7 +69,7 @@ kubectl rollout status deploy/remediationorchestrator-controller -n "${PLATFORM_
 
 kubectl apply -f "${SCENARIO_DIR}/manifests/namespace.yaml" >/dev/null 2>&1
 kubectl apply -f "${SCENARIO_DIR}/manifests/" >/dev/null 2>&1
-kubectl wait --for=condition=Available deployment/ml-worker -n demo-memory-escalation --timeout=180s >/dev/null 2>&1
+kubectl wait --for=condition=Available deployment/ml-worker -n demo-ml-pipeline --timeout=180s >/dev/null 2>&1
 sleep 20
 echo "    Setup complete."
 

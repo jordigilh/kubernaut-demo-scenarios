@@ -7,7 +7,7 @@
 # run on the worker node in a 2-node Kind cluster.
 set -euo pipefail
 
-NAMESPACE="demo-pdb"
+NAMESPACE="demo-payments"
 
 WORKER_NODE=$(kubectl get nodes -l kubernaut.ai/managed=true -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
 

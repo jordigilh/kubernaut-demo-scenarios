@@ -75,14 +75,14 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload with 5 replicas in namespace demo-alert-storm'"
+Type "narrate 'Healthy workload with 5 replicas in namespace demo-ingress'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-alert-storm"
+Type "kubectl get pods -n demo-ingress"
 Enter
 Sleep 8s
 
@@ -178,7 +178,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-alert-storm"
+Type "bash scripts/show-ai-analysis.sh demo-ingress"
 Enter
 Sleep 20s
 
@@ -206,7 +206,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-alert-storm"
+Type "kubectl get pods -n demo-ingress"
 Enter
 Sleep 8s
 
@@ -238,7 +238,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-alert-storm"
+Type "bash scripts/show-effectiveness.sh demo-ingress"
 Enter
 Sleep 10s
 

@@ -151,7 +151,7 @@ bash scenarios/resource-contention/scripts/external-actor.sh &
 #### 3. Observe OOMKills
 
 ```bash
-kubectl get pods -n demo-resource-contention -w
+kubectl get pods -n demo-analytics -w
 ```
 
 #### 4. Wait for alert
@@ -211,9 +211,9 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | Container `worker` in contention-app is OOMKilled because the stress tool allocates 64MB virtual memory (`--vm-bytes 64M`) while the container memory limit is also 64Mi, leaving zero headroom for process overhead. Repeated OOM kills (exit code 137) and CrashLoopBackOff. |
+| **Root Cause** | Container `worker` in analytics-worker is OOMKilled because the stress tool allocates 64MB virtual memory (`--vm-bytes 64M`) while the container memory limit is also 64Mi, leaving zero headroom for process overhead. Repeated OOM kills (exit code 137) and CrashLoopBackOff. |
 | **Severity** | critical |
-| **Target Resource** | Deployment/contention-app (ns: demo-resource-contention) |
+| **Target Resource** | Deployment/analytics-worker (ns: demo-analytics) |
 | **Workflow Selected** | increase-memory-limits-v1 (`IncreaseMemoryLimits`) |
 | **Confidence** | 0.95 |
 | **Approval** | not required (staging, high confidence) |
@@ -237,14 +237,14 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
 
 | Turn | Tool calls | Prompt (chars) | What happened |
 |------|-----------|----------------|---------------|
-| 1 | `todo_write`, `kubectl_describe(Pod/contention-app-…)`, `kubectl_get_by_name(ConfigMap/…)` | 4 685 | Planned investigation; identified OOMKilled, exit code 137 |
+| 1 | `todo_write`, `kubectl_describe(Pod/analytics-worker-…)`, `kubectl_get_by_name(ConfigMap/…)` | 4 685 | Planned investigation; identified OOMKilled, exit code 137 |
 | 2 | `todo_write` | 4 962 | Updated plan: need logs and events |
 | 3 | `kubectl_events(Pod/…)`, `kubectl_previous_logs(…)`, `kubectl_top_nodes` | 14 656 | Read events, logs; checked node memory capacity |
 | 4 | `todo_write` | 14 885 | Identified root cause: 64Mi limit vs 64MB allocation |
-| 5 | `kubectl_describe(Deployment/contention-app)`, `kubectl_top_pods` | 17 877 | Confirmed Deployment spec and pod memory usage |
+| 5 | `kubectl_describe(Deployment/analytics-worker)`, `kubectl_top_pods` | 17 877 | Confirmed Deployment spec and pod memory usage |
 | 6 | `todo_write` | 18 050 | Assessed blast radius |
-| 7 | `get_namespaced_resource_context(Deployment/contention-app)` | 21 580 | Enriched: `environment=staging`, ownership chain |
-| 8 | `todo_write` → *submit_result (RCA)* | 22 119 | Target: Deployment/contention-app — zero memory headroom |
+| 7 | `get_namespaced_resource_context(Deployment/analytics-worker)` | 21 580 | Enriched: `environment=staging`, ownership chain |
+| 8 | `todo_write` → *submit_result (RCA)* | 22 119 | Target: Deployment/analytics-worker — zero memory headroom |
 
 **Phase 2 — Workflow Selection (7 LLM turns)**
 
@@ -283,7 +283,7 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
 
 ```bash
 kill %1
-kubectl set resources deployment/contention-app -n demo-resource-contention \
+kubectl set resources deployment/analytics-worker -n demo-analytics \
   --limits=memory=256Mi --requests=memory=128Mi
 ```
 
@@ -321,7 +321,7 @@ Feature: Resource Contention — external actor interference detection
 
   Background:
     Given a cluster with Kubernaut services and a real LLM backend
-      And "contention-app" is deployed with 64Mi memory limit (causes OOMKill)
+      And "analytics-worker" is deployed with 64Mi memory limit (causes OOMKill)
       And an external actor script monitors and reverts memory limit changes
 
   Scenario: First remediation cycle succeeds

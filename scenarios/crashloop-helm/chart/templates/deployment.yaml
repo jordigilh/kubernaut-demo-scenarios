@@ -4,7 +4,7 @@ metadata:
   name: worker
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "demo-crashloop-helm.labels" . | nindent 4 }}
+    {{- include "demo-storefront.labels" . | nindent 4 }}
     app: worker
     kubernaut.ai/managed: "true"
 spec:
@@ -19,7 +19,7 @@ spec:
       labels:
         app: worker
         kubernaut.ai/managed: "true"
-        {{- include "demo-crashloop-helm.labels" . | nindent 8 }}
+        {{- include "demo-storefront.labels" . | nindent 8 }}
     spec:
       containers:
       - name: worker
@@ -60,7 +60,7 @@ metadata:
   name: worker
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "demo-crashloop-helm.labels" . | nindent 4 }}
+    {{- include "demo-storefront.labels" . | nindent 4 }}
     app: worker
     kubernaut.ai/managed: "true"
 spec:

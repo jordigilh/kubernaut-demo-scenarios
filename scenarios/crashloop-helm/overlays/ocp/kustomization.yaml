@@ -5,14 +5,14 @@ resources:
 patches:
   - target:
       kind: Namespace
-      name: demo-crashloop-helm
+      name: demo-storefront
     patch: |
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
         value: "true"
   - target:
       kind: PrometheusRule
-      name: kubernaut-crashloop-helm-rules
+      name: demo-app-alerts
     patch: |
       - op: remove
         path: /metadata/labels/release
@@ -24,4 +24,4 @@ patches:
       # lower threshold so the alert fires reliably despite backoff.
       - op: replace
         path: /spec/groups/0/rules/0/expr
-        value: "increase(\n  kube_pod_container_status_restarts_total{\n    namespace=\"demo-crashloop-helm\",\n    container=\"worker\"\n  }[15m]\n) > 2\n"
+        value: "increase(\n  kube_pod_container_status_restarts_total{\n    namespace=\"demo-storefront\"\n  }[15m]\n) > 2\n"

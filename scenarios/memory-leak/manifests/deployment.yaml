@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: leaky-app
-  namespace: demo-memory-leak
+  name: data-service
+  namespace: demo-telemetry
   labels:
-    app: leaky-app
+    app: data-service
     kubernaut.ai/managed: "true"
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: leaky-app
+      app: data-service
   template:
     metadata:
       labels:
-        app: leaky-app
+        app: data-service
     spec:
       containers:
       - name: app
@@ -40,7 +40,7 @@ spec:
             port: 8080
           initialDelaySeconds: 3
           periodSeconds: 5
-      - name: leaker
+      - name: data-processor
         image: registry.k8s.io/e2e-test-images/busybox:1.29-2
         command: ["sh", "-c"]
         args:
@@ -52,7 +52,7 @@ spec:
             sleep 5
           done
         volumeMounts:
-        - name: memory-sink
+        - name: data-cache
           mountPath: /data
         resources:
           requests:
@@ -62,7 +62,7 @@ spec:
             memory: "192Mi"
             cpu: "20m"
       volumes:
-      - name: memory-sink
+      - name: data-cache
         emptyDir:
           medium: Memory
           sizeLimit: 256Mi
@@ -70,14 +70,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: leaky-app
-  namespace: demo-memory-leak
+  name: data-service
+  namespace: demo-telemetry
   labels:
-    app: leaky-app
+    app: data-service
     kubernaut.ai/managed: "true"
 spec:
   selector:
-    app: leaky-app
+    app: data-service
   ports:
   - port: 8080
     targetPort: 8080

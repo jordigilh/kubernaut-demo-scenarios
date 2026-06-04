@@ -4,6 +4,6 @@ metadata:
   name: worker-config
   namespace: {{ .Values.namespace }}
   labels:
-    {{- include "demo-crashloop-helm.labels" . | nindent 4 }}
+    {{- include "demo-storefront.labels" . | nindent 4 }}
 data:
   nginx.conf: {{ .Values.nginx.config | quote }}

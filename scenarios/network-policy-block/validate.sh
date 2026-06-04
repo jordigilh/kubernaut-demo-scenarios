@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-netpol"
+NAMESPACE="demo-frontend"
 APPROVE_MODE="${1:---auto-approve}"
 
 # shellcheck source=../../scripts/validation-helper.sh
@@ -65,10 +65,10 @@ assert_eq "$wfe_phase" "Completed" "WFE phase"
 ea_phase=$(get_ea_phase "${NAMESPACE}")
 assert_eq "$ea_phase" "Completed" "EA phase"
 
-# Verify deny-all NetworkPolicy was removed
-netpol_count=$(kubectl get networkpolicies -n "${NAMESPACE}" \
-  -l injected-by=kubernaut-demo --no-headers 2>/dev/null | wc -l | tr -d ' ')
-assert_eq "${netpol_count:-0}" "0" "Deny-all NetworkPolicy removed"
+# Verify default-network-policy was removed
+netpol_count=$(kubectl get networkpolicy default-network-policy -n "${NAMESPACE}" \
+  --no-headers 2>/dev/null | wc -l | tr -d ' ')
+assert_eq "${netpol_count:-0}" "0" "Default network policy removed"
 
 # Verify web-frontend pods are Running
 ready_pods=$(kubectl get pods -n "${NAMESPACE}" -l app=web-frontend \

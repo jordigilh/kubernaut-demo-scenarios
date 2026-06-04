@@ -9,7 +9,7 @@
 # this discrepancy during investigation.
 set -euo pipefail
 
-NAMESPACE="demo-alert-misdirection"
+NAMESPACE="demo-backend"
 
 echo "==> Simulating bad release (command override)..."
 kubectl patch deployment worker -n "${NAMESPACE}" --type=json \

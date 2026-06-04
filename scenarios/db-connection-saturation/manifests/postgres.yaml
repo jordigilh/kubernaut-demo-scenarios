@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: postgres-config
-  namespace: demo-db-saturation
+  namespace: demo-orders
   labels:
     app: postgres
     kubernaut.ai/managed: "true"
@@ -13,7 +13,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: demo-db-saturation
+  namespace: demo-orders
   labels:
     app: postgres
     kubernaut.ai/managed: "true"
@@ -74,7 +74,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: demo-db-saturation
+  namespace: demo-orders
   labels:
     app: postgres
     kubernaut.ai/managed: "true"

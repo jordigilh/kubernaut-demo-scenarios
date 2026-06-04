@@ -91,18 +91,18 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-hpa'"
+Type "narrate 'Healthy workload running in namespace demo-gateway'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-hpa"
+Type "kubectl get pods -n demo-gateway"
 Enter
 Sleep 4s
 
-Type "kubectl get hpa -n demo-hpa"
+Type "kubectl get hpa -n demo-gateway"
 Enter
 Sleep 4s
 
@@ -198,7 +198,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-hpa"
+Type "bash scripts/show-ai-analysis.sh demo-gateway"
 Enter
 Sleep 20s
 
@@ -226,11 +226,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-hpa"
+Type "kubectl get pods -n demo-gateway"
 Enter
 Sleep 4s
 
-Type "kubectl get hpa -n demo-hpa"
+Type "kubectl get hpa -n demo-gateway"
 Enter
 Sleep 4s
 
@@ -262,7 +262,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-hpa"
+Type "bash scripts/show-effectiveness.sh demo-gateway"
 Enter
 Sleep 10s
 

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: demo-resource-contention
+  name: demo-analytics
   labels:
     kubernaut.ai/managed: "true"
     kubernaut.ai/environment: staging

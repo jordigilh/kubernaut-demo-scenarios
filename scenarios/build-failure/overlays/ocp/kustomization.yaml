@@ -5,14 +5,14 @@ resources:
 patches:
   - target:
       kind: Namespace
-      name: demo-build
+      name: demo-ci
     patch: |
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
         value: "true"
   - target:
       kind: PrometheusRule
-      name: demo-build-rules
+      name: demo-app-alerts
     patch: |
       - op: remove
         path: /metadata/labels/release

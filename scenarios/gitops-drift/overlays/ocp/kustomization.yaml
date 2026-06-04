@@ -6,7 +6,7 @@ patches:
   # Category A: Namespace labels for OCP cluster monitoring + GitOps
   - target:
       kind: Namespace
-      name: demo-gitops
+      name: demo-webui
     patch: |
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
@@ -17,7 +17,7 @@ patches:
   # Category C: PrometheusRule - remove release label for OCP
   - target:
       kind: PrometheusRule
-      name: kubernaut-gitops-drift-rules
+      name: demo-app-alerts
     patch: |
       - op: remove
         path: /metadata/labels/release

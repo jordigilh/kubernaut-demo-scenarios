@@ -1,19 +1,19 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-gitops-drift-rules
-  namespace: demo-gitops
+  name: demo-app-alerts
+  namespace: demo-webui
   labels:
     release: kube-prometheus-stack
 spec:
   groups:
-  - name: gitops-drift-alerts
+  - name: demo-app
     rules:
     - alert: KubePodCrashLooping
       expr: |
         increase(
           kube_pod_container_status_restarts_total{
-            namespace="demo-gitops",
+            namespace="demo-webui",
             container="web-frontend"
           }[5m]
         ) > 2
@@ -23,10 +23,9 @@ spec:
         scenario: gitops-drift
       annotations:
         summary: >
-          Pod {{ $labels.pod }} is crash looping in demo-gitops.
+          Pod {{ $labels.pod }} is crash looping in namespace {{ $labels.namespace }}.
         description: >
           Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is restarting
-          repeatedly. The namespace is managed by ArgoCD (GitOps). Recent
-          commits to the Git repository may have introduced a configuration
-          change that causes the application to fail on startup.
+          repeatedly. Application availability may be degraded until the
+          workload stabilizes.
         runbook_url: "https://kubernaut.ai/runbooks/crashloop-gitops"

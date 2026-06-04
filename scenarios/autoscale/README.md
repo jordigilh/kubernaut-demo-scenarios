@@ -132,7 +132,7 @@ kubectl get nodes
 # 2. Deploy namespace and workload (2 replicas)
 kubectl apply -f scenarios/autoscale/manifests/
 kubectl wait --for=condition=Available deployment/web-cluster \
-  -n demo-autoscale --timeout=60s
+  -n demo-loadtest --timeout=60s
 
 # 3. Deploy Prometheus alerting rules
 kubectl apply -f scenarios/autoscale/manifests/prometheus-rule.yaml
@@ -142,13 +142,13 @@ kubectl apply -f scenarios/autoscale/manifests/prometheus-rule.yaml
 PROVISIONER_PID=$!
 
 # 5. Verify initial state (2 Running pods)
-kubectl get pods -n demo-autoscale -o wide
+kubectl get pods -n demo-loadtest -o wide
 
 # 6. Inject: scale beyond node capacity (compute dynamically or use a high count)
-kubectl scale deployment/web-cluster --replicas=14 -n demo-autoscale
+kubectl scale deployment/web-cluster --replicas=14 -n demo-loadtest
 
 # 7. Verify some pods are Pending
-kubectl get pods -n demo-autoscale   # some Running, rest Pending
+kubectl get pods -n demo-loadtest   # some Running, rest Pending
 
 # 8. Query Alertmanager for active alerts
 # Kind
@@ -211,7 +211,7 @@ kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.inves
 |-------|---------------|
 | **Root Cause** | Deployment web-cluster was manually scaled to 14 replicas with 2 GiB memory each (28 GiB total demand), exceeding the 3-node cluster's ~21.6 GiB total capacity. All nodes report 'Insufficient memory', leaving 6 pods permanently Pending/Unschedulable. |
 | **Severity** | critical |
-| **Target Resource** | Deployment/web-cluster (ns: demo-autoscale) |
+| **Target Resource** | Deployment/web-cluster (ns: demo-loadtest) |
 | **Workflow Selected** | provision-node-v1 |
 | **Confidence** | 0.92 |
 | **Approval** | not required |
@@ -247,7 +247,7 @@ kubectl get $AIA -n kubernaut-system -o jsonpath='{.status.approvalContext.inves
 
 ```bash
 kubectl get nodes                          # 3rd node visible
-kubectl get pods -n demo-autoscale -o wide # distributed across nodes
+kubectl get pods -n demo-loadtest -o wide # distributed across nodes
 ```
 
 #### 12. View notifications

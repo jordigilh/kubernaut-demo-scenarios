@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: checkout-api-config
-  namespace: demo-rollout
+  namespace: demo-shipping
 data:
   config.yaml: |
     port: 8080

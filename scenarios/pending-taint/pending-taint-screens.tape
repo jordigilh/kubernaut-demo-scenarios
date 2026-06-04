@@ -74,14 +74,14 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-taint'"
+Type "narrate 'Healthy workload running in namespace demo-scheduler'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-taint -o wide"
+Type "kubectl get pods -n demo-scheduler -o wide"
 Enter
 Sleep 4s
 
@@ -181,7 +181,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-taint"
+Type "bash scripts/show-ai-analysis.sh demo-scheduler"
 Enter
 Sleep 20s
 
@@ -209,7 +209,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-taint -o wide"
+Type "kubectl get pods -n demo-scheduler -o wide"
 Enter
 Sleep 4s
 
@@ -245,7 +245,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-taint"
+Type "bash scripts/show-effectiveness.sh demo-scheduler"
 Enter
 Sleep 10s
 

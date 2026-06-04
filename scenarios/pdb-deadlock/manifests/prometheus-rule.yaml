@@ -1,46 +1,43 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-pdb-deadlock-rules
-  namespace: demo-pdb
+  name: demo-app-alerts
+  namespace: demo-payments
   labels:
     release: prometheus
 spec:
   groups:
-  - name: kubernaut-pdb-deadlock
+  - name: demo-app
     rules:
     # Detect PDB blocking disruptions (0 allowed disruptions for extended period)
     - alert: KubePodDisruptionBudgetAtLimit
       expr: |
         max by (namespace, poddisruptionbudget) (
           kube_poddisruptionbudget_status_pod_disruptions_allowed{
-            namespace="demo-pdb",
+            namespace="demo-payments",
             poddisruptionbudget="payment-service-pdb"
           } == 0
           and
           kube_poddisruptionbudget_status_expected_pods{
-            namespace="demo-pdb",
+            namespace="demo-payments",
             poddisruptionbudget="payment-service-pdb"
           }
           ==
           kube_poddisruptionbudget_status_current_healthy{
-            namespace="demo-pdb",
+            namespace="demo-payments",
             poddisruptionbudget="payment-service-pdb"
           }
         )
       for: 30s
       labels:
         severity: warning
-        namespace: demo-pdb
+        namespace: demo-payments
         poddisruptionbudget: payment-service-pdb
       annotations:
         summary: >
           PDB {{ $labels.poddisruptionbudget }} in namespace {{ $labels.namespace }}
-          is at disruption limit - blocking node drain/eviction
+          has zero allowed disruptions.
         description: >
-          PodDisruptionBudget {{ $labels.poddisruptionbudget }} in namespace
-          {{ $labels.namespace }} has zero allowed disruptions because
-          minAvailable equals the current number of healthy pods. Pod evictions
-          are blocked, which can stall node drains, rollouts, and cluster
-          maintenance operations.
-        runbook_url: "https://kubernaut.ai/runbooks/relax-pdb"
+          A PodDisruptionBudget in namespace {{ $labels.namespace }} currently
+          permits zero voluntary disruptions. Cluster maintenance operations
+          may be affected.

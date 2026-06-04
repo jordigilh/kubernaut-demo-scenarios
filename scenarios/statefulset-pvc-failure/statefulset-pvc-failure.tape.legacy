@@ -31,7 +31,7 @@
 #   Every hidden-wait block uses act_clear before Show so the viewer always knows
 #   which act they are in.
 #
-# AUTO-APPROVE PATH: staging namespace (demo-statefulset), no RAR required.
+# AUTO-APPROVE PATH: staging namespace (demo-keystore), no RAR required.
 
 Output scenarios/statefulset-pvc-failure/statefulset-pvc-failure.gif
 Output scenarios/statefulset-pvc-failure/statefulset-pvc-failure.mp4
@@ -95,7 +95,7 @@ Type `bash scenarios/statefulset-pvc-failure/cleanup.sh 2>/dev/null; true`
 Enter
 Sleep 5s
 
-Type `kubectl apply -f scenarios/statefulset-pvc-failure/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/statefulset-pvc-failure/manifests/ >/dev/null 2>&1 && kubectl rollout status statefulset/kv-store -n demo-statefulset --timeout=180s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
+Type `kubectl apply -f scenarios/statefulset-pvc-failure/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/statefulset-pvc-failure/manifests/ >/dev/null 2>&1 && kubectl rollout status statefulset/kv-store -n demo-keystore --timeout=180s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -130,7 +130,7 @@ Sleep 300ms
 Type "narrate 'A broken PVC prevents a StatefulSet pod from scheduling.'"
 Enter
 Sleep 300ms
-Type "narrate 'Healthy StatefulSet running in namespace demo-statefulset'"
+Type "narrate 'Healthy StatefulSet running in namespace demo-keystore'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
@@ -139,14 +139,14 @@ Sleep 4s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Healthy StatefulSet in namespace demo-statefulset'"
+Type "narrate 'Healthy StatefulSet in namespace demo-keystore'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-statefulset"
+Type "kubectl get pods -n demo-keystore"
 Enter
 Sleep 5s
 
@@ -175,7 +175,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-statefulset -w"
+Type "kubectl get pods -n demo-keystore -w"
 Enter
 Wait+Screen@120s /Pending/
 Sleep 5s
@@ -304,7 +304,7 @@ Show
 Sleep 2s
 
 # Pod transition — shown FIRST so the viewer sees the live change
-Type "kubectl get pods -n demo-statefulset -w"
+Type "kubectl get pods -n demo-keystore -w"
 Enter
 Sleep 30s
 Ctrl+C
@@ -323,7 +323,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-statefulset"
+Type "bash scripts/show-ai-analysis.sh demo-keystore"
 Enter
 Sleep 24s
 
@@ -398,11 +398,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 4s
 
-Type "kubectl get pods -n demo-statefulset"
+Type "kubectl get pods -n demo-keystore"
 Enter
 Sleep 5s
 
-Type "kubectl get pvc -n demo-statefulset"
+Type "kubectl get pvc -n demo-keystore"
 Enter
 Sleep 5s
 
@@ -428,7 +428,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-statefulset"
+Type "bash scripts/show-effectiveness.sh demo-keystore"
 Enter
 Sleep 10s
 

@@ -1,39 +1,39 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: connection-leaker
-  namespace: demo-db-saturation
+  name: client-pool
+  namespace: demo-orders
   labels:
-    app: connection-leaker
+    app: client-pool
     kubernaut.ai/managed: "true"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: connection-leaker
+      app: client-pool
   template:
     metadata:
       labels:
-        app: connection-leaker
+        app: client-pool
     spec:
       containers:
-      - name: leaker
+      - name: client-pool
         image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
         command: ["sh", "-c"]
         args:
         - |
-          echo "[connection-leaker] Starting connection leak simulation"
-          echo "[connection-leaker] Target: postgres.demo-db-saturation.svc:5432"
-          echo "[connection-leaker] Will open 12 persistent connections then idle"
+          echo "[client-pool] Starting connection pool simulation"
+          echo "[client-pool] Target: postgres.demo-orders.svc:5432"
+          echo "[client-pool] Will open 12 persistent connections then idle"
           MAX_LEAKED=12
           i=0
           while [ "$i" -lt "$MAX_LEAKED" ]; do
             i=$((i + 1))
-            echo "[connection-leaker] Opening persistent connection #$i/$MAX_LEAKED to postgres"
+            echo "[client-pool] Opening persistent connection #$i/$MAX_LEAKED to postgres"
             PGPASSWORD=demo psql -h postgres -U demo -d demo -c "SELECT pg_sleep(86400)" &
             sleep 8
           done
-          echo "[connection-leaker] Reached $MAX_LEAKED leaked connections, idling"
+          echo "[client-pool] Reached $MAX_LEAKED persistent connections, idling"
           sleep infinity
         resources:
           requests:

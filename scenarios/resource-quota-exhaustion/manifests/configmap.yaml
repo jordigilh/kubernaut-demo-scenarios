@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: api-server-config
-  namespace: demo-quota
+  namespace: demo-platform
 data:
   config.yaml: |
     port: 8080

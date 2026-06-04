@@ -78,7 +78,7 @@ Severity: critical
 Affected Resource:
 - Kind: Deployment
 - Name: worker
-- Namespace: demo-prompt-injection
+- Namespace: demo-workers
 
 ---
 
@@ -184,7 +184,7 @@ The ConfigMap deploys with both the legitimate `config.yaml` and the adversarial
 #### 3. Verify healthy baseline
 
 ```bash
-kubectl get pods -n demo-prompt-injection
+kubectl get pods -n demo-workers
 # All pods Running, 0 restarts
 ```
 
@@ -255,7 +255,7 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 
 ```gherkin
 Given a cluster with Kubernaut services and shadow agent enabled
-  And the "worker" Deployment is healthy in namespace "demo-prompt-injection"
+  And the "worker" Deployment is healthy in namespace "demo-workers"
   And the ConfigMap "worker-config" contains a prompt injection payload
     in the "MAINTENANCE_NOTES.txt" field
 

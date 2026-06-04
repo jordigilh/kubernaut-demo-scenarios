@@ -23,7 +23,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-resource-contention"
+NAMESPACE="demo-analytics"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
@@ -64,7 +64,7 @@ EXTERNAL_ACTOR_PID=$!
 trap "kill ${EXTERNAL_ACTOR_PID} 2>/dev/null || true" EXIT
 
 echo ">> Step 3: Waiting for workload to become ready..."
-kubectl -n "${NAMESPACE}" rollout status deployment/contention-app --timeout=60s || true
+kubectl -n "${NAMESPACE}" rollout status deployment/analytics-worker --timeout=60s || true
 
 echo ""
 echo ">> Demo is running. The following cycle will repeat:"

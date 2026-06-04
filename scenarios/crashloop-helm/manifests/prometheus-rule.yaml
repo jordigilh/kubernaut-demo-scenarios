@@ -1,20 +1,19 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-crashloop-helm-rules
-  namespace: demo-crashloop-helm
+  name: demo-app-alerts
+  namespace: demo-storefront
   labels:
     release: kube-prometheus-stack
 spec:
   groups:
-  - name: kubernaut-crashloop-helm
+  - name: demo-app
     rules:
     - alert: KubePodCrashLooping
       expr: |
         increase(
           kube_pod_container_status_restarts_total{
-            namespace="demo-crashloop-helm",
-            container="worker"
+            namespace="demo-storefront"
           }[10m]
         ) > 3
       for: 30s
@@ -22,11 +21,9 @@ spec:
         severity: critical
       annotations:
         summary: >
-          Container {{ $labels.container }} in pod {{ $labels.pod }} is in
-          CrashLoopBackOff with {{ $value | humanize }} restarts in the last 10 minutes.
+          Container {{ $labels.container }} in pod {{ $labels.pod }}
+          is restarting repeatedly ({{ $value | humanize }} restarts in 10m).
         description: >
-          Container {{ $labels.container }} in pod {{ $labels.pod }} (namespace
-          {{ $labels.namespace }}) is repeatedly crashing and restarting. The
-          deployment is managed by Helm (app.kubernetes.io/managed-by: Helm).
-          The container is exiting with a non-zero exit code, indicating a
-          startup failure or fatal runtime error.
+          A container in namespace {{ $labels.namespace }} is failing to
+          reach a stable running state. Elevated restart rate may indicate
+          service degradation.

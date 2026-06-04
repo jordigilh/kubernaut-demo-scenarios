@@ -6,7 +6,7 @@ patches:
   # Category A: Namespace labels for OCP cluster monitoring and ArgoCD RBAC
   - target:
       kind: Namespace
-      name: demo-diskpressure
+      name: demo-warehouse
     patch: |
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
@@ -17,7 +17,7 @@ patches:
   # Category B: PostgreSQL -- Red Hat image, env vars, and data paths
   - target:
       kind: Deployment
-      name: postgres-emptydir
+      name: postgres
     patch: |
       - op: replace
         path: /spec/template/spec/containers/0/image
@@ -42,7 +42,7 @@ patches:
   # and remove the Kind-specific release label.
   - target:
       kind: PrometheusRule
-      name: demo-diskpressure-rules
+      name: demo-app-alerts
     patch: |
       - op: replace
         path: /metadata/namespace
@@ -52,7 +52,7 @@ patches:
   # Category D: ArgoCD Application namespace argocd -> openshift-gitops
   - target:
       kind: Application
-      name: demo-diskpressure
+      name: demo-warehouse
     patch: |
       - op: replace
         path: /metadata/namespace

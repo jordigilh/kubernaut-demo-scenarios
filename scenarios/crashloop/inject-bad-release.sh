@@ -5,7 +5,7 @@
 # (without the command override) is the rollback target.
 set -euo pipefail
 
-NAMESPACE="demo-crashloop"
+NAMESPACE="demo-checkout"
 
 echo "==> Simulating bad release (command override)..."
 kubectl patch deployment worker -n "${NAMESPACE}" --type=json \

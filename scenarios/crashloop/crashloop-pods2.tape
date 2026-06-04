@@ -32,7 +32,7 @@ Type `export KUBECONFIG=~/.kube/kubernaut-demo-config`
 Enter
 Sleep 500ms
 
-Type `__SF="/tmp/kubernaut-crashloop-pods2-stop"`
+Type `__SF="/tmp/kubernaut-checkout-pods2-stop"`
 Enter
 Sleep 200ms
 
@@ -44,7 +44,7 @@ Type `rm -f "$__SF"`
 Enter
 Sleep 200ms
 
-Type `__run() { set +m; clear; kubectl get pods -n demo-crashloop -w & __P=$!; while [ ! -f "$__SF" ]; do sleep 2; done; kill $__P 2>/dev/null; wait $__P 2>/dev/null; clear; echo "$__M"; }`
+Type `__run() { set +m; clear; kubectl get pods -n demo-checkout -w & __P=$!; while [ ! -f "$__SF" ]; do sleep 2; done; kill $__P 2>/dev/null; wait $__P 2>/dev/null; clear; echo "$__M"; }`
 Enter
 Sleep 200ms
 

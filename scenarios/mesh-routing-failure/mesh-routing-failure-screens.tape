@@ -74,18 +74,18 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-mesh-failure'"
+Type "narrate 'Healthy workload running in namespace demo-mesh'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-mesh-failure"
+Type "kubectl get pods -n demo-mesh"
 Enter
 Sleep 4s
 
-Type "kubectl get authorizationpolicies -n demo-mesh-failure 2>/dev/null || echo 'No AuthorizationPolicies'"
+Type "kubectl get authorizationpolicies -n demo-mesh 2>/dev/null || echo 'No AuthorizationPolicies'"
 Enter
 Sleep 4s
 
@@ -181,7 +181,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-mesh-failure"
+Type "bash scripts/show-ai-analysis.sh demo-mesh"
 Enter
 Sleep 20s
 
@@ -209,11 +209,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-mesh-failure"
+Type "kubectl get pods -n demo-mesh"
 Enter
 Sleep 4s
 
-Type "kubectl get authorizationpolicies -n demo-mesh-failure 2>/dev/null || echo 'No AuthorizationPolicies (removed)'"
+Type "kubectl get authorizationpolicies -n demo-mesh 2>/dev/null || echo 'No AuthorizationPolicies (removed)'"
 Enter
 Sleep 4s
 
@@ -245,7 +245,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-mesh-failure"
+Type "bash scripts/show-effectiveness.sh demo-mesh"
 Enter
 Sleep 10s
 

@@ -150,7 +150,7 @@ kubectl apply -k scenarios/statefulset-pvc-failure/overlays/ocp/
 #### 2. Wait for StatefulSet (3 replicas)
 
 ```bash
-kubectl rollout status sts/kv-store -n demo-statefulset --timeout=180s
+kubectl rollout status sts/kv-store -n demo-keystore --timeout=180s
 ```
 
 #### 3. Inject PVC failure
@@ -231,7 +231,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | StatefulSet replica mismatch caused by kv-store-2 stuck in Pending due to PVC `data-kv-store-2` referencing a non-existent StorageClass `broken-storage-class`. The PVC was manually created with an incorrect storageClassName, causing repeated ProvisioningFailed errors and preventing pod scheduling. |
 | **Severity** | critical |
-| **Target Resource** | StatefulSet/kv-store (ns: demo-statefulset) |
+| **Target Resource** | StatefulSet/kv-store (ns: demo-keystore) |
 | **Workflow Selected** | fix-statefulset-pvc-v1 (`FixStatefulSetPVC`) |
 | **Confidence** | 0.95 |
 | **Approval** | required (sensitive resource kind: StatefulSet) |
@@ -300,8 +300,8 @@ kubectl patch rar "$RAR" -n kubernaut-system --type=merge --subresource=status \
 The WFE recreates the PVC with the correct StorageClass, deletes the stuck pod, and the pod recovers.
 
 ```bash
-kubectl get pods -n demo-statefulset -w
-kubectl get pvc -n demo-statefulset
+kubectl get pods -n demo-keystore -w
+kubectl get pvc -n demo-keystore
 ```
 
 #### 9. View notifications

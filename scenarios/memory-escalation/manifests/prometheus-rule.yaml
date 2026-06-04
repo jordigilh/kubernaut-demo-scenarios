@@ -1,18 +1,18 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-memory-rules
-  namespace: demo-memory-escalation
+  name: demo-app-alerts
+  namespace: demo-ml-pipeline
   labels:
     release: prometheus
 spec:
   groups:
-  - name: kubernaut-memory-escalation
+  - name: demo-app
     rules:
     - alert: ContainerOOMKilling
       expr: |
         kube_pod_container_status_last_terminated_reason{
-          namespace="demo-memory-escalation",
+          namespace="demo-ml-pipeline",
           reason="OOMKilled"
         } > 0
       for: 10s
@@ -20,11 +20,8 @@ spec:
         severity: critical
       annotations:
         summary: >
-          Container {{ $labels.container }} in pod {{ $labels.pod }} was OOMKilled
-          in the last 5 minutes.
+          Container {{ $labels.container }} in pod {{ $labels.pod }}
+          is not running stably.
         description: >
-          Container {{ $labels.container }} in pod {{ $labels.pod }} (namespace
-          {{ $labels.namespace }}) was terminated by the kernel OOM killer
-          because it exceeded its memory limit. The container will be restarted
-          by the kubelet, but if the memory pressure persists, repeated OOMKill
-          events are expected.
+          A container in namespace {{ $labels.namespace }} has been terminated
+          unexpectedly. Service availability may be degraded.

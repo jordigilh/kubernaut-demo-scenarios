@@ -12,12 +12,12 @@ restore_production_approval || true
 echo "==> Cleaning up ImagePullBackOff demo..."
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule demo-imagepull-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-kubectl delete namespace demo-imagepull --ignore-not-found --wait=true
-kubectl delete namespace demo-imagepull-source --ignore-not-found --wait=false
+kubectl delete namespace demo-inventory --ignore-not-found --wait=true
+kubectl delete namespace demo-inventory-source --ignore-not-found --wait=false
 kubectl delete secret registry-credentials-template \
   -n "${WE_NAMESPACE:-kubernaut-workflows}" --ignore-not-found
 
@@ -32,7 +32,7 @@ kubectl rollout status deploy/remediationorchestrator-controller -n "$PLATFORM_N
 purge_pipeline_crds
 
 echo "==> Waiting for namespace deletion to complete..."
-while kubectl get ns demo-imagepull &>/dev/null; do
+while kubectl get ns demo-inventory &>/dev/null; do
   sleep 2
 done
 

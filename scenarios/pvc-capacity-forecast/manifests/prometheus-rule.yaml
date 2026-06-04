@@ -1,25 +1,25 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: pvc-capacity-forecast-rules
-  namespace: demo-pvc-forecast
+  name: demo-app-alerts
+  namespace: demo-archive
   labels:
     release: prometheus
 spec:
   groups:
-  - name: pvc-capacity-forecast
+  - name: demo-app
     rules:
     - alert: PVRunwayShort
       expr: |
         predict_linear(
           kubelet_volume_stats_used_bytes{
-            namespace="demo-pvc-forecast",
+            namespace="demo-archive",
             persistentvolumeclaim="data-service-data"
           }[5m], 3600
         )
         >
         kubelet_volume_stats_capacity_bytes{
-          namespace="demo-pvc-forecast",
+          namespace="demo-archive",
           persistentvolumeclaim="data-service-data"
         }
       for: 30s
@@ -28,11 +28,8 @@ spec:
       annotations:
         summary: >
           PVC {{ $labels.persistentvolumeclaim }} in namespace {{ $labels.namespace }}
-          is projected to exhaust capacity within 1 hour at current growth rate.
+          is projected to exhaust capacity within 1 hour.
         description: >
-          Linear extrapolation of kubelet_volume_stats_used_bytes over the last
-          5 minutes projects that PVC {{ $labels.persistentvolumeclaim }} in
-          namespace {{ $labels.namespace }} will exceed its provisioned capacity
-          within approximately 1 hour at the current write rate. If the volume
-          fills completely, applications writing to this volume will encounter
-          I/O errors and potential data corruption.
+          A PersistentVolumeClaim in namespace {{ $labels.namespace }} is
+          approaching its provisioned capacity. Applications using this
+          volume may encounter I/O errors if capacity is exhausted.

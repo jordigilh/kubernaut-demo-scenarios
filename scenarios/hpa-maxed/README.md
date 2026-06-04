@@ -112,7 +112,7 @@ kubectl apply -k scenarios/hpa-maxed/overlays/ocp/
 </details>
 
 ```bash
-kubectl wait --for=condition=Available deployment/api-frontend -n demo-hpa --timeout=120s
+kubectl wait --for=condition=Available deployment/api-frontend -n demo-gateway --timeout=120s
 ```
 
 This creates a 2-replica `api-frontend` Deployment with:
@@ -122,7 +122,7 @@ This creates a 2-replica `api-frontend` Deployment with:
 #### 2. Verify HPA
 
 ```bash
-kubectl get hpa -n demo-hpa
+kubectl get hpa -n demo-gateway
 # NAME           REFERENCE                 TARGETS          MINPODS   MAXPODS   REPLICAS
 # api-frontend   Deployment/api-frontend   cpu: <low>/50%   2         3         2
 ```
@@ -139,7 +139,7 @@ CPU. When HPA scales to 3 replicas, the script re-stresses the new pod.
 #### 4. Watch HPA scale to ceiling
 
 ```bash
-kubectl get hpa -n demo-hpa -w
+kubectl get hpa -n demo-gateway -w
 # REPLICAS climbs to 3 (maxReplicas) and stays there
 # CPU utilization remains high (200%+ of target)
 ```
@@ -214,7 +214,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | HPA api-frontend has hit its maxReplicas ceiling of 3 while CPU utilization is at 186% of request, preventing further scale-out needed to handle the load. |
 | **Severity** | medium |
-| **Target Resource** | HorizontalPodAutoscaler/api-frontend (ns: demo-hpa) |
+| **Target Resource** | HorizontalPodAutoscaler/api-frontend (ns: demo-gateway) |
 | **Workflow Selected** | patch-hpa-v1 |
 | **Confidence** | 0.95 |
 | **Approval** | not required |
@@ -269,11 +269,11 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 After the workflow execution completes:
 
 ```bash
-kubectl get hpa -n demo-hpa
+kubectl get hpa -n demo-gateway
 # NAME           REFERENCE                 TARGETS       MINPODS   MAXPODS   REPLICAS
 # api-frontend   Deployment/api-frontend   cpu: 2%/50%   2         5         5
 
-kubectl get pods -n demo-hpa
+kubectl get pods -n demo-gateway
 # 5 pods Running (scaled beyond old ceiling of 3)
 ```
 
@@ -316,7 +316,7 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 Feature: HPA ceiling remediation via detected labels
 
   Scenario: HPA at maxReplicas triggers PatchHPA workflow
-    Given a deployment "api-frontend" in namespace "demo-hpa"
+    Given a deployment "api-frontend" in namespace "demo-gateway"
       And an HPA with minReplicas=2, maxReplicas=3, targetCPU=50%
       And the "patch-hpa-v1" workflow is registered with detectedLabels: hpaEnabled
 

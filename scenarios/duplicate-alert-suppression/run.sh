@@ -14,7 +14,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-alert-storm"
+NAMESPACE="demo-ingress"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
@@ -78,7 +78,7 @@ echo ""
 echo "==> Step 5: Waiting for CrashLoop alerts to fire (~2-3 min)..."
 echo "  5 pods are crashing, but they all belong to Deployment/api-gateway."
 echo "  The Gateway OwnerResolver maps each pod alert to the Deployment."
-echo "  All 5 alerts share fingerprint: SHA256(demo-alert-storm:deployment:api-gateway)"
+echo "  All 5 alerts share fingerprint: SHA256(demo-ingress:deployment:api-gateway)"
 echo ""
 
 # Step 6: Expected deduplication behavior

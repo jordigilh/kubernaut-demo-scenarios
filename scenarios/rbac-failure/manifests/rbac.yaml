@@ -2,13 +2,13 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: metrics-collector
-  namespace: demo-rbac
+  namespace: demo-monitoring
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: metrics-collector
-  namespace: demo-rbac
+  namespace: demo-monitoring
 rules:
   - apiGroups: [""]
     resources: ["pods", "services"]
@@ -18,11 +18,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: metrics-collector-binding
-  namespace: demo-rbac
+  namespace: demo-monitoring
 subjects:
   - kind: ServiceAccount
     name: metrics-collector
-    namespace: demo-rbac
+    namespace: demo-monitoring
 roleRef:
   kind: Role
   name: metrics-collector

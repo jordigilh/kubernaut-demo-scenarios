@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: data-service-data
-  namespace: demo-pvc-forecast
+  namespace: demo-archive
   labels:
     app: data-service
     kubernaut.ai/managed: "true"

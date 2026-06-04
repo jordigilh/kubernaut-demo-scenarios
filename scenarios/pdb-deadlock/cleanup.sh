@@ -29,11 +29,11 @@ if [ -f "$AUTO_LABEL_MARKER" ]; then
 fi
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule kubernaut-pdb-deadlock-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-kubectl delete namespace demo-pdb --ignore-not-found
+kubectl delete namespace demo-payments --ignore-not-found
 
 purge_pipeline_crds
 

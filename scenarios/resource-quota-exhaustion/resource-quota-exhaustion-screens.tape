@@ -91,18 +91,18 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload — ResourceQuota and pods in namespace demo-quota'"
+Type "narrate 'Healthy workload — ResourceQuota and pods in namespace demo-platform'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get resourcequota -n demo-quota"
+Type "kubectl get resourcequota -n demo-platform"
 Enter
 Sleep 4s
 
-Type "kubectl get pods -n demo-quota"
+Type "kubectl get pods -n demo-platform"
 Enter
 Sleep 4s
 
@@ -198,7 +198,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-quota"
+Type "bash scripts/show-ai-analysis.sh demo-platform"
 Enter
 Sleep 20s
 
@@ -226,7 +226,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get resourcequota -n demo-quota -o wide"
+Type "kubectl get resourcequota -n demo-platform -o wide"
 Enter
 Sleep 8s
 

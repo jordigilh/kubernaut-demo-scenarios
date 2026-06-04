@@ -81,7 +81,7 @@ The rollback workflow reverts this to the previous healthy revision.
 
 | Assertion | Expected |
 |-----------|----------|
-| RR count | >= 2 for demo-cascade |
+| RR count | >= 2 for demo-fulfillment |
 | Completed RRs | >= 1 |
 | Blocked RRs | >= 1 with reason `ResourceBusy` |
 | AA RCA target name | `postgres` |

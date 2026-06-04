@@ -26,12 +26,12 @@ patches:
   # window from [5m] to [2m]. OCP scrape interval
   # is 1m — a [5m] rate needs ~6m to clear, exceeding the 5m EA stabilization
   # window and causing Inconclusive (#293).
-  # PrometheusRule stays in demo-mesh-failure (no cluster-monitoring label) so UWM
+  # PrometheusRule stays in demo-mesh (no cluster-monitoring label) so UWM
   # evaluates it against UWM-scraped istio_requests_total. The leaf-prometheus
   # label is required by the UWM ruleSelector.
   - target:
       kind: PrometheusRule
-      name: kubernaut-mesh-failure-rules
+      name: demo-app-alerts
     patch: |
       - op: remove
         path: /metadata/labels/release
@@ -40,7 +40,7 @@ patches:
         value: leaf-prometheus
       - op: replace
         path: /spec/groups/0/rules/0/expr
-        value: "sum by (namespace)(rate(istio_requests_total{namespace=\"demo-mesh-failure\", response_code=\"403\"}[2m])) > 0\n"
+        value: "sum by (namespace)(rate(istio_requests_total{namespace=\"demo-mesh\", response_code=\"403\"}[2m])) > 0\n"
   # ServiceMonitor: remove Kind-specific release label for OCP UWM.
   - target:
       kind: ServiceMonitor

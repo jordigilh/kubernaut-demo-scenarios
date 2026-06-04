@@ -1,30 +1,28 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: demo-imagepull-rules
-  namespace: demo-imagepull
+  name: demo-app-alerts
+  namespace: demo-inventory
   labels:
     release: prometheus
 spec:
   groups:
-    - name: demo-imagepull
+    - name: demo-app
       rules:
         - alert: ImagePullBackOffPersistent
           expr: |
             kube_pod_container_status_waiting_reason{
               reason="ImagePullBackOff",
-              namespace="demo-imagepull"
+              namespace="demo-inventory"
             } > 0
           for: 60s
           labels:
             severity: high
           annotations:
             summary: >
-              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is stuck
-              in ImagePullBackOff for container {{ $labels.container }}.
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} is not
+              reaching a ready state.
             description: >
-              The container {{ $labels.container }} in pod {{ $labels.pod }} cannot
-              pull its image. Common causes include expired or missing registry
-              credentials, an incorrect image reference, a deleted tag, or
-              registry rate limiting. The pod will remain in a non-ready state
-              until the image can be pulled successfully.
+              Container {{ $labels.container }} in pod {{ $labels.pod }} has
+              remained in a non-ready waiting state. Workload availability
+              may be degraded.

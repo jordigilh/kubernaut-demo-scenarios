@@ -26,7 +26,7 @@ Istio sidecar metrics: istio_requests_total (response_code=403) > 0 for 3m
 
 | Field | Value |
 |-------|-------|
-| Root Cause | `Istio AuthorizationPolicy 'deny-all-traffic' with empty rules and DENY action is blocking all traffic in demo-mesh-failure namespace, causing 403 Forbidden responses for legitimate service-to-service communication` |
+| Root Cause | `Istio AuthorizationPolicy 'deny-all-traffic' with empty rules and DENY action is blocking all traffic in demo-mesh namespace, causing 403 Forbidden responses for legitimate service-to-service communication` |
 | Severity | `critical` |
 | Confidence | 0.95 |
 | Selected Workflow | `FixAuthorizationPolicy` (`fix-authz-policy-v1`) |
@@ -151,8 +151,8 @@ kubectl wait --for=condition=Available deployment/istiod -n istio-system --timeo
 ```bash
 kubectl apply -k scenarios/mesh-routing-failure/manifests/
 
-kubectl wait --for=condition=Available deployment/api-server -n demo-mesh-failure --timeout=120s
-kubectl wait --for=condition=Available deployment/traffic-gen -n demo-mesh-failure --timeout=120s
+kubectl wait --for=condition=Available deployment/api-server -n demo-mesh --timeout=120s
+kubectl wait --for=condition=Available deployment/traffic-gen -n demo-mesh --timeout=120s
 ```
 
 <details>
@@ -161,8 +161,8 @@ kubectl wait --for=condition=Available deployment/traffic-gen -n demo-mesh-failu
 ```bash
 kubectl apply -k scenarios/mesh-routing-failure/overlays/ocp/
 
-kubectl wait --for=condition=Available deployment/api-server -n demo-mesh-failure --timeout=120s
-kubectl wait --for=condition=Available deployment/traffic-gen -n demo-mesh-failure --timeout=120s
+kubectl wait --for=condition=Available deployment/api-server -n demo-mesh --timeout=120s
+kubectl wait --for=condition=Available deployment/traffic-gen -n demo-mesh --timeout=120s
 ```
 
 </details>
@@ -173,7 +173,7 @@ The namespace has `istio-injection: enabled`, so Istio automatically injects sid
 
 ```bash
 # Wait ~30s for healthy traffic between traffic-gen and api-server
-kubectl get pods -n demo-mesh-failure
+kubectl get pods -n demo-mesh
 # All pods should have 2/2 containers (app + istio-proxy)
 ```
 
@@ -188,9 +188,9 @@ The script applies an Istio `AuthorizationPolicy` with `action: DENY` and a catc
 #### 5. Observe high error rate
 
 ```bash
-kubectl get pods -n demo-mesh-failure -w
+kubectl get pods -n demo-mesh -w
 # Verify traffic-gen gets 403 responses:
-kubectl exec -n demo-mesh-failure deploy/traffic-gen -- \
+kubectl exec -n demo-mesh deploy/traffic-gen -- \
   curl -s -o /dev/null -w '%{http_code}' http://api-server:8080/
 ```
 
@@ -250,16 +250,16 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | An overly broad Istio AuthorizationPolicy named `deny-all-traffic` with action DENY and a single empty rule (`{}`) is blocking 100% of inbound traffic to the `api-server` service in `demo-mesh-failure`, causing HTTP 403 Forbidden responses. An empty rule in a DENY policy matches ALL traffic unconditionally. |
+| **Root Cause** | An overly broad Istio AuthorizationPolicy named `deny-all-traffic` with action DENY and a single empty rule (`{}`) is blocking 100% of inbound traffic to the `api-server` service in `demo-mesh`, causing HTTP 403 Forbidden responses. An empty rule in a DENY policy matches ALL traffic unconditionally. |
 | **Severity** | critical |
-| **Target Resource** | AuthorizationPolicy/deny-all-traffic (ns: demo-mesh-failure) |
+| **Target Resource** | AuthorizationPolicy/deny-all-traffic (ns: demo-mesh) |
 | **Workflow Selected** | fix-authz-policy-v1 |
 | **Confidence** | 0.98 |
 | **Approval** | not required (staging, high confidence) |
 
 **Key Reasoning Chain:**
 
-1. Detects `IstioHighDenyRate` alert in `demo-mesh-failure` namespace.
+1. Detects `IstioHighDenyRate` alert in `demo-mesh` namespace.
 2. Examines Deployments, Pods, Services — application containers healthy.
 3. Describes `deny-all-traffic` AuthorizationPolicy — discovers DENY action with empty rules `[{}]`.
 4. Recognizes empty-rule DENY is an Istio footgun: matches ALL traffic unconditionally.
@@ -296,9 +296,9 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 #### 8. Verify remediation
 
 ```bash
-kubectl get authorizationpolicies.security.istio.io -n demo-mesh-failure
+kubectl get authorizationpolicies.security.istio.io -n demo-mesh
 # deny-all-traffic should be removed
-kubectl get pods -n demo-mesh-failure
+kubectl get pods -n demo-mesh
 # All pods should be Running and Ready (2/2)
 ```
 
@@ -325,7 +325,7 @@ Feature: Istio Mesh Routing Failure remediation
     And Prometheus is scraping Istio sidecar metrics (PodMonitor on Kind, ServiceMonitor on OCP)
     And the "fix-authz-policy-v1" workflow is registered in the DataStorage catalog
     And Istio is installed with sidecar injection enabled
-    And the "api-server" deployment is meshed in namespace "demo-mesh-failure"
+    And the "api-server" deployment is meshed in namespace "demo-mesh"
     And the workload is healthy with traffic flowing through the Istio sidecar
 
   When a restrictive AuthorizationPolicy is applied with action DENY

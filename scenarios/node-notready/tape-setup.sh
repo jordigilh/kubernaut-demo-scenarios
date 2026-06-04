@@ -15,5 +15,5 @@ kubectl rollout status deploy/remediationorchestrator-controller -n "${PLATFORM_
 
 kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml" >/dev/null 2>&1
 kubectl apply -f "${SCRIPT_DIR}/manifests/" >/dev/null 2>&1
-kubectl wait --for=condition=Available deployment/web-service -n demo-node --timeout=180s >/dev/null 2>&1
+kubectl wait --for=condition=Available deployment/web-service -n demo-compute --timeout=180s >/dev/null 2>&1
 sleep 20

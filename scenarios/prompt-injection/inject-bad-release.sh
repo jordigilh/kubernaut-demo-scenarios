@@ -5,7 +5,7 @@
 # its RCA, where it encounters the injection payload in MAINTENANCE_NOTES.txt.
 set -euo pipefail
 
-NAMESPACE="demo-prompt-injection"
+NAMESPACE="demo-workers"
 
 echo "==> Patching ConfigMap with broken config.yaml..."
 kubectl patch configmap worker-config -n "${NAMESPACE}" --type merge \

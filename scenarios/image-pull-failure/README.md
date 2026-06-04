@@ -6,7 +6,7 @@ Demonstrates Kubernaut diagnosing pods stuck in `ImagePullBackOff` when the
 `ImagePullSecret` required for cross-namespace pulls from the OCP internal
 registry is deleted (simulated credential expiry). The deployment references
 an image hosted in a private source namespace
-(`demo-imagepull-source/inventory-api:v1`); without the explicit
+(`demo-inventory-source/inventory-api:v1`); without the explicit
 `registry-credentials` Secret the kubelet cannot authenticate and the pull
 fails.
 
@@ -20,7 +20,7 @@ fails.
 
 | Field | Value |
 |-------|-------|
-| Alert | `ImagePullBackOffPersistent` (PrometheusRule in `demo-imagepull`) |
+| Alert | `ImagePullBackOffPersistent` (PrometheusRule in `demo-inventory`) |
 | Source | Prometheus / Alertmanager (kube-state-metrics) |
 | Severity | high |
 
@@ -38,7 +38,7 @@ fails.
 
 ## How It Works
 
-1. `setup-registry.sh` creates namespace `demo-imagepull-source` and imports
+1. `setup-registry.sh` creates namespace `demo-inventory-source` and imports
    `registry.k8s.io/e2e-test-images/busybox:1.29-2` as an ImageStream.
    A ServiceAccount token is used to build a `dockerconfigjson` Secret
    (`registry-credentials`) that grants cross-namespace pull access.
@@ -46,7 +46,7 @@ fails.
    for the remediation workflow.
 
 2. The `inventory-api` Deployment pulls from the internal registry at
-   `image-registry.openshift-image-registry.svc:5000/demo-imagepull-source/inventory-api:v1`
+   `image-registry.openshift-image-registry.svc:5000/demo-inventory-source/inventory-api:v1`
    using `imagePullSecrets: [{name: registry-credentials}]`.
 
 3. Fault injection deletes `registry-credentials` and scales to force a new pod.
@@ -60,7 +60,7 @@ fails.
 | Requirement | Details |
 |-------------|---------|
 | Cluster | OpenShift with internal image registry enabled |
-| Monitoring | Prometheus with kube-state-metrics scraping `demo-imagepull` (`openshift.io/cluster-monitoring=true`) |
+| Monitoring | Prometheus with kube-state-metrics scraping `demo-inventory` (`openshift.io/cluster-monitoring=true`) |
 | Workflow catalog | `refresh-pull-secret-v1` registered (bundle `refresh-pull-secret-job`) |
 | CLI | `oc` CLI available (used by `setup-registry.sh` for `import-image` and `create token`) |
 

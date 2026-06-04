@@ -1,19 +1,19 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: red-herring-noise-rules
-  namespace: demo-red-herring
+  name: demo-app-alerts
+  namespace: demo-microservices
   labels:
     release: prometheus
 spec:
   groups:
-  - name: red-herring-noise
+  - name: demo-app
     rules:
     - alert: KubePodCrashLooping
       expr: |
         rate(
           kube_pod_container_status_restarts_total{
-            namespace="demo-red-herring",
+            namespace="demo-microservices",
             container="app"
           }[5m]
         ) * 300 > 3
@@ -31,7 +31,7 @@ spec:
     - alert: ImagePullBackOffPersistent
       expr: |
         kube_pod_container_status_waiting_reason{
-          namespace="demo-red-herring",
+          namespace="demo-microservices",
           reason=~"ImagePullBackOff|ErrImagePull"
         } > 0
       for: 3m

@@ -8,7 +8,7 @@
 # script exits. cleanup.sh kills the stress processes.
 set -euo pipefail
 
-NAMESPACE="demo-hpa"
+NAMESPACE="demo-gateway"
 LABEL_SELECTOR="app=api-frontend"
 
 _stress_pods() {

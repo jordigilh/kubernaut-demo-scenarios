@@ -92,14 +92,14 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-crashloop-helm'"
+Type "narrate 'Healthy workload running in namespace demo-storefront'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-crashloop-helm"
+Type "kubectl get pods -n demo-storefront"
 Enter
 Sleep 8s
 
@@ -223,7 +223,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-crashloop-helm"
+Type "bash scripts/show-ai-analysis.sh demo-storefront"
 Enter
 Sleep 20s
 
@@ -243,7 +243,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-approval-reason.sh demo-crashloop-helm"
+Type "bash scripts/show-approval-reason.sh demo-storefront"
 Enter
 Sleep 12s
 
@@ -316,11 +316,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-crashloop-helm"
+Type "kubectl get pods -n demo-storefront"
 Enter
 Sleep 4s
 
-Type "helm history demo-crashloop-helm -n demo-crashloop-helm"
+Type "helm history demo-storefront -n demo-storefront"
 Enter
 Sleep 8s
 
@@ -360,7 +360,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-crashloop-helm"
+Type "bash scripts/show-effectiveness.sh demo-storefront"
 Enter
 Sleep 10s
 

@@ -12,7 +12,7 @@ graceful rolling restart that resets memory before the crash occurs.
 | | |
 |---|---|
 | **Signal** | `ContainerMemoryExhaustionPredicted` — `predict_linear()` projects OOM within 30 min |
-| **Root cause** | `leaker` sidecar writes ~1 MB every 5 s to a memory-backed emptyDir |
+| **Root cause** | `data-processor` sidecar writes ~1 MB every 5 s to a memory-backed emptyDir |
 | **Remediation** | `kubectl rollout restart` resets memory to baseline |
 
 ## Signal Flow
@@ -24,11 +24,11 @@ predict_linear(container_memory_working_set_bytes[5m], 1800)
   → AlertManager webhook → Gateway → RemediationRequest
   → Signal Processing (severity=warning, env=production)
   → AI Analysis (KA + Claude Sonnet 4 on Vertex AI)
-    → LLM identifies linear memory growth in "leaker" container
+    → LLM identifies linear memory growth in "data-processor" container
     → Contributing factors: continuous allocation, memory-backed emptyDir, unbounded writes
     → Selects GracefulRestart workflow (confidence 0.9)
     → Approval: not required (warning severity, auto-approved by policy)
-  → WorkflowExecution: kubectl rollout restart deployment/leaky-app
+  → WorkflowExecution: kubectl rollout restart deployment/data-service
   → Effectiveness Monitor: healthScore=1, memory reset to baseline
 ```
 
@@ -96,7 +96,7 @@ export PLATFORM=ocp
 
 ```bash
 kubectl apply -k scenarios/memory-leak/manifests/
-kubectl wait --for=condition=Available deployment/leaky-app -n demo-memory-leak --timeout=120s
+kubectl wait --for=condition=Available deployment/data-service -n demo-telemetry --timeout=120s
 ```
 
 <details>
@@ -104,38 +104,38 @@ kubectl wait --for=condition=Available deployment/leaky-app -n demo-memory-leak 
 
 ```bash
 kubectl apply -k scenarios/memory-leak/overlays/ocp/
-kubectl wait --for=condition=Available deployment/leaky-app -n demo-memory-leak --timeout=120s
+kubectl wait --for=condition=Available deployment/data-service -n demo-telemetry --timeout=120s
 ```
 
 </details>
 
 The deployment creates 2 replicas, each with:
 - **app** container: nginx serving health checks
-- **leaker** sidecar: writes 1 MB to a memory-backed emptyDir every 5 seconds (~12 MB/min)
+- **data-processor** sidecar: writes 1 MB to a memory-backed emptyDir every 5 seconds (~12 MB/min)
 
 #### 2. Verify healthy state
 
 ```bash
-kubectl get pods -n demo-memory-leak
+kubectl get pods -n demo-telemetry
 # NAME                        READY   STATUS    RESTARTS   AGE
-# leaky-app-5df747bb-7msqr    2/2     Running   0          6s
-# leaky-app-5df747bb-9llc5    2/2     Running   0          6s
+# data-service-5df747bb-7msqr    2/2     Running   0          6s
+# data-service-5df747bb-9llc5    2/2     Running   0          6s
 ```
 
 #### 3. Observe memory growth
 
 ```bash
-watch kubectl top pods -n demo-memory-leak --containers
+watch kubectl top pods -n demo-telemetry --containers
 ```
 
-The leaker container's memory climbs linearly at ~12 MB/min. The container has a
+The data-processor container's memory climbs linearly at ~12 MB/min. The container has a
 192 Mi memory limit, giving approximately 16 minutes before OOM under normal
 conditions.
 
 #### 4. Wait for the proactive alert
 
 The `ContainerMemoryExhaustionPredicted` alert fires once `predict_linear()` projects
-the leaker container will exceed its 192 Mi limit within 30 minutes. This typically
+the data-processor container will exceed its 192 Mi limit within 30 minutes. This typically
 takes **3-4 minutes** of trend data on OCP (5-7 minutes on Kind due to slower
 scrape intervals).
 
@@ -167,7 +167,7 @@ watch kubectl get rr,sp,aia,wfe,ea,notif -n kubernaut-system
 ```
 
 The LLM will:
-1. Investigate the leaker container's memory growth pattern
+1. Investigate the data-processor container's memory growth pattern
 2. Identify the root cause as continuous memory allocation to a memory-backed emptyDir
 3. Identify contributing factors: unbounded file creation, no cleanup, emptyDir volume
 4. Select `GracefulRestart` workflow (confidence 0.9) — a rolling restart resets memory
@@ -203,9 +203,9 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | The `leaker` sidecar container is deliberately writing 1MB/5s of random data to a RAM-backed emptyDir volume (`medium: Memory`), causing continuous memory growth that will exhaust its 192Mi limit and trigger an OOMKill. |
+| **Root Cause** | The `data-processor` sidecar container is deliberately writing 1MB/5s of random data to a RAM-backed emptyDir volume (`medium: Memory`), causing continuous memory growth that will exhaust its 192Mi limit and trigger an OOMKill. |
 | **Severity** | high |
-| **Target Resource** | Deployment/leaky-app (ns: demo-memory-leak) |
+| **Target Resource** | Deployment/data-service (ns: demo-telemetry) |
 | **Workflow Selected** | graceful-restart-v1 |
 | **Confidence** | 0.78 |
 | **Approval** | not required (non-production) |
@@ -215,7 +215,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 1. Describes the crashing pod, checks events and `kubectl_top_pods` for memory trend.
 2. Fetches Deployment by name (`kubectl_get_by_name`), checks `kubectl_memory_requests_namespace`.
-3. Identifies the leaker sidecar writing to memory-backed emptyDir as the root cause.
+3. Identifies the data-processor sidecar writing to memory-backed emptyDir as the root cause.
 4. Selects GracefulRestart as a time-buying measure, explicitly noting the confidence cap.
 
 > **Why this matters**: Shows the LLM reasoning about *predictive* alerts (pre-crash, not post-crash) and selecting a proactive intervention. The reduced confidence (0.78 vs typical 0.95+) demonstrates the LLM's awareness that the fix is temporary.
@@ -230,9 +230,9 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
 | Turn | Tool calls | Tokens | What happened |
 |------|-----------|--------|---------------|
 | 1 | `todo_write` (plan) | — | Planned 7-step investigation |
-| 2 | `kubectl_describe(Pod/…)`, `kubectl_events(Pod/…)`, `kubectl_top_pods`, **`kubectl_get_by_name(Deployment/leaky-app)`**, `kubectl_memory_requests_namespace`, `get_namespaced_resource_context(…)` | — | 6 parallel tool calls: full picture in one turn |
+| 2 | `kubectl_describe(Pod/…)`, `kubectl_events(Pod/…)`, `kubectl_top_pods`, **`kubectl_get_by_name(Deployment/data-service)`**, `kubectl_memory_requests_namespace`, `get_namespaced_resource_context(…)` | — | 6 parallel tool calls: full picture in one turn |
 | 3 | `todo_write` | — | Prepared RCA submission |
-| 4 | *submit_result (RCA)* | — | Root cause: leaker sidecar, unbounded memory growth |
+| 4 | *submit_result (RCA)* | — | Root cause: data-processor sidecar, unbounded memory growth |
 
 **Phase 2 — Workflow Selection** (8 LLM turns, ~64 000 tokens, ~50 s)
 
@@ -261,18 +261,18 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
 After the workflow execution completes:
 
 ```bash
-kubectl get pods -n demo-memory-leak
+kubectl get pods -n demo-telemetry
 # All pods Running/Ready — memory usage back near baseline
 
-kubectl rollout history deployment/leaky-app -n demo-memory-leak
+kubectl rollout history deployment/data-service -n demo-telemetry
 # REVISION  CHANGE-CAUSE
 # 1         <none>        (initial deploy)
 # 2         <none>        (rolling restart by WFE)
 ```
 
-Note: The leaker sidecar resumes allocating memory after restart. In a real-world
+Note: The data-processor sidecar resumes allocating memory after restart. In a real-world
 scenario, the root cause fix (removing the leak) would be a separate action. The
-`validate.sh` script patches out the leaker sidecar after remediation to prevent
+`validate.sh` script patches out the data-processor sidecar after remediation to prevent
 the alert from re-firing.
 
 #### 8. View notifications
@@ -307,8 +307,8 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 Feature: Proactive memory exhaustion remediation
 
   Scenario: predict_linear detects OOM trend before crash
-    Given a deployment "leaky-app" in namespace "demo-memory-leak"
-      And the "leaker" sidecar writes ~1 MB every 5 s to a memory-backed emptyDir
+    Given a deployment "data-service" in namespace "demo-telemetry"
+      And the "data-processor" sidecar writes ~1 MB every 5 s to a memory-backed emptyDir
       And the container has a 192 Mi memory limit
       And Prometheus is scraping cAdvisor metrics
 
@@ -318,11 +318,11 @@ Feature: Proactive memory exhaustion remediation
 
     Then Gateway receives the alert via AlertManager webhook
       And Signal Processing enriches with severity=warning
-      And KA diagnoses linear memory growth in the "leaker" container
+      And KA diagnoses linear memory growth in the "data-processor" container
       And contributing factors include: continuous allocation, memory-backed emptyDir
       And the LLM selects GracefulRestart workflow (confidence 0.9)
       And Rego policy auto-approves (warning severity, no human review required)
-      And WorkflowExecution runs "kubectl rollout restart deployment/leaky-app"
+      And WorkflowExecution runs "kubectl rollout restart deployment/data-service"
       And pods restart with memory reset to baseline
       And Effectiveness Monitor confirms healthScore=1
       And no pod experienced an OOM kill during the demo

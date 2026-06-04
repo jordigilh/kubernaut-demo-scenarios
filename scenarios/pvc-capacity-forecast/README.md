@@ -53,13 +53,13 @@ its capacity within 1 hour based on the last 5 minutes of growth data:
 ```promql
 predict_linear(
   kubelet_volume_stats_used_bytes{
-    namespace="demo-pvc-forecast",
+    namespace="demo-archive",
     persistentvolumeclaim="data-service-data"
   }[5m], 3600
 )
 >
 kubelet_volume_stats_capacity_bytes{
-  namespace="demo-pvc-forecast",
+  namespace="demo-archive",
   persistentvolumeclaim="data-service-data"
 }
 ```

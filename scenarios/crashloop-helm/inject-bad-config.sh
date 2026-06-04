@@ -43,12 +43,12 @@ if [ "$PLATFORM" = "ocp" ]; then
     HELM_VALUES_ARGS="-f ${SCRIPT_DIR}/chart/values-ocp.yaml"
 fi
 
-helm upgrade demo-crashloop-helm "${SCRIPT_DIR}/chart" \
+helm upgrade demo-storefront "${SCRIPT_DIR}/chart" \
   -f "${TMPFILE}" ${HELM_VALUES_ARGS} \
-  -n demo-crashloop-helm
+  -n demo-storefront
 
 rm -f "${TMPFILE}"
 
 echo "==> Bad config injected via helm upgrade. Pods will crash on startup with:"
 echo "     nginx: [emerg] unknown directive \"invalid_directive_that_breaks_nginx\""
-echo "==> Helm history: helm history demo-crashloop-helm -n demo-crashloop-helm"
+echo "==> Helm history: helm history demo-storefront -n demo-storefront"

@@ -60,7 +60,7 @@ scoped permissions (created automatically when workflows are seeded via
 Feature: GitOps drift remediation via git revert
 
   Scenario: Broken ConfigMap causes CrashLoopBackOff in GitOps environment
-    Given ArgoCD manages Deployment "web-frontend" in namespace "demo-gitops"
+    Given ArgoCD manages Deployment "web-frontend" in namespace "demo-webui"
       And the Deployment mounts ConfigMap "app-config" as /etc/demo-http-server/config.yaml
       And the Gitea repository contains healthy manifests synced by ArgoCD
       And all pods are Running and Ready
@@ -69,7 +69,7 @@ Feature: GitOps drift remediation via git revert
       And ArgoCD syncs the broken ConfigMap to the cluster
       And pods restart and enter CrashLoopBackOff
 
-    Then Prometheus fires "KubePodCrashLooping" alert for namespace "demo-gitops"
+    Then Prometheus fires "KubePodCrashLooping" alert for namespace "demo-webui"
       And Gateway creates a RemediationRequest
       And Signal Processing enriches with namespace labels (environment=staging, criticality=high)
       And KA LabelDetector detects "gitOpsManaged=true" from ArgoCD annotations
@@ -83,7 +83,7 @@ Feature: GitOps drift remediation via git revert
 
 ## Acceptance Criteria
 
-- [ ] Gitea + ArgoCD deployed and managing `demo-gitops` namespace
+- [ ] Gitea + ArgoCD deployed and managing `demo-webui` namespace
 - [ ] Bad ConfigMap commit causes CrashLoopBackOff
 - [ ] SP enriches signal with business classification from namespace labels
 - [ ] KA detects `gitOpsManaged=true` from ArgoCD annotations (DD-HAPI-018)
@@ -198,7 +198,7 @@ kubectl apply -k scenarios/gitops-drift/manifests
 
 # Wait for ArgoCD to sync and the deployment to become available
 kubectl wait --for=condition=Available deployment/web-frontend \
-  -n demo-gitops --timeout=120s
+  -n demo-webui --timeout=120s
 ```
 
 <details>
@@ -208,7 +208,7 @@ kubectl wait --for=condition=Available deployment/web-frontend \
 kubectl apply -k scenarios/gitops-drift/overlays/ocp
 
 kubectl wait --for=condition=Available deployment/web-frontend \
-  -n demo-gitops --timeout=120s
+  -n demo-webui --timeout=120s
 ```
 
 </details>
@@ -216,7 +216,7 @@ kubectl wait --for=condition=Available deployment/web-frontend \
 #### 4. Verify Healthy State
 
 ```bash
-kubectl get pods -n demo-gitops
+kubectl get pods -n demo-webui
 # NAME                            READY   STATUS    RESTARTS   AGE
 # web-frontend-xxx-yyy            1/1     Running   0          30s
 ```
@@ -242,7 +242,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: app-config
-  namespace: demo-gitops
+  namespace: demo-webui
   labels:
     app: web-frontend
 data:
@@ -265,7 +265,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: web-frontend
-  namespace: demo-gitops
+  namespace: demo-webui
   labels:
     app: web-frontend
     kubernaut.ai/managed: "true"
@@ -331,7 +331,7 @@ git push origin main
 
 ```bash
 # Watch pods crash
-kubectl get pods -n demo-gitops -w
+kubectl get pods -n demo-webui -w
 ```
 
 Query Alertmanager for active alerts:
@@ -393,7 +393,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | Pod web-frontend is crash-looping (exit code 1, 4 restarts) due to an invalid directive `invalid_directive: true` in the app-config ConfigMap mounted at `/etc/demo-http-server/config.yaml`. The bad ConfigMap was synced to the cluster by ArgoCD from the GitOps repository, making the Git source the authoritative root cause. |
 | **Severity** | critical |
-| **Target Resource** | ConfigMap/app-config (ns: demo-gitops) |
+| **Target Resource** | ConfigMap/app-config (ns: demo-webui) |
 | **Workflow Selected** | git-revert-v2 (`GitRevertCommit`) |
 | **Confidence** | 0.97 |
 | **Approval** | not required (staging, high confidence) |
@@ -460,7 +460,7 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
 
 ```bash
 # After WE Job completes, ArgoCD syncs the reverted ConfigMap
-kubectl get pods -n demo-gitops
+kubectl get pods -n demo-webui
 # All pods should be Running again
 
 # Check git log in Gitea -- should show the revert commit

@@ -1,22 +1,19 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: orphaned-pvc-rules
-  namespace: demo-orphaned-pvc
+  name: demo-app-alerts
+  namespace: demo-batch
   labels:
     release: prometheus
 spec:
   groups:
-  - name: orphaned-pvc
+  - name: demo-app
     rules:
-    # Detect PVCs in namespace that are bound but owned by completed/failed Jobs.
-    # "count by (namespace)" preserves the namespace label so AlertManager can
-    # route the alert to the gateway-webhook receiver via match_re: demo-.*
     - alert: KubePersistentVolumeClaimOrphaned
       expr: |
         count by (namespace)(
           kube_persistentvolumeclaim_status_phase{
-            namespace="demo-orphaned-pvc",
+            namespace="demo-batch",
             phase="Bound"
           }
         ) > 3
@@ -26,10 +23,8 @@ spec:
         deployment: data-processor
       annotations:
         summary: >
-          Namespace {{ $labels.namespace }} has more than 3 bound PVCs, indicating
-          possible orphaned storage from completed batch jobs.
+          Namespace {{ $labels.namespace }} has more than 3 bound PVCs.
         description: >
           Namespace {{ $labels.namespace }} has accumulated more than 3 bound
-          PersistentVolumeClaims. These may include PVCs from completed or failed
-          batch jobs that are no longer referenced by any running workload,
-          consuming storage capacity unnecessarily.
+          PersistentVolumeClaims. Unused storage may be consuming cluster
+          capacity.

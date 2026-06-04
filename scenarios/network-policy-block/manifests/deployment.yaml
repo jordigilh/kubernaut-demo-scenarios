@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: web-frontend
-  namespace: demo-netpol
+  namespace: demo-frontend
   labels:
     app: web-frontend
     kubernaut.ai/managed: "true"
@@ -57,7 +57,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: web-frontend-config
-  namespace: demo-netpol
+  namespace: demo-frontend
 data:
   config.yaml: |
     port: 8080
@@ -73,7 +73,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: web-frontend
-  namespace: demo-netpol
+  namespace: demo-frontend
   labels:
     app: web-frontend
     kubernaut.ai/managed: "true"
@@ -91,7 +91,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: traffic-gen
-  namespace: demo-netpol
+  namespace: demo-frontend
   labels:
     app: traffic-gen
 spec:
@@ -111,7 +111,7 @@ spec:
         args:
         - |
           while true; do
-            if curl -sf -o /dev/null -m 2 http://web-frontend.demo-netpol:8080/healthz; then
+            if curl -sf -o /dev/null -m 2 http://web-frontend.demo-frontend:8080/healthz; then
               echo "probe=success"
             else
               echo "probe=failure"
@@ -127,6 +127,6 @@ spec:
             cpu: "20m"
         readinessProbe:
           exec:
-            command: ["curl", "-sf", "-o", "/dev/null", "-m", "3", "http://web-frontend.demo-netpol:8080/healthz"]
+            command: ["curl", "-sf", "-o", "/dev/null", "-m", "3", "http://web-frontend.demo-frontend:8080/healthz"]
           initialDelaySeconds: 5
           periodSeconds: 5

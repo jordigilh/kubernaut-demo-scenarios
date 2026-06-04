@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api-gateway
-  namespace: demo-red-herring
+  namespace: demo-microservices
   labels:
     app: api-gateway
     kubernaut.ai/managed: "true"
@@ -44,7 +44,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: worker
-  namespace: demo-red-herring
+  namespace: demo-microservices
   labels:
     app: worker
     kubernaut.ai/managed: "true"

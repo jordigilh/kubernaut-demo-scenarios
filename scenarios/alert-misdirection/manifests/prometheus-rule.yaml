@@ -1,19 +1,19 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-alert-misdirection-rules
-  namespace: demo-alert-misdirection
+  name: demo-app-alerts
+  namespace: demo-backend
   labels:
     release: prometheus
 spec:
   groups:
-  - name: kubernaut-alert-misdirection
+  - name: demo-app
     rules:
     - alert: KubePodCrashLooping
       expr: |
         increase(
           kube_pod_container_status_restarts_total{
-            namespace="demo-alert-misdirection",
+            namespace="demo-backend",
             container="worker"
           }[5m]
         ) > 1

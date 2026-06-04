@@ -198,15 +198,15 @@ export PLATFORM=ocp
 
 ```bash
 kubectl apply -k scenarios/disk-pressure-emptydir/manifests/
-kubectl wait --for=condition=Available deployment/postgres-emptydir \
-  -n demo-diskpressure --timeout=120s
+kubectl wait --for=condition=Available deployment/postgres \
+  -n demo-warehouse --timeout=120s
 ```
 
 #### 2. Verify healthy state
 
 ```bash
-kubectl get pods -n demo-diskpressure
-kubectl exec -n demo-diskpressure deploy/postgres-emptydir -- pg_isready -U postgres
+kubectl get pods -n demo-warehouse
+kubectl exec -n demo-warehouse deploy/postgres -- pg_isready -U postgres
 ```
 
 #### 3. Inject disk pressure
@@ -227,7 +227,7 @@ command it prints and run it when you are ready:
 
 ```bash
 # Example output (values will differ based on your node's disk capacity):
-#   kubectl exec -n demo-diskpressure postgres-emptydir-xxxx -- \
+#   kubectl exec -n demo-warehouse postgres-xxxx -- \
 #     psql -U postgres -d postgres -c "CALL simulate_data_growth(128, 29520, 50);" &
 ```
 
@@ -305,10 +305,10 @@ kubectl patch "$RAR" -n kubernaut-system --type merge --subresource=status \
 kubectl get nodes -o custom-columns=NAME:.metadata.name,DISK_PRESSURE:.status.conditions[3].status
 
 # PVC should exist and be bound
-kubectl get pvc -n demo-diskpressure
+kubectl get pvc -n demo-warehouse
 
 # Database data should be intact
-kubectl exec -n demo-diskpressure deploy/postgres-emptydir -- \
+kubectl exec -n demo-warehouse deploy/postgres -- \
   psql -U postgres -c "SELECT count(*) FROM events;"
 ```
 
@@ -343,7 +343,7 @@ What it does:
 3. **ArgoCD secret**: ensures `webhook.gitea.secret` exists in `argocd-secret`
    (generates a random hex secret if absent).
 4. **Gitea webhook**: deletes any stale webhook from prior runs, then creates
-   a fresh one on the `demo-diskpressure-repo` repository with the current
+   a fresh one on the `demo-warehouse-repo` repository with the current
    secret. The webhook posts push events to the ArgoCD server's in-cluster
    endpoint (`https://openshift-gitops-server.openshift-gitops.svc/api/webhook`
    on OCP, or `https://argocd-server.argocd.svc/api/webhook` on Kind).
@@ -376,13 +376,13 @@ kubectl get secret argocd-secret -n "$ARGOCD_NS" \
 
 # 3. List webhooks on the repo
 kubectl exec -n gitea "$GITEA_POD" -- \
-  wget -q -O - "http://localhost:3000/api/v1/repos/kubernaut/demo-diskpressure-repo/hooks" \
+  wget -q -O - "http://localhost:3000/api/v1/repos/kubernaut/demo-warehouse-repo/hooks" \
   --header="Authorization: token <token>" 2>/dev/null | python3 -m json.tool
 
 # 4. Verify ArgoCD receives push events with the correct URL
 kubectl logs -n "$ARGOCD_NS" -l app.kubernetes.io/name=argocd-server \
   --tail=20 | grep "Received push event"
-# Expected URL: http://gitea-http.gitea:3000/kubernaut/demo-diskpressure-repo
+# Expected URL: http://gitea-http.gitea:3000/kubernaut/demo-warehouse-repo
 ```
 
 <details>
@@ -400,7 +400,7 @@ kubectl get secret argocd-secret -n "$ARGOCD_NS" \
   -o jsonpath='{.data.webhook\.gitea\.secret}' | base64 -d && echo
 
 kubectl exec -n gitea "$GITEA_POD" -- \
-  wget -q -O - "http://localhost:3000/api/v1/repos/kubernaut/demo-diskpressure-repo/hooks" \
+  wget -q -O - "http://localhost:3000/api/v1/repos/kubernaut/demo-warehouse-repo/hooks" \
   --header="Authorization: token <token>" 2>/dev/null | python3 -m json.tool
 
 kubectl logs -n "$ARGOCD_NS" -l app.kubernetes.io/name=openshift-gitops-server \
@@ -462,7 +462,7 @@ filesystem on the scenario worker node, using Claude Sonnet 4 as the LLM backend
 ### LLM Analysis (OCP observed — v1.4.0-rc4, Claude Sonnet 4)
 
 ```
-Root cause:    Multiple workloads writing to emptyDir volumes; postgres-emptydir
+Root cause:    Multiple workloads writing to emptyDir volumes; postgres
                (8Gi emptyDir, no PVC) is the primary driver — 892Mi and growing
 Confidence:    92%
 Workflow:      MigrateEmptyDirToPVC (migrate-emptydir-to-pvc-gitops-v1)
@@ -476,7 +476,7 @@ The LLM correctly identified PostgreSQL as the root cause using 27 tool calls ac
 20 LLM turns (214K tokens). Key investigation steps:
 1. Described the node — identified prior `EvictionThresholdMet` and `NodeHasDiskPressure` events
 2. Listed all pods and inspected volume specs (identified 4 emptyDir workloads)
-3. Correctly ranked `postgres-emptydir` as the largest contributor (8Gi emptyDir, 892Mi RAM)
+3. Correctly ranked `postgres` as the largest contributor (8Gi emptyDir, 892Mi RAM)
 4. Noted all 4 pods tolerate `disk-pressure:NoSchedule` taint (preventing auto-eviction)
 5. Detected `gitOpsManaged=true` via ArgoCD Application enrichment labels
 6. Selected `migrate-emptydir-to-pvc-gitops-v1` with 0.92 confidence
@@ -484,7 +484,7 @@ The LLM correctly identified PostgreSQL as the root cause using 27 tool calls ac
 > **RC4 prompt improvements**: The investigation prompt changes in v1.4.0-rc4
 > eliminated the false-positive targeting of `log-collector` that was observed in
 > earlier releases. With the reduced `log-collector` write rate (32KB/60s) and
-> improved prompt steering, the LLM consistently identifies `postgres-emptydir`
+> improved prompt steering, the LLM consistently identifies `postgres`
 > as the primary root cause across runs (observed confidence: 0.90–0.92).
 
 ### LLM Analysis (OCP observed — v1.1.0-rc14, historical)
@@ -501,7 +501,7 @@ Rationale:     Perfect match: GitOps-managed PostgreSQL deployment using
 
 The LLM correctly identified PostgreSQL as the root cause using 19 tool calls:
 1. Described the node to assess current disk conditions
-2. Listed pods and inspected `postgres-emptydir` pod spec (saw `emptyDir` volume)
+2. Listed pods and inspected `postgres` pod spec (saw `emptyDir` volume)
 3. Read postgres logs (continuous `INSERT` operations from `simulate_data_growth`)
 4. Read `postgres-init-sql` ConfigMap (found the growth procedure definition)
 5. Resolved resource context (detected `gitOpsManaged=true` via ArgoCD Application)
@@ -575,7 +575,7 @@ patches the rule with the correct `mountpoint` and `instance` values. If the
 constrained filesystem is not mounted, the `predict_linear` has no data to work with.
 
 ```bash
-kubectl get prometheusrule demo-diskpressure-rules -n demo-diskpressure \
+kubectl get prometheusrule demo-app-alerts -n demo-warehouse \
   -o jsonpath='{.spec.groups[0].rules[0].expr}'
 ```
 
@@ -594,7 +594,7 @@ Feature: DiskPressure emptyDir Migration via GitOps + Ansible (Proactive)
     Given an OCP cluster with stress-worker nodes (or Kind with lowered eviction thresholds)
       And AWX, Gitea, and ArgoCD are deployed
       And the "migrate-emptydir-to-pvc-gitops-v1" workflow is registered
-      And a PostgreSQL deployment "postgres-emptydir" runs on emptyDir storage
+      And a PostgreSQL deployment "postgres" runs on emptyDir storage
 
     When the simulate_data_growth procedure fills the emptyDir volume
       And predict_linear() detects disk exhaustion trend

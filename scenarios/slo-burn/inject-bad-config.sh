@@ -8,7 +8,7 @@
 # Health checks (/healthz) still pass -- realistic production failure mode.
 set -euo pipefail
 
-NAMESPACE="demo-slo"
+NAMESPACE="demo-api"
 
 echo "==> Creating bad ConfigMap (500 errors on /api/)..."
 kubectl apply -f - <<'YAML'
@@ -16,7 +16,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: api-config-bad
-  namespace: demo-slo
+  namespace: demo-api
   labels:
     app: api-gateway
 data:

@@ -21,11 +21,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-diskpressure"
+NAMESPACE="demo-warehouse"
 GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
 GITEA_ADMIN_PASS="kubernaut123"
-REPO_NAME="demo-diskpressure-repo"
+REPO_NAME="demo-warehouse-repo"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
@@ -781,20 +781,20 @@ cat > disk-pressure-emptydir/deployment.yaml <<MANIFEST
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: postgres-emptydir
-  namespace: demo-diskpressure
+  name: postgres
+  namespace: demo-warehouse
   labels:
-    app: postgres-emptydir
+    app: postgres
     kubernaut.ai/managed: "true"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: postgres-emptydir
+      app: postgres
   template:
     metadata:
       labels:
-        app: postgres-emptydir
+        app: postgres
     spec:
       nodeSelector:
         scenario: disk-pressure
@@ -853,7 +853,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: postgres-credentials
-  namespace: demo-diskpressure
+  namespace: demo-warehouse
 type: Opaque
 stringData:
   password: "kubernaut-demo-pass"
@@ -863,11 +863,11 @@ cat > disk-pressure-emptydir/service.yaml <<'MANIFEST'
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres-emptydir
-  namespace: demo-diskpressure
+  name: postgres
+  namespace: demo-warehouse
 spec:
   selector:
-    app: postgres-emptydir
+    app: postgres
   ports:
   - port: 5432
     targetPort: 5432
@@ -878,7 +878,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: postgres-init-sql
-  namespace: demo-diskpressure
+  namespace: demo-warehouse
 data:
   init.sql: |
     CREATE TABLE IF NOT EXISTS events (
@@ -923,7 +923,7 @@ git add .
 if git diff --cached --quiet 2>/dev/null; then
     echo "  Gitea repo already has deployment manifests."
 else
-    git commit -m "feat: initial postgres-emptydir deployment (emptyDir volume)"
+    git commit -m "feat: initial postgres deployment (emptyDir volume)"
     git push origin main
     echo "  Deployment manifests pushed to Gitea."
 fi
@@ -987,7 +987,7 @@ else
     _PROM_NS="${NAMESPACE}"
 fi
 echo "  Patching PrometheusRule: mountpoint=${_MOUNTPOINT}, instance=~${_INSTANCE_RE}, node=${_SCENARIO_NODE}"
-kubectl get prometheusrule demo-diskpressure-rules -n "${_PROM_NS}" -o json \
+kubectl get prometheusrule demo-app-alerts -n "${_PROM_NS}" -o json \
   | python3 -c "
 import json, sys
 node_name = '''${_SCENARIO_NODE}'''
@@ -1017,7 +1017,7 @@ setup_gitea_argocd_webhook "${GITEA_ADMIN_USER}" "${REPO_NAME}"
 # Step 3: Wait for ArgoCD sync and PostgreSQL readiness
 echo "==> Step 3: Waiting for ArgoCD sync..."
 for i in $(seq 1 60); do
-    if kubectl get deployment postgres-emptydir -n "${NAMESPACE}" &>/dev/null; then
+    if kubectl get deployment postgres -n "${NAMESPACE}" &>/dev/null; then
         echo "  ArgoCD synced deployment (attempt ${i})."
         break
     fi
@@ -1025,8 +1025,8 @@ for i in $(seq 1 60); do
 done
 
 echo "==> Step 4: Waiting for PostgreSQL pod readiness..."
-kubectl rollout status deployment/postgres-emptydir -n "${NAMESPACE}" --timeout=180s
-kubectl wait --for=condition=Available deployment/postgres-emptydir \
+kubectl rollout status deployment/postgres -n "${NAMESPACE}" --timeout=180s
+kubectl wait --for=condition=Available deployment/postgres \
   -n "${NAMESPACE}" --timeout=180s
 echo "  PostgreSQL is running with emptyDir storage."
 kubectl get pods -n "${NAMESPACE}"
@@ -1037,7 +1037,7 @@ echo ""
 # Red Hat sclorg image does not. Run it via psql for both platforms.
 echo "==> Step 5: Running init SQL..."
 local init_pod
-init_pod=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir \
+init_pod=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres \
   --field-selector=status.phase=Running \
   -o jsonpath='{.items[0].metadata.name}')
 kubectl exec -n "${NAMESPACE}" "${init_pod}" -- \
@@ -1048,7 +1048,7 @@ echo ""
 
 _label_target_node() {
     local pod node
-    pod=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir \
+    pod=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres \
       --field-selector=status.phase=Running \
       -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
     node=$(kubectl get pod "$pod" -n "${NAMESPACE}" \
@@ -1086,11 +1086,11 @@ run_inject() {
 # Label the node running the postgres pod so the Gateway accepts the proactive signal
 _label_target_node
 
-POD=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir \
+POD=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres \
   --field-selector=status.phase=Running \
   -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
 if [ -z "$POD" ]; then
-    echo "ERROR: No postgres-emptydir pod found in ${NAMESPACE}"
+    echo "ERROR: No postgres pod found in ${NAMESPACE}"
     exit 1
 fi
 

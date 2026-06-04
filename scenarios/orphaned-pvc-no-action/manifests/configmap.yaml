@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: data-processor-config
-  namespace: demo-orphaned-pvc
+  namespace: demo-batch
 data:
   config.yaml: |
     port: 8080

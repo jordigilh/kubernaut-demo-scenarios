@@ -24,12 +24,12 @@ value by:
 blackbox-exporter  ──probe──>  api-gateway /api/status
         │
         ▼
-   probe_success{namespace="demo-slo"} = 0          (scraped every 10s)
+   probe_success{namespace="demo-api"} = 0          (scraped every 10s)
         │
         ▼
    Recording rule:
      job:api_gateway:error_rate_5m =
-       1 - avg_over_time(probe_success{namespace="demo-slo", instance=~".*api-gateway.*"}[5m])
+       1 - avg_over_time(probe_success{namespace="demo-api", instance=~".*api-gateway.*"}[5m])
         │
         ▼
    Alert:  ErrorBudgetBurn
@@ -73,7 +73,7 @@ clear-cut and warrants a direct rollback.
 - `RollbackDeployment` action type registered
 - `crashloop-rollback-v1` (or equivalent) workflow in the catalog
 
-> **OCP note**: The scenario deploys its own blackbox-exporter in the `demo-slo`
+> **OCP note**: The scenario deploys its own blackbox-exporter in the `demo-api`
 > namespace — no cluster-level blackbox installation is required. The OCP overlay
 > (`overlays/ocp/`) applies cluster integration patches (for example PrometheusRule
 > and ServiceMonitor release labels, and Namespace `cluster-monitoring`); the
@@ -153,7 +153,7 @@ kubectl apply -k scenarios/slo-burn/overlays/ocp/
 ```bash
 kubectl wait --for=condition=Available deployment/api-gateway \
   deployment/blackbox-exporter deployment/traffic-gen \
-  -n demo-slo --timeout=60s
+  -n demo-api --timeout=60s
 ```
 
 #### 3. Establish healthy baseline (~30s)
@@ -236,7 +236,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | The api-gateway Deployment was patched to mount ConfigMap `api-config-bad` instead of `api-config`. The bad ConfigMap hardcodes HTTP 500 responses for all `/api/*` routes while only returning HTTP 200 for `/healthz`, causing a 100% error rate. Since probes only check `/healthz`, all pods remain Ready with zero restarts — the failure is silent at the infrastructure level. |
 | **Severity** | critical |
-| **Target Resource** | Deployment/api-gateway (ns: demo-slo) |
+| **Target Resource** | Deployment/api-gateway (ns: demo-api) |
 | **Workflow Selected** | rollback-deployment-v1 |
 | **Confidence** | 0.92 |
 | **Approval** | required (production environment) |
@@ -300,8 +300,8 @@ kubectl patch remediationapprovalrequest <RAR> -n kubernaut-system \
 #### 9. Verify rollback
 
 ```bash
-kubectl rollout history deployment/api-gateway -n demo-slo
-kubectl get pods -n demo-slo
+kubectl rollout history deployment/api-gateway -n demo-api
+kubectl get pods -n demo-api
 ```
 
 #### 10. Cleanup
@@ -344,7 +344,7 @@ bash scenarios/slo-burn/cleanup.sh
 Feature: SLO Error Budget Burn -> Proactive Rollback
 
   Scenario: Error budget burning at unsustainable rate triggers proactive rollback
-    Given an api-gateway Deployment with 2 replicas in demo-slo namespace
+    Given an api-gateway Deployment with 2 replicas in demo-api namespace
       And a blackbox-exporter Probe targeting /api/status every 10s
       And a traffic generator sending steady requests to /api/status
       And the service is healthy with ~0% error rate (SLO: 99.9%)

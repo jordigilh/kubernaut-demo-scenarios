@@ -1,32 +1,32 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: etcd-defrag-rules
-  namespace: demo-etcd-defrag
+  name: demo-app-alerts
+  namespace: demo-datastore
   labels:
     release: prometheus
 spec:
   groups:
-  - name: etcd-defragmentation
+  - name: demo-app
     rules:
     - alert: EtcdHighFragmentationRatio
       expr: |
         (
-          etcd_mvcc_db_total_size_in_bytes{namespace="demo-etcd-defrag"}
-          - etcd_mvcc_db_total_size_in_use_in_bytes{namespace="demo-etcd-defrag"}
+          etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"}
+          - etcd_mvcc_db_total_size_in_use_in_bytes{namespace="demo-datastore"}
         )
-        / etcd_mvcc_db_total_size_in_bytes{namespace="demo-etcd-defrag"}
+        / etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"}
         > 0.15
         and
-        etcd_mvcc_db_total_size_in_bytes{namespace="demo-etcd-defrag"} > 1048576
+        etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"} > 1048576
       for: 2m
       labels:
         severity: critical
       annotations:
         summary: >
-          etcd member {{ $labels.pod }} in namespace {{ $labels.namespace }}
-          has a database fragmentation ratio of {{ $value | printf "%.0f" }}%.
+          Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} shows
+          on-disk storage far exceeding active data size.
         description: >
-          The etcd database on {{ $labels.pod }} has {{ $value | printf "%.0f" }}%
-          fragmented space. Total database size is significantly larger than
-          the data actually in use.
+          Total allocated storage on {{ $labels.pod }} is significantly
+          larger than the storage currently holding live data. This gap may
+          indicate stale space that has not yet been reclaimed.

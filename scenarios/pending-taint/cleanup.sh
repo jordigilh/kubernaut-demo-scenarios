@@ -10,18 +10,18 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 echo "==> Cleaning up Pending Taint demo..."
 
 # Remove the injected taint from the taint-target worker node
-TARGET_NODE=$(kubectl get nodes -l kubernaut.ai/demo-taint-target=true -o name 2>/dev/null | head -1)
+TARGET_NODE=$(kubectl get nodes -l kubernaut.ai/workload-pool=true -o name 2>/dev/null | head -1)
 if [ -n "$TARGET_NODE" ]; then
   echo "  Removing maintenance taint from ${TARGET_NODE}..."
   kubectl taint nodes "${TARGET_NODE}" maintenance- 2>/dev/null || true
 fi
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule kubernaut-pending-taint-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-kubectl delete namespace demo-taint --ignore-not-found
+kubectl delete namespace demo-scheduler --ignore-not-found
 
 purge_pipeline_crds
 

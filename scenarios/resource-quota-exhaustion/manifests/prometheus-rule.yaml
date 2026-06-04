@@ -1,20 +1,20 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-quota-rules
-  namespace: demo-quota
+  name: demo-app-alerts
+  namespace: demo-platform
   labels:
     release: prometheus
 spec:
   groups:
-  - name: kubernaut-resource-quota
+  - name: demo-app
     rules:
     - alert: KubeResourceQuotaExhausted
       expr: |
         (
-          kube_replicaset_spec_replicas{namespace="demo-quota"}
+          kube_replicaset_spec_replicas{namespace="demo-platform"}
           -
-          kube_replicaset_status_ready_replicas{namespace="demo-quota"}
+          kube_replicaset_status_ready_replicas{namespace="demo-platform"}
         ) > 0
       for: 30s
       labels:
@@ -22,10 +22,8 @@ spec:
       annotations:
         summary: >
           ReplicaSet {{ $labels.replicaset }} in namespace {{ $labels.namespace }}
-          has {{ $value }} fewer ready pods than desired. ResourceQuota likely
-          prevents pod creation.
+          has {{ $value }} fewer ready pods than desired.
         description: >
           ReplicaSet {{ $labels.replicaset }} in namespace {{ $labels.namespace }}
-          cannot reach its desired replica count. Pod creation is being rejected
-          at admission, typically because the namespace ResourceQuota has been
-          exhausted for one or more resources (cpu, memory, or pod count).
+          cannot reach its desired replica count. Workload capacity may be
+          reduced until additional pods can start.

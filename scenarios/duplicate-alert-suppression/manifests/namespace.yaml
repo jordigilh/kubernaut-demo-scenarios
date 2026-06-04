@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: demo-alert-storm
+  name: demo-ingress
   labels:
     kubernaut.ai/managed: "true"
     kubernaut.ai/environment: staging

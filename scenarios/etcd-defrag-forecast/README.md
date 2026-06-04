@@ -67,10 +67,10 @@ EtcdHighFragmentationRatio alert fires
 
 ```promql
 (
-  etcd_mvcc_db_total_size_in_bytes{namespace="demo-etcd-defrag"}
-  - etcd_mvcc_db_total_size_in_use_in_bytes{namespace="demo-etcd-defrag"}
+  etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"}
+  - etcd_mvcc_db_total_size_in_use_in_bytes{namespace="demo-datastore"}
 )
-/ etcd_mvcc_db_total_size_in_bytes{namespace="demo-etcd-defrag"}
+/ etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"}
 > 0.5
 ```
 

@@ -134,7 +134,7 @@ Sleep 300ms
 Type "narrate 'A bad git commit pushes broken config — ArgoCD syncs it, pods crash.'"
 Enter
 Sleep 300ms
-Type "narrate 'Healthy workload managed by ArgoCD in namespace demo-gitops.'"
+Type "narrate 'Healthy workload managed by ArgoCD in namespace demo-webui.'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
@@ -154,7 +154,7 @@ Type "kubectl get app web-frontend -n argocd -o jsonpath='{.status.sync.status}'
 Enter
 Sleep 3s
 
-Type "kubectl get pods -n demo-gitops"
+Type "kubectl get pods -n demo-webui"
 Enter
 Sleep 5s
 
@@ -174,7 +174,7 @@ Sleep 4s
 # Hidden wait for CrashLoopBackOff to become visible
 Hide
 Set TypingSpeed 1ms
-Type `while kubectl get pods -n demo-gitops 2>/dev/null | grep -q Running && ! kubectl get pods -n demo-gitops 2>/dev/null | grep -qE 'CrashLoopBackOff|Error|ImagePullBackOff'; do sleep 5; done; sleep 10 && clear && echo FAULT"_"VISIBLE`
+Type `while kubectl get pods -n demo-webui 2>/dev/null | grep -q Running && ! kubectl get pods -n demo-webui 2>/dev/null | grep -qE 'CrashLoopBackOff|Error|ImagePullBackOff'; do sleep 5; done; sleep 10 && clear && echo FAULT"_"VISIBLE`
 Enter
 Wait+Screen@600s /FAULT_VISIBLE/
 Type "act_clear"
@@ -205,7 +205,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-gitops -w"
+Type "kubectl get pods -n demo-webui -w"
 Enter
 Sleep 15s
 Ctrl+C
@@ -344,7 +344,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-gitops -w"
+Type "kubectl get pods -n demo-webui -w"
 Enter
 Sleep 15s
 Ctrl+C
@@ -363,7 +363,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-gitops"
+Type "bash scripts/show-ai-analysis.sh demo-webui"
 Enter
 Sleep 24s
 
@@ -443,7 +443,7 @@ Type "kubectl get app web-frontend -n argocd -o jsonpath='{.status.sync.status}'
 Enter
 Sleep 3s
 
-Type "kubectl get pods -n demo-gitops"
+Type "kubectl get pods -n demo-webui"
 Enter
 Sleep 5s
 
@@ -469,7 +469,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-gitops"
+Type "bash scripts/show-effectiveness.sh demo-webui"
 Enter
 Sleep 10s
 

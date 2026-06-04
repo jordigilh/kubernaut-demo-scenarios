@@ -94,7 +94,7 @@ Type `bash scenarios/mesh-routing-failure/cleanup.sh 2>/dev/null; true`
 Enter
 Sleep 5s
 
-Type `kubectl apply -f scenarios/mesh-routing-failure/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/mesh-routing-failure/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/api-server -n demo-mesh-failure --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
+Type `kubectl apply -f scenarios/mesh-routing-failure/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/mesh-routing-failure/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/api-server -n demo-mesh --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -138,14 +138,14 @@ Sleep 4s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Healthy workload with Istio mesh in namespace demo-mesh-failure'"
+Type "narrate 'Healthy workload with Istio mesh in namespace demo-mesh'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-mesh-failure"
+Type "kubectl get pods -n demo-mesh"
 Enter
 Sleep 5s
 
@@ -183,7 +183,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-mesh-failure -w"
+Type "kubectl get pods -n demo-mesh -w"
 Enter
 Sleep 15s
 Ctrl+C
@@ -310,7 +310,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-mesh-failure -w"
+Type "kubectl get pods -n demo-mesh -w"
 Enter
 Sleep 15s
 Ctrl+C
@@ -329,7 +329,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-mesh-failure"
+Type "bash scripts/show-ai-analysis.sh demo-mesh"
 Enter
 Sleep 24s
 
@@ -404,11 +404,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 4s
 
-Type "kubectl get authorizationpolicies -n demo-mesh-failure 2>/dev/null || echo 'No AuthorizationPolicies (removed)'"
+Type "kubectl get authorizationpolicies -n demo-mesh 2>/dev/null || echo 'No AuthorizationPolicies (removed)'"
 Enter
 Sleep 5s
 
-Type "kubectl get pods -n demo-mesh-failure"
+Type "kubectl get pods -n demo-mesh"
 Enter
 Sleep 5s
 
@@ -434,7 +434,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-mesh-failure"
+Type "bash scripts/show-effectiveness.sh demo-mesh"
 Enter
 Sleep 10s
 

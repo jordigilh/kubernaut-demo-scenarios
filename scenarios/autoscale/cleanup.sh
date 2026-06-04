@@ -32,11 +32,11 @@ done
 
 # Delete namespace and Prometheus rules
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule kubernaut-autoscale-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-kubectl delete namespace demo-autoscale --ignore-not-found
+kubectl delete namespace demo-loadtest --ignore-not-found
 
 purge_pipeline_crds
 

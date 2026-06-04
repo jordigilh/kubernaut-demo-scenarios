@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-gitops"
+NAMESPACE="demo-webui"
 APPROVE_MODE="${1:---auto-approve}"
 
 # shellcheck source=../../scripts/platform-helper.sh

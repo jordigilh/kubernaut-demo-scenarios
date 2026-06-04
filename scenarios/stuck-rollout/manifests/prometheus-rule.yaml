@@ -1,13 +1,13 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-stuck-rollout-rules
-  namespace: demo-rollout
+  name: demo-app-alerts
+  namespace: demo-shipping
   labels:
     release: prometheus
 spec:
   groups:
-  - name: kubernaut-stuck-rollout
+  - name: demo-app
     rules:
     # Detect deployment rollout stuck (not progressing)
     # kube-state-metrics exposes a "Progressing" condition with status "false"
@@ -15,7 +15,7 @@ spec:
     - alert: KubeDeploymentRolloutStuck
       expr: |
         kube_deployment_status_condition{
-          namespace="demo-rollout",
+          namespace="demo-shipping",
           deployment="checkout-api",
           condition="Progressing",
           status="false"
@@ -26,10 +26,7 @@ spec:
       annotations:
         summary: >
           Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }}
-          has a stuck rollout -- not progressing for over 2 minutes.
+          rollout is not progressing.
         description: >
-          Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }}
-          has exceeded its progressDeadlineSeconds and is no longer making progress
-          on its rollout. New ReplicaSet pods are unable to reach Ready state.
-          Common causes include invalid container images, missing ConfigMaps or
-          Secrets, failing readiness probes, or insufficient cluster resources.
+          A deployment rollout in namespace {{ $labels.namespace }} has stalled.
+          New pods are not reaching Ready state.

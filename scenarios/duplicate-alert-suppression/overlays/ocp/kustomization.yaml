@@ -5,14 +5,14 @@ resources:
 patches:
   - target:
       kind: Namespace
-      name: demo-alert-storm
+      name: demo-ingress
     patch: |
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
         value: "true"
   - target:
       kind: PrometheusRule
-      name: kubernaut-dedup-rules
+      name: demo-app-alerts
     patch: |
       - op: remove
         path: /metadata/labels/release
@@ -27,7 +27,7 @@ patches:
       # remediation; the EA stabilization window may need to accommodate this.
       - op: replace
         path: /spec/groups/0/rules/0/expr
-        value: "increase(\n  kube_pod_container_status_restarts_total{\n    namespace=\"demo-alert-storm\",\n    container=\"api-gateway\"\n  }[15m]\n) > 2\n"
+        value: "increase(\n  kube_pod_container_status_restarts_total{\n    namespace=\"demo-ingress\",\n    container=\"api-gateway\"\n  }[15m]\n) > 2\n"
   - target:
       kind: ServiceMonitor
       name: demo-app-metrics

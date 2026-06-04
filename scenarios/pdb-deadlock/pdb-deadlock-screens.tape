@@ -92,18 +92,18 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-pdb'"
+Type "narrate 'Healthy workload running in namespace demo-payments'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-pdb"
+Type "kubectl get pods -n demo-payments"
 Enter
 Sleep 4s
 
-Type "kubectl get pdb -n demo-pdb"
+Type "kubectl get pdb -n demo-payments"
 Enter
 Sleep 8s
 
@@ -227,7 +227,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-pdb"
+Type "bash scripts/show-ai-analysis.sh demo-payments"
 Enter
 Sleep 20s
 
@@ -247,7 +247,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-approval-reason.sh demo-pdb"
+Type "bash scripts/show-approval-reason.sh demo-payments"
 Enter
 Sleep 12s
 
@@ -320,11 +320,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-pdb"
+Type "kubectl get pods -n demo-payments"
 Enter
 Sleep 4s
 
-Type "kubectl get pdb -n demo-pdb"
+Type "kubectl get pdb -n demo-payments"
 Enter
 Sleep 8s
 
@@ -364,7 +364,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-pdb"
+Type "bash scripts/show-effectiveness.sh demo-payments"
 Enter
 Sleep 10s
 

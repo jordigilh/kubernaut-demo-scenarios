@@ -173,7 +173,7 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
 | 2 | `todo_write` | 4 932 | Updated plan: enrich cluster context |
 | 3 | `get_cluster_resource_context(Node/kubernaut-demo-worker)`, `kubernetes_jq_query` | 12 437 | Cluster context: node taints, allocatable resources, JQ query for eviction details |
 | 4 | `todo_write` | 12 688 | Assessed: kubelet failure, 60s grace period, pods evicted |
-| 5 | `kubectl_get_by_kind_in_namespace(Pod, demo-node)`, `kubectl_get_by_kind_in_namespace(Pod, kubernaut-system)` | 17 308 | Checked affected workloads: web-service 2/3 replicas, platform pods evicted |
+| 5 | `kubectl_get_by_kind_in_namespace(Pod, demo-compute)`, `kubectl_get_by_kind_in_namespace(Pod, kubernaut-system)` | 17 308 | Checked affected workloads: web-service 2/3 replicas, platform pods evicted |
 | 6 | `todo_write` | 17 476 | Root cause finalized |
 | 7 | `todo_write` | 26 661 | Prepared RCA submission |
 | 8 | *submit_result (RCA)* | 26 798 | Target: Node/kubernaut-demo-worker — kubelet failure, cgroup misconfiguration |
@@ -202,7 +202,7 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
 
 > **Note**: The LLM used `kubectl_top_nodes` and `kubernetes_jq_query` for deeper
 > cluster-level investigation (not just pod-level tools). It also checked pods in
-> both `demo-node` and `kubernaut-system` namespaces to assess the blast radius
+> both `demo-compute` and `kubernaut-system` namespaces to assess the blast radius
 > of the node failure before submitting RCA.
 
 #### 4. Approve the RAR (when using `--interactive`)
@@ -217,7 +217,7 @@ kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=stat
 
 ```bash
 kubectl get nodes
-kubectl get pods -n demo-node -o wide
+kubectl get pods -n demo-compute -o wide
 ```
 
 #### 6. View notifications

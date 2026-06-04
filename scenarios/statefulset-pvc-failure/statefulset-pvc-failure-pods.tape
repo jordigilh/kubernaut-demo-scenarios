@@ -34,7 +34,7 @@ Type `STOP_FILE="/tmp/kubernaut-statefulset-pvc-failure-resource-stop"`
 Enter
 Sleep 200ms
 
-Type `resource_watch() { rm -f "$STOP_FILE"; clear; set +m; kubectl get pods -n demo-statefulset -w & local pid=$!; set -m; while [ ! -f "$STOP_FILE" ]; do sleep 2; done; kill $pid 2>/dev/null; wait $pid 2>/dev/null; clear && echo RESOURCE"_"WATCH"_"DONE; }`
+Type `resource_watch() { rm -f "$STOP_FILE"; clear; set +m; kubectl get pods -n demo-keystore -w & local pid=$!; set -m; while [ ! -f "$STOP_FILE" ]; do sleep 2; done; kill $pid 2>/dev/null; wait $pid 2>/dev/null; clear && echo RESOURCE"_"WATCH"_"DONE; }`
 Enter
 Sleep 200ms
 

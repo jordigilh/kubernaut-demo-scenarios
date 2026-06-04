@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: build-source-config
-  namespace: demo-build
+  namespace: demo-ci
   labels:
     app: webapp
     kubernaut.ai/purpose: known-good-source

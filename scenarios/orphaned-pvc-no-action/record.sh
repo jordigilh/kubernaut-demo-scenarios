@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO_NAME="orphaned-pvc-no-action"
-DEMO_NS="demo-orphaned-pvc"
+DEMO_NS="demo-batch"
 ALERT_NAME="KubePersistentVolumeClaimOrphaned"
 RESOURCE_TAPE="orphaned-pvc-no-action-pvcs.tape"
 SCREENS_TAPE="orphaned-pvc-no-action-screens.tape"

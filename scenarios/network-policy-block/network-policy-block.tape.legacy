@@ -93,7 +93,7 @@ Type `bash scenarios/network-policy-block/cleanup.sh 2>/dev/null; true`
 Enter
 Sleep 5s
 
-Type `kubectl apply -f scenarios/network-policy-block/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/network-policy-block/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/web-frontend deployment/traffic-gen -n demo-netpol --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
+Type `kubectl apply -f scenarios/network-policy-block/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/network-policy-block/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/web-frontend deployment/traffic-gen -n demo-frontend --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -137,14 +137,14 @@ Sleep 4s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Healthy workload running in namespace demo-netpol'"
+Type "narrate 'Healthy workload running in namespace demo-frontend'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-netpol"
+Type "kubectl get pods -n demo-frontend"
 Enter
 Sleep 5s
 
@@ -182,13 +182,13 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-netpol -w"
+Type "kubectl get pods -n demo-frontend -w"
 Enter
 Sleep 15s
 Ctrl+C
 Sleep 2s
 
-Type "kubectl get networkpolicies -n demo-netpol"
+Type "kubectl get networkpolicies -n demo-frontend"
 Enter
 Sleep 5s
 
@@ -204,7 +204,7 @@ Sleep 5s
 # Hidden wait: poll until alert appears in AlertManager
 Hide
 Set TypingSpeed 1ms
-Type `while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- amtool alert query alertname=KubeDeploymentReplicasMismatch --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null | python3 -c 'import sys,json; a=json.load(sys.stdin); print(len([x for x in a if x.get(\"labels\",{}).get(\"namespace\")==\"demo-netpol\"]))' 2>/dev/null)" = "0" ]; do sleep 10; done && clear && echo ALERT"_"FIRED`
+Type `while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- amtool alert query alertname=KubeDeploymentReplicasMismatch --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null | python3 -c 'import sys,json; a=json.load(sys.stdin); print(len([x for x in a if x.get(\"labels\",{}).get(\"namespace\")==\"demo-frontend\"]))' 2>/dev/null)" = "0" ]; do sleep 10; done && clear && echo ALERT"_"FIRED`
 Enter
 Wait+Screen@600s /ALERT_FIRED/
 Type "act_clear"
@@ -313,7 +313,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-netpol -w"
+Type "kubectl get pods -n demo-frontend -w"
 Enter
 Sleep 15s
 Ctrl+C
@@ -332,7 +332,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-netpol"
+Type "bash scripts/show-ai-analysis.sh demo-frontend"
 Enter
 Sleep 24s
 
@@ -407,11 +407,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 4s
 
-Type "kubectl get networkpolicies -n demo-netpol"
+Type "kubectl get networkpolicies -n demo-frontend"
 Enter
 Sleep 5s
 
-Type "kubectl get pods -n demo-netpol"
+Type "kubectl get pods -n demo-frontend"
 Enter
 Sleep 5s
 
@@ -437,7 +437,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-netpol"
+Type "bash scripts/show-effectiveness.sh demo-frontend"
 Enter
 Sleep 10s
 
