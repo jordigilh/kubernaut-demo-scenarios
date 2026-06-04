@@ -16,24 +16,30 @@ wait_for_alert "SCCViolationPodBlocked" "${NAMESPACE}" 480
 show_alert "SCCViolationPodBlocked" "${NAMESPACE}"
 
 wait_for_rr "${NAMESPACE}" 120
-poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}"
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${PLATFORM:-}" = "ocp" ] && echo 1500 || echo 600)}"
+poll_pipeline "${NAMESPACE}" "${PIPELINE_TIMEOUT}" "${APPROVE_MODE}"
 
 log_phase "Running assertions..."
 
-rr_phase=$(get_rr_phase "${NAMESPACE}")
-assert_eq "$rr_phase" "Completed" "RR phase"
-
-rr_outcome=$(get_rr_outcome "${NAMESPACE}")
-assert_eq "$rr_outcome" "Remediated" "RR outcome"
-
-sp_phase=$(get_sp_phase "${NAMESPACE}")
-assert_eq "$sp_phase" "Completed" "SP phase"
-
-aa_phase=$(get_aa_phase "${NAMESPACE}")
-assert_eq "$aa_phase" "Completed" "AA phase"
-
+# Resolve RR name once to avoid TOCTOU races
 rr_name=$(get_rr_name "${NAMESPACE}")
 aa_name="ai-${rr_name}"
+
+rr_phase=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.overallPhase}' 2>/dev/null || echo "")
+assert_eq "$rr_phase" "Completed" "RR phase"
+
+rr_outcome=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+assert_eq "$rr_outcome" "Remediated" "RR outcome"
+
+sp_phase=$(kubectl get signalprocessings "sp-${rr_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+assert_eq "$sp_phase" "Completed" "SP phase"
+
+aa_phase=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+assert_eq "$aa_phase" "Completed" "AA phase"
 
 workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
@@ -47,7 +53,8 @@ confidence=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || echo "")
 assert_neq "$confidence" "" "AA confidence present"
 
-wfe_phase=$(get_wfe_phase "${NAMESPACE}")
+wfe_phase=$(kubectl get workflowexecutions "wfe-${rr_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
 running_pods=$(kubectl get pods -n "${NAMESPACE}" --no-headers 2>/dev/null \

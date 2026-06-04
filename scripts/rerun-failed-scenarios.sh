@@ -24,6 +24,7 @@ FAILED_SCENARIOS=(
     db-connection-saturation
     red-herring-noise
     cascading-service-failure
+    scc-violation
 )
 
 echo "============================================="
