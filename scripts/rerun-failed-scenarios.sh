@@ -22,6 +22,8 @@ FAILED_SCENARIOS=(
     statefulset-pvc-failure
     concurrent-cross-namespace
     db-connection-saturation
+    red-herring-noise
+    cascading-service-failure
 )
 
 echo "============================================="
