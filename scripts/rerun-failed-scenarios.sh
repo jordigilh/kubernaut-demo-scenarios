@@ -25,6 +25,7 @@ FAILED_SCENARIOS=(
     red-herring-noise
     cascading-service-failure
     scc-violation
+    cross-namespace-dependency
 )
 
 echo "============================================="
