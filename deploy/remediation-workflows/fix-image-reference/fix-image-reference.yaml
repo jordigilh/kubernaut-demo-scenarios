@@ -57,7 +57,7 @@ spec:
     whenNotToUse: "When the image pull failure is caused by expired or missing ImagePullSecrets (authentication issue) — use RefreshImagePullSecret instead. When the registry itself is down or rate-limiting — wait for recovery. When all revisions use the same broken image (no good revision to revert to)."
     preconditions: "The Deployment has at least one previous ReplicaSet with a valid, pullable container image. The registry hosting the known-good image is accessible."
 
-  actionType: FixImageReference
+  actionType: RollbackDeployment
 
   labels:
     severity: [critical, high]
