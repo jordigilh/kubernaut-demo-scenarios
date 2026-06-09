@@ -42,4 +42,5 @@ WORKFLOWS=(
     "scale-replicas:scale-replicas-job"
     "patch-configuration:patch-configuration-job"
     "fix-image-reference:fix-image-reference-job"
+    "vm-boot-failure:fix-datavolume-source-job"
 )

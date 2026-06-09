@@ -67,6 +67,19 @@ require_infra() {
                 exit 1
             fi
             return 0 ;;
+        cnv|kubevirt)
+            kubectl get csv -n openshift-cnv -o jsonpath='{range .items[*]}{.metadata.name}={.status.phase}{"\n"}{end}' 2>/dev/null \
+                | grep -q "^kubevirt-hyperconverged.*=Succeeded" && \
+            kubectl get hyperconverged kubevirt-hyperconverged -n openshift-cnv \
+                -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null | grep -q True && return 0
+            echo "ERROR: OpenShift Virtualization (CNV) is not installed or not Available."
+            echo "  Run: bash scripts/setup-cnv.sh"
+            exit 1 ;;
+        cdi)
+            kubectl get cdi -o jsonpath='{.items[0].status.phase}' 2>/dev/null | grep -q Deployed && return 0
+            echo "ERROR: CDI (Containerized Data Importer) is not deployed."
+            echo "  CNV HyperConverged CR should deploy CDI automatically."
+            exit 1 ;;
         *)
             echo "ERROR: Unknown infrastructure component: ${component}"
             exit 1 ;;

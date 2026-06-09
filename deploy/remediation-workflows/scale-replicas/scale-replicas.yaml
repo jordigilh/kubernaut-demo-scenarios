@@ -36,6 +36,16 @@ metadata:
   namespace: kubernaut-system
 spec:
   actionType: ScaleReplicas
+  labels:
+    component:
+    - apps/v1/Deployment
+    environment:
+    - production
+    - staging
+    priority: "*"
+    severity:
+    - critical
+    - high
   description:
     preconditions: >
       The target Deployment exists and the issue is caused by an offending workload
@@ -52,6 +62,8 @@ spec:
       hog) that should be stopped entirely, or when capacity needs to be increased
       by adding replicas.
   execution:
+    engine: job
+    serviceAccountName: scale-replicas-v1-runner
     bundle: quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:a6c97cd5ee676c1d9f904e77be2ad20dc5c71bddc1172900a869c9b9a564e7f1
   parameters:
   - description: Namespace of the target Deployment
@@ -70,4 +82,4 @@ spec:
     name: SCALE_REPLICAS
     required: false
     type: string
-  version: "1.5.0"
+  version: "1.5.1"
