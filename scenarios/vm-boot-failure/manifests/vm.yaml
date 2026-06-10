@@ -1,0 +1,40 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: legacy-app-vm
+  namespace: demo-vm-boot
+  labels:
+    kubernaut.ai/managed: "true"
+    app: legacy-app
+spec:
+  running: true
+  template:
+    metadata:
+      labels:
+        app: legacy-app
+    spec:
+      domain:
+        resources:
+          requests:
+            memory: 1Gi
+        devices:
+          disks:
+            - name: rootdisk
+              disk:
+                bus: virtio
+      volumes:
+        - name: rootdisk
+          dataVolume:
+            name: legacy-app-rootdisk
+  dataVolumeTemplates:
+    - metadata:
+        name: legacy-app-rootdisk
+      spec:
+        storage:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 5Gi
+        source:
+          http:
+            url: "https://internal-vcenter.corp.example.com/vmware/exports/legacy-app-disk1.qcow2"

@@ -74,18 +74,18 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-netpol'"
+Type "narrate 'Healthy workload running in namespace demo-frontend'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-netpol"
+Type "kubectl get pods -n demo-frontend"
 Enter
 Sleep 4s
 
-Type "kubectl get networkpolicies -n demo-netpol"
+Type "kubectl get networkpolicies -n demo-frontend"
 Enter
 Sleep 4s
 
@@ -181,7 +181,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-netpol"
+Type "bash scripts/show-ai-analysis.sh demo-frontend"
 Enter
 Sleep 20s
 
@@ -209,11 +209,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-netpol"
+Type "kubectl get pods -n demo-frontend"
 Enter
 Sleep 4s
 
-Type "kubectl get networkpolicies -n demo-netpol"
+Type "kubectl get networkpolicies -n demo-frontend"
 Enter
 Sleep 4s
 
@@ -245,7 +245,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-netpol"
+Type "bash scripts/show-effectiveness.sh demo-frontend"
 Enter
 Sleep 10s
 

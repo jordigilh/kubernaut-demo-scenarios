@@ -13,7 +13,7 @@ restore_production_approval || true
 echo "==> Cleaning up operator-health demo..."
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule "${NAMESPACE}-rules" -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-operator-rules-operator -n openshift-monitoring --ignore-not-found
     kubectl delete prometheusrule "${NAMESPACE}-rules" -n "${NAMESPACE}" --ignore-not-found 2>/dev/null || true
 else
     kubectl delete prometheusrule "${NAMESPACE}-rules" -n "${NAMESPACE}" --ignore-not-found 2>/dev/null || true

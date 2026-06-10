@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: web-service
-  namespace: demo-node
+  namespace: demo-compute
   labels:
     app: web-service
     kubernaut.ai/managed: "true"
@@ -62,7 +62,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: web-service
-  namespace: demo-node
+  namespace: demo-compute
   labels:
     app: web-service
     kubernaut.ai/managed: "true"

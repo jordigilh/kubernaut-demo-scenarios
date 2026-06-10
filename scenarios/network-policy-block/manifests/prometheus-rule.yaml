@@ -1,13 +1,13 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-netpol-rules
-  namespace: demo-netpol
+  name: demo-app-alerts
+  namespace: demo-frontend
   labels:
     release: prometheus
 spec:
   groups:
-  - name: kubernaut-netpol
+  - name: demo-app
     rules:
     # Primary signal: traffic-gen becomes NotReady because its readiness probe
     # (curl to web-frontend) fails when deny-all blocks inter-pod traffic.
@@ -15,7 +15,7 @@ spec:
     - alert: KubeDeploymentReplicasMismatch
       expr: |
         kube_deployment_status_replicas_unavailable{
-          namespace="demo-netpol",
+          namespace="demo-frontend",
           deployment="traffic-gen"
         } > 0
       for: 30s
@@ -23,21 +23,22 @@ spec:
         severity: critical
       annotations:
         summary: >
-          Traffic generator in namespace {{ $labels.namespace }} has unavailable
-          replicas due to connectivity failure to web-frontend service.
+          Deployment {{ $labels.deployment }} in namespace {{ $labels.namespace }}
+          has unavailable replicas.
         description: >
-          The traffic-gen pod cannot reach web-frontend via the cluster network
-          (readiness probe failing). A NetworkPolicy is likely blocking inter-pod
-          ingress traffic in namespace demo-netpol.
+          Pods in deployment {{ $labels.deployment }} are not passing readiness
+          checks. Service traffic may not be reaching healthy endpoints.
     # Secondary signal: web-frontend replicas unavailable. Fires on platforms
     # where the CNI also blocks kubelet probes (e.g. OCP with OVN-Kubernetes).
+    # Staggered at 5m so the primary (traffic-gen) triggers the RR first and
+    # the AI agent isn't split across two concurrent investigations.
     - alert: KubeDeploymentReplicasMismatch
       expr: |
         kube_deployment_status_replicas_unavailable{
-          namespace="demo-netpol",
+          namespace="demo-frontend",
           deployment="web-frontend"
         } > 0
-      for: 30s
+      for: 5m
       labels:
         severity: critical
       annotations:
@@ -45,5 +46,5 @@ spec:
           Deployment {{ $labels.deployment }} has {{ $value }} unavailable replicas
           in namespace {{ $labels.namespace }}.
         description: >
-          The web-frontend deployment has unavailable replicas, likely due to
-          health check failures caused by a NetworkPolicy blocking ingress traffic.
+          Deployment {{ $labels.deployment }} has unavailable replicas.
+          Health checks are failing, which may affect service availability.

@@ -9,7 +9,7 @@ PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/kubernaut-demo-config}"
 export PLATFORM_NS
 
-PODS2_STOP_FILE="/tmp/kubernaut-crashloop-pods2-stop"
+PODS2_STOP_FILE="/tmp/kubernaut-checkout-pods2-stop"
 rm -f "${PODS2_STOP_FILE}"
 
 echo "==> Pods2 re-recording: setting up scenario..."

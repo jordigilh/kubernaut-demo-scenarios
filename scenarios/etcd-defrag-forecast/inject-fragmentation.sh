@@ -4,7 +4,7 @@
 # flush so boltdb reports high fragmentation (dbSize >> dbSizeInUse).
 set -euo pipefail
 
-NAMESPACE="demo-etcd-defrag"
+NAMESPACE="demo-datastore"
 ETCD_URL="http://etcd-client.${NAMESPACE}.svc.cluster.local:2379"
 KEY_PREFIX="/demo/fragmentation/key-"
 KEY_COUNT=300

@@ -21,7 +21,7 @@ identifies the correct target, and patches the Route back.
 | Alert | `RouteBackendUnavailable` |
 | Source | Prometheus AlertManager |
 | Severity | high |
-| Namespace | `demo-route` |
+| Namespace | `demo-store` |
 
 The PrometheusRule fires when `haproxy_backend_up == 1` (backend registered) but
 no `haproxy_server_up` entries exist for the Route — meaning HAProxy knows about
@@ -85,7 +85,7 @@ The remediation job:
 | AA confidence | Present (non-empty) |
 | WFE phase | `Completed` |
 | Route restored | `spec.to.name == storefront-web` |
-| Pod health | At least 1 Running pod in `demo-route` |
+| Pod health | At least 1 Running pod in `demo-store` |
 
 ## Pipeline Flow
 
@@ -112,5 +112,5 @@ The remediation job:
 ./scenarios/route-misconfiguration/cleanup.sh
 ```
 
-Deletes the `demo-route` namespace, removes the PrometheusRule, restores the RO
+Deletes the `demo-store` namespace, removes the PrometheusRule, restores the RO
 stabilization window, and purges pipeline CRDs.

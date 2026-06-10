@@ -1,5 +1,13 @@
 # Scenario #168: Memory Escalation — Diminishing Returns Detection
 
+> **DEPRECATED**: This scenario has been replaced by
+> [`operator-oomkill-informer`](../operator-oomkill-informer/), which covers
+> the same signal class (reactive OOMKill) and remediation workflow
+> (`increase-memory-limits-v1`) using a real-world vulnerability
+> (kubeflow/spark-operator#2878) instead of a synthetic busybox leak.
+> See the [operator-oomkill-informer README](../operator-oomkill-informer/README.md)
+> for details.
+
 ## Overview
 
 Demonstrates Kubernaut's **diminishing returns detection**. An `ml-worker` container
@@ -187,7 +195,7 @@ This creates:
 The container hits 64 Mi in approximately 8 seconds and is OOM-killed:
 
 ```bash
-kubectl get pods -n demo-memory-escalation
+kubectl get pods -n demo-ml-pipeline
 # NAME                        READY   STATUS      RESTARTS     AGE
 # ml-worker-6f4947654f-xxxxx  0/1     OOMKilled   1 (5s ago)   20s
 ```
@@ -270,7 +278,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | The ml-worker container is intentionally simulating a memory leak by writing 8Mi/s to a memory-backed `/dev/shm` volume, causing it to repeatedly exceed its 64Mi memory limit and get OOMKilled in a CrashLoopBackOff cycle. |
 | **Severity** | critical |
-| **Target Resource** | Deployment/ml-worker (ns: demo-memory-escalation) |
+| **Target Resource** | Deployment/ml-worker (ns: demo-ml-pipeline) |
 | **Workflow Selected** | increase-memory-limits-v1 |
 | **Confidence** | 0.92 |
 | **Approval** | required (production environment) |
@@ -359,11 +367,11 @@ kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=stat
 After approval, the WFE increases the memory limit and restarts the pod:
 
 ```bash
-kubectl get deployment ml-worker -n demo-memory-escalation \
+kubectl get deployment ml-worker -n demo-ml-pipeline \
   -o jsonpath='{.spec.template.spec.containers[0].resources.limits.memory}'
 # 128Mi
 
-kubectl get pods -n demo-memory-escalation
+kubectl get pods -n demo-ml-pipeline
 # Running briefly, then OOMKilled again (~16s with 128Mi)
 ```
 
@@ -386,8 +394,8 @@ RR outcome is `ManualReviewRequired`:
 
 ```bash
 kubectl get rr -n kubernaut-system -o wide
-# rr-xxx-yyy  Completed  Remediated              demo-memory-escalation  (Cycle 1)
-# rr-xxx-zzz  Failed     ManualReviewRequired    demo-memory-escalation  (Cycle 2)
+# rr-xxx-yyy  Completed  Remediated              demo-ml-pipeline  (Cycle 1)
+# rr-xxx-zzz  Failed     ManualReviewRequired    demo-ml-pipeline  (Cycle 2)
 ```
 
 **Path C (multi-cycle, no escalation — Sonnet 4.6):** The LLM respects the
@@ -397,9 +405,9 @@ recurs. Without the RO guardrail fix (kubernaut#616), cycles repeat:
 
 ```bash
 kubectl get rr -n kubernaut-system -o wide
-# rr-xxx-aaa  Completed  Remediated   demo-memory-escalation  (Cycle 1)
-# rr-xxx-bbb  Completed  Remediated   demo-memory-escalation  (Cycle 2)
-# rr-xxx-ccc  Completed  Remediated   demo-memory-escalation  (Cycle 3)
+# rr-xxx-aaa  Completed  Remediated   demo-ml-pipeline  (Cycle 1)
+# rr-xxx-bbb  Completed  Remediated   demo-ml-pipeline  (Cycle 2)
+# rr-xxx-ccc  Completed  Remediated   demo-ml-pipeline  (Cycle 3)
 # ...
 ```
 
@@ -452,7 +460,7 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 Feature: Diminishing returns detection and escalation
 
   Scenario: Repeated OOMKill triggers escalation after ineffective remediation
-    Given a deployment "ml-worker" in namespace "demo-memory-escalation"
+    Given a deployment "ml-worker" in namespace "demo-ml-pipeline"
       And the container allocates 8 Mi every second to a memory-backed emptyDir
       And the container has a 64 Mi memory limit
       And the "increase-memory-limits-v1" workflow is registered

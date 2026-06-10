@@ -31,7 +31,7 @@
 #   Every hidden-wait block uses act_clear before Show so the viewer always knows
 #   which act they are in.
 #
-# AUTO-APPROVE PATH: staging namespace (demo-taint), no RAR required.
+# AUTO-APPROVE PATH: staging namespace (demo-scheduler), no RAR required.
 
 Output scenarios/pending-taint/pending-taint.gif
 Output scenarios/pending-taint/pending-taint.mp4
@@ -95,7 +95,7 @@ Type `bash scenarios/pending-taint/cleanup.sh 2>/dev/null; true && clear && echo
 Enter
 Wait+Screen@120s /CLEAN_DONE/
 
-Type `TNODE=$(kubectl get nodes -l kubernaut.ai/managed=true -o name | head -1) && kubectl label "$TNODE" kubernaut.ai/demo-taint-target=true --overwrite >/dev/null 2>&1 && kubectl apply -f scenarios/pending-taint/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/pending-taint/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/batch-processor -n demo-taint --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
+Type `TNODE=$(kubectl get nodes -l kubernaut.ai/managed=true -o name | head -1) && kubectl label "$TNODE" kubernaut.ai/workload-pool=true --overwrite >/dev/null 2>&1 && kubectl apply -f scenarios/pending-taint/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/pending-taint/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/batch-processor -n demo-scheduler --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -130,7 +130,7 @@ Sleep 300ms
 Type "narrate 'A node taint prevents pods from being scheduled.'"
 Enter
 Sleep 300ms
-Type "narrate 'Healthy workload running in namespace demo-taint'"
+Type "narrate 'Healthy workload running in namespace demo-scheduler'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
@@ -139,14 +139,14 @@ Sleep 4s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Healthy workload in namespace demo-taint'"
+Type "narrate 'Healthy workload in namespace demo-scheduler'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-taint"
+Type "kubectl get pods -n demo-scheduler"
 Enter
 Sleep 5s
 
@@ -165,7 +165,7 @@ Sleep 4s
 
 Hide
 Set TypingSpeed 1ms
-Type `kubectl delete pods --all -n demo-taint >/dev/null 2>&1`
+Type `kubectl delete pods --all -n demo-scheduler >/dev/null 2>&1`
 Enter
 Sleep 3s
 Type "act_clear"
@@ -178,7 +178,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-taint -o wide -w"
+Type "kubectl get pods -n demo-scheduler -o wide -w"
 Enter
 Wait+Screen@120s /Pending/
 Sleep 5s
@@ -307,7 +307,7 @@ Show
 Sleep 2s
 
 # Pod transition — shown FIRST so the viewer sees the live change
-Type "kubectl get pods -n demo-taint -o wide -w"
+Type "kubectl get pods -n demo-scheduler -o wide -w"
 Enter
 Sleep 15s
 Ctrl+C
@@ -326,7 +326,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-taint"
+Type "bash scripts/show-ai-analysis.sh demo-scheduler"
 Enter
 Sleep 24s
 
@@ -401,7 +401,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 4s
 
-Type "kubectl get pods -n demo-taint"
+Type "kubectl get pods -n demo-scheduler"
 Enter
 Sleep 5s
 
@@ -431,7 +431,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-taint"
+Type "bash scripts/show-effectiveness.sh demo-scheduler"
 Enter
 Sleep 10s
 

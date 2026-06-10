@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: web-service-config
-  namespace: demo-node
+  namespace: demo-compute
 data:
   config.yaml: |
     port: 8080

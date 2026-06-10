@@ -133,14 +133,14 @@ Sleep 4s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Healthy workload running in namespace demo-slo'"
+Type "narrate 'Healthy workload running in namespace demo-api'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-slo"
+Type "kubectl get pods -n demo-api"
 Enter
 Sleep 5s
 
@@ -292,7 +292,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-slo"
+Type "bash scripts/show-ai-analysis.sh demo-api"
 Enter
 Sleep 24s
 
@@ -305,7 +305,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-approval-reason.sh demo-slo"
+Type "bash scripts/show-approval-reason.sh demo-api"
 Enter
 Sleep 12s
 
@@ -317,7 +317,7 @@ Sleep 500ms
 Type "narrate 'Approving and watching pods — the workflow will rollback to the previous good config'"
 Enter
 Sleep 300ms
-Type "(sleep 3 && bash scripts/approve-rar.sh >/dev/null 2>&1) & kubectl get pods -n demo-slo -w"
+Type "(sleep 3 && bash scripts/approve-rar.sh >/dev/null 2>&1) & kubectl get pods -n demo-api -w"
 Enter
 Set TypingSpeed 50ms
 Show
@@ -379,11 +379,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 4s
 
-Type "kubectl get pods -n demo-slo"
+Type "kubectl get pods -n demo-api"
 Enter
 Sleep 5s
 
-Type "kubectl rollout history deployment/api-gateway -n demo-slo"
+Type "kubectl rollout history deployment/api-gateway -n demo-api"
 Enter
 Sleep 5s
 
@@ -409,7 +409,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-slo"
+Type "bash scripts/show-effectiveness.sh demo-api"
 Enter
 Sleep 10s
 

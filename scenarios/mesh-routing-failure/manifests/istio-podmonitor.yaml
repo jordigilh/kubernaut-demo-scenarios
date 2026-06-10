@@ -8,7 +8,7 @@ metadata:
 spec:
   namespaceSelector:
     matchNames:
-      - demo-mesh-failure
+      - demo-mesh
   selector:
     matchExpressions:
       - key: security.istio.io/tlsMode

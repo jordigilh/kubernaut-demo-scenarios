@@ -165,9 +165,9 @@ kubectl apply -k scenarios/cert-failure/overlays/ocp/
 #### 3. Verify healthy state
 
 ```bash
-kubectl get certificate -n demo-cert-failure
+kubectl get certificate -n demo-portal
 # demo-app-cert should show Ready=True
-kubectl get pods -n demo-cert-failure
+kubectl get pods -n demo-portal
 # All pods should be Running
 ```
 
@@ -184,7 +184,7 @@ can no longer sign.
 #### 5. Observe Certificate NotReady
 
 ```bash
-kubectl get certificate -n demo-cert-failure -w
+kubectl get certificate -n demo-portal -w
 # Certificate status will show Ready=False
 ```
 
@@ -254,7 +254,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 **Key Reasoning Chain:**
 
-1. Detects CertManagerCertNotReady alert in `demo-cert-failure` namespace.
+1. Detects CertManagerCertNotReady alert in `demo-portal` namespace.
 2. Examines Certificates, CertificateRequests — finds `demo-app-cert` stuck NotReady.
 3. Traces failure through cert-manager trust chain: Certificate → ClusterIssuer → missing CA Secret.
 4. Inspects ClusterIssuer `demo-selfsigned-ca` — confirms `ErrGetKeyPair` for Secret `demo-ca-key-pair`.
@@ -274,7 +274,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 | 5 | RCA | `todo_write` | 23,104 |
 | 6 | RCA | `kubectl_get_by_kind_in_namespace` (CertificateRequests) | 32,344 |
 | 7 | RCA | `kubectl_describe`, `kubectl_get_by_name_in_cluster` (ClusterIssuer) | 32,566 |
-| 8 | RCA | `kubectl_events` (demo-cert-failure) | 37,215 |
+| 8 | RCA | `kubectl_events` (demo-portal) | 37,215 |
 | 9 | RCA | `kubectl_get_by_kind_in_namespace` (Secrets) | 37,461 |
 | 10 | RCA | `todo_write`, `kubectl_describe`, `get_namespaced_resource_context`, `get_cluster_resource_context` | 37,594 |
 | 11 | Workflow Selection | `todo_write` | 8,513 |
@@ -291,7 +291,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 #### 8. Verify remediation
 
 ```bash
-kubectl get certificate -n demo-cert-failure
+kubectl get certificate -n demo-portal
 # Certificate should show Ready=True after workflow completes
 kubectl get secret demo-ca-key-pair -n cert-manager
 # CA Secret should exist (recreated by workflow)
@@ -318,7 +318,7 @@ Given a Kind cluster with Kubernaut services and a real LLM backend
   And Prometheus is scraping cert-manager metrics
   And the "fix-certificate-v1" workflow is registered in the DataStorage catalog
   And cert-manager is installed with a CA ClusterIssuer
-  And the "demo-app-cert" Certificate is Ready in namespace "demo-cert-failure"
+  And the "demo-app-cert" Certificate is Ready in namespace "demo-portal"
 
 When the CA Secret backing the ClusterIssuer is deleted
   And the TLS secret is deleted to trigger re-issuance

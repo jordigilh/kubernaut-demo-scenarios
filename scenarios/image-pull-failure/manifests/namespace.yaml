@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: demo-imagepull
+  name: demo-inventory
   labels:
     kubernaut.ai/managed: "true"
     kubernaut.ai/environment: production

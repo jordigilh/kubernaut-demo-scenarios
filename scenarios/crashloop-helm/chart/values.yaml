@@ -4,7 +4,7 @@ image:
   repository: nginx
   tag: "1.27-alpine"
 
-namespace: demo-crashloop-helm
+namespace: demo-storefront
 
 nginx:
   config: |

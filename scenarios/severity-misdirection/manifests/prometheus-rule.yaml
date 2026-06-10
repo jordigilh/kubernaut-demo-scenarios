@@ -1,18 +1,18 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: severity-misdirection-rules
-  namespace: demo-severity-misdirection
+  name: demo-app-alerts
+  namespace: demo-services
   labels:
     release: prometheus
 spec:
   groups:
-  - name: severity-misdirection
+  - name: demo-app
     rules:
     - alert: ContainerOOMKilling
       expr: |
         kube_pod_container_status_last_terminated_reason{
-          namespace="demo-severity-misdirection",
+          namespace="demo-services",
           reason="OOMKilled"
         } > 0
       for: 30s
@@ -30,7 +30,7 @@ spec:
       expr: |
         rate(
           kube_pod_container_status_restarts_total{
-            namespace="demo-severity-misdirection",
+            namespace="demo-services",
             container="app"
           }[5m]
         ) * 300 > 3

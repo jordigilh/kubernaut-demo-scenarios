@@ -7,7 +7,7 @@
 # pods — leaving behind Bound PVCs that no running pod uses.
 set -euo pipefail
 
-NAMESPACE="demo-orphaned-pvc"
+NAMESPACE="demo-batch"
 PVC_COUNT=5
 
 if [ "${PLATFORM:-}" = "ocp" ]; then

@@ -11,7 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-cert-failure"
+NAMESPACE="demo-portal"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
@@ -65,7 +65,7 @@ echo "  CA Secret created in cert-manager namespace."
 echo "==> Step 2: Deploying scenario resources..."
 if [ "$PLATFORM" = "ocp" ]; then
     # Label cert-manager namespace so its ServiceMonitor is scraped by cluster
-    # Prometheus (same instance evaluating the PrometheusRule in demo-cert-failure).
+    # Prometheus (same instance evaluating the PrometheusRule in demo-portal).
     # Without this, cert-manager metrics go to user-workload Prometheus and the
     # alert rule in cluster Prometheus never fires (#290).
     # NOTE: This moves ALL ServiceMonitors in cert-manager ns to cluster Prometheus.

@@ -2,7 +2,7 @@ apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
   name: storefront
-  namespace: demo-route
+  namespace: demo-store
   labels:
     app: storefront-web
 spec:

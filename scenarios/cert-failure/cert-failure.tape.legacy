@@ -81,7 +81,7 @@ Type `bash scenarios/cert-failure/cleanup.sh 2>/dev/null; true`
 Enter
 Sleep 5s
 
-Type `kubectl apply -f scenarios/cert-failure/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/cert-failure/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/demo-app -n demo-cert-failure --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
+Type `kubectl apply -f scenarios/cert-failure/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/cert-failure/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/demo-app -n demo-portal --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -131,7 +131,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get certificate -n demo-cert-failure"
+Type "kubectl get certificate -n demo-portal"
 Enter
 Sleep 5s
 
@@ -181,7 +181,7 @@ Type "bash scripts/show-alert.sh CertManagerCertNotReady"
 Enter
 Sleep 8s
 
-Type "kubectl get certificates -n demo-cert-failure -w"
+Type "kubectl get certificates -n demo-portal -w"
 Enter
 Sleep 15s
 Ctrl+C
@@ -287,7 +287,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-cert-failure"
+Type "bash scripts/show-ai-analysis.sh demo-portal"
 Enter
 Sleep 24s
 
@@ -333,7 +333,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 4s
 
-Type "kubectl get certificate -n demo-cert-failure"
+Type "kubectl get certificate -n demo-portal"
 Enter
 Sleep 5s
 
@@ -359,7 +359,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-cert-failure"
+Type "bash scripts/show-effectiveness.sh demo-portal"
 Enter
 Sleep 10s
 

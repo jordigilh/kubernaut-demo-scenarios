@@ -5,15 +5,18 @@ resources:
 patches:
   - target:
       kind: Namespace
-      name: demo-imagepull
+      name: demo-inventory
     patch: |
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
         value: "true"
   - target:
       kind: PrometheusRule
-      name: demo-imagepull-rules
+      name: demo-app-alerts
     patch: |
+      - op: replace
+        path: /metadata/name
+        value: demo-app-alerts-inventory
       - op: remove
         path: /metadata/labels/release
       - op: replace

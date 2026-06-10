@@ -2,7 +2,7 @@ apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
   name: webapp
-  namespace: demo-build
+  namespace: demo-ci
   labels:
     app: webapp
 spec:

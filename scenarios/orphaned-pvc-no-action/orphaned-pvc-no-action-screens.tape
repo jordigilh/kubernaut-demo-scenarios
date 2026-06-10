@@ -90,18 +90,18 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload — PVCs and pods in namespace demo-orphaned-pvc'"
+Type "narrate 'Healthy workload — PVCs and pods in namespace demo-batch'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pvc -n demo-orphaned-pvc"
+Type "kubectl get pvc -n demo-batch"
 Enter
 Sleep 4s
 
-Type "kubectl get pods -n demo-orphaned-pvc"
+Type "kubectl get pods -n demo-batch"
 Enter
 Sleep 4s
 
@@ -197,7 +197,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-orphaned-pvc"
+Type "bash scripts/show-ai-analysis.sh demo-batch"
 Enter
 Sleep 20s
 

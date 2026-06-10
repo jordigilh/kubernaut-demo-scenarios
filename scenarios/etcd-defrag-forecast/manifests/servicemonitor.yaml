@@ -2,7 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: etcd-metrics
-  namespace: demo-etcd-defrag
+  namespace: demo-datastore
   labels:
     app: etcd
     kubernaut.ai/managed: "true"

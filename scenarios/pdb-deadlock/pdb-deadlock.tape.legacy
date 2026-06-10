@@ -93,7 +93,7 @@ Type `bash scenarios/pdb-deadlock/cleanup.sh 2>/dev/null; true`
 Enter
 Sleep 5s
 
-Type `kubectl apply -f scenarios/pdb-deadlock/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/pdb-deadlock/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/payment-service -n demo-pdb --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
+Type `kubectl apply -f scenarios/pdb-deadlock/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/pdb-deadlock/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/payment-service -n demo-payments --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -137,18 +137,18 @@ Sleep 4s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Workload running in namespace demo-pdb with a strict PDB'"
+Type "narrate 'Workload running in namespace demo-payments with a strict PDB'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-pdb"
+Type "kubectl get pods -n demo-payments"
 Enter
 Sleep 5s
 
-Type "kubectl get pdb -n demo-pdb"
+Type "kubectl get pdb -n demo-payments"
 Enter
 Sleep 5s
 
@@ -300,7 +300,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-pdb"
+Type "bash scripts/show-ai-analysis.sh demo-payments"
 Enter
 Sleep 24s
 
@@ -313,7 +313,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-approval-reason.sh demo-pdb"
+Type "bash scripts/show-approval-reason.sh demo-payments"
 Enter
 Sleep 12s
 
@@ -325,7 +325,7 @@ Sleep 500ms
 Type "narrate 'Approving and watching pods — the workflow will relax the PDB to unblock disruptions'"
 Enter
 Sleep 300ms
-Type "(sleep 3 && bash scripts/approve-rar.sh >/dev/null 2>&1) & kubectl get pods -n demo-pdb -w"
+Type "(sleep 3 && bash scripts/approve-rar.sh >/dev/null 2>&1) & kubectl get pods -n demo-payments -w"
 Enter
 Set TypingSpeed 50ms
 Show
@@ -384,11 +384,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 4s
 
-Type "kubectl get pdb -n demo-pdb"
+Type "kubectl get pdb -n demo-payments"
 Enter
 Sleep 5s
 
-Type "kubectl get pods -n demo-pdb"
+Type "kubectl get pods -n demo-payments"
 Enter
 Sleep 5s
 
@@ -422,7 +422,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-pdb"
+Type "bash scripts/show-effectiveness.sh demo-payments"
 Enter
 Sleep 10s
 

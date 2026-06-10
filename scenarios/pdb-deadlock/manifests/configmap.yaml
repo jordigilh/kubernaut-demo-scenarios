@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: payment-service-config
-  namespace: demo-pdb
+  namespace: demo-payments
 data:
   config.yaml: |
     port: 8080

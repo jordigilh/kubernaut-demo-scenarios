@@ -92,14 +92,14 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-rollout'"
+Type "narrate 'Healthy workload running in namespace demo-shipping'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-rollout"
+Type "kubectl get pods -n demo-shipping"
 Enter
 Sleep 8s
 
@@ -223,7 +223,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-rollout"
+Type "bash scripts/show-ai-analysis.sh demo-shipping"
 Enter
 Sleep 20s
 
@@ -243,7 +243,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-approval-reason.sh demo-rollout"
+Type "bash scripts/show-approval-reason.sh demo-shipping"
 Enter
 Sleep 12s
 
@@ -316,11 +316,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-rollout"
+Type "kubectl get pods -n demo-shipping"
 Enter
 Sleep 4s
 
-Type "kubectl rollout history deployment/checkout-api -n demo-rollout"
+Type "kubectl rollout history deployment/checkout-api -n demo-shipping"
 Enter
 Sleep 8s
 
@@ -360,7 +360,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-rollout"
+Type "bash scripts/show-effectiveness.sh demo-shipping"
 Enter
 Sleep 10s
 

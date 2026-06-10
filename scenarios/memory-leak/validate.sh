@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-memory-leak"
+NAMESPACE="demo-telemetry"
 APPROVE_MODE="${1:---auto-approve}"
 
 # shellcheck source=../../scripts/validation-helper.sh
@@ -106,7 +106,7 @@ else
     assert_eq "$wfe_phase" "Completed" "WFE phase"
 
     for _i in $(seq 1 6); do
-      rollout_rev=$(kubectl rollout history deployment/leaky-app -n "${NAMESPACE}" 2>/dev/null \
+      rollout_rev=$(kubectl rollout history deployment/data-service -n "${NAMESPACE}" 2>/dev/null \
         | grep -c "^[0-9]" || echo "0")
       [ "$rollout_rev" -gt 1 ] && break
       sleep 5
@@ -115,10 +115,10 @@ else
 fi
 
 # ── Post-remediation root cause fix ─────────────────────────────────────────
-# Remove leaker sidecar so memory stops growing and the alert resolves naturally.
-log_phase "Removing leaker sidecar (root cause fix)..."
-kubectl patch deployment leaky-app -n "${NAMESPACE}" --type=json \
+# Remove data-processor sidecar so memory stops growing and the alert resolves naturally.
+log_phase "Removing data-processor sidecar (root cause fix)..."
+kubectl patch deployment data-service -n "${NAMESPACE}" --type=json \
   -p='[{"op":"remove","path":"/spec/template/spec/containers/1"}]' 2>/dev/null || true
-kubectl rollout status deployment/leaky-app -n "${NAMESPACE}" --timeout=60s 2>/dev/null || true
+kubectl rollout status deployment/data-service -n "${NAMESPACE}" --timeout=60s 2>/dev/null || true
 
 print_result "memory-leak"

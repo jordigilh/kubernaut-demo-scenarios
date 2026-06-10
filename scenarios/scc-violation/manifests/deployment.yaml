@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: metrics-agent
-  namespace: demo-scc
+  namespace: demo-agents
   labels:
     app: metrics-agent
     kubernaut.ai/managed: "true"

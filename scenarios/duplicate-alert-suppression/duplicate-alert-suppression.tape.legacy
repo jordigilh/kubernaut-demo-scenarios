@@ -93,7 +93,7 @@ Type `bash scenarios/duplicate-alert-suppression/cleanup.sh 2>/dev/null; true`
 Enter
 Sleep 5s
 
-Type `kubectl apply -f scenarios/duplicate-alert-suppression/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/duplicate-alert-suppression/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/api-gateway -n demo-alert-storm --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
+Type `kubectl apply -f scenarios/duplicate-alert-suppression/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/duplicate-alert-suppression/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/api-gateway -n demo-ingress --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -137,14 +137,14 @@ Sleep 4s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Healthy 5-replica deployment in namespace demo-alert-storm'"
+Type "narrate 'Healthy 5-replica deployment in namespace demo-ingress'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-alert-storm"
+Type "kubectl get pods -n demo-ingress"
 Enter
 Sleep 5s
 
@@ -182,7 +182,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-alert-storm -w"
+Type "kubectl get pods -n demo-ingress -w"
 Enter
 Sleep 15s
 Ctrl+C
@@ -197,10 +197,10 @@ Set TypingSpeed 50ms
 Show
 Sleep 5s
 
-# Hidden wait: poll until at least 1 alert appears for demo-alert-storm
+# Hidden wait: poll until at least 1 alert appears for demo-ingress
 Hide
 Set TypingSpeed 1ms
-Type `while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null | python3 -c 'import sys,json; a=json.load(sys.stdin); print(len([x for x in a if x.get(\"labels\",{}).get(\"namespace\")==\"demo-alert-storm\"]))' 2>/dev/null)" = "0" ]; do sleep 10; done && clear && echo ALERT"_"FIRED`
+Type `while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- amtool alert query alertname=KubePodCrashLooping --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null | python3 -c 'import sys,json; a=json.load(sys.stdin); print(len([x for x in a if x.get(\"labels\",{}).get(\"namespace\")==\"demo-ingress\"]))' 2>/dev/null)" = "0" ]; do sleep 10; done && clear && echo ALERT"_"FIRED`
 Enter
 Wait+Screen@600s /ALERT_FIRED/
 Type "act_clear"
@@ -211,7 +211,7 @@ Show
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Multiple alerts firing from demo-alert-storm namespace'"
+Type "narrate 'Multiple alerts firing from demo-ingress namespace'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
@@ -309,7 +309,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-alert-storm -w"
+Type "kubectl get pods -n demo-ingress -w"
 Enter
 Sleep 15s
 Ctrl+C
@@ -328,7 +328,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-alert-storm"
+Type "bash scripts/show-ai-analysis.sh demo-ingress"
 Enter
 Sleep 24s
 
@@ -403,7 +403,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 4s
 
-Type "kubectl get pods -n demo-alert-storm"
+Type "kubectl get pods -n demo-ingress"
 Enter
 Sleep 5s
 
@@ -429,7 +429,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-alert-storm"
+Type "bash scripts/show-effectiveness.sh demo-ingress"
 Enter
 Sleep 10s
 

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: checkout-api
-  namespace: demo-rollout
+  namespace: demo-shipping
   labels:
     app: checkout-api
     kubernaut.ai/managed: "true"
@@ -63,7 +63,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: checkout-api
-  namespace: demo-rollout
+  namespace: demo-shipping
   labels:
     app: checkout-api
     kubernaut.ai/managed: "true"

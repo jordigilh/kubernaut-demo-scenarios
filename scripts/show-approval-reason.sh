@@ -2,7 +2,7 @@
 # Display the approval reason from the AIAnalysis status, highlighting the rego
 # policy match that triggered the RemediationApprovalRequest.
 # Usage: bash scripts/show-approval-reason.sh <scenario-namespace>
-# Example: bash scripts/show-approval-reason.sh demo-crashloop
+# Example: bash scripts/show-approval-reason.sh demo-checkout
 set -euo pipefail
 
 SCENARIO_NS="${1:?Usage: show-approval-reason.sh <scenario-namespace>}"

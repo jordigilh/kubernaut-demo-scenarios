@@ -1,0 +1,12 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: ActionType
+metadata:
+  name: fix-datavolume-source
+  namespace: kubernaut-system
+spec:
+  name: FixDataVolumeSource
+  description:
+    what: "Fix a DataVolume source URL or configuration that is preventing a VM disk import."
+    whenToUse: "A VirtualMachine is stuck in Provisioning because the CDI DataVolume import is failing. The importer pod shows connection errors, timeouts, or HTTP errors in its logs."
+    whenNotToUse: "When the VM boot failure is caused by something other than a DataVolume import issue (e.g., invalid machine type, missing cloud-init, resource quota exhaustion, or insufficient KVM resources)."
+    preconditions: "OpenShift Virtualization (CNV) is installed. A VirtualMachine exists with a DataVolume template. The CDI importer pod has been created and is showing errors."

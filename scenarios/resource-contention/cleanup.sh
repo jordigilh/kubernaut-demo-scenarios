@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
-NAMESPACE="demo-resource-contention"
+NAMESPACE="demo-analytics"
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 
 echo "==> Cleaning up Resource Contention demo..."
@@ -22,7 +22,7 @@ for kind in remediationrequests signalprocessings aianalyses workflowexecutions 
 done
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule contention-app-alerts -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts-analytics -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi

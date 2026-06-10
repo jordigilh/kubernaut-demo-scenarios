@@ -195,7 +195,7 @@ kubectl apply -k scenarios/orphaned-pvc-no-action/overlays/ocp/
 #### 3. Wait for deployment
 
 ```bash
-kubectl wait --for=condition=Available deploy/data-processor -n demo-orphaned-pvc --timeout=120s
+kubectl wait --for=condition=Available deploy/data-processor -n demo-batch --timeout=120s
 ```
 
 #### 4. Inject orphaned PVCs
@@ -281,7 +281,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | Five orphaned PVCs (`batch-output-job-1` through `batch-output-job-5`) remain after their parent batch Jobs completed and were deleted, with no active consumer pods mounting them. These PVCs have no `ownerReferences`, preventing garbage collection, and are accumulating 500Mi of unused persistent storage. |
 | **Severity** | medium |
-| **Target Resource** | Deployment/data-processor (ns: demo-orphaned-pvc) |
+| **Target Resource** | Deployment/data-processor (ns: demo-batch) |
 | **Workflow Selected** | cleanup-pvc-v1 |
 | **Confidence** | 0.95 |
 | **Approval** | required (production environment) |
@@ -387,7 +387,7 @@ Feature: Orphaned PVC — LLM judgment with available workflow
     Given a cluster with Kubernaut services and a real LLM backend
       And the "cleanup-pvc-v1" workflow is registered in the catalog
       And the warning-aware Rego policy (llm_warns_no_remediation) is active
-      And the "data-processor" deployment is running in namespace "demo-orphaned-pvc"
+      And the "data-processor" deployment is running in namespace "demo-batch"
 
   Scenario: Path A — LLM determines no action needed
     When 5 orphaned PVCs from simulated completed batch jobs are created

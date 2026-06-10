@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-build"
+NAMESPACE="demo-ci"
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
@@ -13,7 +13,7 @@ restore_production_approval || true
 echo "==> Cleaning up build-failure demo..."
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule demo-build-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts-ci -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi

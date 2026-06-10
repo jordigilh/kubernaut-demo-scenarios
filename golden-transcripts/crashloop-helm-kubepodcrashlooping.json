@@ -1,22 +1,21 @@
 {
   "schema_version": 1,
   "_metadata": {
-    "captured_at": "2026-05-09T15:12:31Z",
-    "ka_image": "unknown",
+    "captured_at": "2026-06-04T13:21:49Z",
+    "ka_image": "ghcr.io/jordigilh/kubernaut/kubernautagent:main-0fc57a28c7f27ad06e09454e2937b6b40e1cd9ac",
     "model": "claude-sonnet-4-6",
-    "cluster": "default/api-dev-redhat-internal-com:6443/kube:admin",
-    "chart_version": "",
-    "platform": "ocp"
+    "cluster": "kubernaut-system/api-dev-redhat-internal-com:6443/kube:admin",
+    "chart_version": ""
   },
   "scenario": "crashloop-helm",
   "signalName": "KubePodCrashLooping",
   "remediationRequest": {
-    "name": "rr-1b223d2cb297-93b94ce5",
+    "name": "rr-c2dc7f50dc7b-655e2056",
     "phase": "Completed",
     "outcome": "Remediated"
   },
   "analysis": {
-    "remediationId": "rr-1b223d2cb297-93b94ce5",
+    "remediationId": "rr-c2dc7f50dc7b-655e2056",
     "signal": {
       "signalName": "KubePodCrashLooping",
       "severity": "critical",
@@ -24,210 +23,869 @@
       "targetResource": {
         "kind": "Deployment",
         "name": "worker",
-        "namespace": "demo-crashloop-helm"
+        "namespace": "demo-storefront"
       },
       "businessPriority": "P0"
     },
     "investigation": {
-      "sessionId": "c4b2b1d7-20ba-4c52-ae0b-76fb56d9d953",
-      "duration_ms": 166294,
-      "pollCount": 11,
-      "toolCalls": [
-        {
-          "tool": "todo_write",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "kubectl_get_by_kind_in_namespace",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "kubectl_describe",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "kubectl_previous_logs",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "kubectl_events",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "kubectl_get_by_name",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "kubectl_logs",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "todo_write",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "get_namespaced_resource_context",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "todo_write",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "list_available_actions",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "todo_write",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "todo_write",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "list_workflows",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "list_workflows",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "todo_write",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "get_workflow",
-          "input": {},
-          "output_summary": ""
-        },
-        {
-          "tool": "todo_write",
-          "input": {},
-          "output_summary": ""
-        }
-      ]
+      "sessionId": "7e06d2a4-2666-424c-9c04-f257c35573ac",
+      "durationMs": 166541,
+      "pollCount": 12
     },
     "rootCauseAnalysis": {
       "contributingFactors": [
-        "Helm upgrade (generation 2) introduced a new ReplicaSet 'worker-6dd948b48f' with a corrupted nginx ConfigMap containing 'invalid_directive_that_breaks_nginx' at line 11",
-        "Rolling update strategy allowed the bad pod to be scheduled but it cannot progress past startup, blocking the deployment rollout",
-        "Deployment is stuck with ProgressDeadlineExceeded \u2014 the rolling update has been stalled for over 10 minutes",
-        "Regression detected: remediation history shows this ConfigMap has been remediated multiple times before with matching pre-remediation spec hash, indicating a recurring misconfiguration pattern introduced by the Helm release"
+        "A Helm chart update (generation 2 of the Deployment) applied a new ConfigMap containing a deliberately invalid nginx directive, triggering a rolling update that created a new ReplicaSet (worker-8657dcd6f8) whose pods cannot start",
+        "The two healthy pods from the previous ReplicaSet (worker-c547b545f) continue serving traffic, masking the full impact but leaving the deployment in a degraded state with 1 unavailable replica",
+        "nginx exits within ~2 seconds of startup when it encounters an unknown directive during config parsing, which is too fast for readiness/liveness probes to distinguish \u2014 CrashLoopBackOff escalates rapidly",
+        "Enrichment history shows a configuration regression: the current resource spec matches a pre-remediation state, indicating the resource has reverted to a previously remediated bad configuration"
       ],
       "remediationTarget": {
-        "kind": "Deployment",
-        "name": "worker",
-        "namespace": "demo-crashloop-helm"
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "name": "worker-config",
+        "namespace": "demo-storefront"
       },
       "severity": "critical",
       "signalType": "KubePodCrashLooping",
-      "summary": "ConfigMap 'worker-config' contains an invalid nginx directive 'invalid_directive_that_breaks_nginx' at line 11, causing nginx to fail on startup with exit code 1 and enter CrashLoopBackOff. The bad config was introduced by a Helm upgrade (generation 2) that created a new ReplicaSet 'worker-6dd948b48f', while the previous ReplicaSet 'worker-5674774b64' remains healthy. The deployment is stuck with ProgressDeadlineExceeded. Remediation history shows this is a recurring regression \u2014 the ConfigMap has been patched multiple times before but the bad config keeps being reintroduced, likely by a faulty Helm chart or CI/CD pipeline."
+      "summary": "The worker pod is crash-looping due to an invalid nginx directive 'invalid_directive_that_breaks_nginx' on line 11 of nginx.conf, injected via ConfigMap 'worker-config' by a Helm chart upgrade (generation 2). nginx exits with code 1 within ~2 seconds of startup, causing rapid CrashLoopBackOff escalation on the new ReplicaSet (worker-8657dcd6f8), while the previous ReplicaSet's pods remain healthy and continue serving traffic."
+    },
+    "rootCauseSummary": "The worker pod is crash-looping due to an invalid nginx directive 'invalid_directive_that_breaks_nginx' on line 11 of nginx.conf, injected via ConfigMap 'worker-config' by a Helm chart upgrade (generation 2). nginx exits with code 1 within ~2 seconds of startup, causing rapid CrashLoopBackOff escalation on the new ReplicaSet (worker-8657dcd6f8), while the previous ReplicaSet's pods remain healthy and continue serving traffic.",
+    "postRCAContext": {
+      "gitOpsManaged": false,
+      "helmManaged": true,
+      "hpaEnabled": false,
+      "networkIsolated": false,
+      "pdbProtected": false,
+      "resourceQuotaConstrained": false,
+      "stateful": false
     },
     "selectedWorkflow": {
-      "confidence": 0.95,
-      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:93a44ca555172eff33f39837c1a86b94a36101504f27b92fb835b0bbee1fad83",
-      "executionBundleDigest": "93a44ca555172eff33f39837c1a86b94a36101504f27b92fb835b0bbee1fad83",
+      "confidence": 0.88,
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:79fc8838a10fcc697f68482b2c242c37c7e8d48edfa2b394baa532ebc1ed35f1",
+      "executionBundleDigest": "79fc8838a10fcc697f68482b2c242c37c7e8d48edfa2b394baa532ebc1ed35f1",
       "executionEngine": "job",
       "parameters": {
-        "TARGET_RESOURCE_API_VERSION": "apps/v1",
-        "TARGET_RESOURCE_KIND": "Deployment",
-        "TARGET_RESOURCE_NAME": "worker",
-        "TARGET_RESOURCE_NAMESPACE": "demo-crashloop-helm"
+        "TARGET_RESOURCE_API_VERSION": "v1",
+        "TARGET_RESOURCE_KIND": "ConfigMap",
+        "TARGET_RESOURCE_NAME": "worker-config",
+        "TARGET_RESOURCE_NAMESPACE": "demo-storefront"
       },
-      "rationale": "HelmRollback is the correct action type because: (1) helmManaged=true label is confirmed on the resource; (2) the bad ConfigMap was introduced by a Helm upgrade \u2014 rolling back the Helm release to the previous healthy revision will atomically restore the correct ConfigMap and terminate the bad ReplicaSet; (3) the previous ReplicaSet 'worker-5674774b64' is confirmed healthy, proving the prior Helm revision was good; (4) PatchConfiguration was rejected because the ConfigMap has been patched 4 times before with moderate effectiveness (0.58\u20130.66) and keeps reverting \u2014 a regression pattern indicating patch-only remediation does not address the Helm-driven root cause; (5) the workflow's detectedLabels match helmManaged=true and its component labels include both 'deployment' and 'configmap', directly matching this incident.",
-      "version": "1.3.6",
-      "workflowId": "7c1f0391-acf3-57c0-8908-73140cf180fb"
+      "rationale": "The workload is confirmed Helm-managed (helmManaged=true label) and entered CrashLoopBackOff immediately after a helm upgrade injected a bad ConfigMap. The previous Helm revision was healthy (old ReplicaSet pods are actively serving traffic). helm-rollback-v1 reverts the entire Helm release \u2014 including the faulty ConfigMap \u2014 to the last known-good revision, which is the safest and most complete remediation. PatchConfiguration workflows are explicitly contraindicated for Helm-managed workloads, as in-place patches to ConfigMaps will be overwritten by the next Helm sync or upgrade. The remediation history regression warning further supports a full rollback over a targeted patch.",
+      "version": "1.5.0",
+      "workflowId": "47ec5289-a204-5e3d-bdf7-6b444be8cb46"
     },
-    "approvalRequired": false,
-    "postRCAContext": {
-      "detectedLabels": {
-        "gitOpsManaged": false,
-        "helmManaged": true,
-        "hpaEnabled": false,
-        "networkIsolated": false,
-        "pdbProtected": false,
-        "resourceQuotaConstrained": false,
-        "stateful": false
-      },
-      "setAt": "2026-05-09T15:04:37Z"
-    }
+    "alternativeWorkflows": [
+      {
+        "confidence": 0.25,
+        "rationale": "hotfix-config-production-v1 directly targets the invalid nginx directive in the ConfigMap, which is the precise root cause. However, its own whenNotToUse guidance explicitly excludes Helm-managed workloads \u2014 an in-place patch would be overwritten by the next helm upgrade or sync, making it a temporary fix at best and potentially causing drift. Not recommended given helmManaged=true.",
+        "workflowId": "98523f4d-272b-5b0d-a4ee-f3a3a2d164bd"
+      }
+    ],
+    "actionability": "Actionable",
+    "approvalRequired": true,
+    "approvalReason": "Production environment requires manual approval",
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "phase": "Completed"
   },
-  "workflowExecution": {
-    "name": "we-rr-1b223d2cb297-93b94ce5",
-    "phase": "Completed",
-    "result": "",
-    "parameters": {
-      "TARGET_RESOURCE_API_VERSION": "apps/v1",
-      "TARGET_RESOURCE_KIND": "Deployment",
-      "TARGET_RESOURCE_NAME": "worker",
-      "TARGET_RESOURCE_NAMESPACE": "demo-crashloop-helm"
+  "llmTrace": [
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:12:02+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "14518",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
     },
-    "duration_ms": "11s"
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:12:06+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "9061",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "I'll investigate the KubePodCrashLooping alert for the `worker` deployment in the `demo-storefront` namespace. Let me start by gathering information in parallel."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:12:06+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"in_progress\", \"content\": \"Investigate pod status and events for worker pod in demo-storefront\"}, {\"id\": \"2\", \"status\": \"pending\", \"content\": \"Check deployment and replicaset status\"}, {\"id\": \"3\", \"status\": \"pending\", \"content\": \"Fetch current and previous pod logs\"}, {\"id\": \"4\", \"status\": \"pending\", \"content\": \"Check resource usage and node conditions\"}, {\"id\": \"5\", \"status\": \"pending\", \"content\": \"Determine root cause and get remediation context\"}]}",
+      "tool_result": "{\"total\": 6, \"by_status\": {\"pending\": 4, \"in_progress\": 2}, \"in_progress\": [{\"id\": \"1\", \"status\": \"in_progress\", \"content\": \"Investigate pod status and events for worker pod in demo-storefront\"}, {\"id\": \"6\", \"status\": \"in_progress\", \"content\": \"Submit RCA findings\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:12:06+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "14928",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:12:10+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "9388",
+      "tool_call_count": "3",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:12:32+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "26749",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:12:32+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_describe",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"kind\": \"Pod\", \"name\": \"worker-8657dcd6f8-8lhvw\", \"namespace\": \"demo-storefront\"}",
+      "tool_result": "# Pod Incident Summary: `worker-8657dcd6f8-8lhvw`\n\n## \ud83d\udd34 Critical Status: CrashLoopBackOff\n\n---\n\n## Identity & Ownership\n| Field | Value |\n|---|---|\n| **Pod Name** | `worker-8657dcd6f8-8lhvw` |\n| **Namespace** | `demo-storefront` |\n| **Owner** | ReplicaSet `worker-8657dcd6f8` (uid: `64ce707c-df2a-479f-bbf3-0ae664cb4367`) |\n| **Node** | `dev-worker-1.redhat-internal.com` |\n| **Created** | `2026-06-04T13:07:00Z` |\n| **Helm Release** | `demo-storefront` (chart `demo-storefront-0.1.0`, version `1.0.0`) |\n\n---\n\n## \u26a0\ufe0f Incident Details\n\n### Current State\n- **Phase:** `Running` (misleading \u2014 container is not actually running)\n- **Container State:** `Waiting` \u2192 **`CrashLoopBackOff`**\n- **Back-off Duration:** `2m40s` (indicates repeated failures)\n- **Restart Count:** **5**\n- **Ready:** `False`\n\n### Last Failure\n| Field | Value |\n|---|---|\n| **Exit Code** | `1` (application error) |\n| **Last Start** | `2026-06-04T13:10:05Z` |\n| **Last Termination** | `2026-06-04T13:10:07Z` |\n| **Runtime** | ~2 seconds before crash |\n| **Reason** | `Error` |\n| **Container Runtime ID** | `cri-o://4a6e036dd5b3f15c622ecc48595f41ad530dd5dd567e97324d95278c4066262a` |\n\n### Pod Conditions\n| Condition | Status | Notes |\n|---|---|---|\n| `PodScheduled` | \u2705 True | |\n| `Initialized` | \u2705 True | |\n| `PodReadyToStartContainers` | \u2705 True | |\n| `Ready` | \u274c False | `ContainersNotReady` |\n| `ContainersReady` | \u274c False | `ContainersNotReady` |\n\n---\n\n## Container Specification\n\n| Field | Value |\n|---|---|\n| **Name** | `worker` |\n| **Image** | `nginxinc/nginx-unprivileged:1.27-alpine` |\n| **Image Pull Policy** | `IfNotPresent` |\n| **Port** | `8080/TCP` |\n| **Liveness Probe** | `GET /healthz:8080` \u2014 initial delay 3s, period 5s, timeout 1s, failure threshold 3 |\n| **Readiness Probe** | `GET /healthz:8080` \u2014 initial delay 2s, period 3s, timeout 1s, failure threshold 3 |\n\n### Resource Allocation\n| | CPU | Memory |\n|---|---|---|\n| **Requests** | `10m` | `32Mi` |\n| **Limits** | `50m` | `64Mi` |\n| **QoS Class** | `Burstable` | |\n\n---\n\n## Security Context\n- **Run As Non-Root:** `true`\n- **Run As User:** `1000910000`\n- **FS Group:** `1000910000`\n- **Capabilities:** All dropped (`drop: ALL`)\n- **Privilege Escalation:** Disabled\n- **Seccomp:** `RuntimeDefault`\n- **SELinux Level:** `s0:c30,c20`\n- **SCC:** `restricted-v2`\n\n---\n\n## Volume Mounts\n| Mount Path | Source | Notes |\n|---|---|---|\n| `/etc/nginx/nginx.conf` | ConfigMap `worker-config` (key: `nginx.conf`) | \u26a0\ufe0f Primary investigation target |\n| `/var/run/secrets/kubernetes.io/serviceaccount` | Projected (SA token, CA certs) | Read-only |\n\n---\n\n## Network\n- **CNI:** `ovn-kubernetes` on `eth0`\n- **DNS Policy:** `ClusterFirst`\n\n---\n\n## \ud83d\udd0d Investigation Priorities\n\n1. **nginx.conf misconfiguration** \u2014 The container mounts its entire config from ConfigMap `worker-config`. An invalid config would cause nginx to exit immediately with code `1` after ~2 seconds, which matches the observed behavior exactly.\n   ```bash\n   kubectl get configmap worker-config -n demo-storefront -o yaml\n   ```\n\n2. **Container logs** \u2014 Retrieve logs from the last crash:\n   ```bash\n   kubectl logs worker-8657dcd6f8-8lhvw -n demo-storefront --previous\n   ```\n\n3. **Permission issues** \u2014 Confirm the ConfigMap-mounted `nginx.conf` is readable by UID `1000910000` and that nginx can write to required temp directories under the unprivileged image.\n\n4. **Image digest mismatch** \u2014 The image pull policy is `IfNotPresent`; verify the cached image on `dev-worker-1` matches the expected digest (`sha256:28d91b...`).\n\n5. **Resource exhaustion** \u2014 Memory limit of `64Mi` is tight for nginx; check if OOMKill is a contributing factor (though exit code `1` suggests application error over OOM).",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:12:32+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_describe",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"kind\": \"Deployment\", \"name\": \"worker\", \"namespace\": \"demo-storefront\"}",
+      "tool_result": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\"creationTimestamp\":\"2026-06-04T13:06:28Z\",\"generation\":2,\"labels\":{\"app\":\"worker\",\"app.kubernetes.io/instance\":\"demo-storefront\",\"app.kubernetes.io/managed-by\":\"Helm\",\"app.kubernetes.io/name\":\"demo-storefront\",\"app.kubernetes.io/version\":\"1.0.0\",\"helm.sh/chart\":\"demo-storefront-0.1.0\",\"kubernaut.ai/managed\":\"true\"},\"managedFields\":[{\"apiVersion\":\"apps/v1\",\"fieldsType\":\"FieldsV1\",\"fieldsV1\":{\"f:metadata\":{\"f:annotations\":{\"f:meta.helm.sh/release-name\":{},\"f:meta.helm.sh/release-namespace\":{}},\"f:labels\":{\"f:app\":{},\"f:app.kubernetes.io/instance\":{},\"f:app.kubernetes.io/managed-by\":{},\"f:app.kubernetes.io/name\":{},\"f:app.kubernetes.io/version\":{},\"f:helm.sh/chart\":{},\"f:kubernaut.ai/managed\":{}}},\"f:spec\":{\"f:replicas\":{},\"f:selector\":{},\"f:template\":{\"f:metadata\":{\"f:annotations\":{\"f:checksum/config\":{}},\"f:labels\":{\"f:app\":{},\"f:app.kubernetes.io/instance\":{},\"f:app.kubernetes.io/managed-by\":{},\"f:app.kubernetes.io/name\":{},\"f:app.kubernetes.io/version\":{},\"f:helm.sh/chart\":{},\"f:kubernaut.ai/managed\":{}}},\"f:spec\":{\"f:containers\":{\"k:{\\\"name\\\":\\\"worker\\\"}\":{\".\":{},\"f:image\":{},\"f:livenessProbe\":{\"f:httpGet\":{\"f:path\":{},\"f:port\":{}},\"f:initialDelaySeconds\":{},\"f:periodSeconds\":{}},\"f:name\":{},\"f:ports\":{\"k:{\\\"containerPort\\\":8080,\\\"protocol\\\":\\\"TCP\\\"}\":{\".\":{},\"f:containerPort\":{}}},\"f:readinessProbe\":{\"f:httpGet\":{\"f:path\":{},\"f:port\":{}},\"f:initialDelaySeconds\":{},\"f:periodSeconds\":{}},\"f:resources\":{\"f:limits\":{\"f:cpu\":{},\"f:memory\":{}},\"f:requests\":{\"f:cpu\":{},\"f:memory\":{}}},\"f:volumeMounts\":{\"k:{\\\"mountPath\\\":\\\"/etc/nginx/nginx.conf\\\"}\":{\".\":{},\"f:mountPath\":{},\"f:name\":{},\"f:subPath\":{}}}}},\"f:volumes\":{\"k:{\\\"name\\\":\\\"config\\\"}\":{\".\":{},\"f:configMap\":{\"f:name\":{}},\"f:name\":{}}}}}}},\"manager\":\"helm\",\"operation\":\"Apply\",\"time\":\"2026-06-04T13:07:00Z\"},{\"apiVersion\":\"apps/v1\",\"fieldsType\":\"FieldsV1\",\"fieldsV1\":{\"f:metadata\":{\"f:annotations\":{\"f:deployment.kubernetes.io/revision\":{}}},\"f:status\":{\"f:availableReplicas\":{},\"f:conditions\":{\".\":{},\"k:{\\\"type\\\":\\\"Available\\\"}\":{\".\":{},\"f:lastTransitionTime\":{},\"f:lastUpdateTime\":{},\"f:message\":{},\"f:reason\":{},\"f:status\":{},\"f:type\":{}},\"k:{\\\"type\\\":\\\"Progressing\\\"}\":{\".\":{},\"f:lastTransitionTime\":{},\"f:lastUpdateTime\":{},\"f:message\":{},\"f:reason\":{},\"f:status\":{},\"f:type\":{}}},\"f:observedGeneration\":{},\"f:readyReplicas\":{},\"f:replicas\":{},\"f:unavailableReplicas\":{},\"f:updatedReplicas\":{}}},\"manager\":\"kube-controller-manager\",\"operation\":\"Update\",\"subresource\":\"status\",\"time\":\"2026-06-04T13:07:00Z\"}],\"name\":\"worker\",\"namespace\":\"demo-storefront\",\"resourceVersion\":\"93043742\",\"uid\":\"a1668623-14ff-4cdf-b7e7-93a0b8bc7885\"},\"spec\":{\"progressDeadlineSeconds\":600,\"replicas\":2,\"revisionHistoryLimit\":10,\"selector\":{\"matchLabels\":{\"app\":\"worker\"}},\"strategy\":{\"rollingUpdate\":{\"maxSurge\":\"25%\",\"maxUnavailable\":\"25%\"},\"type\":\"RollingUpdate\"},\"template\":{\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"worker\",\"app.kubernetes.io/instance\":\"demo-storefront\",\"app.kubernetes.io/managed-by\":\"Helm\",\"app.kubernetes.io/name\":\"demo-storefront\",\"app.kubernetes.io/version\":\"1.0.0\",\"helm.sh/chart\":\"demo-storefront-0.1.0\",\"kubernaut.ai/managed\":\"true\"}},\"spec\":{\"containers\":[{\"image\":\"nginxinc/nginx-unprivileged:1.27-alpine\",\"imagePullPolicy\":\"IfNotPresent\",\"livenessProbe\":{\"failureThreshold\":3,\"httpGet\":{\"path\":\"/healthz\",\"port\":8080,\"scheme\":\"HTTP\"},\"initialDelaySeconds\":3,\"periodSeconds\":5,\"successThreshold\":1,\"timeoutSeconds\":1},\"name\":\"worker\",\"ports\":[{\"containerPort\":8080,\"protocol\":\"TCP\"}],\"readinessProbe\":{\"failureThreshold\":3,\"httpGet\":{\"path\":\"/healthz\",\"port\":8080,\"scheme\":\"HTTP\"},\"initialDelaySeconds\":2,\"periodSeconds\":3,\"successThreshold\":1,\"timeoutSeconds\":1},\"resources\":{\"limits\":{\"cpu\":\"50m\",\"memory\":\"64Mi\"},\"requests\":{\"cpu\":\"10m\",\"memory\":\"32Mi\"}},\"terminationMessagePath\":\"/dev/termination-log\",\"terminationMessagePolicy\":\"File\",\"volumeMounts\":[{\"mountPath\":\"/etc/nginx/nginx.conf\",\"name\":\"config\",\"subPath\":\"nginx.conf\"}]}],\"dnsPolicy\":\"ClusterFirst\",\"restartPolicy\":\"Always\",\"schedulerName\":\"default-scheduler\",\"securityContext\":{},\"terminationGracePeriodSeconds\":30,\"volumes\":[{\"configMap\":{\"defaultMode\":420,\"name\":\"worker-config\"},\"name\":\"config\"}]}}},\"status\":{\"availableReplicas\":2,\"conditions\":[{\"lastTransitionTime\":\"2026-06-04T13:06:34Z\",\"lastUpdateTime\":\"2026-06-04T13:06:34Z\",\"message\":\"Deployment has minimum availability.\",\"reason\":\"MinimumReplicasAvailable\",\"status\":\"True\",\"type\":\"Available\"},{\"lastTransitionTime\":\"2026-06-04T13:06:28Z\",\"lastUpdateTime\":\"2026-06-04T13:07:00Z\",\"message\":\"ReplicaSet \\\"worker-8657dcd6f8\\\" is progressing.\",\"reason\":\"ReplicaSetUpdated\",\"status\":\"True\",\"type\":\"Progressing\"}],\"observedGeneration\":2,\"readyReplicas\":2,\"replicas\":3,\"unavailableReplicas\":1,\"updatedReplicas\":1}}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:12:32+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_get_by_kind_in_namespace",
+      "tool_call_index": "2",
+      "tool_arguments": "{\"kind\": \"Pod\", \"namespace\": \"demo-storefront\"}",
+      "tool_result": "# Pod Summary: `demo-storefront` Namespace\n\n## Overview\n- **Namespace:** `demo-storefront`\n- **Workload:** `worker` (Helm-managed, `demo-storefront` chart v1.0.0)\n- **Total Pods Found:** 3\n- **Image:** `nginxinc/nginx-unprivileged:1.27-alpine`\n- **Container Port:** 8080\n- **Resources:** Requests: 10m CPU / 32Mi RAM | Limits: 50m CPU / 64Mi RAM\n\n---\n\n## Pod Status Table\n\n| Pod Name | ReplicaSet | Node | Phase | Ready | Restarts | State | Started |\n|---|---|---|---|---|---|---|---|\n| `worker-8657dcd6f8-8lhvw` | `worker-8657dcd6f8` | `dev-worker-1` | Running | \u274c False | **5** | **CrashLoopBackOff** | 2026-06-04T13:07:00Z |\n| `worker-c547b545f-fk4sz` | `worker-c547b545f` | `dev-worker-1` | Running | \u2705 True | 0 | Running | 2026-06-04T13:06:28Z |\n| `worker-c547b545f-zm5tj` | `worker-c547b545f` | `dev-worker-0` | Running | \u2705 True | 0 | Running | 2026-06-04T13:06:28Z |\n\n---\n\n## \u26a0\ufe0f Critical Finding: CrashLoopBackOff \u2014 `worker-8657dcd6f8-8lhvw`\n\n| Field | Detail |\n|---|---|\n| **State** | `CrashLoopBackOff` (back-off 2m40s) |\n| **Restart Count** | 5 |\n| **Last Exit Code** | `1` (Error) |\n| **Last Termination** | Started: `13:10:05Z` \u2192 Finished: `13:10:07Z` (ran ~2 seconds) |\n| **Ready Conditions** | `Ready=False`, `ContainersReady=False` |\n| **Reason** | `ContainersNotReady` |\n| **ReplicaSet** | `worker-8657dcd6f8` \u2014 **different RS from the healthy pods** (`worker-c547b545f`) |\n| **Node** | `dev-worker-1.redhat-internal.com` |\n\n> **Key Observation:** The failing pod belongs to a **newer ReplicaSet** (`8657dcd6f8`, created `13:07:00Z`) while the two healthy pods belong to an **older ReplicaSet** (`c547b545f`, created `13:06:28Z`). This strongly suggests a **failed rolling update/deployment** where the new revision is crash-looping and the old RS pods remain serving traffic.\n\n---\n\n## Healthy Pods Detail\n\nBoth `worker-c547b545f-*` pods:\n- **Ready:** True, **Restarts:** 0, running continuously since `13:06:29Z`\n- Spread across `dev-worker-0` and `dev-worker-1`\n- No previous termination state recorded\n\n---\n\n## Common Configuration (All Pods)\n\n| Setting | Value |\n|---|---|\n| **Liveness Probe** | `GET /healthz :8080`, initial delay 3s, period 5s, failure threshold 3 |\n| **Readiness Probe** | `GET /healthz :8080`, initial delay 2s, period 3s, failure threshold 3 |\n| **Config Mount** | `/etc/nginx/nginx.conf` from ConfigMap `worker-config` |\n| **Security** | `runAsNonRoot`, `allowPrivilegeEscalation=false`, all caps dropped, SCC `restricted-v2` |\n| **QoS Class** | Burstable |\n| **Network** | OVN-Kubernetes (eth0), OpenShift SDN |\n\n---\n\n## Investigation Priorities\n\n1. **Check logs** for `worker-8657dcd6f8-8lhvw` \u2014 exit code 1 after ~2 seconds suggests a startup/config error: `kubectl logs worker-8657dcd6f8-8lhvw -n demo-storefront --previous`\n2. **Compare ConfigMaps** \u2014 the new RS may reference a changed `worker-config` ConfigMap (note `checksum/config` annotation exists, indicating Helm config hash tracking)\n3. **Check Deployment rollout status** \u2014 the old RS is still serving; a rollback may be warranted: `kubectl rollout history deployment/worker -n demo-storefront`\n4. **Verify nginx.conf validity** \u2014 the 2-second runtime before exit code 1 is consistent with an nginx configuration parse failure",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:12:36+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "14105",
+      "tool_call_count": "4",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "Good findings. Now let me fetch the logs, previous logs, the ConfigMap, and events simultaneously."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:12:52+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_events",
+      "tool_call_index": "3",
+      "tool_arguments": "{\"kind\": \"Pod\", \"name\": \"worker-8657dcd6f8-8lhvw\", \"namespace\": \"demo-storefront\"}",
+      "tool_result": "# Kubernetes Event Summary: `worker-8657dcd6f8-8lhvw` (namespace: `demo-storefront`)\n\n## Timeline Overview\n\n| Timestamp | Event | Source | Type |\n|---|---|---|---|\n| 13:07:00 | Pod scheduled to `dev-worker-1.redhat-internal.com` | kube-scheduler | \u2705 Normal |\n| 13:07:01 | Network interface `eth0` added via OVN-Kubernetes (multus) | multus-daemon | \u2705 Normal |\n| 13:07:01 \u2192 13:10:05 | Container image already present; pulled (\u00d76) | kubelet | \u2705 Normal |\n| 13:07:01 \u2192 13:10:05 | Container `worker` created (\u00d76) | kubelet | \u2705 Normal |\n| 13:07:01 \u2192 13:10:05 | Container `worker` started (\u00d76) | kubelet | \u2705 Normal |\n| 13:07:03 \u2192 13:08:45 | **Readiness probe failed** \u2014 connection refused on `:8080/healthz` (\u00d73) | kubelet | \u26a0\ufe0f Warning |\n| 13:07:06 \u2192 13:12:05 | **CrashLoopBackOff** \u2014 container repeatedly restarting (\u00d728) | kubelet | \ud83d\udd34 Warning |\n\n---\n\n## Key Findings\n\n### \ud83d\udd34 CrashLoopBackOff (Critical)\n- The `worker` container has been restarting **28 times** between `13:07:06` and `13:12:05` (~5 minutes).\n- The high restart count combined with the repeat create/start events (\u00d76) confirms an active crash loop.\n\n### \u26a0\ufe0f Readiness Probe Failures\n- HTTP GET to `:8080/healthz` is returning **connection refused**, meaning the application process is either:\n  - Crashing before binding to port `8080`, or\n  - Not starting the HTTP listener at all.\n- Probe failures occurred **before** BackOff escalated, indicating the app fails quickly on startup.\n\n### \u2139\ufe0f Infrastructure Is Healthy\n- Scheduling, networking (OVN-Kubernetes/Multus), and image availability all succeeded without issue.\n- The problem is **isolated to the application layer** inside the container.\n\n---\n\n## Incident Investigation Recommendations\n\n1. **Check container logs** for crash/error output:\n   ```bash\n   kubectl logs worker-8657dcd6f8-8lhvw -n demo-storefront --previous\n   ```\n2. **Inspect container exit codes** to determine crash type (OOM, non-zero exit, signal):\n   ```bash\n   kubectl describe pod worker-8657dcd6f8-8lhvw -n demo-storefront\n   ```\n3. **Verify application configuration** \u2014 confirm `nginxinc/nginx-unprivileged:1.27-alpine` is correctly configured to serve on port `8080`.\n4. **Check for resource constraints** (OOMKill) or missing environment variables/secrets that may prevent startup.\n5. **Review the readiness probe definition** to ensure the path `/healthz` and port `8080` match the actual application endpoint.\n\n---\n\n**Image in use:** `nginxinc/nginx-unprivileged:1.27-alpine`\n**Node:** `dev-worker-1.redhat-internal.com`\n**Pod UID:** `4ada376d-be0c-41ea-ab88-01f88c6a8418`",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:12:52+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_logs",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"name\": \"worker-8657dcd6f8-8lhvw\", \"namespace\": \"demo-storefront\"}",
+      "tool_result": "/docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration\n/docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh\n10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf\n10-listen-on-ipv6-by-default.sh: info: /etc/nginx/conf.d/default.conf differs from the packaged version\n/docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh\n/docker-entrypoint.sh: Configuration complete; ready for start up\n2026/06/04 13:10:07 [emerg] 1#1: unknown directive \"invalid_directive_that_breaks_nginx\" in /etc/nginx/nginx.conf:11\nnginx: [emerg] unknown directive \"invalid_directive_that_breaks_nginx\" in /etc/nginx/nginx.conf:11",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:12:52+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_previous_logs",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"name\": \"worker-8657dcd6f8-8lhvw\", \"namespace\": \"demo-storefront\"}",
+      "tool_result": "/docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration\n/docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh\n10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf\n10-listen-on-ipv6-by-default.sh: info: /etc/nginx/conf.d/default.conf differs from the packaged version\n/docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh\n/docker-entrypoint.sh: Configuration complete; ready for start up\n2026/06/04 13:10:07 [emerg] 1#1: unknown directive \"invalid_directive_that_breaks_nginx\" in /etc/nginx/nginx.conf:11\nnginx: [emerg] unknown directive \"invalid_directive_that_breaks_nginx\" in /etc/nginx/nginx.conf:11",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:12:52+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_get_by_name",
+      "tool_call_index": "2",
+      "tool_arguments": "{\"kind\": \"ConfigMap\", \"name\": \"worker-config\", \"namespace\": \"demo-storefront\"}",
+      "tool_result": "{\"apiVersion\":\"v1\",\"data\":{\"nginx.conf\":\"worker_processes auto;\\nerror_log /var/log/nginx/error.log warn;\\npid /tmp/nginx.pid;\\n\\nevents {\\n    worker_connections 1024;\\n}\\n\\nhttp {\\n    # INVALID: causes nginx to fail on startup\\n    invalid_directive_that_breaks_nginx on;\\n\\n    server {\\n        listen 8080;\\n        server_name _;\\n\\n        location / {\\n            return 200 'healthy\\\\n';\\n            add_header Content-Type text/plain;\\n        }\\n    }\\n}\\n\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":[REDACTED],\"creationTimestamp\":\"2026-06-04T13:06:28Z\",\"labels\":{\"app.kubernetes.io/instance\":\"demo-storefront\",\"app.kubernetes.io/managed-by\":\"Helm\",\"app.kubernetes.io/name\":\"demo-storefront\",\"app.kubernetes.io/version\":\"1.0.0\",\"helm.sh/chart\":\"demo-storefront-0.1.0\"},\"managedFields\":[{\"apiVersion\":\"v1\",\"fieldsType\":\"FieldsV1\",\"fieldsV1\":{\"f:data\":{\"f:nginx.conf\":{}},\"f:metadata\":{\"f:annotations\":{\"f:meta.helm.sh/release-name\":{},\"f:meta.helm.sh/release-namespace\":{}},\"f:labels\":{\"f:app.kubernetes.io/instance\":{},\"f:app.kubernetes.io/managed-by\":{},\"f:app.kubernetes.io/name\":{},\"f:app.kubernetes.io/version\":{},\"f:helm.sh/chart\":{}}}},\"manager\":\"helm\",\"operation\":\"Apply\",\"time\":\"2026-06-04T13:06:59Z\"}],\"name\":\"worker-config\",\"namespace\":\"demo-storefront\",\"resourceVersion\":\"93043722\",\"uid\":\"c0efb806-fea4-4df0-88aa-ef4a84252142\"}}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:12:52+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "32778",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:12:56+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_logs",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"name\": \"worker-c547b545f-fk4sz\", \"namespace\": \"demo-storefront\", \"tailLines\": 10}",
+      "tool_result": "[REDACTED] - - [04/Jun/2026:13:12:38 +0000] \"GET /healthz HTTP/1.1\" 200 3 \"-\" \"kube-probe/1.34\"\n[REDACTED] - - [04/Jun/2026:13:12:40 +0000] \"GET /healthz HTTP/1.1\" 200 3 \"-\" \"kube-probe/1.34\"\n[REDACTED] - - [04/Jun/2026:13:12:43 +0000] \"GET /healthz HTTP/1.1\" 200 3 \"-\" \"kube-probe/1.34\"\n[REDACTED] - - [04/Jun/2026:13:12:43 +0000] \"GET /healthz HTTP/1.1\" 200 3 \"-\" \"kube-probe/1.34\"\n[REDACTED] - - [04/Jun/2026:13:12:46 +0000] \"GET /healthz HTTP/1.1\" 200 3 \"-\" \"kube-probe/1.34\"\n[REDACTED] - - [04/Jun/2026:13:12:48 +0000] \"GET /healthz HTTP/1.1\" 200 3 \"-\" \"kube-probe/1.34\"\n[REDACTED] - - [04/Jun/2026:13:12:49 +0000] \"GET /healthz HTTP/1.1\" 200 3 \"-\" \"kube-probe/1.34\"\n[REDACTED] - - [04/Jun/2026:13:12:52 +0000] \"GET /healthz HTTP/1.1\" 200 3 \"-\" \"kube-probe/1.34\"\n[REDACTED] - - [04/Jun/2026:13:12:53 +0000] \"GET /healthz HTTP/1.1\" 200 3 \"-\" \"kube-probe/1.34\"\n[REDACTED] - - [04/Jun/2026:13:12:55 +0000] \"GET /healthz HTTP/1.1\" 200 3 \"-\" \"kube-probe/1.34\"",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:12:56+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "16485",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "The root cause is crystal clear. Now let me get the resource context for the remediation target and also check the healthy pods' ConfigMap for comparison."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:12:56+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "get_namespaced_resource_context",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"kind\": \"Deployment\", \"name\": \"worker\", \"namespace\": \"demo-storefront\"}",
+      "tool_result": "{\"root_owner\": {\"kind\": \"Deployment\", \"name\": \"worker\", \"namespace\": \"demo-storefront\"}, \"remediation_history\": {\"tier1\": [], \"tier2\": [], \"tier1_window\": \"24h0m0s\", \"tier2_window\": \"2160h0m0s\", \"target_resource\": \"demo-storefront/Deployment/worker\", \"regression_detected\": false}}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:12:56+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "34153",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:13:01+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"completed\", \"content\": \"Investigate pod status and events for worker pod in demo-storefront\"}, {\"id\": \"2\", \"status\": \"completed\", \"content\": \"Check deployment and replicaset status\"}, {\"id\": \"3\", \"status\": \"completed\", \"content\": \"Fetch current and previous pod logs\"}, {\"id\": \"4\", \"status\": \"completed\", \"content\": \"Check resource usage and node conditions\"}, {\"id\": \"5\", \"status\": \"completed\", \"content\": \"Determine root cause and get remediation context\"}, {\"id\": \"6\", \"status\": \"in_progress\", \"content\": \"Submit RCA findings\"}]}",
+      "tool_result": "{\"total\": 6, \"by_status\": {\"completed\": 5, \"in_progress\": 1}, \"in_progress\": [{\"id\": \"6\", \"status\": \"in_progress\", \"content\": \"Submit RCA findings\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:13:01+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "17387",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:13:01+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "34290",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:13:45+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "19363",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "I have all the evidence needed. The root cause is unambiguous. Let me submit the findings."
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:13:45+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "9970",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:13:48+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "4825",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "I'll follow the three-step workflow discovery protocol. Let me start by setting up my investigation tasks and discovering available action types."
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:13:48+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "10282",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:13:48+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"in_progress\", \"content\": \"Step 1: List all available remediation action types\"}, {\"id\": \"2\", \"status\": \"pending\", \"content\": \"Step 2: List workflows for the best matching action type\"}, {\"id\": \"3\", \"status\": \"pending\", \"content\": \"Step 3: Get full workflow definition for selected workflow\"}, {\"id\": \"4\", \"status\": \"pending\", \"content\": \"Submit final result with selected workflow\"}]}",
+      "tool_result": "{\"total\": 6, \"by_status\": {\"pending\": 5, \"in_progress\": 1}, \"in_progress\": [{\"id\": \"1\", \"status\": \"in_progress\", \"content\": \"Step 1: List all available remediation action types\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:13:50+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "list_available_actions",
+      "tool_call_index": "0",
+      "tool_arguments": "{}",
+      "tool_result": "{\"actionTypes\": [{\"actionType\": \"HelmRollback\", \"description\": {\"what\": \"Roll back a Helm release to its previous healthy revision.\", \"whenToUse\": \"A Helm-managed workload is crashing after a helm upgrade introduced a bad configuration, and the previous Helm revision was healthy.\", \"whenNotToUse\": \"When the workload is not managed by Helm (use RollbackDeployment or GracefulRestart instead), or when the crash is caused by an external dependency failure.\", \"preconditions\": \"The Helm release has at least one previous healthy revision in its history, and the Helm tiller/controller has access to roll back.\"}, \"workflowCount\": 1}, {\"actionType\": \"PatchConfiguration\", \"description\": {\"what\": \"Patch a faulty ConfigMap or configuration resource in-place to fix a configuration error without rolling back the deployment.\", \"whenToUse\": \"When the root cause is a specific, identifiable configuration error in a mounted ConfigMap, and the fix is deterministic. Prioritizes speed over safety by modifying live resources.\", \"whenNotToUse\": \"When the root cause is unclear, when multiple configuration resources may be affected, or when a full rollback to a known-good revision is preferred for safety.\", \"preconditions\": \"The faulty configuration resource is identified and the correction can be applied programmatically.\"}, \"workflowCount\": 2}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:13:50+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "4927",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:13:50+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "11598",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:13:57+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "12427",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:13:57+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "5558",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "Two action types found. Let me analyze them against the RCA:\n\n- **HelmRollback**: Rolls back a Helm release \u2014 applicable since `helmManaged=true`, but the enrichment context warns of a **configuration regression** (the resource has reverted to a previously remediated state), suggesting rollback may not be sufficient.\n- **PatchConfiguration**: Patches a faulty ConfigMap in-place \u2014 directly targets the root cause (invalid nginx directive in `worker-config`), and the fix is deterministic (remov"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:13:57+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"completed\", \"content\": \"Step 1: List all available remediation action types\"}, {\"id\": \"2\", \"status\": \"in_progress\", \"content\": \"Step 2: List workflows for PatchConfiguration action type\"}, {\"id\": \"3\", \"status\": \"pending\", \"content\": \"Step 3: Get full workflow definition for selected workflow\"}, {\"id\": \"4\", \"status\": \"pending\", \"content\": \"Submit final result with selected workflow\"}]}",
+      "tool_result": "{\"total\": 6, \"by_status\": {\"pending\": 4, \"completed\": 1, \"in_progress\": 1}, \"in_progress\": [{\"id\": \"2\", \"status\": \"in_progress\", \"content\": \"Step 2: List workflows for PatchConfiguration action type\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:13:59+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "list_workflows",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"action_type\": \"PatchConfiguration\"}",
+      "tool_result": "{\"workflows\": [{\"name\": \"increase-db-connections-v1\", \"version\": \"1.5.0\", \"workflowId\": \"218efd66-e8a1-5d36-84eb-9927f7d95654\", \"description\": {\"what\": \"Increases the PostgreSQL max_connections limit by patching the database ConfigMap and restarting the database Deployment, relieving connection pool exhaustion so blocked clients can reconnect.\\n\", \"whenToUse\": \"When a DatabaseConnectionPoolExhausted or similar alert indicates that active database connections have reached or exceeded max_connections, and legitimate workloads are being denied connections. The ConfigMap holding the connection limit (e.g. POSTGRESQL_MAX_CONNECTIONS) is identifiable and the database supports dynamic pool expansion via restart.\\n\", \"whenNotToUse\": \"When the exhaustion is caused solely by a connection leak that will re-saturate any higher limit \u2014 scale down or restart the leaking workload instead. Also avoid when the database is at its hardware memory ceiling and cannot support more connections.\\n\", \"preconditions\": \"A ConfigMap holds the POSTGRESQL_MAX_CONNECTIONS value, the database Deployment reads it via envFrom, and the database has sufficient memory headroom to handle the increased connection count.\\n\"}, \"workflowName\": \"increase-db-connections-v1\", \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/increase-db-connections-job@sha256:30b82b424d3fb022fa33a30af4d5573f1fa43da2407f98bebfe0284d8017757d\", \"executionEngine\": \"job\", \"serviceAccountName\": \"increase-db-connections-v1-runner\"}, {\"name\": \"hotfix-config-production-v1\", \"version\": \"1.5.0\", \"workflowId\": \"98523f4d-272b-5b0d-a4ee-f3a3a2d164bd\", \"description\": {\"what\": \"Patches a faulty ConfigMap in-place to remove an invalid configuration directive, then restarts the owning Deployment so pods load the corrected configuration\", \"whenToUse\": \"When a Deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap, the signal carries risk_tolerance=low, and the workload is NOT managed by Helm or GitOps. The target resource may be the ConfigMap itself or the Deployment that mounts it. This workflow patches the ConfigMap in-place, which is only appropriate for imperatively managed resources. For Helm-managed workloads, use HelmRollback instead \u2014 a Helm rollback reverts the entire release including all ConfigMaps to the previous healthy revision.\", \"whenNotToUse\": \"When the workload is managed by Helm or GitOps (ArgoCD/Flux) \u2014 use HelmRollback or GitRevert instead, as in-place ConfigMap patches will be overwritten by the next sync or upgrade. Also avoid when the configuration error cannot be identified programmatically, or when the root cause is a bad image or pod spec change rather than a ConfigMap.\", \"preconditions\": \"A Deployment mounts a ConfigMap as a volume, and the ConfigMap contains an identifiable invalid directive that can be removed to restore health.\"}, \"workflowName\": \"hotfix-config-production-v1\", \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:dc17c4e54cae249b4105492d4a911db827decbae108a067983f187b426875187\", \"executionEngine\": \"job\", \"serviceAccountName\": \"hotfix-config-production-v1-runner\"}], \"actionType\": \"PatchConfiguration\"}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:13:59+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "5684",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:13:59+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "15592",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:14:04+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "6770",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "Two workflows found. Let me also check for HelmRollback workflows since `helmManaged=true` and it's flagged as an alternative. Let me retrieve both in parallel \u2014 the full definition of the most promising workflow (`hotfix-config-production-v1`) and the HelmRollback workflows:"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:14:04+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"completed\", \"content\": \"Step 1: List all available remediation action types\"}, {\"id\": \"2\", \"status\": \"completed\", \"content\": \"Step 2: List workflows for PatchConfiguration action type\"}, {\"id\": \"3\", \"status\": \"in_progress\", \"content\": \"Step 3: Get full workflow definition for selected workflow\"}, {\"id\": \"4\", \"status\": \"pending\", \"content\": \"Submit final result with selected workflow\"}]}",
+      "tool_result": "{\"total\": 6, \"by_status\": {\"pending\": 3, \"completed\": 2, \"in_progress\": 1}, \"in_progress\": [{\"id\": \"3\", \"status\": \"in_progress\", \"content\": \"Step 3: Get full workflow definition for selected workflow\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:14:04+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "16058",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:14:07+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "6961",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:14:07+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "list_workflows",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"action_type\": \"HelmRollback\"}",
+      "tool_result": "{\"workflows\": [{\"name\": \"helm-rollback-v1\", \"version\": \"1.5.0\", \"workflowId\": \"47ec5289-a204-5e3d-bdf7-6b444be8cb46\", \"description\": {\"what\": \"Rolls back a Helm release to its previous revision to recover from CrashLoopBackOff caused by a bad configuration change deployed via helm upgrade\", \"whenToUse\": \"When a Helm-managed deployment enters CrashLoopBackOff immediately after a helm upgrade, and the previous Helm revision was healthy\", \"whenNotToUse\": \"When the workload is not managed by Helm (use RollbackDeployment instead), or when the crash is caused by an external dependency failure\", \"preconditions\": \"The Helm release has at least one previous healthy revision in its history\"}, \"workflowName\": \"helm-rollback-v1\", \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:79fc8838a10fcc697f68482b2c242c37c7e8d48edfa2b394baa532ebc1ed35f1\", \"executionEngine\": \"job\", \"serviceAccountName\": \"helm-rollback-v1-runner\"}], \"actionType\": \"HelmRollback\"}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:14:07+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "17177",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:14:07+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "get_workflow",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"workflow_id\": \"98523f4d-272b-5b0d-a4ee-f3a3a2d164bd\"}",
+      "tool_result": "{\"type\": \"https://kubernaut.ai/problems/workflow-not-found\", \"title\": \"Not Found\", \"detail\": \"Workflow not found: 98523f4d-272b-5b0d-a4ee-f3a3a2d164bd\", \"status\": 404}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:14:12+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "17672",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:14:12+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "7570",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "The `hotfix-config-production-v1` workflow returned 404 \u2014 it's not retrievable. Let me fetch the other PatchConfiguration workflow and the HelmRollback workflow in parallel:"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:14:12+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "get_workflow",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"workflow_id\": \"218efd66-e8a1-5d36-84eb-9927f7d95654\"}",
+      "tool_result": "{\"type\": \"https://kubernaut.ai/problems/workflow-not-found\", \"title\": \"Not Found\", \"detail\": \"Workflow not found: 218efd66-e8a1-5d36-84eb-9927f7d95654\", \"status\": 404}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:14:12+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "get_workflow",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"workflow_id\": \"47ec5289-a204-5e3d-bdf7-6b444be8cb46\"}",
+      "tool_result": "{\"type\": \"https://kubernaut.ai/problems/workflow-not-found\", \"title\": \"Not Found\", \"detail\": \"Workflow not found: 47ec5289-a204-5e3d-bdf7-6b444be8cb46\", \"status\": 404}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T13:14:17+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"completed\", \"content\": \"Step 1: List all available remediation action types\"}, {\"id\": \"2\", \"status\": \"completed\", \"content\": \"Step 2: List workflows for PatchConfiguration action type\"}, {\"id\": \"3\", \"status\": \"completed\", \"content\": \"Step 3: Get full workflow definition for selected workflow (404 - using list metadata)\"}, {\"id\": \"4\", \"status\": \"in_progress\", \"content\": \"Submit final result with selected workflow\"}]}",
+      "tool_result": "{\"total\": 6, \"by_status\": {\"pending\": 2, \"completed\": 3, \"in_progress\": 1}, \"in_progress\": [{\"id\": \"4\", \"status\": \"in_progress\", \"content\": \"Submit final result with selected workflow\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:14:17+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "7981",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "All three `get_workflow` calls returned 404. The workflow definitions are not retrievable from the catalog. However, I have sufficient metadata from `list_workflows` to make a confident selection. Let me now finalize my analysis and submit."
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:14:17+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "18084",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T13:14:41+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "9284",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "**Workflow Selection Analysis:**\n\n| Workflow | Action Type | Fit | Notes |\n|---|---|---|---|\n| **hotfix-config-production-v1** | PatchConfiguration | \u274c Explicitly says `whenNotToUse` for Helm-managed workloads | `helmManaged=true` disqualifies this |\n| **increase-db-connections-v1** | PatchConfiguration | \u274c Wrong use case | Targets PostgreSQL connection limits \u2014 irrelevant |\n| **helm-rollback-v1** | HelmRollback | \u2705 Best fit | Helm-managed, CrashLoopBackOff after `helm upgrade`, previous"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T13:14:41+00:00",
+      "model": "",
+      "prompt_length": "0",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    }
+  ],
+  "traceStats": {
+    "totalTokens": 145349,
+    "llmTurns": 16,
+    "totalToolCalls": 21,
+    "k8sToolCalls": 15,
+    "model": "claude-sonnet-4-6"
+  },
+  "kaResponse": {
+    "analysis": "The worker pod is crash-looping due to an invalid nginx directive 'invalid_directive_that_breaks_nginx' on line 11 of nginx.conf, injected via ConfigMap 'worker-config' by a Helm chart upgrade (generation 2). nginx exits with code 1 within ~2 seconds of startup, causing rapid CrashLoopBackOff escalation on the new ReplicaSet (worker-8657dcd6f8), while the previous ReplicaSet's pods remain healthy and continue serving traffic.",
+    "warnings": [],
+    "timestamp": "2026-06-04T13:14:41Z",
+    "confidence": 0.88,
+    "incidentId": "rr-c2dc7f50dc7b-655e2056",
+    "needsHumanReview": false,
+    "selectedWorkflow": {
+      "confidence": 0.88,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "ConfigMap",
+        "TARGET_RESOURCE_NAME": "worker-config",
+        "TARGET_RESOURCE_NAMESPACE": "demo-storefront",
+        "TARGET_RESOURCE_API_VERSION": "v1"
+      },
+      "workflowId": "47ec5289-a204-5e3d-bdf7-6b444be8cb46",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:79fc8838a10fcc697f68482b2c242c37c7e8d48edfa2b394baa532ebc1ed35f1"
+    },
+    "rootCauseAnalysis": {
+      "summary": "The worker pod is crash-looping due to an invalid nginx directive 'invalid_directive_that_breaks_nginx' on line 11 of nginx.conf, injected via ConfigMap 'worker-config' by a Helm chart upgrade (generation 2). nginx exits with code 1 within ~2 seconds of startup, causing rapid CrashLoopBackOff escalation on the new ReplicaSet (worker-8657dcd6f8), while the previous ReplicaSet's pods remain healthy and continue serving traffic.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: Pod worker-8657dcd6f8-8lhvw is in CrashLoopBackOff with 5+ restarts in demo-storefront",
+        "Why? nginx exits immediately (exit code 1, ~2s runtime) every time the container starts",
+        "Why? nginx fails to parse /etc/nginx/nginx.conf: '[emerg] unknown directive \"invalid_directive_that_breaks_nginx\" in /etc/nginx/nginx.conf:11'",
+        "Why? ConfigMap 'worker-config' contains an invalid nginx directive 'invalid_directive_that_breaks_nginx on;' on line 11 of the nginx.conf data, with a comment explicitly noting it is invalid",
+        "Root cause: A Helm chart update (Deployment generation 2, applied at 13:06:59Z) deployed a broken ConfigMap 'worker-config' containing a deliberately invalid nginx configuration directive that prevents nginx from starting"
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "The remediation target is ConfigMap/worker-config because it contains the invalid nginx.conf that causes the crash. The Deployment itself has correct configuration \u2014 it correctly references the ConfigMap. Fixing the ConfigMap's nginx.conf content (removing line 11) is the precise, targeted fix. An automated workflow can patch the ConfigMap data directly.",
+        "proportionality": "The ConfigMap is the single resource whose modification resolves the issue. The Deployment does not need changes \u2014 it correctly references the ConfigMap. A targeted patch to ConfigMap/worker-config removing the invalid directive is sufficient. A rollout restart of the Deployment will then allow the new RS pod to start successfully.",
+        "scopeCompleteness": "Investigated: the crashing pod (describe + current logs + previous logs + events), the Deployment (spec and status), all pods in the namespace (3 pods identified), the ConfigMap worker-config (full content retrieved), and one healthy pod's logs for comparison. Node conditions were not explicitly checked but two healthy pods on the same nodes confirm nodes are healthy. No upstream/downstream service dependencies are relevant to a config parse failure.",
+        "causalCompleteness": "Traced fully: CrashLoopBackOff \u2192 exit code 1 \u2192 nginx config parse failure \u2192 invalid directive in ConfigMap \u2192 bad Helm chart update. Cannot go deeper without inspecting Helm chart source or Git history, but the ConfigMap content itself is the actionable root cause.",
+        "evidenceSufficiency": "All claims are backed by tool output: (1) nginx error log from both current and previous pod logs explicitly names the directive and line number; (2) kubectl_get_by_name on ConfigMap worker-config confirms the exact invalid directive at line 11 with a comment 'INVALID: causes nginx to fail on startup'; (3) Deployment describe shows generation 2 applied at 13:06:59Z matching the new RS creation time; (4) healthy pods from old RS (worker-c547b545f) serve traffic normally, confirmed by their logs showing HTTP 200 responses to /healthz probes.",
+        "regressionAwareness": "No prior remediation history is available for Deployment/worker in demo-storefront (confirmed via get_namespaced_resource_context). N/A \u2014 no previously failed remediations to regress against.",
+        "alternativeHypotheses": "OOMKill: ruled out \u2014 exit code is 1 (application error), not 137 (SIGKILL/OOM). Node pressure: ruled out \u2014 two other pods on the same nodes are healthy. Image issue: ruled out \u2014 image pull succeeded (IfNotPresent, image already present on node). Permission/security context: ruled out \u2014 the entrypoint scripts complete successfully; the failure occurs at nginx config parsing after successful container initialization. Missing secrets/env vars: ruled out \u2014 no env vars or secrets are referenced; only the ConfigMap volume mount is involved.",
+        "confidenceCalibration": "0.99: Starting at 1.0. -0.01 for not inspecting the Helm chart source or Git history to confirm whether the invalid directive was intentional (test artifact) or accidental (operator error). All other evidence is definitive \u2014 the nginx error message, ConfigMap content, and comment in the config leave no ambiguity about the root cause."
+      },
+      "remediationTarget": {
+        "kind": "ConfigMap",
+        "name": "worker-config",
+        "namespace": "demo-storefront"
+      },
+      "contributingFactors": [
+        "A Helm chart update (generation 2 of the Deployment) applied a new ConfigMap containing a deliberately invalid nginx directive, triggering a rolling update that created a new ReplicaSet (worker-8657dcd6f8) whose pods cannot start",
+        "The two healthy pods from the previous ReplicaSet (worker-c547b545f) continue serving traffic, masking the full impact but leaving the deployment in a degraded state with 1 unavailable replica",
+        "nginx exits within ~2 seconds of startup when it encounters an unknown directive during config parsing, which is too fast for readiness/liveness probes to distinguish \u2014 CrashLoopBackOff escalates rapidly",
+        "Enrichment history shows a configuration regression: the current resource spec matches a pre-remediation state, indicating the resource has reverted to a previously remediated bad configuration"
+      ]
+    },
+    "alternativeWorkflows": [
+      {
+        "rationale": "hotfix-config-production-v1 directly targets the invalid nginx directive in the ConfigMap, which is the precise root cause. However, its own whenNotToUse guidance explicitly excludes Helm-managed workloads \u2014 an in-place patch would be overwritten by the next helm upgrade or sync, making it a temporary fix at best and potentially causing drift. Not recommended given helmManaged=true.",
+        "confidence": 0.25,
+        "workflowId": "98523f4d-272b-5b0d-a4ee-f3a3a2d164bd"
+      }
+    ]
   },
   "effectivenessAssessment": {
-    "name": "ea-rr-1b223d2cb297-93b94ce5",
-    "phase": "Completed",
-    "verdict": "Full",
-    "components": {
-      "alertAssessed": true,
-      "alertScore": 1,
-      "currentSpecHash": "sha256:8c8ce0b8672a481e58de8fdd65af3b97b162398b4e368805e1b33e7e25521826",
-      "hashComputed": true,
-      "healthAssessed": true,
-      "healthScore": 1,
-      "metricsAssessed": true,
-      "metricsScore": 0,
-      "postRemediationSpecHash": "sha256:8c8ce0b8672a481e58de8fdd65af3b97b162398b4e368805e1b33e7e25521826"
-    }
-  },
-  "deduplication": {
-    "firstSeenAt": "2026-05-09T15:01:51Z",
-    "lastSeenAt": "2026-05-09T15:04:01Z",
-    "occurrenceCount": 3
-  },
-  "timeline": {
-    "signalReceived": "2026-05-09T15:01:51Z",
-    "analysisStarted": "2026-05-09T15:01:51Z",
-    "analysisCompleted": "2026-05-09T15:04:37Z",
-    "executionStarted": "2026-05-09T15:04:37Z",
-    "executionCompleted": "",
-    "verificationCompleted": "2026-05-09T15:09:47Z",
-    "overallCompleted": "2026-05-09T15:09:47Z"
-  },
-  "validationResult": {
-    "pass": true,
-    "assertions": 11,
-    "passed": 11,
-    "details": [
-      "RR phase = Completed",
-      "RR outcome = Remediated",
-      "SP phase = Completed",
-      "AA phase = Completed",
-      "AA selected a workflow",
-      "AA selected correct workflow contains helm-rollback-job",
-      "WFE phase = Completed",
-      "EA phase = Completed",
-      "Helm release status = deployed",
-      "Helm last revision is a rollback",
-      "All worker replicas ready = 2"
-    ]
+    "metricsScore": 0.0044816180171083145,
+    "alertScore": 1,
+    "healthScore": null
   }
 }

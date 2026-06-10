@@ -3,7 +3,7 @@
 # longer authenticate to the OCP internal registry for cross-namespace pulls.
 set -euo pipefail
 
-NAMESPACE="demo-imagepull"
+NAMESPACE="demo-inventory"
 
 echo "==> Simulating expired registry credentials (deleting ImagePullSecret)..."
 kubectl delete secret registry-credentials -n "${NAMESPACE}"

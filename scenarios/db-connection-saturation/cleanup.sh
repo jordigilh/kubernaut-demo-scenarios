@@ -12,20 +12,20 @@ echo "==> Disabling Kubernaut Agent Prometheus toolset..."
 disable_prometheus_toolset || true
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule db-connection-saturation-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts-orders -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
 kubectl delete -f "${SCRIPT_DIR}/manifests/servicemonitor.yaml" --ignore-not-found
-kubectl delete namespace demo-db-saturation --ignore-not-found --wait=true
+kubectl delete namespace demo-orders --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
-while kubectl get ns demo-db-saturation &>/dev/null; do
+while kubectl get ns demo-orders &>/dev/null; do
   sleep 2
 done
 
 echo "==> Silencing stale alerts in AlertManager..."
-silence_alert "DatabaseConnectionPoolExhausted" "demo-db-saturation" "2m"
+silence_alert "DatabaseConnectionPoolExhausted" "demo-orders" "2m"
 
 purge_pipeline_crds
 

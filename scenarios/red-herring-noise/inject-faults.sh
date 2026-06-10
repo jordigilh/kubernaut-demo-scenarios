@@ -13,7 +13,7 @@
 # This aligns with hotfix-config-v1's PatchConfiguration remediation strategy.
 set -euo pipefail
 
-NAMESPACE="demo-red-herring"
+NAMESPACE="demo-microservices"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

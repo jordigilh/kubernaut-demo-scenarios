@@ -31,7 +31,7 @@
 #   Every hidden-wait block uses act_clear before Show so the viewer always knows
 #   which act they are in.
 #
-# AUTO-APPROVE PATH: staging namespace (demo-hpa), no RAR required.
+# AUTO-APPROVE PATH: staging namespace (demo-gateway), no RAR required.
 
 Output scenarios/hpa-maxed/hpa-maxed.gif
 Output scenarios/hpa-maxed/hpa-maxed.mp4
@@ -95,7 +95,7 @@ Type `bash scenarios/hpa-maxed/cleanup.sh 2>/dev/null; true`
 Enter
 Sleep 5s
 
-Type `kubectl apply -f scenarios/hpa-maxed/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/hpa-maxed/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/api-frontend -n demo-hpa --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
+Type `kubectl apply -f scenarios/hpa-maxed/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/hpa-maxed/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/api-frontend -n demo-gateway --timeout=120s >/dev/null 2>&1 && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -130,7 +130,7 @@ Sleep 300ms
 Type "narrate 'Sustained load drives the HPA to its ceiling — it cannot scale further.'"
 Enter
 Sleep 300ms
-Type "narrate 'Workload running in namespace demo-hpa'"
+Type "narrate 'Workload running in namespace demo-gateway'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
@@ -139,18 +139,18 @@ Sleep 4s
 
 Hide
 Set TypingSpeed 1ms
-Type "narrate 'Healthy workload and HPA in namespace demo-hpa'"
+Type "narrate 'Healthy workload and HPA in namespace demo-gateway'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-hpa"
+Type "kubectl get pods -n demo-gateway"
 Enter
 Sleep 5s
 
-Type "kubectl get hpa -n demo-hpa"
+Type "kubectl get hpa -n demo-gateway"
 Enter
 Sleep 5s
 
@@ -179,7 +179,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-hpa -w"
+Type "kubectl get pods -n demo-gateway -w"
 Enter
 Wait+Screen@120s /Pending/
 Sleep 5s
@@ -220,7 +220,7 @@ Type "bash scripts/show-alert.sh KubeHpaMaxedOut"
 Enter
 Sleep 8s
 
-Type "kubectl get hpa -n demo-hpa"
+Type "kubectl get hpa -n demo-gateway"
 Enter
 Sleep 5s
 
@@ -312,7 +312,7 @@ Show
 Sleep 2s
 
 # Pod transition — shown FIRST so the viewer sees the live change
-Type "kubectl get pods -n demo-hpa -w"
+Type "kubectl get pods -n demo-gateway -w"
 Enter
 Sleep 30s
 Ctrl+C
@@ -331,7 +331,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-hpa"
+Type "bash scripts/show-ai-analysis.sh demo-gateway"
 Enter
 Sleep 24s
 
@@ -406,11 +406,11 @@ Set TypingSpeed 50ms
 Show
 Sleep 4s
 
-Type "kubectl get hpa -n demo-hpa"
+Type "kubectl get hpa -n demo-gateway"
 Enter
 Sleep 5s
 
-Type "kubectl get pods -n demo-hpa"
+Type "kubectl get pods -n demo-gateway"
 Enter
 Sleep 5s
 
@@ -436,7 +436,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-hpa"
+Type "bash scripts/show-effectiveness.sh demo-gateway"
 Enter
 Sleep 10s
 

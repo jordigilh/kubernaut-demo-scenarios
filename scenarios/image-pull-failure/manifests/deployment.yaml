@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: inventory-api
-  namespace: demo-imagepull
+  namespace: demo-inventory
   labels:
     app: inventory-api
 spec:
@@ -19,6 +19,6 @@ spec:
         - name: registry-credentials
       containers:
         - name: inventory-api
-          image: image-registry.openshift-image-registry.svc:5000/demo-imagepull-source/inventory-api:v1
+          image: image-registry.openshift-image-registry.svc:5000/demo-inventory-source/inventory-api:v1
           imagePullPolicy: Always
           command: ["/bin/sh", "-c", "while true; do sleep 3600; done"]

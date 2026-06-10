@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: postgres-init-sql
-  namespace: demo-diskpressure
+  namespace: demo-warehouse
 data:
   init.sql: |
     -- Kubernaut DiskPressure Demo (#324) - PostgreSQL init script

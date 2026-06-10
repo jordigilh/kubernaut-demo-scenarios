@@ -104,9 +104,9 @@ kubectl apply -k scenarios/network-policy-block/overlays/ocp/
 #### 2. Wait for deployment to be healthy
 
 ```bash
-kubectl wait --for=condition=Available deployment/web-frontend -n demo-netpol --timeout=120s
-kubectl wait --for=condition=Available deployment/traffic-gen -n demo-netpol --timeout=120s
-kubectl get pods -n demo-netpol
+kubectl wait --for=condition=Available deployment/web-frontend -n demo-frontend --timeout=120s
+kubectl wait --for=condition=Available deployment/traffic-gen -n demo-frontend --timeout=120s
+kubectl get pods -n demo-frontend
 ```
 
 #### 3. Inject deny-all NetworkPolicy
@@ -176,9 +176,9 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 | Field | Expected Value |
 |-------|---------------|
-| **Root Cause** | A deny-all-ingress NetworkPolicy injected into demo-netpol is blocking all traffic to web-frontend, causing traffic-gen's readiness probe to time out and the deployment to report zero available replicas. |
+| **Root Cause** | A default-network-policy NetworkPolicy injected into demo-frontend is blocking all traffic to web-frontend, causing traffic-gen's readiness probe to time out and the deployment to report zero available replicas. |
 | **Severity** | critical |
-| **Target Resource** | Deployment/traffic-gen (ns: demo-netpol) |
+| **Target Resource** | Deployment/traffic-gen (ns: demo-frontend) |
 | **Workflow Selected** | fix-network-policy-v1 |
 | **Confidence** | 0.97 |
 | **Approval** | not required |
@@ -188,7 +188,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 1. Detects traffic-gen readiness probe failures and connection timeouts to web-frontend.
 2. Describes deployment via `kubectl_describe`, lists pods and NetworkPolicies via `kubectl_get_by_kind_in_namespace`.
-3. Identifies a deny-all-ingress NetworkPolicy blocking all ingress traffic in the namespace.
+3. Identifies a default-network-policy NetworkPolicy blocking all ingress traffic in the namespace.
 4. Uses `get_namespaced_resource_context` and `kubectl_events` to confirm no other contributing factors.
 5. Selects `fix-network-policy-v1` workflow (confidence 0.97) to remove the offending policy.
 
@@ -222,15 +222,15 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 
 > **Note**: The LLM used 13 turns across both phases, with `kubectl_describe` and
 > `kubectl_get_by_kind_in_namespace` being the primary investigation tools. The LLM
-> correctly identified the `deny-all-ingress` NetworkPolicy as the root cause and
+> correctly identified the `default-network-policy` NetworkPolicy as the root cause and
 > matched it to the `fix-network-policy-v1` workflow with 0.97 confidence.
 
 #### 6. Verify remediation
 
 ```bash
-kubectl get networkpolicies -n demo-netpol
-kubectl get pods -n demo-netpol
-# deny-all-ingress should be removed, all pods Running and Ready
+kubectl get networkpolicies -n demo-frontend
+kubectl get pods -n demo-frontend
+# default-network-policy should be removed, all pods Running and Ready
 # traffic-gen should be Ready (readiness probe recovered)
 ```
 
@@ -254,11 +254,11 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 Feature: NetworkPolicy Traffic Block remediation
 
   Scenario: Deny-all NetworkPolicy blocks service connectivity
-    Given a Deployment "web-frontend" in namespace "demo-netpol"
+    Given a Deployment "web-frontend" in namespace "demo-frontend"
     And a traffic-gen Deployment with a readiness probe to web-frontend:8080
     And a baseline NetworkPolicy "allow-web-traffic" permits port 8080
     And all pods are Running and Ready
-    When a deny-all NetworkPolicy "deny-all-ingress" is applied
+    When a deny-all NetworkPolicy "default-network-policy" is applied
     Then all ingress traffic to web-frontend is blocked
     And the traffic-gen readiness probe fails
     And traffic-gen becomes NotReady
@@ -268,7 +268,7 @@ Feature: NetworkPolicy Traffic Block remediation
     Given traffic-gen has unavailable replicas due to blocked connectivity
     And the pipeline detects networkIsolated=true
     When the fix-network-policy-v1 workflow executes
-    Then the workflow removes the deny-all NetworkPolicy "deny-all-ingress"
+    Then the workflow removes the deny-all NetworkPolicy "default-network-policy"
     And the traffic-gen readiness probe recovers
     And traffic-gen becomes Ready
     And the alert self-resolves (no recurring signal)

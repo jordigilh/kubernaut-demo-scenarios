@@ -33,7 +33,7 @@ Type `STOP_FILE="/tmp/kubernaut-pending-taint-resource-stop"`
 Enter
 Sleep 200ms
 
-Type `resource_watch() { rm -f "$STOP_FILE"; clear; set +m; kubectl get pods -n demo-taint -o wide -w & local pid=$!; set -m; while [ ! -f "$STOP_FILE" ]; do sleep 2; done; kill $pid 2>/dev/null; wait $pid 2>/dev/null; clear && echo RESOURCE"_"WATCH"_"DONE; }`
+Type `resource_watch() { rm -f "$STOP_FILE"; clear; set +m; kubectl get pods -n demo-scheduler -o wide -w & local pid=$!; set -m; while [ ! -f "$STOP_FILE" ]; do sleep 2; done; kill $pid 2>/dev/null; wait $pid 2>/dev/null; clear && echo RESOURCE"_"WATCH"_"DONE; }`
 Enter
 Sleep 200ms
 

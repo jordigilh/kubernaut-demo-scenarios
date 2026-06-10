@@ -109,14 +109,14 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-crashloop'"
+Type "narrate 'Healthy workload running in namespace demo-checkout'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-crashloop"
+Type "kubectl get pods -n demo-checkout"
 Enter
 Sleep 6s
 
@@ -156,7 +156,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-crashloop -w"
+Type "kubectl get pods -n demo-checkout -w"
 Enter
 Wait+Screen@120s /CrashLoopBackOff/
 Sleep 5s
@@ -318,7 +318,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-crashloop"
+Type "bash scripts/show-ai-analysis.sh demo-checkout"
 Enter
 Sleep 20s
 
@@ -338,7 +338,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-approval-reason.sh demo-crashloop"
+Type "bash scripts/show-approval-reason.sh demo-checkout"
 Enter
 Sleep 12s
 
@@ -358,7 +358,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "(sleep 3 && bash scripts/approve-rar.sh >/dev/null 2>&1) & kubectl get pods -n demo-crashloop -w"
+Type "(sleep 3 && bash scripts/approve-rar.sh >/dev/null 2>&1) & kubectl get pods -n demo-checkout -w"
 Enter
 Sleep 15s
 Ctrl+C
@@ -419,7 +419,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-crashloop"
+Type "kubectl get pods -n demo-checkout"
 Enter
 Sleep 8s
 
@@ -471,7 +471,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-crashloop"
+Type "bash scripts/show-effectiveness.sh demo-checkout"
 Enter
 Sleep 10s
 

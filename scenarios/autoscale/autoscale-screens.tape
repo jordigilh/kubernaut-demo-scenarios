@@ -114,14 +114,14 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Healthy workload running in namespace demo-autoscale'"
+Type "narrate 'Healthy workload running in namespace demo-loadtest'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-autoscale"
+Type "kubectl get pods -n demo-loadtest"
 Enter
 Sleep 3s
 
@@ -253,7 +253,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-autoscale"
+Type "bash scripts/show-ai-analysis.sh demo-loadtest"
 Enter
 Sleep 20s
 
@@ -273,7 +273,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-approval-reason.sh demo-autoscale"
+Type "bash scripts/show-approval-reason.sh demo-loadtest"
 Enter
 Sleep 12s
 
@@ -346,7 +346,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-autoscale"
+Type "kubectl get pods -n demo-loadtest"
 Enter
 Sleep 2s
 
@@ -354,7 +354,7 @@ Type "kubectl get nodes"
 Enter
 Sleep 2s
 
-Type "kubectl get pods -n demo-autoscale -o wide"
+Type "kubectl get pods -n demo-loadtest -o wide"
 Enter
 Sleep 2s
 
@@ -398,7 +398,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-autoscale"
+Type "bash scripts/show-effectiveness.sh demo-loadtest"
 Enter
 Sleep 10s
 

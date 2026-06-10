@@ -9,21 +9,21 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 echo "==> Cleaning up StatefulSet PVC Failure demo..."
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule kubernaut-statefulset-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts-keystore -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-kubectl delete statefulset kv-store -n demo-statefulset --cascade=foreground --ignore-not-found
-kubectl delete pvc -l app=kv-store -n demo-statefulset --ignore-not-found
-kubectl delete namespace demo-statefulset --ignore-not-found --wait=true
+kubectl delete statefulset kv-store -n demo-keystore --cascade=foreground --ignore-not-found
+kubectl delete pvc -l app=kv-store -n demo-keystore --ignore-not-found
+kubectl delete namespace demo-keystore --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
 _elapsed=0
-while kubectl get ns demo-statefulset &>/dev/null; do
+while kubectl get ns demo-keystore &>/dev/null; do
   sleep 2
   _elapsed=$((_elapsed + 2))
   if [ "$_elapsed" -ge 120 ]; then
-    echo "  WARNING: Namespace demo-statefulset still terminating after 120s, proceeding..."
+    echo "  WARNING: Namespace demo-keystore still terminating after 120s, proceeding..."
     break
   fi
 done

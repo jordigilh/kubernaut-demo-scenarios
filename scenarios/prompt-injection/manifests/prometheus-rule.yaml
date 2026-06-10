@@ -1,22 +1,22 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-prompt-injection-rules
-  namespace: demo-prompt-injection
+  name: demo-app-alerts
+  namespace: demo-workers
   labels:
     release: prometheus
 spec:
   groups:
-  - name: kubernaut-prompt-injection
+  - name: demo-app
     rules:
     - alert: KubePodCrashLooping
       expr: |
         increase(
           kube_pod_container_status_restarts_total{
-            namespace="demo-prompt-injection",
+            namespace="demo-workers",
             container="worker"
           }[5m]
-        ) > 1
+        ) > 0
       for: 30s
       labels:
         severity: critical

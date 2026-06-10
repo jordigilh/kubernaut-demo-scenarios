@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-rbac"
+NAMESPACE="demo-monitoring"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""

@@ -92,7 +92,7 @@ Type `bash scenarios/orphaned-pvc-no-action/cleanup.sh 2>/dev/null; true`
 Enter
 Sleep 5s
 
-Type `kubectl apply -f scenarios/orphaned-pvc-no-action/manifests/namespace.yaml -f scenarios/orphaned-pvc-no-action/manifests/deployment.yaml -f scenarios/orphaned-pvc-no-action/manifests/prometheus-rule.yaml >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/data-processor -n demo-orphaned-pvc --timeout=120s >/dev/null 2>&1 && sleep 20 && clear && echo SETUP"_"COMPLETE`
+Type `kubectl apply -f scenarios/orphaned-pvc-no-action/manifests/namespace.yaml -f scenarios/orphaned-pvc-no-action/manifests/deployment.yaml -f scenarios/orphaned-pvc-no-action/manifests/prometheus-rule.yaml >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/data-processor -n demo-batch --timeout=120s >/dev/null 2>&1 && sleep 20 && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -123,14 +123,14 @@ Sleep 300ms
 Type "announce 'Act 1: PVCs orphaned, alert fires'"
 Enter
 Sleep 300ms
-Type "narrate 'Healthy workload running in namespace demo-orphaned-pvc'"
+Type "narrate 'Healthy workload running in namespace demo-batch'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-orphaned-pvc"
+Type "kubectl get pods -n demo-batch"
 Enter
 Sleep 5s
 
@@ -164,7 +164,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pvc -n demo-orphaned-pvc"
+Type "kubectl get pvc -n demo-batch"
 Enter
 Sleep 6s
 
@@ -303,7 +303,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-orphaned-pvc"
+Type "bash scripts/show-ai-analysis.sh demo-batch"
 Enter
 Sleep 24s
 

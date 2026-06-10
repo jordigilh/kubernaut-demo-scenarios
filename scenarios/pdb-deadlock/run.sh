@@ -10,7 +10,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-pdb"
+NAMESPACE="demo-payments"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""

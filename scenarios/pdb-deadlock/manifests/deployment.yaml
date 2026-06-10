@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: payment-service
-  namespace: demo-pdb
+  namespace: demo-payments
   labels:
     app: payment-service
     kubernaut.ai/managed: "true"
@@ -62,7 +62,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: payment-service
-  namespace: demo-pdb
+  namespace: demo-payments
   labels:
     app: payment-service
     kubernaut.ai/managed: "true"
@@ -80,7 +80,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: payment-service-pdb
-  namespace: demo-pdb
+  namespace: demo-payments
 spec:
   minAvailable: 2
   selector:

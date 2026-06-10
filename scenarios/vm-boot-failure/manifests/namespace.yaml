@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-vm-boot
+  labels:
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/environment: staging
+    kubernaut.ai/business-unit: platform-engineering
+    kubernaut.ai/service-owner: infra-team
+    kubernaut.ai/criticality: high
+    kubernaut.ai/sla-tier: tier-1

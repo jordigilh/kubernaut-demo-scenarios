@@ -47,7 +47,7 @@ metadata:
   name: defrag-etcd-v1
   namespace: kubernaut-system
 spec:
-  version: "1.4.2"
+  version: "1.5.0"
   description:
     what: "Performs a rolling defragmentation of etcd cluster members to reclaim fragmented database space, defragging one member at a time with health checks between each"
     whenToUse: "When etcd database fragmentation ratio exceeds 50% (etcd_mvcc_db_total_size_in_bytes much larger than etcd_mvcc_db_total_size_in_use_in_bytes). All etcd members must be healthy with a leader elected. The database size is stable (not actively growing from key creation)."
@@ -59,7 +59,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [production, staging]
-    component: [statefulset, etcd, database]
+    component: [apps/v1/StatefulSet]
     priority: "*"
 
   execution:

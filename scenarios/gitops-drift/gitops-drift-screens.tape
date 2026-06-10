@@ -99,7 +99,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-gitops"
+Type "kubectl get pods -n demo-webui"
 Enter
 Sleep 4s
 
@@ -203,7 +203,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-gitops"
+Type "bash scripts/show-ai-analysis.sh demo-webui"
 Enter
 Sleep 20s
 
@@ -231,7 +231,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get pods -n demo-gitops"
+Type "kubectl get pods -n demo-webui"
 Enter
 Sleep 4s
 
@@ -283,7 +283,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-gitops"
+Type "bash scripts/show-effectiveness.sh demo-webui"
 Enter
 Sleep 10s
 

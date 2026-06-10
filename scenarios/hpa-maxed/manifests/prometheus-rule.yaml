@@ -1,30 +1,28 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-hpa-maxed-rules
-  namespace: demo-hpa
+  name: demo-app-alerts
+  namespace: demo-gateway
   labels:
     release: prometheus
 spec:
   groups:
-  - name: kubernaut-hpa-maxed
+  - name: demo-app
     rules:
     # Detect HPA at maxReplicas while still under CPU pressure
     - alert: KubeHpaMaxedOut
       expr: |
-        kube_horizontalpodautoscaler_status_current_replicas{namespace="demo-hpa", horizontalpodautoscaler="api-frontend"}
+        kube_horizontalpodautoscaler_status_current_replicas{namespace="demo-gateway", horizontalpodautoscaler="api-frontend"}
         ==
-        kube_horizontalpodautoscaler_spec_max_replicas{namespace="demo-hpa", horizontalpodautoscaler="api-frontend"}
+        kube_horizontalpodautoscaler_spec_max_replicas{namespace="demo-gateway", horizontalpodautoscaler="api-frontend"}
       for: 30s
       labels:
         severity: warning
       annotations:
         summary: >
-          HPA {{ $labels.horizontalpodautoscaler }} in namespace {{ $labels.namespace }}
-          has reached its maxReplicas ceiling and cannot scale further.
+          Workload {{ $labels.horizontalpodautoscaler }} in namespace
+          {{ $labels.namespace }} is not gaining additional capacity.
         description: >
-          HPA {{ $labels.horizontalpodautoscaler }} in namespace {{ $labels.namespace }}
-          has scaled to its maximum replica count and cannot add more pods.
-          The deployment remains under resource pressure with the autoscaler
-          at its ceiling. Service degradation may occur if the load continues
-          to exceed the capacity of the current replica count.
+          A workload in namespace {{ $labels.namespace }} is not scaling out
+          despite sustained demand. Service degradation may occur if load
+          continues to exceed current replica capacity.

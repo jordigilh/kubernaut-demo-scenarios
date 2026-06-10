@@ -13,7 +13,7 @@
 # with the correct StorageClass, and the pod recovers.
 set -euo pipefail
 
-NAMESPACE="demo-statefulset"
+NAMESPACE="demo-keystore"
 STATEFULSET="kv-store"
 TARGET_PVC="data-kv-store-2"
 

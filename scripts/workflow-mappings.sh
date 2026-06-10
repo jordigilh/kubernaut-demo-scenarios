@@ -15,7 +15,7 @@ WORKFLOWS=(
     "autoscale:provision-node-job"
     "slo-burn:proactive-rollback-job"
     "memory-leak:graceful-restart-job"
-    "memory-escalation:increase-memory-limits-job"
+    "operator-oomkill-informer:increase-memory-limits-job"
     "crashloop:crashloop-rollback-job"
     "hpa-maxed:patch-hpa-job"
     "pdb-deadlock:relax-pdb-job"
@@ -40,4 +40,7 @@ WORKFLOWS=(
     "etcd-defrag-forecast:defrag-etcd-job"
     "db-connection-saturation:increase-db-connections-job"
     "scale-replicas:scale-replicas-job"
+    "patch-configuration:patch-configuration-job"
+    "fix-image-reference:fix-image-reference-job"
+    "vm-boot-failure:fix-datavolume-source-job"
 )

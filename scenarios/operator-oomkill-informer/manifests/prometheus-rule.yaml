@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-controllers-rules
+  namespace: openshift-monitoring
+spec:
+  groups:
+  - name: demo-controllers
+    rules:
+    - alert: KubePodCrashLooping
+      expr: |
+        rate(kube_pod_container_status_restarts_total{
+          namespace="demo-controllers",
+          pod=~"demo-controllers-controller.*"
+        }[10m]) * 60 * 5 > 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: >
+          Container {{ $labels.container }} in pod {{ $labels.pod }}
+          is restarting repeatedly in namespace {{ $labels.namespace }}.
+        description: >
+          A container in namespace {{ $labels.namespace }} is failing to
+          reach a stable running state. Elevated restart rate may indicate
+          service degradation.

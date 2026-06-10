@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-db-saturation"
+NAMESPACE="demo-orders"
 APPROVE_MODE="${1:---auto-approve}"
 
 # shellcheck source=../../scripts/validation-helper.sh
@@ -56,7 +56,7 @@ rem_target_name=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
 rem_target_kind=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
 
-# Multi-path validation: the LLM may target the leaker (ideal), postgres
+# Multi-path validation: the LLM may target the client-pool (ideal), postgres
 # (acceptable), or escalate. All are valid outcomes.
 if [ -n "$workflow_id" ]; then
     assert_neq "$workflow_id" "" "AA selected a workflow"
@@ -64,11 +64,11 @@ if [ -n "$workflow_id" ]; then
     wfe_phase=$(get_wfe_phase "${NAMESPACE}")
     assert_eq "$wfe_phase" "Completed" "WFE phase"
 
-    if [ "$rem_target_name" = "connection-leaker" ]; then
-        log_success "Path A (ideal): LLM correctly identified connection-leaker as root cause"
-        assert_eq "$rem_target_name" "connection-leaker" "RCA target is connection-leaker"
+    if [ "$rem_target_name" = "client-pool" ]; then
+        log_success "Path A (ideal): LLM correctly identified client-pool as root cause"
+        assert_eq "$rem_target_name" "client-pool" "RCA target is client-pool"
     elif [ "$rem_target_name" = "postgres" ]; then
-        log_warn "Path B (acceptable): LLM targeted postgres instead of leaker"
+        log_warn "Path B (acceptable): LLM targeted postgres instead of client-pool"
         assert_eq "$rem_target_name" "postgres" "RCA target is postgres (suboptimal but valid)"
     else
         log_warn "Path C: LLM targeted ${rem_target_kind}/${rem_target_name}"
@@ -87,9 +87,9 @@ else
 fi
 
 # ── Post-remediation cleanup ────────────────────────────────────────────────
-# Scale down the leaker so connections release and the alert resolves.
-log_phase "Scaling down connection-leaker (root cause fix)..."
-kubectl scale deployment/connection-leaker -n "${NAMESPACE}" --replicas=0 2>/dev/null || true
-kubectl rollout status deployment/connection-leaker -n "${NAMESPACE}" --timeout=30s 2>/dev/null || true
+# Scale down the client-pool so connections release and the alert resolves.
+log_phase "Scaling down client-pool (root cause fix)..."
+kubectl scale deployment/client-pool -n "${NAMESPACE}" --replicas=0 2>/dev/null || true
+kubectl rollout status deployment/client-pool -n "${NAMESPACE}" --timeout=30s 2>/dev/null || true
 
 print_result "db-connection-saturation"

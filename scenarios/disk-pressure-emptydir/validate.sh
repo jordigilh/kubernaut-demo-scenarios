@@ -9,7 +9,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-diskpressure"
+NAMESPACE="demo-warehouse"
 PIPELINE_TIMEOUT=1800
 APPROVE_MODE="${1:---auto-approve}"
 
@@ -78,12 +78,12 @@ pvc_exists=$(kubectl get pvc postgres-data -n "${NAMESPACE}" --no-headers 2>/dev
 assert_gt "${pvc_exists}" "0" "PVC postgres-data exists"
 
 # Verify PostgreSQL pod is running
-healthy_pods=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres-emptydir --no-headers 2>/dev/null \
+healthy_pods=$(kubectl get pods -n "${NAMESPACE}" -l app=postgres --no-headers 2>/dev/null \
   | grep -c "Running" || true)
 assert_gt "${healthy_pods:-0}" "0" "At least 1 healthy Running postgres pod"
 
 # Verify data survived migration
-row_count=$(kubectl exec -n "${NAMESPACE}" deploy/postgres-emptydir -- \
+row_count=$(kubectl exec -n "${NAMESPACE}" deploy/postgres -- \
   psql -U postgres -d postgres -t -c "SELECT count(*) FROM events;" 2>/dev/null \
   | tr -d ' ' || echo "0")
 assert_gt "${row_count}" "0" "Database has rows after migration (data survived)"

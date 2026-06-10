@@ -74,14 +74,14 @@ Type "clear"
 Enter
 Sleep 300ms
 Hide
-Type "narrate 'Certificates in namespace demo-cert-failure'"
+Type "narrate 'Certificates in namespace demo-portal'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get certificates -n demo-cert-failure"
+Type "kubectl get certificates -n demo-portal"
 Enter
 Sleep 8s
 
@@ -177,7 +177,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-ai-analysis.sh demo-cert-failure"
+Type "bash scripts/show-ai-analysis.sh demo-portal"
 Enter
 Sleep 20s
 
@@ -205,7 +205,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "kubectl get certificates -n demo-cert-failure"
+Type "kubectl get certificates -n demo-portal"
 Enter
 Sleep 8s
 
@@ -237,7 +237,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 500ms
 
-Type "bash scripts/show-effectiveness.sh demo-cert-failure"
+Type "bash scripts/show-effectiveness.sh demo-portal"
 Enter
 Sleep 10s
 

@@ -39,7 +39,7 @@ Enter
 Sleep 200ms
 
 # Function runs kubectl -w in background, polls for stop file, then exits cleanly.
-Type `resource_watch() { rm -f "$STOP_FILE"; clear; set +m; kubectl get resourcequota -n demo-quota -w & local pid=$!; set -m; while [ ! -f "$STOP_FILE" ]; do sleep 2; done; kill $pid 2>/dev/null; wait $pid 2>/dev/null; clear && echo RESOURCE"_"WATCH"_"DONE; }`
+Type `resource_watch() { rm -f "$STOP_FILE"; clear; set +m; kubectl get resourcequota -n demo-platform -w & local pid=$!; set -m; while [ ! -f "$STOP_FILE" ]; do sleep 2; done; kill $pid 2>/dev/null; wait $pid 2>/dev/null; clear && echo RESOURCE"_"WATCH"_"DONE; }`
 Enter
 Sleep 200ms
 

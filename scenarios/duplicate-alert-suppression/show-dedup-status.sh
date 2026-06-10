@@ -2,7 +2,7 @@
 # Display Gateway deduplication metrics for the alert storm scenario
 set -euo pipefail
 
-NAMESPACE="demo-alert-storm"
+NAMESPACE="demo-ingress"
 
 echo "==> RemediationRequest Deduplication Status:"
 echo ""

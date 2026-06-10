@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: gateway-config
-  namespace: demo-alert-storm
+  namespace: demo-ingress
 data:
   config.yaml: |
     port: 8080

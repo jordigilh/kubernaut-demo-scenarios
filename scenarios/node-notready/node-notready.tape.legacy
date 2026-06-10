@@ -145,7 +145,7 @@ Type "kubectl get nodes"
 Enter
 Sleep 5s
 
-Type "kubectl get pods -n demo-node -o wide"
+Type "kubectl get pods -n demo-compute -o wide"
 Enter
 Sleep 5s
 
@@ -175,7 +175,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-node -o wide -w"
+Type "kubectl get pods -n demo-compute -o wide -w"
 Enter
 Wait+Screen@120s /Terminating/
 Sleep 5s
@@ -317,7 +317,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-node"
+Type "bash scripts/show-ai-analysis.sh demo-compute"
 Enter
 Sleep 24s
 
@@ -330,7 +330,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-approval-reason.sh demo-node"
+Type "bash scripts/show-approval-reason.sh demo-compute"
 Enter
 Sleep 12s
 
@@ -342,7 +342,7 @@ Sleep 500ms
 Type "narrate 'Approving and watching pods — the workflow will cordon, drain, and reschedule'"
 Enter
 Sleep 300ms
-Type "(sleep 3 && bash scripts/approve-rar.sh >/dev/null 2>&1) & kubectl get pods -n demo-node -o wide -w"
+Type "(sleep 3 && bash scripts/approve-rar.sh >/dev/null 2>&1) & kubectl get pods -n demo-compute -o wide -w"
 Enter
 Set TypingSpeed 50ms
 Show
@@ -406,7 +406,7 @@ Type "kubectl get nodes"
 Enter
 Sleep 5s
 
-Type "kubectl get pods -n demo-node -o wide"
+Type "kubectl get pods -n demo-compute -o wide"
 Enter
 Sleep 5s
 
@@ -440,7 +440,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-node"
+Type "bash scripts/show-effectiveness.sh demo-compute"
 Enter
 Sleep 10s
 

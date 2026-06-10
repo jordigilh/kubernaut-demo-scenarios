@@ -1,13 +1,13 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: kubernaut-node-notready-rules
-  namespace: demo-node
+  name: demo-app-alerts
+  namespace: demo-compute
   labels:
     release: prometheus
 spec:
   groups:
-  - name: kubernaut-node-notready
+  - name: demo-app
     rules:
     - alert: KubeNodeNotReady
       expr: |
@@ -17,13 +17,11 @@ spec:
       for: 30s
       labels:
         severity: critical
-        namespace: demo-node
+        namespace: demo-compute
       annotations:
         summary: >
-          Node {{ $labels.node }} is in NotReady state for more than 1 minute.
+          Node {{ $labels.node }} is in NotReady state.
         description: >
-          Node {{ $labels.node }} has transitioned to NotReady status, indicating
-          the kubelet is no longer reporting healthy. Pods scheduled on this node
-          may experience disruption. If the condition persists beyond the
-          pod-eviction-timeout, the controller manager will begin evicting pods
-          from the node.
+          A cluster node has transitioned to NotReady status. Workloads
+          scheduled on this node may experience disruption or reduced
+          availability.

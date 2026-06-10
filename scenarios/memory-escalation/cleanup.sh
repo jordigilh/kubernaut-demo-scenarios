@@ -13,14 +13,14 @@ disable_prometheus_toolset || true
 restore_production_approval || true
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule kubernaut-memory-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts-ml-pipeline -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-kubectl delete namespace demo-memory-escalation --ignore-not-found --wait=true
+kubectl delete namespace demo-ml-pipeline --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
-while kubectl get ns demo-memory-escalation &>/dev/null; do
+while kubectl get ns demo-ml-pipeline &>/dev/null; do
   sleep 2
 done
 

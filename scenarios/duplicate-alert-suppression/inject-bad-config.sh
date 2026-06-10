@@ -2,7 +2,7 @@
 # Inject invalid config to cause all 5 pods to crash simultaneously
 set -euo pipefail
 
-NAMESPACE="demo-alert-storm"
+NAMESPACE="demo-ingress"
 
 echo "==> Injecting bad configuration into gateway-config..."
 
@@ -11,7 +11,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: gateway-config-bad
-  namespace: demo-alert-storm
+  namespace: demo-ingress
 data:
   config.yaml: |
     port: 8080

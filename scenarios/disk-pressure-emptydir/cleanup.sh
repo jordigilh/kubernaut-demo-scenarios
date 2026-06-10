@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-diskpressure"
+NAMESPACE="demo-warehouse"
 
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
@@ -16,11 +16,11 @@ disable_prometheus_toolset || true
 # Delete ArgoCD Application first (stops sync loop).
 # The app lives in openshift-gitops on OCP, argocd on Kind.
 ARGOCD_NS=$(get_argocd_namespace)
-kubectl delete application demo-diskpressure -n "${ARGOCD_NS}" --ignore-not-found 2>/dev/null || true
+kubectl delete application demo-warehouse -n "${ARGOCD_NS}" --ignore-not-found 2>/dev/null || true
 
-# Delete PrometheusRule (lives in openshift-monitoring on OCP, demo-diskpressure on Kind)
+# Delete PrometheusRule (lives in openshift-monitoring on OCP, demo-warehouse on Kind)
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule demo-diskpressure-rules -n openshift-monitoring --ignore-not-found 2>/dev/null || true
+    kubectl delete prometheusrule demo-app-alerts-warehouse -n openshift-monitoring --ignore-not-found 2>/dev/null || true
 fi
 kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found 2>/dev/null || true
 
@@ -114,7 +114,7 @@ restart_alertmanager
 # GITEA_NAMESPACE="gitea"
 # kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http 3000:3000 &
 # PF_PID=$!; sleep 2
-# curl -s -X DELETE "http://localhost:3000/api/v1/repos/kubernaut/demo-diskpressure-repo" \
+# curl -s -X DELETE "http://localhost:3000/api/v1/repos/kubernaut/demo-warehouse-repo" \
 #   -u "kubernaut:kubernaut123" -o /dev/null 2>/dev/null || true
 # kill "${PF_PID}" 2>/dev/null || true
 

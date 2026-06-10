@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO_NAME="resource-quota-exhaustion"
-DEMO_NS="demo-quota"
+DEMO_NS="demo-platform"
 ALERT_NAME="KubeResourceQuotaExhausted"
 RESOURCE_TAPE="resource-quota-exhaustion-quota.tape"
 SCREENS_TAPE="resource-quota-exhaustion-screens.tape"

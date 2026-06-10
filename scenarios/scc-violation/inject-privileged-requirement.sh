@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NAMESPACE="demo-scc"
+NAMESPACE="demo-agents"
 
 echo "==> Simulating privileged requirement (SCC violation)..."
 kubectl patch deployment metrics-agent -n "${NAMESPACE}" --type=json -p '[

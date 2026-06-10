@@ -5,15 +5,18 @@ resources:
 patches:
   - target:
       kind: Namespace
-      name: demo-resource-contention
+      name: demo-analytics
     patch: |
       - op: add
         path: /metadata/labels/openshift.io~1cluster-monitoring
         value: "true"
   - target:
       kind: PrometheusRule
-      name: contention-app-alerts
+      name: demo-app-alerts
     patch: |
+      - op: replace
+        path: /metadata/name
+        value: demo-app-alerts-analytics
       - op: remove
         path: /metadata/labels/release
       - op: replace
@@ -21,7 +24,7 @@ patches:
         value: openshift-monitoring
   - target:
       kind: Deployment
-      name: contention-app
+      name: analytics-worker
     patch: |
       - op: add
         path: /spec/template/spec/containers/0/securityContext

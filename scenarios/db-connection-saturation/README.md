@@ -24,7 +24,7 @@ restart it -- not the database itself.
 ## Architecture
 
 ```
-connection-leaker            postgres (max_connections=15)        Kubernaut
+client-pool            postgres (max_connections=15)        Kubernaut
   (opens 1 conn/8s,           postgres_exporter sidecar           (deep investigation)
    never releases)              (pg_stat_activity_count)
        |                              |                               |
@@ -32,8 +32,8 @@ connection-leaker            postgres (max_connections=15)        Kubernaut
   connections accumulate  -->  active > 10 threshold  -->  DatabaseConnectionPoolExhausted
                                                             --> RemediationRequest
   order-service: "FATAL:                                    --> AI Analysis (investigate WHO)
-    too many connections"                                   --> Identify connection-leaker
-  report-generator: same                                    --> GracefulRestart on leaker
+    too many connections"                                   --> Identify client-pool
+  report-generator: same                                    --> GracefulRestart on client-pool
                                                             --> Connections released
                                                             --> EffectivenessAssessment
 ```
@@ -45,7 +45,7 @@ warning threshold (10 out of 15 `max_connections`):
 
 ```promql
 pg_stat_activity_count{
-  namespace="demo-db-saturation",
+  namespace="demo-orders",
   datname="demo",
   state="active"
 } > 10
@@ -55,9 +55,9 @@ pg_stat_activity_count{
 
 - **Deployment `postgres`**: PostgreSQL 16 with `max_connections=15`,
   `superuser_reserved_connections=3`. Includes `postgres_exporter` sidecar for metrics.
-- **Deployment `connection-leaker`**: Opens persistent `psql` sessions (~1 every 8s)
+- **Deployment `client-pool`**: Opens persistent `psql` sessions (~1 every 8s)
   that hold connections indefinitely via `SELECT pg_sleep(86400)`. Logs clearly identify
-  each leaked connection: `[connection-leaker] Opening persistent connection #N`.
+  each leaked connection: `[client-pool] Opening persistent connection #N`.
 - **Deployment `order-service`**: Normal workload using short-lived connections. Logs
   `[order-service] ERROR: Database query failed` when pool is exhausted.
 - **Deployment `report-generator`**: Same pattern as order-service, different name.
@@ -68,16 +68,16 @@ The LLM should:
 
 1. Query `pg_stat_activity_count` to see connection distribution
 2. Read logs from all deployments in the namespace
-3. Notice `connection-leaker` logs show accumulating persistent connections
+3. Notice `client-pool` logs show accumulating persistent connections
 4. Notice `order-service` and `report-generator` show connection errors (victims, not cause)
-5. Identify `Deployment/connection-leaker` as the `remediationTarget`
-6. Select `GracefulRestart` to restart the leaker and release all held connections
+5. Identify `Deployment/client-pool` as the `remediationTarget`
+6. Select `GracefulRestart` to restart the client-pool and release all held connections
 
 ## Validation (Multi-Path)
 
 | Path | RCA Target | Outcome | Grade |
 |------|------------|---------|-------|
-| A (ideal) | `Deployment/connection-leaker` | Remediated | Pass |
+| A (ideal) | `Deployment/client-pool` | Remediated | Pass |
 | B (acceptable) | `Deployment/postgres` | Remediated | Pass (suboptimal) |
 | C (acceptable) | Any other target | Remediated | Pass with warning |
 | D (acceptable) | N/A (escalated) | Escalated | Pass |

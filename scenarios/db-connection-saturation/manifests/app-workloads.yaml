@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: order-service
-  namespace: demo-db-saturation
+  namespace: demo-orders
   labels:
     app: order-service
     kubernaut.ai/managed: "true"
@@ -44,7 +44,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: report-generator
-  namespace: demo-db-saturation
+  namespace: demo-orders
   labels:
     app: report-generator
     kubernaut.ai/managed: "true"

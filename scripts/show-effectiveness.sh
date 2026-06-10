@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Display the EffectivenessAssessment result for demo recordings.
 # Usage: bash scripts/show-effectiveness.sh <scenario-namespace>
-# Example: bash scripts/show-effectiveness.sh demo-crashloop
+# Example: bash scripts/show-effectiveness.sh demo-checkout
 set -euo pipefail
 
 SCENARIO_NS="${1:?Usage: show-effectiveness.sh <scenario-namespace>}"

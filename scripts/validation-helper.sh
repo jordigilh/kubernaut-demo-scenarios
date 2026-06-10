@@ -5,7 +5,7 @@
 #
 # All display functions produce clean terminal output suitable for both
 # interactive use and VHS recordings. Functions are individually callable:
-#   source validation-helper.sh && show_ai_analysis demo-hpa
+#   source validation-helper.sh && show_ai_analysis demo-gateway
 
 # ── Color support ────────────────────────────────────────────────────────────
 # Respects NO_COLOR (https://no-color.org/) and --no-color flag.
@@ -102,7 +102,7 @@ _find_rr_name() {
     local target_ns="$1"
     # Find the best RR whose signalLabels.namespace exactly matches the
     # target namespace.  Uses awk instead of grep to avoid substring collisions
-    # (e.g. "demo-crashloop" matching "demo-crashloop-helm") — #148.
+    # (e.g. "demo-store" matching "demo-storefront") — #148.
     #
     # Priority (multi-RR dedup scenarios): Completed+Remediated > any
     # Completed (Inconclusive, etc.) > active pipeline

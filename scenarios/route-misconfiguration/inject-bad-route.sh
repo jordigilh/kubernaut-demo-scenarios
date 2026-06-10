@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NAMESPACE="demo-route"
+NAMESPACE="demo-store"
 
 echo "==> Simulating blue/green misconfiguration..."
 kubectl patch route storefront -n "${NAMESPACE}" --type=merge \

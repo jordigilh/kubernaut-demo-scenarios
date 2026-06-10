@@ -2,7 +2,7 @@
 # Proactive Memory Exhaustion Demo -- Automated Runner
 # Scenario #129: predict_linear detects OOM trend -> graceful restart
 #
-# The 'leaker' sidecar allocates ~1MB every 5 seconds (~12MB/min) via a
+# The 'data-processor' sidecar allocates ~1MB every 5 seconds (~12MB/min) via a
 # memory-backed emptyDir. predict_linear projects OOM within 30 minutes,
 # triggering ContainerMemoryExhaustionPredicted. The LLM selects
 # GracefulRestart (rolling restart) to reset memory before OOM.
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-memory-leak"
+NAMESPACE="demo-telemetry"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
@@ -43,7 +43,7 @@ echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
 enable_prometheus_toolset
 echo ""
 
-# The leaker refills memory at ~12MB/min after a graceful restart. The EM
+# The data-processor refills memory at ~12MB/min after a graceful restart. The EM
 # must complete its assessment before the alert re-fires (~60-90s). Use a
 # short stabilization window so the EA samples the "reset" state quickly.
 echo "==> Configuring EM for fast-recurring fault scenario..."
@@ -58,10 +58,10 @@ MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 
 # Step 2: Wait for deployment to be healthy
-echo "==> Step 2: Waiting for leaky-app to be ready..."
-kubectl wait --for=condition=Available deployment/leaky-app \
+echo "==> Step 2: Waiting for data-service to be ready..."
+kubectl wait --for=condition=Available deployment/data-service \
   -n "${NAMESPACE}" --timeout=120s
-echo "  leaky-app is running (2 pods with leaker sidecar)."
+echo "  data-service is running (2 pods with data-processor sidecar)."
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 

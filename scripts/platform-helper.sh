@@ -136,6 +136,79 @@ get_argocd_server_svc() {
     fi
 }
 
+# Ensure the OCP AlertManager has a webhook route pointing to the Gateway.
+# On Kind this is handled by the kube-prometheus-stack Helm values.
+# On OCP the alertmanager-main Secret must contain the correct HTTPS URL
+# and TLS config for the in-cluster Gateway service.
+_ensure_alertmanager_webhook() {
+    if [ "$PLATFORM" != "ocp" ]; then
+        return 0
+    fi
+
+    local expected_url="https://gateway-service.${PLATFORM_NS}.svc.cluster.local:8443/api/v1/signals/prometheus"
+    local config_file="${REPO_ROOT}/helm/ocp-alertmanager-config.yaml"
+
+    if [ ! -f "$config_file" ]; then
+        echo "  WARNING: ${config_file} not found — skipping AlertManager webhook check."
+        return 0
+    fi
+
+    local current_url
+    current_url=$(kubectl get secret alertmanager-main -n openshift-monitoring \
+        -o jsonpath='{.data.alertmanager\.yaml}' 2>/dev/null \
+        | base64 -d 2>/dev/null \
+        | grep -o 'url: "[^"]*"' 2>/dev/null \
+        | head -1 \
+        | sed 's/url: "//;s/"//' || true)
+
+    if [ "$current_url" = "$expected_url" ]; then
+        return 0
+    fi
+
+    echo "==> Applying OCP AlertManager webhook config..."
+    if [ -n "$current_url" ]; then
+        echo "  Updating: ${current_url}"
+        echo "        ->  ${expected_url}"
+    fi
+    kubectl -n openshift-monitoring create secret generic alertmanager-main \
+        --from-file=alertmanager.yaml="$config_file" \
+        --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1
+    echo "  AlertManager webhook configured for Gateway."
+}
+
+_ensure_rego_policies() {
+    local sp_policy="${REPO_ROOT}/deploy/defaults/signalprocessing-policy.rego"
+    local aa_policy="${REPO_ROOT}/deploy/defaults/approval-policy.rego"
+
+    if [ -f "$sp_policy" ]; then
+        local current_hash desired_hash
+        current_hash=$(kubectl get configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+            -o jsonpath='{.data.policy\.rego}' 2>/dev/null | shasum -a 256 | cut -d' ' -f1 || true)
+        desired_hash=$(shasum -a 256 < "$sp_policy" | cut -d' ' -f1)
+        if [ "$current_hash" != "$desired_hash" ]; then
+            echo "==> Applying signalprocessing-policy from deploy/defaults..."
+            kubectl create configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+                --from-file=policy.rego="$sp_policy" \
+                --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1
+            echo "  signalprocessing-policy ConfigMap updated."
+        fi
+    fi
+
+    if [ -f "$aa_policy" ]; then
+        local current_hash desired_hash
+        current_hash=$(kubectl get configmap aianalysis-policies -n "${PLATFORM_NS}" \
+            -o jsonpath='{.data.approval\.rego}' 2>/dev/null | shasum -a 256 | cut -d' ' -f1 || true)
+        desired_hash=$(shasum -a 256 < "$aa_policy" | cut -d' ' -f1)
+        if [ "$current_hash" != "$desired_hash" ]; then
+            echo "==> Applying aianalysis-policies from deploy/defaults..."
+            kubectl create configmap aianalysis-policies -n "${PLATFORM_NS}" \
+                --from-file=approval.rego="$aa_policy" \
+                --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1
+            echo "  aianalysis-policies ConfigMap updated."
+        fi
+    fi
+}
+
 # Restart AlertManager to clear stale notification state after cleanup.
 # On OCP the AlertManager is managed by the cluster monitoring operator;
 # restarting it is unnecessary (alerts auto-resolve) and may be disruptive.
@@ -363,7 +436,10 @@ require_demo_ready() {
 
     if [ "$PLATFORM" = "ocp" ]; then
         _warn_slow_ksm_scrape
+        _ensure_alertmanager_webhook
     fi
+
+    _ensure_rego_policies
 
     # Default preflight: verify kube-state-metrics is scraping. Every scenario
     # depends on Prometheus alerts, so catch a broken metrics pipeline early.

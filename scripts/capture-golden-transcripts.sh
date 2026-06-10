@@ -24,17 +24,24 @@ _psql() {
 
 # Namespace-to-scenario mapping
 declare -A NS_MAP=(
-  [demo-gitops]=gitops-drift
+  [demo-webui]=gitops-drift
   [demo-team-alpha]=concurrent-cross-namespace
   [demo-team-beta]=concurrent-cross-namespace-beta
-  [demo-crashloop-helm]=crashloop-helm
-  [demo-alert-storm]=duplicate-alert-suppression
-  [demo-node]=node-notready
-  [demo-resource-contention]=resource-contention
-  [demo-statefulset]=statefulset-pvc-failure
-  [demo-cert-failure]=cert-failure
-  [demo-mesh-failure]=mesh-routing-failure
-  [demo-diskpressure]=disk-pressure-emptydir
+  [demo-storefront]=crashloop-helm
+  [demo-ingress]=duplicate-alert-suppression
+  [demo-compute]=node-notready
+  [demo-analytics]=resource-contention
+  [demo-keystore]=statefulset-pvc-failure
+  [demo-portal]=cert-failure
+  [demo-mesh]=mesh-routing-failure
+  [demo-warehouse]=disk-pressure-emptydir
+  [demo-api]=slo-burn
+  [demo-scheduler]=pending-taint
+  [demo-backend]=alert-misdirection
+  [demo-services]=severity-misdirection
+  [demo-microservices]=red-herring-noise
+  [demo-workers]=prompt-injection
+  [demo-fulfillment]=cascading-service-failure
 )
 
 echo "==> Discovering best run per scenario..."

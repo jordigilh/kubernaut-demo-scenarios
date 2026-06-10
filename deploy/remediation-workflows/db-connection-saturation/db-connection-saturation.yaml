@@ -50,7 +50,7 @@ metadata:
   name: increase-db-connections-v1
   namespace: kubernaut-system
 spec:
-  version: "1.4.2"
+  version: "1.5.0"
   description:
     what: >
       Increases the PostgreSQL max_connections limit by patching the database
@@ -77,7 +77,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [production, staging]
-    component: [configmap, deployment]
+    component: [v1/ConfigMap, apps/v1/Deployment]
     priority: "*"
 
   execution:

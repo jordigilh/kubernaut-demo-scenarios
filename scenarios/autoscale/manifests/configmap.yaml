@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: web-cluster-config
-  namespace: demo-autoscale
+  namespace: demo-loadtest
 data:
   config.yaml: |
     port: 8080

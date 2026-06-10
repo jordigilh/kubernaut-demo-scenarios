@@ -1,20 +1,14 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: demo-diskpressure-rules
-  namespace: demo-diskpressure
+  name: demo-app-alerts
+  namespace: demo-warehouse
   labels:
     release: kube-prometheus-stack
 spec:
   groups:
-    - name: demo-diskpressure
+    - name: demo-app
       rules:
-        # Proactive alert: fires BEFORE DiskPressure occurs (BR-SP-106 / ADR-054).
-        # SP normalizes PredictedDiskPressure -> DiskPressure (signalMode=proactive).
-        # predict_linear() projects disk exhaustion based on recent growth trend.
-        # Tuned for demo with generous remediation window: [1m] window
-        # needs only 2 scrape samples (~60s), 1800s horizon, 15s sustain.
-        # Alert fires ~75s after data growth; ~20 min margin for LLM + workflow.
         - alert: PredictedDiskPressure
           expr: |
             predict_linear(
@@ -24,16 +18,10 @@ spec:
           for: 15s
           labels:
             severity: high
-            namespace: demo-diskpressure
+            namespace: demo-warehouse
             node: '{{ $labels.instance }}'
             environment: production
             component: deployment
           annotations:
-            summary: "Node {{ $labels.instance }} predicted to exhaust disk within 30 minutes"
-            node_name: '{{ $labels.instance }}'
-            description: >-
-              Linear regression on node {{ $labels.instance }} filesystem
-              (/var/lib/kubelet) predicts available space will reach zero
-              within 30 minutes based on the current write rate. If disk
-              space is exhausted, the kubelet will begin evicting pods and
-              the node may enter DiskPressure condition.
+            summary: "Node {{ $labels.instance }} predicted to exhaust disk within 30 minutes."
+            description: "Linear regression on node {{ $labels.instance }} projects available disk space will reach zero within 30 minutes at the current write rate. Pod evictions may occur."

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NAMESPACE="demo-rbac"
+NAMESPACE="demo-monitoring"
 
 echo "==> Simulating accidental RoleBinding deletion (security audit cleanup)..."
 kubectl delete rolebinding metrics-collector-binding -n "${NAMESPACE}"

@@ -94,7 +94,7 @@ Type `bash scenarios/autoscale/cleanup.sh 2>/dev/null; true`
 Enter
 Sleep 5s
 
-Type `kubectl apply -f scenarios/autoscale/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/autoscale/manifests/ >/dev/null 2>&1; sleep 3; kubectl apply -f scenarios/autoscale/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/web-cluster -n demo-autoscale --timeout=120s >/dev/null 2>&1 && (nohup bash scenarios/autoscale/provisioner.sh >/dev/null 2>&1 &) && clear && echo SETUP"_"COMPLETE`
+Type `kubectl apply -f scenarios/autoscale/manifests/namespace.yaml >/dev/null 2>&1 && kubectl apply -f scenarios/autoscale/manifests/ >/dev/null 2>&1; sleep 3; kubectl apply -f scenarios/autoscale/manifests/ >/dev/null 2>&1 && kubectl wait --for=condition=Available deployment/web-cluster -n demo-loadtest --timeout=120s >/dev/null 2>&1 && (nohup bash scenarios/autoscale/provisioner.sh >/dev/null 2>&1 &) && clear && echo SETUP"_"COMPLETE`
 Enter
 Wait+Screen@300s /SETUP_COMPLETE/
 
@@ -129,7 +129,7 @@ Sleep 300ms
 Type "narrate 'Scaling up the deployment exceeds available node capacity.'"
 Enter
 Sleep 300ms
-Type "narrate 'Workload running in namespace demo-autoscale'"
+Type "narrate 'Workload running in namespace demo-loadtest'"
 Enter
 Sleep 300ms
 Set TypingSpeed 50ms
@@ -145,7 +145,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-autoscale"
+Type "kubectl get pods -n demo-loadtest"
 Enter
 Sleep 5s
 
@@ -162,7 +162,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl scale deployment/web-cluster --replicas=8 -n demo-autoscale"
+Type "kubectl scale deployment/web-cluster --replicas=8 -n demo-loadtest"
 Enter
 Sleep 4s
 
@@ -179,7 +179,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "kubectl get pods -n demo-autoscale -w"
+Type "kubectl get pods -n demo-loadtest -w"
 Enter
 Wait+Screen@120s /Pending/
 Sleep 5s
@@ -334,7 +334,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-ai-analysis.sh demo-autoscale"
+Type "bash scripts/show-ai-analysis.sh demo-loadtest"
 Enter
 Sleep 24s
 
@@ -347,7 +347,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-approval-reason.sh demo-autoscale"
+Type "bash scripts/show-approval-reason.sh demo-loadtest"
 Enter
 Sleep 12s
 
@@ -359,7 +359,7 @@ Sleep 500ms
 Type "narrate 'Approving and watching pods — the workflow will provision a new node'"
 Enter
 Sleep 300ms
-Type "(sleep 3 && bash scripts/approve-rar.sh >/dev/null 2>&1) & kubectl get pods -n demo-autoscale -w"
+Type "(sleep 3 && bash scripts/approve-rar.sh >/dev/null 2>&1) & kubectl get pods -n demo-loadtest -w"
 Enter
 Set TypingSpeed 50ms
 Show
@@ -423,7 +423,7 @@ Type "kubectl get nodes"
 Enter
 Sleep 5s
 
-Type "kubectl get pods -n demo-autoscale -o wide"
+Type "kubectl get pods -n demo-loadtest -o wide"
 Enter
 Sleep 5s
 
@@ -482,7 +482,7 @@ Set TypingSpeed 50ms
 Show
 Sleep 2s
 
-Type "bash scripts/show-effectiveness.sh demo-autoscale"
+Type "bash scripts/show-effectiveness.sh demo-loadtest"
 Enter
 Sleep 10s
 

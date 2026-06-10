@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: web-frontend
-  namespace: demo-gitops
+  namespace: demo-webui
   labels:
     app: web-frontend
     kubernaut.ai/managed: "true"

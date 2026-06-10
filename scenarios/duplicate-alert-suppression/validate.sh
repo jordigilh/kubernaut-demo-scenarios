@@ -11,7 +11,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-alert-storm"
+NAMESPACE="demo-ingress"
 APPROVE_MODE="${1:---auto-approve}"
 
 # shellcheck source=../../scripts/validation-helper.sh
@@ -38,20 +38,25 @@ active_rr_count=$(kubectl get rr -n "${PLATFORM_NS}" \
   | grep -v "^Blocked=" | grep "=${NAMESPACE}$" | wc -l | tr -d ' ')
 assert_eq "$active_rr_count" "1" "Exactly 1 active (non-blocked) RR"
 
-rr_phase=$(get_rr_phase "${NAMESPACE}")
-assert_eq "$rr_phase" "Completed" "RR phase"
-
-rr_outcome=$(get_rr_outcome "${NAMESPACE}")
-assert_eq "$rr_outcome" "Remediated" "RR outcome"
-
-sp_phase=$(get_sp_phase "${NAMESPACE}")
-assert_eq "$sp_phase" "Completed" "SP phase"
-
-aa_phase=$(get_aa_phase "${NAMESPACE}")
-assert_eq "$aa_phase" "Completed" "AA phase"
-
+# Resolve RR name once to avoid TOCTOU races when duplicate RRs exist
 rr_name=$(get_rr_name "${NAMESPACE}")
 aa_name="ai-${rr_name}"
+
+rr_phase=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.overallPhase}' 2>/dev/null || echo "")
+assert_eq "$rr_phase" "Completed" "RR phase"
+
+rr_outcome=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+assert_eq "$rr_outcome" "Remediated" "RR outcome"
+
+sp_phase=$(kubectl get signalprocessings "sp-${rr_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+assert_eq "$sp_phase" "Completed" "SP phase"
+
+aa_phase=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+assert_eq "$aa_phase" "Completed" "AA phase"
 
 workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
@@ -59,17 +64,28 @@ assert_neq "$workflow_id" "" "AA selected a workflow"
 
 bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
-# Both crashloop-rollback (deployment rollback) and hotfix-config (ConfigMap patch)
-# are valid remediations — the LLM may prefer either depending on RCA framing.
-if echo "$bundle" | grep -q "crashloop-rollback-job\|hotfix-config-job"; then
+# Any rollback variant is valid: the root cause is a bad Deployment spec change
+# (volume ref to a different ConfigMap), so crashloop-rollback, rollback-deployment,
+# and proactive-rollback all apply. hotfix-config is also accepted if available.
+if echo "$bundle" | grep -qE "crashloop-rollback-job|rollback-deployment-job|proactive-rollback-job|hotfix-config-job"; then
     _ASSERT_TOTAL=$((_ASSERT_TOTAL + 1)); _ASSERT_PASS=$((_ASSERT_PASS + 1))
-    log_success "[PASS] AA selected correct workflow contains \"crashloop-rollback-job\" or \"hotfix-config-job\""
+    log_success "[PASS] AA selected correct workflow bundle=${bundle}"
 else
     _ASSERT_TOTAL=$((_ASSERT_TOTAL + 1)); _ASSERT_FAIL=$((_ASSERT_FAIL + 1))
-    log_error "[FAIL] AA selected correct workflow = ${bundle} (expected: crashloop-rollback-job or hotfix-config-job)"
+    log_error "[FAIL] AA selected correct workflow = ${bundle} (expected: crashloop-rollback-job, rollback-deployment-job, proactive-rollback-job, or hotfix-config-job)"
 fi
 
-wfe_phase=$(get_wfe_phase "${NAMESPACE}")
+wfe_phase=$(kubectl get workflowexecutions "wfe-${rr_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+if [ -z "$wfe_phase" ]; then
+    wfe_phase=$(kubectl get workflowexecutions "we-${rr_name}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+fi
+if [ -z "$wfe_phase" ]; then
+    wfe_phase=$(kubectl get wfe -n "${PLATFORM_NS}" \
+      -o jsonpath='{range .items[*]}{.metadata.labels.kubernaut\.ai/source-namespace}={.status.phase}{"\n"}{end}' 2>/dev/null \
+      | grep "^${NAMESPACE}=" | head -1 | cut -d= -f2 || true)
+fi
 assert_eq "$wfe_phase" "Completed" "WFE phase"
 
 # After remediation, pods should recover

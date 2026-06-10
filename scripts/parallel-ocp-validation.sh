@@ -7,16 +7,22 @@
 #   nohup bash scripts/parallel-ocp-validation.sh 2>&1 | tee parallel-run.log &
 #
 # Groups:
-#   A (7 scenarios): crashloop, crashloop-helm, stuck-rollout, memory-leak,
-#                    resource-contention, hpa-maxed,
-#                    duplicate-alert-suppression
-#   Excluded: autoscale (Kind-only), node-notready (Kind-only)
-#   B (9 scenarios): network-policy-block, statefulset-pvc-failure,
-#                    resource-quota-exhaustion, cert-failure, slo-burn,
-#                    orphaned-pvc-no-action, concurrent-cross-namespace,
-#                    mesh-routing-failure, pending-taint
-#   Solo (after both): memory-escalation (patches gateway cooldown),
-#                      pdb-deadlock, disk-pressure-emptydir
+#   A (13 scenarios): crashloop, crashloop-helm, stuck-rollout, memory-leak,
+#                     resource-contention, hpa-maxed, duplicate-alert-suppression,
+#                     operator-oomkill-informer, db-connection-saturation,
+#                     image-pull-failure, rbac-failure, red-herring-noise,
+#                     severity-misdirection
+#   B (13 scenarios): network-policy-block, statefulset-pvc-failure,
+#                     resource-quota-exhaustion, cert-failure, slo-burn,
+#                     orphaned-pvc-no-action, concurrent-cross-namespace,
+#                     mesh-routing-failure, pending-taint,
+#                     cascading-service-failure, cross-namespace-dependency,
+#                     route-misconfiguration, scc-violation
+#   Excluded: autoscale (Kind-only), node-notready (Kind-only),
+#             mesh-routing-failure (no Istio), disk-pressure-emptydir (no Gitea/AWX),
+#             gitops-drift (no Gitea)
+#   Solo (after both): pdb-deadlock, etcd-defrag-forecast,
+#                      pvc-capacity-forecast, operator-health, build-failure
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,18 +32,19 @@ TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 RESULTS_DIR="${REPO_ROOT}/parallel-results-${TIMESTAMP}"
 mkdir -p "${RESULTS_DIR}"
 
-GROUP_A="crashloop,crashloop-helm,stuck-rollout,memory-leak,resource-contention,hpa-maxed,duplicate-alert-suppression"
-GROUP_B="network-policy-block,statefulset-pvc-failure,resource-quota-exhaustion,cert-failure,slo-burn,orphaned-pvc-no-action,concurrent-cross-namespace,mesh-routing-failure,pending-taint"
+GROUP_A="crashloop,crashloop-helm,stuck-rollout,memory-leak,resource-contention,hpa-maxed,duplicate-alert-suppression,operator-oomkill-informer,db-connection-saturation,image-pull-failure,rbac-failure,red-herring-noise,severity-misdirection"
+GROUP_B="network-policy-block,statefulset-pvc-failure,resource-quota-exhaustion,cert-failure,slo-burn,orphaned-pvc-no-action,concurrent-cross-namespace,pending-taint,cascading-service-failure,cross-namespace-dependency,route-misconfiguration,scc-violation"
 
 echo "============================================="
-echo " RC5 Parallel OCP Validation"
+echo " v1.5 Parallel OCP Regression Validation"
 echo " $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "============================================="
 echo ""
 echo "  Results dir: ${RESULTS_DIR}"
 echo "  Group A: ${GROUP_A//,/, }"
 echo "  Group B: ${GROUP_B//,/, }"
-echo "  Solo:    memory-escalation, pdb-deadlock, disk-pressure-emptydir"
+echo "  Solo:    pdb-deadlock, etcd-defrag-forecast,"
+echo "           pvc-capacity-forecast, operator-health, build-failure"
 echo ""
 
 # ── 1. Preflight ─────────────────────────────────────────────────────────────
@@ -106,15 +113,6 @@ echo "==> Phase 3: Solo scenarios (after both groups)..."
 # Let AlertManager settle between groups and solo
 sleep 30
 
-echo "  Running memory-escalation (patches gateway cooldown — must run solo)..."
-bash "${SCRIPT_DIR}/overnight-ocp-validation.sh" \
-    --skip-seed "--only=memory-escalation" \
-    > "${RESULTS_DIR}/solo-memory-escalation.log" 2>&1
-EXIT_ME=$?
-echo "  memory-escalation finished: exit=${EXIT_ME}"
-
-sleep 15
-
 echo "  Running pdb-deadlock..."
 bash "${SCRIPT_DIR}/overnight-ocp-validation.sh" \
     --skip-seed "--only=pdb-deadlock" \
@@ -124,15 +122,18 @@ echo "  pdb-deadlock finished: exit=${EXIT_PDB}"
 
 sleep 15
 
-echo "  Running disk-pressure-emptydir..."
-# disk-pressure-emptydir manages its own AAP/GitOps setup; unset batch guard
-# so it can run force_production_approval if its cleanup.sh restored the policy
-unset KUBERNAUT_BATCH_SETUP_DONE
-bash "${SCRIPT_DIR}/overnight-ocp-validation.sh" \
-    --skip-seed "--only=disk-pressure-emptydir" \
-    > "${RESULTS_DIR}/solo-diskpressure.log" 2>&1
-EXIT_DP=$?
-echo "  disk-pressure-emptydir finished: exit=${EXIT_DP}"
+SOLO_SCENARIOS=(etcd-defrag-forecast pvc-capacity-forecast operator-health build-failure)
+SOLO_EXIT=0
+for solo in "${SOLO_SCENARIOS[@]}"; do
+    echo "  Running ${solo}..."
+    bash "${SCRIPT_DIR}/overnight-ocp-validation.sh" \
+        --skip-seed "--only=${solo}" \
+        > "${RESULTS_DIR}/solo-${solo}.log" 2>&1
+    _exit=$?
+    echo "  ${solo} finished: exit=${_exit}"
+    [ $_exit -ne 0 ] && SOLO_EXIT=1
+    sleep 15
+done
 
 echo ""
 
@@ -173,7 +174,7 @@ echo "              ${RESULTS_DIR}/group-b.log"
 echo ""
 
 # Exit non-zero if any group had failures
-if [ $EXIT_A -ne 0 ] || [ $EXIT_B -ne 0 ] || [ $EXIT_ME -ne 0 ] || [ $EXIT_PDB -ne 0 ] || [ $EXIT_DP -ne 0 ]; then
+if [ $EXIT_A -ne 0 ] || [ $EXIT_B -ne 0 ] || [ $EXIT_PDB -ne 0 ] || [ $SOLO_EXIT -ne 0 ]; then
     echo "  Some scenarios failed. Review logs for details."
     exit 1
 fi

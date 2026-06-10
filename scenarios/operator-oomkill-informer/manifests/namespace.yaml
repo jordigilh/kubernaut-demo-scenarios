@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo-controllers
+  labels:
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/environment: "production"
+    kubernaut.ai/criticality: "high"
+    kubernaut.ai/business-unit: "engineering"
+    openshift.io/cluster-monitoring: "true"

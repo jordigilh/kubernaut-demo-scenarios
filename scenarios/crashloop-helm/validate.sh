@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-crashloop-helm"
+NAMESPACE="demo-storefront"
 APPROVE_MODE="${1:---auto-approve}"
 
 # shellcheck source=../../scripts/validation-helper.sh
@@ -54,10 +54,10 @@ ea_phase=$(get_ea_phase "${NAMESPACE}")
 assert_eq "$ea_phase" "Completed" "EA phase"
 
 # Verify Helm was rolled back
-helm_status=$(helm status demo-crashloop-helm -n "${NAMESPACE}" -o json 2>/dev/null | jq -r '.info.status')
+helm_status=$(helm status demo-storefront -n "${NAMESPACE}" -o json 2>/dev/null | jq -r '.info.status')
 assert_eq "$helm_status" "deployed" "Helm release status"
 
-helm_desc=$(helm history demo-crashloop-helm -n "${NAMESPACE}" --max 1 -o json 2>/dev/null | jq -r '.[0].description')
+helm_desc=$(helm history demo-storefront -n "${NAMESPACE}" --max 1 -o json 2>/dev/null | jq -r '.[0].description')
 assert_eq "$helm_desc" "Rollback to 1" "Helm last revision is a rollback"
 
 # Verify pods are healthy

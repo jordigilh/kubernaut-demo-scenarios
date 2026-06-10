@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: namespace-quota
-  namespace: demo-quota
+  namespace: demo-platform
 spec:
   hard:
     requests.memory: "512Mi"

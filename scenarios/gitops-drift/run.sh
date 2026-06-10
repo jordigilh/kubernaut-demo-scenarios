@@ -53,7 +53,7 @@ GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
 GITEA_ADMIN_PASS="kubernaut123"
 REPO_NAME="demo-gitops-repo"
-NAMESPACE="demo-gitops"
+NAMESPACE="demo-webui"
 
 run_setup() {
 echo "============================================="

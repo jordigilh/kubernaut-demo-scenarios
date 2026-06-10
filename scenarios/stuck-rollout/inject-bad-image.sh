@@ -2,7 +2,7 @@
 # Inject a non-existent image tag to cause a stuck rollout
 set -euo pipefail
 
-NAMESPACE="demo-rollout"
+NAMESPACE="demo-shipping"
 
 echo "==> Setting checkout-api to a non-existent image tag..."
 kubectl set image deployment/checkout-api -n "${NAMESPACE}" \

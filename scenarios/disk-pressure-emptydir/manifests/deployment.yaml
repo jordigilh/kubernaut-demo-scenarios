@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: postgres-emptydir
-  namespace: demo-diskpressure
+  name: postgres
+  namespace: demo-warehouse
   labels:
-    app: postgres-emptydir
+    app: postgres
     kubernaut.ai/managed: "true"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: postgres-emptydir
+      app: postgres
   template:
     metadata:
       labels:
-        app: postgres-emptydir
+        app: postgres
     spec:
       nodeSelector:
         scenario: disk-pressure
@@ -68,7 +68,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: postgres-credentials
-  namespace: demo-diskpressure
+  namespace: demo-warehouse
 type: Opaque
 stringData:
   password: "kubernaut-demo-pass"
@@ -76,11 +76,11 @@ stringData:
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres-emptydir
-  namespace: demo-diskpressure
+  name: postgres
+  namespace: demo-warehouse
 spec:
   selector:
-    app: postgres-emptydir
+    app: postgres
   ports:
   - port: 5432
     targetPort: 5432

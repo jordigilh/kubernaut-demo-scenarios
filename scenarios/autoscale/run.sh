@@ -10,7 +10,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-autoscale"
+NAMESPACE="demo-loadtest"
 PROVISIONER_PID=""
 
 APPROVE_MODE="--auto-approve"

@@ -25,7 +25,7 @@ on duplicate incidents — a critical requirement for noisy production environme
 5 pods crash (invalid app config) → 5 KubePodCrashLooping alerts
   → AlertManager groups by namespace → 2+ webhook payloads
   → Gateway OwnerResolver: each pod → Deployment/api-gateway
-  → Single fingerprint: SHA256(demo-alert-storm:deployment:api-gateway)
+  → Single fingerprint: SHA256(demo-ingress:deployment:api-gateway)
   → 1 RemediationRequest (occurrenceCount increments per webhook)
   → Signal Processing
   → AI Analysis (KA + Claude Sonnet 4 on Vertex AI)
@@ -104,7 +104,7 @@ export PLATFORM=ocp
 kubectl apply -k scenarios/duplicate-alert-suppression/manifests/
 
 kubectl wait --for=condition=Available deployment/api-gateway \
-  -n demo-alert-storm --timeout=120s
+  -n demo-ingress --timeout=120s
 ```
 
 <details>
@@ -114,7 +114,7 @@ kubectl wait --for=condition=Available deployment/api-gateway \
 kubectl apply -k scenarios/duplicate-alert-suppression/overlays/ocp/
 
 kubectl wait --for=condition=Available deployment/api-gateway \
-  -n demo-alert-storm --timeout=120s
+  -n demo-ingress --timeout=120s
 ```
 
 </details>
@@ -126,7 +126,7 @@ a healthy ConfigMap, a Service, a ServiceMonitor, and a PrometheusRule that fire
 #### 2. Verify healthy state
 
 ```bash
-kubectl get pods -n demo-alert-storm
+kubectl get pods -n demo-ingress
 # NAME                          READY   STATUS    RESTARTS   AGE
 # api-gateway-dd576bb49-5hf9b   1/1     Running   0          7s
 # api-gateway-dd576bb49-7qgmz   1/1     Running   0          7s
@@ -146,7 +146,7 @@ and patches the deployment to reference it. The demo-http-server detects this on
 and exits with `[emerg]`. All 5 pods crash simultaneously:
 
 ```bash
-kubectl get pods -n demo-alert-storm
+kubectl get pods -n demo-ingress
 # 3 new pods in CrashLoopBackOff, 4 old pods still Running (rolling update)
 ```
 
@@ -160,7 +160,7 @@ produces a single fingerprint. Only **1 RR** is created:
 
 ```bash
 kubectl get rr -n kubernaut-system -o wide
-# Only 1 RR for demo-alert-storm (not 5)
+# Only 1 RR for demo-ingress (not 5)
 ```
 
 #### 5. Monitor the pipeline
@@ -229,7 +229,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | Deployment api-gateway was patched to use an invalid ConfigMap `gateway-config-bad` containing an unsupported directive (`invalid_directive: true`), causing all 3 new pods to crash instantly on startup with exit code 1. The rolling update is stalled with 3 unavailable replicas; old pods on the valid config remain healthy. |
 | **Severity** | critical |
-| **Target Resource** | Deployment/api-gateway (ns: demo-alert-storm) |
+| **Target Resource** | Deployment/api-gateway (ns: demo-ingress) |
 | **Workflow Selected** | crashloop-rollback-v1 (`RollbackDeployment`) |
 | **Confidence** | 0.97 |
 | **Approval** | not required (staging, high confidence) |
@@ -289,13 +289,13 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
 > (`gateway-config-bad`) ConfigMaps side-by-side to confirm the root cause.
 > Despite 5 pods crashing with separate alerts, the platform created only 1 RR
 > — deduplication occurred at the Gateway's OwnerResolver level using the shared
-> Deployment fingerprint `SHA256(demo-alert-storm:deployment:api-gateway)`.
+> Deployment fingerprint `SHA256(demo-ingress:deployment:api-gateway)`.
 
 #### 7. Verify remediation and deduplication
 
 ```bash
 # All 5 pods recovered via a single rollback
-kubectl get pods -n demo-alert-storm
+kubectl get pods -n demo-ingress
 # 5 pods Running with demo-http-server:1.0.0
 
 # Deduplication stats on the single RR
@@ -304,7 +304,7 @@ kubectl get rr <RR_NAME> -n kubernaut-system \
 # {"firstSeenAt":"...","lastSeenAt":"...","occurrenceCount":2}
 
 # No blocked duplicate RRs — dedup happened at fingerprint level
-kubectl get rr -n kubernaut-system -o wide | grep demo-alert-storm
+kubectl get rr -n kubernaut-system -o wide | grep demo-ingress
 # Only 1 row
 ```
 
@@ -358,7 +358,7 @@ grouped payloads. The exact count depends on AlertManager's `group_wait` and
 Feature: Duplicate alert suppression via OwnerResolver fingerprinting
 
   Scenario: 5 crashing pods produce 1 RemediationRequest
-    Given a deployment "api-gateway" in namespace "demo-alert-storm"
+    Given a deployment "api-gateway" in namespace "demo-ingress"
       And the deployment has 5 healthy replicas
       And the "rollback-deployment-v1" workflow is registered
 

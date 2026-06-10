@@ -46,7 +46,7 @@ metadata:
 spec:
   # Fix NetworkPolicy Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #138 -- Deny-all NetworkPolicy blocks traffic -> remove offending policy
-  version: "1.4.2"
+  version: "1.5.0"
   description:
     what: "Removes a deny-all NetworkPolicy that is blocking legitimate ingress traffic and causing health check failures"
     whenToUse: "When a NetworkPolicy is blocking all ingress traffic to a workload, causing liveness/readiness probe failures"
@@ -58,7 +58,7 @@ spec:
   labels:
     severity: [critical, high]
     environment: [staging]
-    component: [networkpolicy, deployment]
+    component: [networking.k8s.io/v1/NetworkPolicy, apps/v1/Deployment]
     priority: "*"
   
   detectedLabels:

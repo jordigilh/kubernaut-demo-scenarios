@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: demo-memory-escalation
+  name: demo-ml-pipeline
   labels:
     kubernaut.ai/managed: "true"
     kubernaut.ai/environment: production

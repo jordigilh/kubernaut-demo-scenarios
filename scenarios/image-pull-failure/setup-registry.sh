@@ -10,8 +10,8 @@
 #   bash scenarios/image-pull-failure/setup-registry.sh
 set -euo pipefail
 
-SOURCE_NS="demo-imagepull-source"
-DEMO_NS="${NAMESPACE:-demo-imagepull}"
+SOURCE_NS="demo-inventory-source"
+DEMO_NS="${NAMESPACE:-demo-inventory}"
 WORKFLOW_NS="${WE_NAMESPACE:-kubernaut-workflows}"
 REGISTRY="image-registry.openshift-image-registry.svc:5000"
 UPSTREAM_IMAGE="registry.k8s.io/e2e-test-images/busybox:1.29-2"

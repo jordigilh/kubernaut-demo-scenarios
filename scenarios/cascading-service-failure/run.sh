@@ -17,7 +17,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-cascade"
+NAMESPACE="demo-order-fulfillment"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""

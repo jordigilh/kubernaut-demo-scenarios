@@ -15,5 +15,5 @@ kubectl rollout status deploy/remediationorchestrator-controller -n "${PLATFORM_
 
 kubectl apply -f "${SCRIPT_DIR}/manifests/namespace.yaml" >/dev/null 2>&1
 kubectl apply -f "${SCRIPT_DIR}/manifests/" >/dev/null 2>&1
-kubectl wait --for=condition=Available deployment/api-gateway deployment/traffic-gen deployment/blackbox-exporter -n demo-slo --timeout=180s >/dev/null 2>&1
+kubectl wait --for=condition=Available deployment/api-gateway deployment/traffic-gen deployment/blackbox-exporter -n demo-api --timeout=180s >/dev/null 2>&1
 sleep 20

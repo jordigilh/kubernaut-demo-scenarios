@@ -21,6 +21,9 @@ patches:
       kind: PrometheusRule
       name: kubernaut-alpha-rules
     patch: |
+      - op: replace
+        path: /metadata/name
+        value: kubernaut-alpha-rules-team-alpha
       - op: remove
         path: /metadata/labels/release
       - op: replace
@@ -37,6 +40,9 @@ patches:
       kind: PrometheusRule
       name: kubernaut-beta-rules
     patch: |
+      - op: replace
+        path: /metadata/name
+        value: kubernaut-beta-rules-team-beta
       - op: remove
         path: /metadata/labels/release
       - op: replace

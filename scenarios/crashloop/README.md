@@ -87,7 +87,7 @@ export PLATFORM=ocp
 
 ```bash
 kubectl apply -k scenarios/crashloop/manifests/
-kubectl wait --for=condition=Available deployment/worker -n demo-crashloop --timeout=120s
+kubectl wait --for=condition=Available deployment/worker -n demo-checkout --timeout=120s
 ```
 
 <details>
@@ -95,7 +95,7 @@ kubectl wait --for=condition=Available deployment/worker -n demo-crashloop --tim
 
 ```bash
 kubectl apply -k scenarios/crashloop/overlays/ocp/
-kubectl wait --for=condition=Available deployment/worker -n demo-crashloop --timeout=120s
+kubectl wait --for=condition=Available deployment/worker -n demo-checkout --timeout=120s
 ```
 
 </details>
@@ -103,7 +103,7 @@ kubectl wait --for=condition=Available deployment/worker -n demo-crashloop --tim
 #### 2. Verify healthy state
 
 ```bash
-kubectl get pods -n demo-crashloop
+kubectl get pods -n demo-checkout
 # All pods should be Running with 0 restarts
 ```
 
@@ -129,7 +129,7 @@ exits immediately (simulating a broken binary release). Pods will crash on start
 #### 4. Observe CrashLoopBackOff
 
 ```bash
-kubectl get pods -n demo-crashloop -w
+kubectl get pods -n demo-checkout -w
 # Pods cycle: Error -> CrashLoopBackOff -> Error -> ...
 ```
 
@@ -215,7 +215,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | CrashLoopBackOff caused by a command override on the Deployment spec that makes the container exit immediately with code 1 (`echo fatal: bad release 1.1.0 -- aborting && exit 1`). The Deployment (generation 2) includes the crashing command; all new pods exit on startup until the spec is rolled back to revision 1 (no command override). |
 | **Severity** | critical |
-| **Target Resource** | Deployment/worker (ns: demo-crashloop) |
+| **Target Resource** | Deployment/worker (ns: demo-checkout) |
 | **Workflow Selected** | crashloop-rollback-v1 |
 | **Confidence** | 0.97 |
 | **Approval** | required (production environment) |
@@ -276,9 +276,9 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
 #### 7. Verify remediation
 
 ```bash
-kubectl get pods -n demo-crashloop
+kubectl get pods -n demo-checkout
 # All pods Running/Ready with no recent restarts
-kubectl rollout history deployment/worker -n demo-crashloop
+kubectl rollout history deployment/worker -n demo-checkout
 ```
 
 <details>
@@ -323,7 +323,7 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 Given a Kind cluster with Kubernaut services and a real LLM backend
   And Prometheus is scraping kube-state-metrics
   And the "crashloop-rollback-v1" workflow is registered in the DataStorage catalog
-  And the "worker" deployment is running healthily in namespace "demo-crashloop"
+  And the "worker" deployment is running healthily in namespace "demo-checkout"
 
 When the deployment is patched with a crashing command override (bad release)
   And pods enter CrashLoopBackOff with rapidly increasing restart counts

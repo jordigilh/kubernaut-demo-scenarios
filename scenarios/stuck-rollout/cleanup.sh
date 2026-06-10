@@ -11,19 +11,19 @@ restore_production_approval || true
 echo "==> Cleaning up Stuck Rollout demo..."
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule kubernaut-stuck-rollout-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts-shipping -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-kubectl delete namespace demo-rollout --ignore-not-found --wait=true
+kubectl delete namespace demo-shipping --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
 _elapsed=0
-while kubectl get ns demo-rollout &>/dev/null; do
+while kubectl get ns demo-shipping &>/dev/null; do
   sleep 2
   _elapsed=$((_elapsed + 2))
   if [ "$_elapsed" -ge 120 ]; then
-    echo "  WARNING: Namespace demo-rollout still terminating after 120s, proceeding..."
+    echo "  WARNING: Namespace demo-shipping still terminating after 120s, proceeding..."
     break
   fi
 done

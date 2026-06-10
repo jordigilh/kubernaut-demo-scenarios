@@ -2,10 +2,10 @@
 # Database Connection Saturation Demo -- Automated Runner
 # L3 Performance Management: Deep investigation of connection pool exhaustion.
 #
-# A connection-leaker deployment opens persistent psql sessions to PostgreSQL
+# A client-pool deployment opens persistent psql sessions to PostgreSQL
 # without releasing them (~1 every 8s). With max_connections=15, the pool
 # saturates within ~2 minutes. The LLM must trace from the exhaustion alert
-# to identify the leaker as the root cause and restart it.
+# to identify the client-pool as the root cause and restart it.
 #
 # Prerequisites:
 #   - OCP cluster with Kubernaut services
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-db-saturation"
+NAMESPACE="demo-orders"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
@@ -62,7 +62,7 @@ kubectl wait --for=condition=Available deployment/order-service \
   -n "${NAMESPACE}" --timeout=120s
 kubectl wait --for=condition=Available deployment/report-generator \
   -n "${NAMESPACE}" --timeout=120s
-kubectl wait --for=condition=Available deployment/connection-leaker \
+kubectl wait --for=condition=Available deployment/client-pool \
   -n "${NAMESPACE}" --timeout=120s
 echo "  All workloads running."
 kubectl get pods -n "${NAMESPACE}"
@@ -83,7 +83,7 @@ fi
 echo "  postgres_exporter: pg_up=${PG_UP}"
 echo ""
 
-echo "==> Step 5: Connection leaker running (~1 connection every 8s)."
+echo "==> Step 5: Client pool running (~1 connection every 8s)."
 echo "    Pool will saturate within ~2 minutes (10 leaked + system = 15 max)."
 echo "    DatabaseConnectionPoolExhausted alert fires when active > 10."
 

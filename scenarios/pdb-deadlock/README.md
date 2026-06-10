@@ -165,15 +165,15 @@ kubectl apply -k scenarios/pdb-deadlock/overlays/ocp
 </details>
 
 ```bash
-kubectl wait --for=condition=Available deployment/payment-service -n demo-pdb --timeout=120s
+kubectl wait --for=condition=Available deployment/payment-service -n demo-payments --timeout=120s
 ```
 
 #### 2. Verify PDB state and pod placement
 
 ```bash
-kubectl get pdb -n demo-pdb
+kubectl get pdb -n demo-payments
 # ALLOWED DISRUPTIONS = 0 (minAvailable=2 with 2 replicas)
-kubectl get pods -n demo-pdb -o wide
+kubectl get pods -n demo-payments -o wide
 # Both pods should be on the worker node
 ```
 
@@ -188,7 +188,7 @@ bash scenarios/pdb-deadlock/inject-drain.sh
 ```bash
 kubectl get nodes
 # Worker node shows SchedulingDisabled, but drain is stuck
-kubectl get pods -n demo-pdb
+kubectl get pods -n demo-payments
 # All pods still Running on the worker (PDB blocks eviction)
 ```
 
@@ -260,7 +260,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | PDB `payment-service-pdb` has `minAvailable=2` equal to the total replica count of 2, leaving zero disruptions allowed (`disruptionsAllowed=0`) and blocking all voluntary disruptions including node drains and rolling updates. |
 | **Severity** | medium |
-| **Target Resource** | PodDisruptionBudget/payment-service-pdb (ns: demo-pdb) |
+| **Target Resource** | PodDisruptionBudget/payment-service-pdb (ns: demo-payments) |
 | **Workflow Selected** | relax-pdb-v1 |
 | **Confidence** | 0.95 |
 | **Approval** | required (production environment) |
@@ -322,11 +322,11 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
 #### 7. Verify remediation
 
 ```bash
-kubectl get pdb -n demo-pdb
+kubectl get pdb -n demo-payments
 # minAvailable should now be 1, ALLOWED DISRUPTIONS > 0
 kubectl get nodes
 # Worker node drain should complete (SchedulingDisabled)
-kubectl get pods -n demo-pdb -o wide
+kubectl get pods -n demo-payments -o wide
 # Pods should be Running on the control-plane node
 ```
 

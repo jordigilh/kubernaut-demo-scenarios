@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NAMESPACE="demo-build"
+NAMESPACE="demo-ci"
 
 if ! command -v oc &>/dev/null; then
     echo "ERROR: oc is required for OpenShift build scenarios" >&2

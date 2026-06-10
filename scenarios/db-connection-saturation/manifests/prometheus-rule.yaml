@@ -1,18 +1,18 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: db-connection-saturation-rules
-  namespace: demo-db-saturation
+  name: demo-app-alerts
+  namespace: demo-orders
   labels:
     release: prometheus
 spec:
   groups:
-  - name: db-connection-saturation
+  - name: demo-app
     rules:
     - alert: DatabaseConnectionPoolExhausted
       expr: |
         sum by (namespace) (pg_stat_activity_count{
-          namespace="demo-db-saturation",
+          namespace="demo-orders",
           datname="demo"
         }) > 10
       for: 30s
@@ -20,10 +20,9 @@ spec:
         severity: critical
       annotations:
         summary: >
-          PostgreSQL connection pool in namespace {{ $labels.namespace }} is
-          near exhaustion. {{ $value }} active connections detected against
-          a max_connections limit of 15.
+          PostgreSQL in namespace {{ $labels.namespace }} has elevated
+          active connections ({{ $value }}).
         description: >
-          The database server postgres in namespace demo-db-saturation has
-          {{ $value }} active connections out of 15 max_connections.
-          Client applications may experience connection failures.
+          Client applications in namespace {{ $labels.namespace }} may
+          experience connection failures. Database availability may be
+          degraded.

@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kv-store
-  namespace: demo-statefulset
+  namespace: demo-keystore
   labels:
     app: kv-store
     kubernaut.ai/managed: "true"
@@ -20,7 +20,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: kv-store
-  namespace: demo-statefulset
+  namespace: demo-keystore
   labels:
     app: kv-store
     kubernaut.ai/managed: "true"
@@ -86,7 +86,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kv-store-config
-  namespace: demo-statefulset
+  namespace: demo-keystore
 data:
   config.yaml: |
     port: 8080

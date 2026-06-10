@@ -9,23 +9,27 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 echo "==> Cleaning up Orphaned PVC demo..."
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule orphaned-pvc-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts-batch -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-kubectl delete namespace demo-orphaned-pvc --ignore-not-found --wait=true
+kubectl delete namespace demo-batch --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
-while kubectl get ns demo-orphaned-pvc &>/dev/null; do
+while kubectl get ns demo-batch &>/dev/null; do
   sleep 2
 done
 
-# Restore the original approval policy if we backed it up during run.sh
-if [ -f "${SCRIPT_DIR}/.approval-rego-backup" ]; then
+# Restore the original approval policy if we backed it up during run.sh.
+# Skip during batch runs — the orchestrator manages the policy lifecycle.
+if [ -f "${SCRIPT_DIR}/.approval-rego-backup" ] && [ "${KUBERNAUT_BATCH_SETUP_DONE:-}" != "1" ]; then
     echo "==> Restoring original approval Rego policy..."
     kubectl patch configmap aianalysis-policies -n "${PLATFORM_NS}" --type=merge \
       -p "{\"data\":{\"approval.rego\":$(cat "${SCRIPT_DIR}/.approval-rego-backup" | jq -Rs .)}}"
     kubectl rollout restart deployment/aianalysis-controller -n "${PLATFORM_NS}" 2>/dev/null || true
+    rm -f "${SCRIPT_DIR}/.approval-rego-backup"
+elif [ -f "${SCRIPT_DIR}/.approval-rego-backup" ]; then
+    echo "==> Skipping Rego policy restore (batch mode)"
     rm -f "${SCRIPT_DIR}/.approval-rego-backup"
 fi
 

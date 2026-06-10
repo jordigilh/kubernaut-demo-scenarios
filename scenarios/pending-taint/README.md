@@ -16,7 +16,7 @@ investigates, identifies the taint as the root cause, and removes it.
 
 | Component | Requirement |
 |-----------|-------------|
-| Kind cluster | Multi-node (the inject script auto-labels a worker with `kubernaut.ai/demo-taint-target=true` if no node has it) |
+| Kind cluster | Multi-node (the inject script auto-labels a worker with `kubernaut.ai/workload-pool=true` if no node has it) |
 | LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
 | Workflow catalog | `remove-taint-v1` registered in DataStorage |
@@ -69,7 +69,7 @@ export PLATFORM=ocp
 #### 1. Apply taint and deploy workload
 
 First, apply the maintenance taint to a worker node. The inject script auto-labels
-a worker with `kubernaut.ai/demo-taint-target=true` if no node has the label yet:
+a worker with `kubernaut.ai/workload-pool=true` if no node has the label yet:
 
 ```bash
 bash scenarios/pending-taint/inject-taint.sh
@@ -79,7 +79,7 @@ Then deploy the workload (pods will remain Pending because of the taint):
 
 ```bash
 kubectl apply -k scenarios/pending-taint/manifests/
-kubectl get pods -n demo-taint
+kubectl get pods -n demo-scheduler
 # batch-processor pods should show Pending
 ```
 
@@ -88,7 +88,7 @@ kubectl get pods -n demo-taint
 
 ```bash
 kubectl apply -k scenarios/pending-taint/overlays/ocp/
-kubectl get pods -n demo-taint
+kubectl get pods -n demo-scheduler
 # batch-processor pods should show Pending
 ```
 
@@ -164,7 +164,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | Pod is unschedulable because the only eligible node has an untolerated `NoSchedule` taint (`maintenance=scheduled`), and no other nodes match the pod's `nodeSelector`. Both replicas are stuck Pending with 0/3 nodes available. |
 | **Severity** | medium |
-| **Target Resource** | Deployment/batch-processor (ns: demo-taint) |
+| **Target Resource** | Deployment/batch-processor (ns: demo-scheduler) |
 | **Workflow Selected** | remove-taint-v1 |
 | **Confidence** | 0.95 |
 | **Approval** | required (production environment) |
@@ -226,7 +226,7 @@ kubectl patch rar <RAR_NAME> -n kubernaut-system --type=merge --subresource=stat
 #### 5. Verify remediation
 
 ```bash
-kubectl get pods -n demo-taint
+kubectl get pods -n demo-scheduler
 kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{range .spec.taints[*]}{.key}={.value}:{.effect}{" "}{end}{"\n"}{end}'
 ```
 
@@ -247,7 +247,7 @@ kubectl get $NOTIF -n kubernaut-system -o jsonpath='{.spec.body}'; echo
 ## BDD Specification
 
 ```gherkin
-Given a Kind cluster with a worker node labeled kubernaut.ai/demo-taint-target=true
+Given a Kind cluster with a worker node labeled kubernaut.ai/workload-pool=true
   And the worker node has a maintenance=scheduled:NoSchedule taint
   And the "remove-taint-v1" workflow is registered in DataStorage
 

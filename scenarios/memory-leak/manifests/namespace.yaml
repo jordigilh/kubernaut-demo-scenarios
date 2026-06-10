@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: demo-memory-leak
+  name: demo-telemetry
   labels:
     kubernaut.ai/environment: staging
     kubernaut.ai/business-unit: platform

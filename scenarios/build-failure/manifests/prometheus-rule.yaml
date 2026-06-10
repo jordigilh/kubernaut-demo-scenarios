@@ -1,29 +1,29 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: demo-build-rules
-  namespace: demo-build
+  name: demo-app-alerts
+  namespace: demo-ci
   labels:
     release: prometheus
 spec:
   groups:
-  - name: demo-build
+  - name: demo-app
     rules:
     - alert: BuildFailureRate
       expr: |
         (
           max by(buildconfig, namespace) (
-            openshift_build_status_phase_total{build_phase="failed", namespace="demo-build"}
+            openshift_build_status_phase_total{build_phase="failed", namespace="demo-ci"}
             * on(build, namespace) group_left()
-            openshift_build_created_timestamp_seconds{namespace="demo-build"}
+            openshift_build_created_timestamp_seconds{namespace="demo-ci"}
           )
         )
         >
         (
           max by(buildconfig, namespace) (
-            openshift_build_status_phase_total{build_phase="complete", namespace="demo-build"}
+            openshift_build_status_phase_total{build_phase="complete", namespace="demo-ci"}
             * on(build, namespace) group_left()
-            openshift_build_created_timestamp_seconds{namespace="demo-build"}
+            openshift_build_created_timestamp_seconds{namespace="demo-ci"}
           )
         )
       for: 30s
@@ -38,6 +38,4 @@ spec:
         description: >
           BuildConfig {{ $labels.buildconfig }} in namespace {{ $labels.namespace }}
           is producing failed builds with no recent successful completions.
-          Common causes include invalid Git source references, missing source
-          secrets, or incompatible builder image tags. The CI/CD pipeline for
-          this component is effectively broken until the build succeeds.
+          The CI/CD pipeline for this component may be unavailable.

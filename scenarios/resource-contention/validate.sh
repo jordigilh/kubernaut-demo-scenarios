@@ -5,7 +5,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-resource-contention"
+NAMESPACE="demo-analytics"
 APPROVE_MODE="${1:---auto-approve}"
 
 # shellcheck source=../../scripts/validation-helper.sh
@@ -54,7 +54,7 @@ assert_eq "$wfe_phase" "Completed" "WFE phase"
 # naturally. The external actor (which reverts limits) is killed by run.sh
 # after this script exits.
 log_phase "Setting sufficient memory limits (root cause fix)..."
-kubectl set resources deployment/contention-app -n "${NAMESPACE}" \
+kubectl set resources deployment/analytics-worker -n "${NAMESPACE}" \
   --limits=memory=256Mi --requests=memory=128Mi 2>/dev/null || true
 
 print_result "resource-contention"

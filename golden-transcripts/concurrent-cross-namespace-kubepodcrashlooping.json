@@ -1,345 +1,842 @@
 {
   "schema_version": 1,
   "_metadata": {
-    "captured_at": "2026-05-09T16:09:12Z",
-    "ka_image": "unknown",
+    "captured_at": "2026-06-04T19:05:16Z",
+    "ka_image": "ghcr.io/jordigilh/kubernaut/kubernautagent:main-0fc57a28c7f27ad06e09454e2937b6b40e1cd9ac",
     "model": "claude-sonnet-4-6",
-    "cluster": "default/api-dev-redhat-internal-com:6443/kube:admin",
-    "platform": "ocp"
+    "cluster": "kubernaut-system/api-dev-redhat-internal-com:6443/kube:admin",
+    "chart_version": ""
   },
   "scenario": "concurrent-cross-namespace",
   "signalName": "KubePodCrashLooping",
-  "teams": {
-    "alpha": {
-      "team": "alpha-staging",
-      "remediationRequest": {
-        "name": "rr-df3cf7f0a467-005a8684",
-        "phase": "Completed",
-        "outcome": "Remediated"
+  "remediationRequest": {
+    "name": "rr-df3cf7f0a467-7a008636",
+    "phase": "Completed",
+    "outcome": "ManualReviewRequired"
+  },
+  "analysis": {
+    "remediationId": "rr-df3cf7f0a467-7a008636",
+    "signal": {
+      "signalName": "KubePodCrashLooping",
+      "severity": "critical",
+      "environment": "Staging",
+      "targetResource": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-team-alpha"
       },
-      "analysis": {
-        "signal": {
-          "signalName": "KubePodCrashLooping",
-          "targetResource": {
-            "kind": "Deployment",
-            "name": "worker",
-            "namespace": "demo-team-alpha"
-          }
-        },
-        "investigation": {
-          "sessionId": "d73afcda-5b80-44b7-b5c5-92d7c63c9b32",
-          "duration_ms": 165498,
-          "toolCalls": [
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_get_by_kind_in_namespace",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_events",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_describe",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_logs",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_describe",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_describe",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_previous_logs",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "get_namespaced_resource_context",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "list_available_actions",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "list_workflows",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "get_workflow",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            }
-          ]
-        },
-        "rootCauseAnalysis": {
-          "contributingFactors": [
-            "kubectl rollout restart at 15:48:09Z created new ReplicaSet (worker-6b8b5fd87d) whose pod picks up the corrupted ConfigMap",
-            "ConfigMap patched with 'invalid_directive: true' at 15:48:08Z \u2014 one second before the rollout restart",
-            "Old ReplicaSet pods (worker-5ccfd4c787) remain healthy because they loaded the config before the patch",
-            "Regression detected: this same ConfigMap has been remediated 5+ times in the past 24h and 7+ times historically, indicating a recurring pattern of config corruption"
-          ],
-          "remediationTarget": {
-            "kind": "ConfigMap",
-            "name": "worker-config",
-            "namespace": "demo-team-alpha"
-          },
-          "severity": "critical",
-          "signalType": "KubePodCrashLooping",
-          "summary": "ConfigMap 'worker-config' contains an invalid directive ('invalid_directive: true') that causes the demo-http-server application to abort immediately on startup, resulting in CrashLoopBackOff. The ConfigMap was patched at 2026-05-09T15:48:08Z (one second before a rollout restart), injecting the bad directive. Old pods remain healthy as they loaded the config before the patch; new pods from ReplicaSet worker-6b8b5fd87d fail immediately with exit code 1. This is a recurring regression (5+ times in 24h, 7+ historically)."
-        },
-        "selectedWorkflow": {
-          "confidence": 0.95,
-          "executionBundle": "quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:482af1795dd62b9283d23c20c63702acec409b255775456ae828f70580844152",
-          "executionBundleDigest": "482af1795dd62b9283d23c20c63702acec409b255775456ae828f70580844152",
-          "executionEngine": "job",
-          "parameters": {
-            "TARGET_CONFIGMAP_NAME": "worker-config",
-            "TARGET_RESOURCE_API_VERSION": "v1",
-            "TARGET_RESOURCE_KIND": "ConfigMap",
-            "TARGET_RESOURCE_NAME": "worker-config",
-            "TARGET_RESOURCE_NAMESPACE": "demo-team-alpha"
-          },
-          "rationale": "hotfix-config-v1 is purpose-built for exactly this scenario: a Deployment in CrashLoopBackOff caused by an identifiable invalid directive in a mounted ConfigMap, in a staging environment with risk_tolerance=high. It patches the ConfigMap in-place to remove the invalid directive and then restarts the owning Deployment \u2014 permanently eliminating the root cause rather than masking it (as a deployment rollback would). The environment is not GitOps-managed, so in-place patching is safe and will not be overwritten by a GitOps sync. All preconditions are met: the faulty ConfigMap is identified, the bad key ('invalid_directive: true') is known, and the fix is deterministic.",
-          "version": "1.3.5",
-          "workflowId": "d549ad54-8979-5016-969a-b05a80e5a35f"
-        },
-        "approvalRequired": false
-      },
-      "workflowExecution": {
-        "phase": "Completed"
-      },
-      "effectivenessAssessment": {
-        "phase": "Completed",
-        "verdict": "Full"
-      }
+      "businessPriority": "P1"
     },
-    "beta": {
-      "team": "beta-production",
-      "remediationRequest": {
-        "name": "rr-3428160586f8-a508bc52",
-        "phase": "Completed",
-        "outcome": "Remediated"
+    "investigation": {
+      "sessionId": "67c3b362-38f7-4c60-abed-093b656a274c",
+      "durationMs": 196760,
+      "pollCount": 13
+    },
+    "rootCauseAnalysis": {
+      "contributingFactors": [
+        "Manual kubectl-patch applied to worker-config at 2026-06-04T18:49:38Z introduced 'invalid_directive: true' into config.yaml",
+        "A kubectl rollout restart at 18:49:39Z created new ReplicaSet worker-7d9884d695 which picked up the corrupted ConfigMap",
+        "The application (demo-http-server) strictly validates config keys and aborts on unknown directives \u2014 no graceful degradation",
+        "Old ReplicaSet pods (worker-5ccfd4c787) remain healthy because they were created 31 seconds before the patch and are not restarted"
+      ],
+      "remediationTarget": {
+        "apiVersion": "v1",
+        "kind": "ConfigMap",
+        "name": "worker-config",
+        "namespace": "demo-team-alpha"
       },
-      "analysis": {
-        "signal": {
-          "signalName": "KubePodCrashLooping",
-          "targetResource": {
-            "kind": "Deployment",
-            "name": "worker",
-            "namespace": "demo-team-beta"
-          }
-        },
-        "investigation": {
-          "sessionId": "8546f130-6781-4a73-8380-a2a2315b7263",
-          "duration_ms": 150600,
-          "toolCalls": [
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_describe",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_get_by_kind_in_namespace",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_logs",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_get_by_name",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_events",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "kubectl_previous_logs",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "get_namespaced_resource_context",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "list_available_actions",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "list_workflows",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "get_workflow",
-              "input": {},
-              "output_summary": ""
-            },
-            {
-              "tool": "todo_write",
-              "input": {},
-              "output_summary": ""
-            }
-          ]
-        },
-        "rootCauseAnalysis": {
-          "contributingFactors": [
-            "A kubectl patch updated ConfigMap 'worker-config' at 2026-05-09T15:48:10Z, introducing the invalid directive 'invalid_directive: true'",
-            "A manual rollout restart (kubectl rollout restart) was triggered at 2026-05-09T15:48:11Z, causing the new ReplicaSet 'worker-64dfd8558c' to pick up the broken config",
-            "The two healthy pods from ReplicaSet 'worker-5ccfd4c787' are still running the old (valid) config, masking the full service impact",
-            "Remediation history shows a recurring regression pattern: ConfigMap has been patched to a broken state and fixed at least 7 times over recent days, indicating an automated or manual process is repeatedly re-introducing the bad directive"
-          ],
-          "remediationTarget": {
-            "kind": "ConfigMap",
-            "name": "worker-config",
-            "namespace": "demo-team-beta"
-          },
-          "severity": "critical",
-          "signalType": "KubePodCrashLooping",
-          "summary": "ConfigMap 'worker-config' contains an invalid directive ('invalid_directive: true') that causes the worker container to abort on startup with exit code 1, triggering CrashLoopBackOff. A kubectl patch introduced the bad directive at 2026-05-09T15:48:10Z, one second before a manual rollout restart caused a new ReplicaSet to pick up the broken config. Remediation history shows this is a recurring regression \u2014 the ConfigMap has been patched to a broken state and fixed at least 7 times in recent days."
-        },
-        "selectedWorkflow": {
-          "confidence": 0.93,
-          "executionBundle": "quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:482af1795dd62b9283d23c20c63702acec409b255775456ae828f70580844152",
-          "executionBundleDigest": "482af1795dd62b9283d23c20c63702acec409b255775456ae828f70580844152",
-          "executionEngine": "job",
-          "parameters": {
-            "TARGET_CONFIGMAP_NAME": "worker-config",
-            "TARGET_RESOURCE_API_VERSION": "v1",
-            "TARGET_RESOURCE_KIND": "ConfigMap",
-            "TARGET_RESOURCE_NAME": "worker-config",
-            "TARGET_RESOURCE_NAMESPACE": "demo-team-beta"
-          },
-          "rationale": "hotfix-config-production-v1 is purpose-built for exactly this scenario: a Deployment in CrashLoopBackOff due to an identifiable invalid directive in a mounted ConfigMap, with risk_tolerance=low in a production environment, and no Helm/GitOps management. The workflow patches the ConfigMap in-place to remove the faulty directive and then restarts the owning Deployment so pods load the corrected configuration. All preconditions are met: the faulty ConfigMap is identified, the invalid directive ('invalid_directive: true') is deterministic, and the resource is imperatively managed.",
-          "version": "1.0.6",
-          "workflowId": "47fb77e3-aa40-530f-9790-6b49e557869d"
-        },
-        "approvalRequired": true
+      "severity": "critical",
+      "signalType": "KubePodCrashLooping",
+      "summary": "ConfigMap 'worker-config' in demo-team-alpha was patched with an invalid directive ('invalid_directive: true') causing the worker container to abort on startup with exit code 1."
+    },
+    "rootCauseSummary": "ConfigMap 'worker-config' in demo-team-alpha was patched with an invalid directive ('invalid_directive: true') causing the worker container to abort on startup with exit code 1.",
+    "postRCAContext": null,
+    "selectedWorkflow": null,
+    "alternativeWorkflows": null,
+    "actionability": "Actionable",
+    "approvalRequired": false,
+    "approvalReason": null,
+    "needsHumanReview": true,
+    "humanReviewReason": "no_matching_workflows",
+    "phase": "Completed"
+  },
+  "llmTrace": [
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:54:17+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "14433",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:54:22+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "9042",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "I'll investigate the CrashLoopBackOff issue for the `worker` deployment in the `team-alpha` namespace. Let me start by gathering information simultaneously."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:54:22+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"in_progress\", \"content\": \"Investigate pod status and events for worker in team-alpha\"}, {\"id\": \"2\", \"status\": \"pending\", \"content\": \"Check deployment configuration\"}, {\"id\": \"3\", \"status\": \"pending\", \"content\": \"Fetch pod logs (current and previous)\"}, {\"id\": \"4\", \"status\": \"pending\", \"content\": \"Determine root cause via five whys\"}, {\"id\": \"5\", \"status\": \"pending\", \"content\": \"Get resource context for remediation target\"}]}",
+      "tool_result": "{\"total\": 7, \"by_status\": {\"pending\": 4, \"completed\": 1, \"in_progress\": 2}, \"in_progress\": [{\"id\": \"1\", \"status\": \"in_progress\", \"content\": \"Investigate pod status and events for worker in team-alpha\"}, {\"id\": \"7\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:54:22+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "14872",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:54:27+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "9310",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:54:27+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_get_by_kind_in_namespace",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"kind\": \"Pod\", \"namespace\": \"team-alpha\"}",
+      "tool_result": "{\"kind\": \"PodList\", \"items\": [], \"metadata\": {\"resourceVersion\": \"93167494\"}, \"apiVersion\": \"v1\"}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:54:27+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_describe",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"kind\": \"Deployment\", \"name\": \"worker\", \"api_group\": \"apps\", \"namespace\": \"team-alpha\"}",
+      "tool_result": "{\"error\": \"get Deployment/worker in team-alpha: deployments.apps \\\"worker\\\" not found\", \"status\": \"error\"}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:54:27+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "15064",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:54:29+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "9589",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "The namespace `team-alpha` doesn't have the expected resources. The alert mentions `demo-team-alpha` as the namespace. Let me check the correct namespace."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:55:01+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_get_by_kind_in_cluster",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"kind\": \"Namespace\"}",
+      "tool_result": "# Namespace Summary for Incident Investigation\n\n## \u26a0\ufe0f Critical Issues Found\n\n### Namespaces Stuck in Terminating State\n\n| Namespace | Deletion Requested | Key Blocker |\n|---|---|---|\n| **kafka** | 2026-05-28T16:50:39Z | 5x `kafkatopics.kafka.strimzi.io` instances with `strimzi.io/topic-operator` finalizers remaining |\n| **knative-serving** | 2026-05-28T16:33:25Z | 1x `knativeservings.operator.knative.dev` instance with `knative-serving-openshift` + `knativeservings.operator.knative.dev` finalizers remaining |\n\nBoth namespaces have been stuck terminating for an extended period. Content deletion succeeded but finalizers are blocking completion.\n\n---\n\n## All Namespaces Inventory\n\n### Application / Workload Namespaces\n\n| Namespace | Status | Created | Key Labels / Notes |\n|---|---|---|---|\n| **aap** | Active | 2026-03-20 | OLM-managed; pod-security: restricted |\n| **demo-crashloop** | Active | 2026-06-01 | criticality=**high**, env=production, sla=tier-1, owner=backend-team; cluster-monitoring enabled |\n| **demo-etcd-defrag** | Active | 2026-06-01 | criticality=**critical**, env=production, sla=tier-1, owner=sre-team; cluster-monitoring enabled |\n| **demo-team-alpha** | Active | 2026-06-04 | criticality=medium, env=**staging**, sla=tier-2, owner=platform-team |\n| **demo-team-beta** | Active | 2026-06-04 | criticality=high, env=production, sla=tier-1, owner=platform-team |\n| **my-team-app** | Active | 2026-05-07 | Created via openshift-apiserver |\n| **my-team-citi** | Active | 2026-05-07 | Created via openshift-apiserver |\n| **monitoring** | Active | 2026-04-10 | Helm-managed |\n| **keycloak** | Active | 2026-04-20 | Helm (kagenti-deps); Istio ambient mode; SSO app |\n\n### Infrastructure / Platform Namespaces\n\n| Namespace | Status | Created | Key Labels / Notes |\n|---|---|---|---|\n| **cert-manager** | Active | 2026-03-29 | Helm (kagenti-deps); cluster-monitoring enabled |\n| **cert-manager-operator** | Active | 2026-03-19 | Helm (kagenti-deps); OLM-managed |\n| **kagenti-system** | Active | 2026-05-24 | Istio ambient mode; shared-gateway-access=true |\n| **kubernaut-operator-system** | Active | 2026-05-24 | Kustomize-managed; controller-manager |\n| **kubernaut-system** | Active | 2026-05-23 | kagenti-enabled; pod-security: **privileged** |\n| **kubernaut-workflows** | Active | 2026-05-24 | Managed by kubernaut-operator |\n| **mcp-system** | Active | 2026-05-24 | Istio ambient mode; shared-gateway-access=true |\n| **gateway-system** | Active | 2026-05-24 | Helm (kagenti v0.7.0-alpha.2); Istio ambient |\n| **istio-cni** | Active | 2026-05-24 | Helm (kagenti-deps); Istio discovery enabled |\n| **istio-ztunnel** | Active | 2026-05-24 | Helm (kagenti-deps); Istio discovery enabled |\n\n### System / OpenShift Core Namespaces (Active)\n\n| Namespace | Pod Security | Notes |\n|---|---|---|\n| **default** | privileged (enforce) | OLM operator group present |\n| **kube-system** | privileged (enforce) | Core system |\n| **kube-public** | privileged (enforce) | Core system |\n| **kube-node-lease** | \u2014 | Core system |\n| **kcli-infra** | privileged | Bootstrap-created |\n| **openshift** | \u2014 | OpenShift core |\n| **openshift-apiserver** | privileged (enforce) | Cluster monitoring |\n| **openshift-apiserver-operator** | \u2014 | Owned by ClusterVersion |\n| **openshift-authentication** | privileged (enforce) | Cluster monitoring |\n| **openshift-authentication-operator** | baseline (enforce) | Owned by ClusterVersion |\n| **openshift-catalogd** | privileged (enforce) | OLM component |\n| **openshift-cloud-controller-manager** | privileged (enforce) | run-level=0 |\n| **openshift-cloud-controller-manager-operator** | privileged (enforce) | run-level=0 |\n| **openshift-cloud-credential-operator** | \u2014 | run-level=\"\" |\n| **openshift-cloud-network-config-controller** | \u2014 | Cluster monitoring |\n| **openshift-cloud-platform-infra** | privileged (enforce) | run-level=\"\"; scc.podSecurityLabelSync=false |\n| **openshift-cluster-csi-drivers** | privileged (enforce) | Cluster monitoring |\n| **openshift-cluster-machine-approver** | privileged (enforce) | run-level=0 |\n| **openshift-cluster-node-tuning-operator** | privileged (enforce) | Cluster monitoring |\n| **openshift-cluster-olm-operator** | \u2014 | Owned by ClusterVersion |\n| **openshift-cluster-samples-operator** | \u2014 | Cluster monitoring |\n| **openshift-cluster-storage-operator** | \u2014 | Cluster monitoring |\n| **openshift-cluster-version** | privileged (enforce) | run-level=\"\" |\n| **openshift-config** | privileged (enforce) | run-level=0 |\n| **openshift-config-managed** | \u2014 | run-level=0 |\n| **openshift-config-operator** | \u2014 | Cluster monitoring |\n| **openshift-console** | \u2014 | Cluster monitoring; network policy group=console |\n\n---\n\n## Key Observations for Incident Investigation\n\n1. **`kafka` namespace termination blocked** \u2014 The Strimzi topic operator finalizer (`strimzi.io/topic-operator`) on 5 KafkaTopic resources is preventing cleanup. The operator may be unavailable or misconfigured. Manual finalizer removal may be required.\n\n2. **`knative-serving` namespace termination blocked** \u2014 The `knative-serving-openshift` finalizer on a KnativeServing CR is blocking deletion. The Knative/OpenShift Serverless operator may need to be checked or the finalizer manually patched.\n\n3. **High-criticality demo namespaces** \u2014 `demo-crashloop` (criticality=high, tier-1) and `demo-etcd-defrag` (criticality=**critical**, tier-1) were both created 2026-06-01 and are active. These names suggest active incident simulation or real issues being investigated.\n\n4. **Istio ambient mesh** \u2014 Multiple namespaces (`kagenti-system`, `mcp-system`, `gateway-system`) are enrolled in Istio ambient mode (`istio.io/dataplane-mode=ambient`), which may be relevant if network connectivity issues are being investigated.\n\n5. **Mixed pod security posture** \u2014 Most workload namespaces use `restricted` policy; `kubernaut-system` and several OpenShift system namespaces use `privileged`, which is expected for infrastructure components.",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:55:01+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_find_resource",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"kind\": \"Deployment\", \"keyword\": \"worker\"}",
+      "tool_result": "# Deployment Summary for Incident Investigation\n\n## Overview\n**7 Deployments** found across multiple namespaces. Key concern: **2 deployments are mid-rollout with unavailable replicas**.\n\n---\n\n## \ud83d\udd34 Deployments Requiring Attention\n\n### 1. `worker` \u2014 `demo-team-alpha`\n| Field | Value |\n|---|---|\n| **Image** | `quay.io/kubernaut-cicd/demo-http-server:1.0.0` |\n| **Desired / Ready / Available** | 2 / 2 / 2 |\n| **Total Replicas** | **3** (surge during rollout) |\n| **Unavailable** | **1** |\n| **Generation** | 2 |\n| **Status** | \u26a0\ufe0f `Progressing` \u2014 ReplicaSet `worker-7d9884d695` is progressing |\n| **Last Rollout Triggered** | `2026-06-04T18:49:39Z` (via `kubectl rollout restart`) |\n| **Config** | `CONFIG_PATH=/etc/demo-http-server/config.yaml` via ConfigMap `worker-config` |\n| **Resources** | Limits: 50m CPU / 64Mi RAM; Requests: 10m CPU / 32Mi RAM |\n| **Health Probes** | Liveness & Readiness on `GET /healthz:8080` |\n\n> \u26a0\ufe0f **Rollout in progress at time of capture.** A `kubectl rollout restart` was issued at `18:49:39Z`. One pod is unavailable.\n\n---\n\n### 2. `worker` \u2014 `demo-team-beta`\n| Field | Value |\n|---|---|\n| **Image** | `quay.io/kubernaut-cicd/demo-http-server:1.0.0` |\n| **Desired / Ready / Available** | 2 / 2 / 2 |\n| **Total Replicas** | **3** (surge during rollout) |\n| **Unavailable** | **1** |\n| **Generation** | 2 |\n| **Status** | \u26a0\ufe0f `Progressing` \u2014 ReplicaSet `worker-745688cc68` is progressing |\n| **Last Rollout Triggered** | `2026-06-04T18:49:41Z` (via `kubectl rollout restart`) |\n| **Config** | Same as `demo-team-alpha` |\n\n> \u26a0\ufe0f **Rollout in progress at time of capture.** Mirrors `demo-team-alpha` \u2014 both restarted within ~2 seconds of each other, suggesting a coordinated restart event.\n\n---\n\n## \u2705 Healthy Deployments\n\n### 3. `worker` \u2014 `demo-crashloop`\n| Field | Value |\n|---|---|\n| **Image** | `quay.io/kubernaut-cicd/demo-http-server:1.0.0` |\n| **Replicas** | 2/2 Ready, 2/2 Available |\n| **Generation** | 3 |\n| **Status** | \u2705 Available & Progressing (completed) \u2014 ReplicaSet `worker-5ccfd4c787` |\n| **Last Status Update** | `2026-06-01T15:55:14Z` |\n| **Config** | Same `worker-config` ConfigMap pattern |\n\n> Note: Despite being in the `demo-crashloop` namespace, this deployment is currently **stable**. Generation 3 suggests it has been updated multiple times.\n\n---\n\n### 4. `downloads` \u2014 `openshift-console`\n| Field | Value |\n|---|---|\n| **Image** | `quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:779115a...` |\n| **Replicas** | 1/1 Ready, 1/1 Available |\n| **Owner** | `Console/cluster` (operator-managed) |\n| **Node Selector** | Master nodes only |\n| **Priority** | `system-cluster-critical` |\n| **Status** | \u2705 Healthy |\n| **Last Status Update** | `2026-05-26T01:49:28Z` |\n\n---\n\n### 5. `image-registry` \u2014 `openshift-image-registry`\n| Field | Value |\n|---|---|\n| **Image** | `quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:2bcca88...` |\n| **Replicas** | 1/1 Ready, 1/1 Available |\n| **Generation** | 3 |\n| **Storage** | Filesystem (`/registry`, emptyDir) |\n| **Port** | 5000 (HTTPS) |\n| **Progress Deadline** | 60s (aggressive) |\n| **Priority** | `system-cluster-critical` |\n| **Status** | \u2705 Healthy |\n| **Last Status Update** | `2026-05-26T01:48:34Z` |\n\n---\n\n### 6. `router-default` \u2014 `openshift-ingress`\n| Field | Value |\n|---|---|\n| **Image** | `quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:bbb5af2...` |\n| **Replicas** | 2/2 Ready, 2/2 Available |\n| **Domain** | `apps.dev.redhat-internal.com` |\n| **Host Network** | Yes |\n| **Ports** | 80 (HTTP), 443 (HTTPS), 1936 (metrics) |\n| **TLS** | Min TLSv1.2, HTTP/2 disabled |\n| **Priority** | `system-cluster-critical` |\n| **Status** | \u2705 Healthy |\n| **Last Status Update** | `2026-05-26T01:53:14Z` |\n\n---\n\n### 7. `telemeter-client` \u2014 `openshift-monitoring`\n| Field | Value |\n|---|---|\n| **Replicas** | 1/1 Ready, 1/1 Available |\n| **Containers** | `telemeter-client`, `reload`, `kube-rbac-proxy` |\n| **Purpose** | Telemetry metrics forwarding to Red Hat |\n| **Priority** | `system-cluster-critical` |\n| **Status** | \u2705 Healthy |\n| **Last Status Update** | `2026-05-26T01:48:14Z` |\n\n---\n\n## Key Findings for Investigation\n\n| Priority | Finding |\n|---|---|\n| \ud83d\udd34 High | `demo-team-alpha/worker` and `demo-team-beta/worker` both have **1 unavailable replica** mid-rollout triggered simultaneously at `~18:49:39-41Z` on `2026-06-04` |\n| \ud83d\udfe1 Medium | `demo-crashloop/worker` is stable at gen 3 \u2014 investigate what caused prior restarts in this namespace |\n| \ud83d\udfe2 Low | All OpenShift platform deployments (`downloads`, `image-registry`, `router-default`, `telemeter-client`) are healthy |\n| \u2139\ufe0f Info | All three `worker` deployments share identical spec: same image, same ConfigMap (`worker-config`), same resource limits \u2014 a shared config issue could affect all three |",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:55:01+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "26070",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:55:06+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "13634",
+      "tool_call_count": "3",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "Found the deployment in `demo-team-alpha`. Now let me investigate the pods, events, logs, and ConfigMap simultaneously."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:55:28+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_get_by_kind_in_namespace",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"kind\": \"Pod\", \"namespace\": \"demo-team-alpha\"}",
+      "tool_result": "# Pod Summary \u2014 Namespace: `demo-team-alpha`\n\n## Overview\n- **Total Pods:** 3\n- **All pods:** `app=worker`, image `quay.io/kubernaut-cicd/demo-http-server:1.0.0`\n- **Owner ReplicaSets:** Two distinct RSes present \u2014 indicating a **rollout is in progress**\n\n---\n\n## Pod Inventory\n\n| Pod Name | ReplicaSet | Node | Phase | Ready | Restart Count | Status |\n|---|---|---|---|---|---|---|\n| `worker-5ccfd4c787-j92r9` | `worker-5ccfd4c787` | `dev-worker-1` | Running | \u2705 True | 0 | Healthy |\n| `worker-5ccfd4c787-nq4jq` | `worker-5ccfd4c787` | `dev-worker-2` | Running | \u2705 True | 0 | Healthy |\n| `worker-7d9884d695-cxt7v` | `worker-7d9884d695` | `dev-worker-1` | Running | \u274c False | **5** | **CrashLoopBackOff** |\n\n---\n\n## \u26a0\ufe0f Critical Finding \u2014 `worker-7d9884d695-cxt7v`\n\n- **Status:** `CrashLoopBackOff` \u2014 back-off timer at **2m40s**\n- **Ready:** `False` \u2014 both `Ready` and `ContainersReady` conditions are `False`\n- **Restart Count:** 5\n- **Last Termination:** Exit code `1` (Error) at `2026-06-04T18:52:39Z`, ran for ~1 second\n- **Trigger:** Pod has annotation `kubectl.kubernetes.io/restartedAt: 2026-06-04T14:49:39-04:00`, confirming a **manual rollout restart** initiated this new ReplicaSet (`worker-7d9884d695`)\n- **Created:** `2026-06-04T18:49:39Z` \u2014 ~29 seconds after the two healthy pods\n- **Kubelet last updated status:** `2026-06-04T18:52:42Z`\n\n---\n\n## Healthy Pods \u2014 `worker-5ccfd4c787-*` (Old ReplicaSet)\n\nBoth pods from the **previous ReplicaSet** are fully healthy:\n- Created: `2026-06-04T18:49:10Z`\n- Ready within ~3\u20135 seconds of creation\n- Restart count: 0\n- QoS Class: `Burstable`\n- Network: OVN-Kubernetes (`eth0`), MACs `0a:58:0a:87:05:13` and `0a:58:0a:87:03:0e`\n\n---\n\n## Common Configuration (All Pods)\n\n| Property | Value |\n|---|---|\n| Image | `quay.io/kubernaut-cicd/demo-http-server:1.0.0` |\n| Container Port | `8080/TCP` |\n| Liveness Probe | `GET /healthz :8080`, delay 3s, period 5s |\n| Readiness Probe | `GET /healthz :8080`, delay 2s, period 3s |\n| CPU Limits/Requests | `50m` / `10m` |\n| Memory Limits/Requests | `64Mi` / `32Mi` |\n| Config Volume | ConfigMap `worker-config` \u2192 `/etc/demo-http-server/config.yaml` |\n| Security | `restricted-v2` SCC, non-root UID `1000860000`, all caps dropped |\n| Runtime | `cri-o`, seccomp `RuntimeDefault` |\n\n---\n\n## Incident Assessment\n\n**Root Cause Direction:** The `kubectl rollout restart` triggered a new ReplicaSet (`worker-7d9884d695`). The new pod is **crash-looping with exit code 1**, suggesting an **application-level failure** (not a scheduling or image pull issue \u2014 the container starts but exits immediately). The old ReplicaSet pods remain healthy, which may be intentional rollout safety behavior keeping them alive.\n\n**Recommended Next Steps:**\n1. `kubectl logs worker-7d9884d695-cxt7v -n demo-team-alpha` \u2014 check application error output\n2. `kubectl logs worker-7d9884d695-cxt7v -n demo-team-alpha --previous` \u2014 review last crashed instance\n3. Inspect ConfigMap `worker-config` for changes that may have been introduced with the restart\n4. Consider rolling back: `kubectl rollout undo deployment/worker -n demo-team-alpha`",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:55:28+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_describe",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"kind\": \"Deployment\", \"name\": \"worker\", \"api_group\": \"apps\", \"namespace\": \"demo-team-alpha\"}",
+      "tool_result": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\\\"labels\\\":{\\\"app\\\":\\\"worker\\\",\\\"kubernaut.ai/managed\\\":\\\"true\\\"},\\\"name\\\":\\\"worker\\\",\\\"namespace\\\":\\\"demo-team-alpha\\\"},\\\"spec\\\":{\\\"replicas\\\":2,\\\"selector\\\":{\\\"matchLabels\\\":{\\\"app\\\":\\\"worker\\\"}},\\\"template\\\":{\\\"metadata\\\":{\\\"labels\\\":{\\\"app\\\":\\\"worker\\\"}},\\\"spec\\\":{\\\"containers\\\":[{\\\"env\\\":[{\\\"name\\\":\\\"CONFIG_PATH\\\",\\\"value\\\":\\\"/etc/demo-http-server/config.yaml\\\"}],\\\"image\\\":\\\"quay.io/kubernaut-cicd/demo-http-server:1.0.0\\\",\\\"livenessProbe\\\":{\\\"httpGet\\\":{\\\"path\\\":\\\"/healthz\\\",\\\"port\\\":8080},\\\"initialDelaySeconds\\\":3,\\\"periodSeconds\\\":5},\\\"name\\\":\\\"worker\\\",\\\"ports\\\":[{\\\"containerPort\\\":8080,\\\"name\\\":\\\"http\\\"}],\\\"readinessProbe\\\":{\\\"httpGet\\\":{\\\"path\\\":\\\"/healthz\\\",\\\"port\\\":8080},\\\"initialDelaySeconds\\\":2,\\\"periodSeconds\\\":3},\\\"resources\\\":{\\\"limits\\\":{\\\"cpu\\\":\\\"50m\\\",\\\"memory\\\":\\\"64Mi\\\"},\\\"requests\\\":{\\\"cpu\\\":\\\"10m\\\",\\\"memory\\\":\\\"32Mi\\\"}},\\\"volumeMounts\\\":[{\\\"mountPath\\\":\\\"/etc/demo-http-server/config.yaml\\\",\\\"name\\\":\\\"config\\\",\\\"subPath\\\":\\\"config.yaml\\\"}]}],\\\"volumes\\\":[{\\\"configMap\\\":{\\\"name\\\":\\\"worker-config\\\"},\\\"name\\\":\\\"config\\\"}]}}}}\\n\"},\"creationTimestamp\":\"2026-06-04T18:49:10Z\",\"generation\":2,\"labels\":{\"app\":\"worker\",\"kubernaut.ai/managed\":\"true\"},\"managedFields\":[{\"apiVersion\":\"apps/v1\",\"fieldsType\":\"FieldsV1\",\"fieldsV1\":{\"f:metadata\":{\"f:annotations\":{\".\":{},\"f:kubectl.kubernetes.io/last-applied-configuration\":{}},\"f:labels\":{\".\":{},\"f:app\":{},\"f:kubernaut.ai/managed\":{}}},\"f:spec\":{\"f:progressDeadlineSeconds\":{},\"f:replicas\":{},\"f:revisionHistoryLimit\":{},\"f:selector\":{},\"f:strategy\":{\"f:rollingUpdate\":{\".\":{},\"f:maxSurge\":{},\"f:maxUnavailable\":{}},\"f:type\":{}},\"f:template\":{\"f:metadata\":{\"f:labels\":{\".\":{},\"f:app\":{}}},\"f:spec\":{\"f:containers\":{\"k:{\\\"name\\\":\\\"worker\\\"}\":{\".\":{},\"f:env\":{\".\":{},\"k:{\\\"name\\\":\\\"CONFIG_PATH\\\"}\":{\".\":{},\"f:name\":{},\"f:value\":{}}},\"f:image\":{},\"f:imagePullPolicy\":{},\"f:livenessProbe\":{\".\":{},\"f:failureThreshold\":{},\"f:httpGet\":{\".\":{},\"f:path\":{},\"f:port\":{},\"f:scheme\":{}},\"f:initialDelaySeconds\":{},\"f:periodSeconds\":{},\"f:successThreshold\":{},\"f:timeoutSeconds\":{}},\"f:name\":{},\"f:ports\":{\".\":{},\"k:{\\\"containerPort\\\":8080,\\\"protocol\\\":\\\"TCP\\\"}\":{\".\":{},\"f:containerPort\":{},\"f:name\":{},\"f:protocol\":{}}},\"f:readinessProbe\":{\".\":{},\"f:failureThreshold\":{},\"f:httpGet\":{\".\":{},\"f:path\":{},\"f:port\":{},\"f:scheme\":{}},\"f:initialDelaySeconds\":{},\"f:periodSeconds\":{},\"f:successThreshold\":{},\"f:timeoutSeconds\":{}},\"f:resources\":{\".\":{},\"f:limits\":{\".\":{},\"f:cpu\":{},\"f:memory\":{}},\"f:requests\":{\".\":{},\"f:cpu\":{},\"f:memory\":{}}},\"f:terminationMessagePath\":{},\"f:terminationMessagePolicy\":{},\"f:volumeMounts\":{\".\":{},\"k:{\\\"mountPath\\\":\\\"/etc/demo-http-server/config.yaml\\\"}\":{\".\":{},\"f:mountPath\":{},\"f:name\":{},\"f:subPath\":{}}}}},\"f:dnsPolicy\":{},\"f:restartPolicy\":{},\"f:schedulerName\":{},\"f:securityContext\":{},\"f:terminationGracePeriodSeconds\":{},\"f:volumes\":{\".\":{},\"k:{\\\"name\\\":\\\"config\\\"}\":{\".\":{},\"f:configMap\":{\".\":{},\"f:defaultMode\":{},\"f:name\":{}},\"f:name\":{}}}}}}},\"manager\":\"kubectl-client-side-apply\",\"operation\":\"Update\",\"time\":\"2026-06-04T18:49:10Z\"},{\"apiVersion\":\"apps/v1\",\"fieldsType\":\"FieldsV1\",\"fieldsV1\":{\"f:metadata\":{\"f:annotations\":{\"f:deployment.kubernetes.io/revision\":{}}},\"f:status\":{\"f:availableReplicas\":{},\"f:conditions\":{\".\":{},\"k:{\\\"type\\\":\\\"Available\\\"}\":{\".\":{},\"f:lastTransitionTime\":{},\"f:lastUpdateTime\":{},\"f:message\":{},\"f:reason\":{},\"f:status\":{},\"f:type\":{}},\"k:{\\\"type\\\":\\\"Progressing\\\"}\":{\".\":{},\"f:lastTransitionTime\":{},\"f:lastUpdateTime\":{},\"f:message\":{},\"f:reason\":{},\"f:status\":{},\"f:type\":{}}},\"f:observedGeneration\":{},\"f:readyReplicas\":{},\"f:replicas\":{},\"f:unavailableReplicas\":{},\"f:updatedReplicas\":{}}},\"manager\":\"kube-controller-manager\",\"operation\":\"Update\",\"subresource\":\"status\",\"time\":\"2026-06-04T18:49:39Z\"},{\"apiVersion\":\"apps/v1\",\"fieldsType\":\"FieldsV1\",\"fieldsV1\":{\"f:spec\":{\"f:template\":{\"f:metadata\":{\"f:annotations\":{\".\":{},\"f:kubectl.kubernetes.io/restartedAt\":{}}}}}},\"manager\":\"kubectl-rollout\",\"operation\":\"Update\",\"time\":\"2026-06-04T18:49:39Z\"}],\"name\":\"worker\",\"namespace\":\"demo-team-alpha\",\"resourceVersion\":\"93165956\",\"uid\":\"ceb50c5b-3b37-4773-ad4f-2e802099f630\"},\"spec\":{\"progressDeadlineSeconds\":600,\"replicas\":2,\"revisionHistoryLimit\":10,\"selector\":{\"matchLabels\":{\"app\":\"worker\"}},\"strategy\":{\"rollingUpdate\":{\"maxSurge\":\"25%\",\"maxUnavailable\":\"25%\"},\"type\":\"RollingUpdate\"},\"template\":{\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"worker\"}},\"spec\":{\"containers\":[{\"env\":[{\"name\":\"CONFIG_PATH\",\"value\":\"/etc/demo-http-server/config.yaml\"}],\"image\":\"quay.io/kubernaut-cicd/demo-http-server:1.0.0\",\"imagePullPolicy\":\"IfNotPresent\",\"livenessProbe\":{\"failureThreshold\":3,\"httpGet\":{\"path\":\"/healthz\",\"port\":8080,\"scheme\":\"HTTP\"},\"initialDelaySeconds\":3,\"periodSeconds\":5,\"successThreshold\":1,\"timeoutSeconds\":1},\"name\":\"worker\",\"ports\":[{\"containerPort\":8080,\"name\":\"http\",\"protocol\":\"TCP\"}],\"readinessProbe\":{\"failureThreshold\":3,\"httpGet\":{\"path\":\"/healthz\",\"port\":8080,\"scheme\":\"HTTP\"},\"initialDelaySeconds\":2,\"periodSeconds\":3,\"successThreshold\":1,\"timeoutSeconds\":1},\"resources\":{\"limits\":{\"cpu\":\"50m\",\"memory\":\"64Mi\"},\"requests\":{\"cpu\":\"10m\",\"memory\":\"32Mi\"}},\"terminationMessagePath\":\"/dev/termination-log\",\"terminationMessagePolicy\":\"File\",\"volumeMounts\":[{\"mountPath\":\"/etc/demo-http-server/config.yaml\",\"name\":\"config\",\"subPath\":\"config.yaml\"}]}],\"dnsPolicy\":\"ClusterFirst\",\"restartPolicy\":\"Always\",\"schedulerName\":\"default-scheduler\",\"securityContext\":{},\"terminationGracePeriodSeconds\":30,\"volumes\":[{\"configMap\":{\"defaultMode\":420,\"name\":\"worker-config\"},\"name\":\"config\"}]}}},\"status\":{\"availableReplicas\":2,\"conditions\":[{\"lastTransitionTime\":\"2026-06-04T18:49:15Z\",\"lastUpdateTime\":\"2026-06-04T18:49:15Z\",\"message\":\"Deployment has minimum availability.\",\"reason\":\"MinimumReplicasAvailable\",\"status\":\"True\",\"type\":\"Available\"},{\"lastTransitionTime\":\"2026-06-04T18:49:10Z\",\"lastUpdateTime\":\"2026-06-04T18:49:39Z\",\"message\":\"ReplicaSet \\\"worker-7d9884d695\\\" is progressing.\",\"reason\":\"ReplicaSetUpdated\",\"status\":\"True\",\"type\":\"Progressing\"}],\"observedGeneration\":2,\"readyReplicas\":2,\"replicas\":3,\"unavailableReplicas\":1,\"updatedReplicas\":1}}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:55:28+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_get_by_kind_in_namespace",
+      "tool_call_index": "2",
+      "tool_arguments": "{\"kind\": \"ConfigMap\", \"namespace\": \"demo-team-alpha\"}",
+      "tool_result": "# ConfigMap Summary \u2014 Namespace: `demo-team-alpha`\n\n## Overview\n- **Total ConfigMaps:** 4\n- **Namespace:** `demo-team-alpha`\n- **List ResourceVersion:** `93167648`\n- **All created:** `2026-06-04T18:49:06Z`\n\n---\n\n## ConfigMap Inventory\n\n### 1. `kube-root-ca.crt` *(System)*\n| Field | Value |\n|---|---|\n| UID | `139c1e8c-fa79-42d3-bb92-8d940eac05f6` |\n| ResourceVersion | `93165577` |\n| Manager | `kube-controller-manager` |\n| Data Key | `ca.crt` (redacted) |\n\n**Notes:** Standard cluster root CA injection. No anomalies.\n\n---\n\n### 2. `odh-trusted-ca-bundle` *(OpenDataHub / OpenShift)*\n| Field | Value |\n|---|---|\n| UID | `80463ccc-36d0-46fc-ae90-e6dc6fcc3a96` |\n| ResourceVersion | `93165593` |\n| Labels | `app.kubernetes.io/part-of: opendatahub-operator`, `config.openshift.io/inject-trusted-cabundle: \"true\"` |\n| Managers | `cluster-network-operator/configmap_ca`, `platform.opendatahub.io/trustedcabundle` |\n| Data Keys | `ca-bundle.crt` (large system CA bundle, ~150+ root CAs), `odh-ca-bundle.crt` (**empty**) |\n\n**Notes:** ODH-specific CA bundle. `odh-ca-bundle.crt` is empty \u2014 may be intentional or could indicate a missing custom CA injection if ODH workloads are experiencing TLS issues.\n\n---\n\n### 3. `openshift-service-ca.crt` *(System)*\n| Field | Value |\n|---|---|\n| UID | `1faf2f4e-69d3-4c4d-b38a-c0a3f958b467` |\n| ResourceVersion | `93165587` |\n| Managers | `kube-controller-manager`, `service-ca-operator` |\n| Data Key | `service-ca.crt` (redacted) |\n\n**Notes:** Standard OpenShift service CA injection. No anomalies.\n\n---\n\n### 4. `worker-config` \u26a0\ufe0f *(Application \u2014 Incident Relevant)*\n| Field | Value |\n|---|---|\n| UID | `ba9265c8-d88b-4304-97b6-5a35267dbfa6` |\n| ResourceVersion | `93165938` (updated after initial creation) |\n| Created | `2026-06-04T18:49:07Z` |\n| Last Patched | `2026-06-04T18:49:38Z` (via `kubectl-patch`) |\n| Manager(s) | `kubectl-client-side-apply` \u2192 then `kubectl-patch` |\n\n**Configuration Content (`config.yaml`):**\n```yaml\nport: 8080\ninvalid_directive: true   # \u26a0\ufe0f SUSPICIOUS\nroutes:\n  - path: /\n    status: 200\n    body: \"healthy\"\n  - path: /healthz\n    status: 200\n    body: \"ok\"\n```\n\n---\n\n## \ud83d\udea8 Incident Investigation Highlights\n\n| Severity | Finding |\n|---|---|\n| \ud83d\udd34 **HIGH** | `invalid_directive: true` present in `worker-config` \u2014 likely an invalid/unsupported config key that may cause worker misconfiguration or crash |\n| \ud83d\udfe0 **MEDIUM** | `worker-config` was **patched 31 seconds after creation** (`18:49:07Z` \u2192 `18:49:38Z`) via `kubectl-patch` \u2014 suggests a manual or automated corrective/erroneous change was applied shortly after deploy |\n| \ud83d\udfe1 **LOW** | `odh-ca-bundle.crt` in `odh-trusted-ca-bundle` is **empty** \u2014 investigate if ODH workloads require custom CA trust |\n\n## Recommended Actions\n1. **Investigate `invalid_directive`** \u2014 identify if the worker application rejects or ignores unknown config keys; check worker pod logs for config parse errors.\n2. **Audit the `kubectl-patch` event** \u2014 determine who/what patched `worker-config` at `18:49:38Z` and whether it introduced or was meant to fix the invalid directive.\n3. **Verify `odh-ca-bundle.crt`** \u2014 confirm whether ODH components require a populated custom CA bundle for TLS connectivity.",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:55:28+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "38758",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:55:34+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "18672",
+      "tool_call_count": "4",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "Excellent! Found the smoking gun \u2014 the `worker-config` ConfigMap has an `invalid_directive: true` field added via `kubectl-patch`. Now let me get the pod logs and events to confirm this is causing the crash."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:55:56+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_logs",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"name\": \"worker-7d9884d695-cxt7v\", \"namespace\": \"demo-team-alpha\"}",
+      "tool_result": "[emerg] invalid directive found in /etc/demo-http-server/config.yaml \u2014 aborting",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:55:56+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_previous_logs",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"name\": \"worker-7d9884d695-cxt7v\", \"namespace\": \"demo-team-alpha\"}",
+      "tool_result": "[emerg] invalid directive found in /etc/demo-http-server/config.yaml \u2014 aborting",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:55:56+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_events",
+      "tool_call_index": "2",
+      "tool_arguments": "{\"kind\": \"Pod\", \"name\": \"worker-7d9884d695-cxt7v\", \"namespace\": \"demo-team-alpha\"}",
+      "tool_result": "[{\"type\": \"Normal\", \"count\": 1, \"reason\": \"Scheduled\", \"source\": {\"component\": \"default-scheduler\"}, \"message\": \"Successfully assigned demo-team-alpha/worker-7d9884d695-cxt7v to dev-worker-1.redhat-internal.com\", \"metadata\": {\"uid\": \"68f82115-56ed-4d21-a0d5-f4a3c3f41ce1\", \"name\": \"worker-7d9884d695-cxt7v.18b5f55672cad9bc\", \"namespace\": \"demo-team-alpha\", \"managedFields\": [{\"time\": \"2026-06-04T18:49:39Z\", \"manager\": \"kube-scheduler\", \"fieldsV1\": {\"f:type\": {}, \"f:count\": {}, \"f:reason\": {}, \"f:source\": {\"f:component\": {}}, \"f:message\": {}, \"f:lastTimestamp\": {}, \"f:firstTimestamp\": {}, \"f:involvedObject\": {}, \"f:reportingComponent\": {}}, \"operation\": \"Update\", \"apiVersion\": \"v1\", \"fieldsType\": \"FieldsV1\"}], \"resourceVersion\": \"93165952\", \"creationTimestamp\": \"2026-06-04T18:49:39Z\"}, \"eventTime\": null, \"lastTimestamp\": \"2026-06-04T18:49:39Z\", \"firstTimestamp\": \"2026-06-04T18:49:39Z\", \"involvedObject\": {\"uid\": \"fa8d69f1-1e40-4fec-8043-73922c2cd1d5\", \"kind\": \"Pod\", \"name\": \"worker-7d9884d695-cxt7v\", \"namespace\": \"demo-team-alpha\", \"apiVersion\": \"v1\", \"resourceVersion\": \"93165947\"}, \"reportingInstance\": \"\", \"reportingComponent\": \"default-scheduler\"}, {\"type\": \"Normal\", \"count\": 1, \"reason\": \"AddedInterface\", \"source\": {\"component\": \"multus\"}, \"message\": \"Add eth0 [[REDACTED]/23] from ovn-kubernetes\", \"metadata\": {\"uid\": \"ba0c69a2-e148-4991-a881-2bbf62af79cf\", \"name\": \"worker-7d9884d695-cxt7v.18b5f5568fb94f67\", \"namespace\": \"demo-team-alpha\", \"managedFields\": [{\"time\": \"2026-06-04T18:49:39Z\", \"manager\": \"multus-daemon\", \"fieldsV1\": {\"f:type\": {}, \"f:count\": {}, \"f:reason\": {}, \"f:source\": {\"f:component\": {}}, \"f:message\": {}, \"f:lastTimestamp\": {}, \"f:firstTimestamp\": {}, \"f:involvedObject\": {}, \"f:reportingComponent\": {}}, \"operation\": \"Update\", \"apiVersion\": \"v1\", \"fieldsType\": \"FieldsV1\"}], \"resourceVersion\": \"93165974\", \"creationTimestamp\": \"2026-06-04T18:49:39Z\"}, \"eventTime\": null, \"lastTimestamp\": \"2026-06-04T18:49:39Z\", \"firstTimestamp\": \"2026-06-04T18:49:39Z\", \"involvedObject\": {\"uid\": \"fa8d69f1-1e40-4fec-8043-73922c2cd1d5\", \"kind\": \"Pod\", \"name\": \"worker-7d9884d695-cxt7v\", \"namespace\": \"demo-team-alpha\", \"apiVersion\": \"v1\", \"resourceVersion\": \"93165958\"}, \"reportingInstance\": \"\", \"reportingComponent\": \"multus\"}, {\"type\": \"Normal\", \"count\": 7, \"reason\": \"Pulled\", \"source\": {\"host\": \"dev-worker-1.redhat-internal.com\", \"component\": \"kubelet\"}, \"message\": \"Container image \\\"quay.io/kubernaut-cicd/demo-http-server:1.0.0\\\" already present on machine\", \"metadata\": {\"uid\": \"6f0488ac-6d83-499c-b0d7-eba7a54c2672\", \"name\": \"worker-7d9884d695-cxt7v.18b5f556921071c7\", \"namespace\": \"demo-team-alpha\", \"managedFields\": [{\"time\": \"2026-06-04T18:55:23Z\", \"manager\": \"kubelet\", \"fieldsV1\": {\"f:type\": {}, \"f:count\": {}, \"f:reason\": {}, \"f:source\": {\"f:host\": {}, \"f:component\": {}}, \"f:message\": {}, \"f:lastTimestamp\": {}, \"f:firstTimestamp\": {}, \"f:involvedObject\": {}, \"f:reportingInstance\": {}, \"f:reportingComponent\": {}}, \"operation\": \"Update\", \"apiVersion\": \"v1\", \"fieldsType\": \"FieldsV1\"}], \"resourceVersion\": \"93167735\", \"creationTimestamp\": \"2026-06-04T18:49:39Z\"}, \"eventTime\": null, \"lastTimestamp\": \"2026-06-04T18:55:23Z\", \"firstTimestamp\": \"2026-06-04T18:49:39Z\", \"involvedObject\": {\"uid\": \"fa8d69f1-1e40-4fec-8043-73922c2cd1d5\", \"kind\": \"Pod\", \"name\": \"worker-7d9884d695-cxt7v\", \"fieldPath\": \"spec.containers{worker}\", \"namespace\": \"demo-team-alpha\", \"apiVersion\": \"v1\", \"resourceVersion\": \"93165950\"}, \"reportingInstance\": \"dev-worker-1.redhat-internal.com\", \"reportingComponent\": \"kubelet\"}, {\"type\": \"Normal\", \"count\": 7, \"reason\": \"Created\", \"source\": {\"host\": \"dev-worker-1.redhat-internal.com\", \"component\": \"kubelet\"}, \"message\": \"Created container: worker\", \"metadata\": {\"uid\": \"449160cd-b75d-454b-8af5-4faa677bd1d3\", \"name\": \"worker-7d9884d695-cxt7v.18b5f556a1e03648\", \"namespace\": \"demo-team-alpha\", \"managedFields\": [{\"time\": \"2026-06-04T18:55:23Z\", \"manager\": \"kubelet\", \"fieldsV1\": {\"f:type\": {}, \"f:count\": {}, \"f:reason\": {}, \"f:source\": {\"f:host\": {}, \"f:component\": {}}, \"f:message\": {}, \"f:lastTimestamp\": {}, \"f:firstTimestamp\": {}, \"f:involvedObject\": {}, \"f:reportingInstance\": {}, \"f:reportingComponent\": {}}, \"operation\": \"Update\", \"apiVersion\": \"v1\", \"fieldsType\": \"FieldsV1\"}], \"resourceVersion\": \"93167737\", \"creationTimestamp\": \"2026-06-04T18:49:40Z\"}, \"eventTime\": null, \"lastTimestamp\": \"2026-06-04T18:55:23Z\", \"firstTimestamp\": \"2026-06-04T18:49:40Z\", \"involvedObject\": {\"uid\": \"fa8d69f1-1e40-4fec-8043-73922c2cd1d5\", \"kind\": \"Pod\", \"name\": \"worker-7d9884d695-cxt7v\", \"fieldPath\": \"spec.containers{worker}\", \"namespace\": \"demo-team-alpha\", \"apiVersion\": \"v1\", \"resourceVersion\": \"93165950\"}, \"reportingInstance\": \"dev-worker-1.redhat-internal.com\", \"reportingComponent\": \"kubelet\"}, {\"type\": \"Normal\", \"count\": 7, \"reason\": \"Started\", \"source\": {\"host\": \"dev-worker-1.redhat-internal.com\", \"component\": \"kubelet\"}, \"message\": \"Started container worker\", \"metadata\": {\"uid\": \"a1e24cc5-ebdc-4dde-83f6-a22453b041f4\", \"name\": \"worker-7d9884d695-cxt7v.18b5f556a297db48\", \"namespace\": \"demo-team-alpha\", \"managedFields\": [{\"time\": \"2026-06-04T18:55:23Z\", \"manager\": \"kubelet\", \"fieldsV1\": {\"f:type\": {}, \"f:count\": {}, \"f:reason\": {}, \"f:source\": {\"f:host\": {}, \"f:component\": {}}, \"f:message\": {}, \"f:lastTimestamp\": {}, \"f:firstTimestamp\": {}, \"f:involvedObject\": {}, \"f:reportingInstance\": {}, \"f:reportingComponent\": {}}, \"operation\": \"Update\", \"apiVersion\": \"v1\", \"fieldsType\": \"FieldsV1\"}], \"resourceVersion\": \"93167738\", \"creationTimestamp\": \"2026-06-04T18:49:40Z\"}, \"eventTime\": null, \"lastTimestamp\": \"2026-06-04T18:55:23Z\", \"firstTimestamp\": \"2026-06-04T18:49:40Z\", \"involvedObject\": {\"uid\": \"fa8d69f1-1e40-4fec-8043-73922c2cd1d5\", \"kind\": \"Pod\", \"name\": \"worker-7d9884d695-cxt7v\", \"fieldPath\": \"spec.containers{worker}\", \"namespace\": \"demo-team-alpha\", \"apiVersion\": \"v1\", \"resourceVersion\": \"93165950\"}, \"reportingInstance\": \"dev-worker-1.redhat-internal.com\", \"reportingComponent\": \"kubelet\"}, {\"type\": \"Warning\", \"count\": 34, \"reason\": \"BackOff\", \"source\": {\"host\": \"dev-worker-1.redhat-internal.com\", \"component\": \"kubelet\"}, \"message\": \"Back-off restarting failed container worker in pod worker-7d9884d695-cxt7v_demo-team-alpha(fa8d69f1-1e40-4fec-8043-73922c2cd1d5)\", \"metadata\": {\"uid\": \"e54e0aa1-2a78-4e51-8487-edf677b9d542\", \"name\": \"worker-7d9884d695-cxt7v.18b5f557170f1f9d\", \"namespace\": \"demo-team-alpha\", \"managedFields\": [{\"time\": \"2026-06-04T18:54:47Z\", \"manager\": \"kubelet\", \"fieldsV1\": {\"f:type\": {}, \"f:count\": {}, \"f:reason\": {}, \"f:source\": {\"f:host\": {}, \"f:component\": {}}, \"f:message\": {}, \"f:lastTimestamp\": {}, \"f:firstTimestamp\": {}, \"f:involvedObject\": {}, \"f:reportingInstance\": {}, \"f:reportingComponent\": {}}, \"operation\": \"Update\", \"apiVersion\": \"v1\", \"fieldsType\": \"FieldsV1\"}], \"resourceVersion\": \"93167575\", \"creationTimestamp\": \"2026-06-04T18:49:42Z\"}, \"eventTime\": null, \"lastTimestamp\": \"2026-06-04T18:54:47Z\", \"firstTimestamp\": \"2026-06-04T18:49:42Z\", \"involvedObject\": {\"uid\": \"fa8d69f1-1e40-4fec-8043-73922c2cd1d5\", \"kind\": \"Pod\", \"name\": \"worker-7d9884d695-cxt7v\", \"fieldPath\": \"spec.containers{worker}\", \"namespace\": \"demo-team-alpha\", \"apiVersion\": \"v1\", \"resourceVersion\": \"93165950\"}, \"reportingInstance\": \"dev-worker-1.redhat-internal.com\", \"reportingComponent\": \"kubelet\"}]",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:55:56+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_describe",
+      "tool_call_index": "3",
+      "tool_arguments": "{\"kind\": \"Pod\", \"name\": \"worker-7d9884d695-cxt7v\", \"namespace\": \"demo-team-alpha\"}",
+      "tool_result": "# Pod Incident Summary: `worker-7d9884d695-cxt7v`\n\n## \ud83d\udd34 Critical Status: CrashLoopBackOff\n\n---\n\n## Identity & Ownership\n| Field | Value |\n|---|---|\n| **Pod Name** | `worker-7d9884d695-cxt7v` |\n| **Namespace** | `demo-team-alpha` |\n| **Owner** | ReplicaSet `worker-7d9884d695` |\n| **Node** | `dev-worker-1.redhat-internal.com` |\n| **UID** | `fa8d69f1-1e40-4fec-8043-73922c2cd1d5` |\n| **Created** | `2026-06-04T18:49:39Z` |\n| **Last Restarted (annotation)** | `2026-06-04T14:49:39-04:00` (\u2261 `18:49:39Z`) |\n\n---\n\n## \ud83d\udea8 Failure Summary\n\n| Field | Value |\n|---|---|\n| **Current State** | `Waiting` \u2192 **CrashLoopBackOff** |\n| **Back-off Duration** | **5 minutes** |\n| **Restart Count** | **6** |\n| **Container Ready** | `false` |\n| **Last Exit Code** | `1` (Error) |\n| **Last Run Duration** | ~1 second (`18:55:23Z` \u2192 `18:55:24Z`) |\n| **Last Container ID** | `cri-o://b60235ddaf3c55c599e418f9c792253b96bd4d13e0cc4b782ca61f93c3fac633` |\n\n> \u26a0\ufe0f The container starts and crashes almost immediately (< 1s), suggesting a **startup/configuration failure** rather than a runtime error.\n\n---\n\n## Pod Conditions\n\n| Condition | Status | Notes |\n|---|---|---|\n| `PodScheduled` | \u2705 True | Scheduled successfully |\n| `Initialized` | \u2705 True | |\n| `PodReadyToStartContainers` | \u2705 True | Since `18:49:41Z` |\n| `Ready` | \u274c False | `ContainersNotReady` |\n| `ContainersReady` | \u274c False | `ContainersNotReady` |\n\n---\n\n## Container: `worker`\n\n| Field | Value |\n|---|---|\n| **Image** | `quay.io/kubernaut-cicd/demo-http-server:1.0.0` |\n| **Image Pull Policy** | `IfNotPresent` |\n| **Port** | `8080/TCP` (named `http`) |\n| **Config Env Var** | `CONFIG_PATH=/etc/demo-http-server/config.yaml` |\n\n### Health Probes\n| Probe | Path | Port | Initial Delay | Period |\n|---|---|---|---|---|\n| **Liveness** | `/healthz` | `8080` | 3s | 5s |\n| **Readiness** | `/healthz` | `8080` | 2s | 3s |\n\n### Resource Limits\n| | CPU | Memory |\n|---|---|---|\n| **Requests** | `10m` | `32Mi` |\n| **Limits** | `50m` | `64Mi` |\n| **QoS Class** | Burstable | |\n\n---\n\n## Volume Mounts (Potential Config Issue)\n\n| Mount Path | Source | Notes |\n|---|---|---|\n| `/etc/demo-http-server/config.yaml` | ConfigMap `worker-config` (subPath: `config.yaml`) | \u26a0\ufe0f **Primary suspect** \u2014 config file mounted from ConfigMap |\n| `/var/run/secrets/kubernetes.io/serviceaccount` | Projected (SA token, CA certs) | Read-only |\n\n---\n\n## Security Context\n- **Run As Non-Root:** `true`, UID `1000860000`\n- **Privilege Escalation:** Disabled\n- **Capabilities:** All dropped\n- **SCC:** `restricted-v2`\n- **Seccomp:** `RuntimeDefault`\n- **SELinux Level:** `s0:c29,c24`\n\n---\n\n## Networking\n- **CNI:** OVN-Kubernetes (`eth0`)\n- **Pod IP:** `[REDACTED]` (subnet `/23`)\n- **MAC:** `0a:58:0a:87:05:15`\n\n---\n\n## \ud83d\udd0d Recommended Investigation Steps\n\n1. **Check logs immediately:**\n   ```bash\n   kubectl logs worker-7d9884d695-cxt7v -n demo-team-alpha --previous\n   ```\n2. **Inspect the ConfigMap** \u2014 exit code `1` with near-instant crash strongly suggests a missing or malformed config file:\n   ```bash\n   kubectl describe configmap worker-config -n demo-team-alpha\n   ```\n3. **Verify config key exists** \u2014 the mount uses `subPath: config.yaml`; if the key is missing or misnamed in the ConfigMap, the file will not exist at startup.\n4. **Check ReplicaSet/Deployment events** for any recent rollout or config change around `18:49:39Z`.\n5. **Review restart annotation** \u2014 pod was annotated with a manual restart at creation time, suggesting this may be a **known recurring issue** or a deliberate rollout attempt.",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:55:56+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "49505",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:56:00+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "22930",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "The root cause is crystal clear. Now let me get the resource context for the remediation target."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:56:00+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "get_namespaced_resource_context",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"kind\": \"Deployment\", \"name\": \"worker\", \"namespace\": \"demo-team-alpha\"}",
+      "tool_result": "{\"root_owner\": {\"kind\": \"Deployment\", \"name\": \"worker\", \"namespace\": \"demo-team-alpha\"}, \"remediation_history\": {\"tier1\": [], \"tier2\": [], \"tier1_window\": \"24h0m0s\", \"tier2_window\": \"2160h0m0s\", \"target_resource\": \"demo-team-alpha/Deployment/worker\", \"regression_detected\": false}}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:56:00+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "kubectl_get_yaml",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"kind\": \"ConfigMap\", \"name\": \"worker-config\", \"namespace\": \"demo-team-alpha\"}",
+      "tool_result": "apiVersion: v1\ndata:\n  config.yaml: |\n    port: 8080\n    invalid_directive: true\n    routes:\n      - path: /\n        status: 200\n        body: \"healthy\"\n      - path: /healthz\n        status: 200\n        body: \"ok\"\nkind: ConfigMap\nmetadata:\n  annotations:\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"v1\",\"data\":{\"config.yaml\":\"port: 8080\\nroutes:\\n  - path: /\\n    status: 200\\n    body: 'healthy'\\n  - path: /healthz\\n    status: 200\\n    body: 'ok'\\n\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":[REDACTED],\"name\":\"worker-config\",\"namespace\":\"demo-team-alpha\"}}\n  creationTimestamp: \"2026-06-04T18:49:07Z\"\n  managedFields:\n  - apiVersion: v1\n    fieldsType: FieldsV1\n    fieldsV1:\n      f:data: {}\n      f:metadata:\n        f:annotations:\n          .: {}\n          f:kubectl.kubernetes.io/last-applied-configuration: {}\n    manager: kubectl-client-side-apply\n    operation: Update\n    time: \"2026-06-04T18:49:07Z\"\n  - apiVersion: v1\n    fieldsType: FieldsV1\n    fieldsV1:\n      f:data:\n        f:config.yaml: {}\n    manager: kubectl-patch\n    operation: Update\n    time: \"2026-06-04T18:49:38Z\"\n  name: worker-config\n  namespace: demo-team-alpha\n  resourceVersion: \"93165938\"\n  uid: ba9265c8-d88b-4304-97b6-5a35267dbfa6",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:56:00+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "51118",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:56:05+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "23783",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "I now have all the evidence needed. Let me update the todos and submit the final result."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:56:05+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"completed\", \"content\": \"Investigate pod status and events for worker in team-alpha\"}, {\"id\": \"2\", \"status\": \"completed\", \"content\": \"Check deployment configuration\"}, {\"id\": \"3\", \"status\": \"completed\", \"content\": \"Fetch pod logs (current and previous)\"}, {\"id\": \"4\", \"status\": \"completed\", \"content\": \"Determine root cause via five whys\"}, {\"id\": \"5\", \"status\": \"completed\", \"content\": \"Get resource context for remediation target\"}, {\"id\": \"6\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}]}",
+      "tool_result": "{\"total\": 7, \"by_status\": {\"completed\": 5, \"in_progress\": 2}, \"in_progress\": [{\"id\": \"6\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}, {\"id\": \"7\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:56:05+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "51467",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:56:49+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "26055",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "The investigation is complete. Here's my full analysis before submitting:\n\n**Root Cause Chain:**\n1. Pod `worker-7d9884d695-cxt7v` is in `CrashLoopBackOff` (6 restarts, exit code 1, crashes in <1 second)\n2. Logs confirm: `[emerg] invalid directive found in /etc/demo-http-server/config.yaml \u2014 aborting`\n3. ConfigMap `worker-config` contains `invalid_directive: true` \u2014 an unsupported key the app rejects\n4. The `kubectl-patch` manager updated the ConfigMap at `18:49:38Z` (31 seconds after creatio"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:56:49+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "9999",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:56:52+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "4915",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "I'll follow the three-step workflow discovery protocol. Let me start by setting up my investigation plan and discovering available actions simultaneously."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:56:52+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"in_progress\", \"content\": \"Step 1: List available remediation action types\"}, {\"id\": \"2\", \"status\": \"pending\", \"content\": \"Step 2: List workflows for the best-matching action type\"}, {\"id\": \"3\", \"status\": \"pending\", \"content\": \"Step 3: Get full workflow definition for selected workflow\"}, {\"id\": \"4\", \"status\": \"pending\", \"content\": \"Submit final result with selected workflow\"}]}",
+      "tool_result": "{\"total\": 7, \"by_status\": {\"pending\": 3, \"completed\": 1, \"in_progress\": 3}, \"in_progress\": [{\"id\": \"6\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}, {\"id\": \"7\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}, {\"id\": \"1\", \"status\": \"in_progress\", \"content\": \"Step 1: List available remediation action types\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:56:52+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "list_available_actions",
+      "tool_call_index": "1",
+      "tool_arguments": "{}",
+      "tool_result": "{\"actionTypes\": [{\"actionType\": \"PatchConfiguration\", \"description\": {\"what\": \"Patch a faulty ConfigMap or configuration resource in-place to fix a configuration error without rolling back the deployment.\", \"whenToUse\": \"When the root cause is a specific, identifiable configuration error in a mounted ConfigMap, and the fix is deterministic. Prioritizes speed over safety by modifying live resources.\", \"whenNotToUse\": \"When the root cause is unclear, when multiple configuration resources may be affected, or when a full rollback to a known-good revision is preferred for safety.\", \"preconditions\": \"The faulty configuration resource is identified and the correction can be applied programmatically.\"}, \"workflowCount\": 3}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:56:52+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "11233",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:56:57+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "5474",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "Good \u2014 one action type returned. Let me check if there are more pages, and simultaneously update my todos."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:56:57+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"completed\", \"content\": \"Step 1: List available remediation action types\"}, {\"id\": \"2\", \"status\": \"in_progress\", \"content\": \"Step 2: List workflows for PatchConfiguration action type\"}, {\"id\": \"3\", \"status\": \"pending\", \"content\": \"Step 3: Get full workflow definition for selected workflow\"}, {\"id\": \"4\", \"status\": \"pending\", \"content\": \"Submit final result with selected workflow\"}]}",
+      "tool_result": "{\"total\": 7, \"by_status\": {\"pending\": 2, \"completed\": 2, \"in_progress\": 3}, \"in_progress\": [{\"id\": \"2\", \"status\": \"in_progress\", \"content\": \"Step 2: List workflows for PatchConfiguration action type\"}, {\"id\": \"6\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}, {\"id\": \"7\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:56:57+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "list_workflows",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"action_type\": \"PatchConfiguration\"}",
+      "tool_result": "{\"workflows\": [{\"name\": \"increase-db-connections-v1\", \"version\": \"1.5.0\", \"workflowId\": \"218efd66-e8a1-5d36-84eb-9927f7d95654\", \"description\": {\"what\": \"Increases the PostgreSQL max_connections limit by patching the database ConfigMap and restarting the database Deployment, relieving connection pool exhaustion so blocked clients can reconnect.\\n\", \"whenToUse\": \"When a DatabaseConnectionPoolExhausted or similar alert indicates that active database connections have reached or exceeded max_connections, and legitimate workloads are being denied connections. The ConfigMap holding the connection limit (e.g. POSTGRESQL_MAX_CONNECTIONS) is identifiable and the database supports dynamic pool expansion via restart.\\n\", \"whenNotToUse\": \"When the exhaustion is caused solely by a connection leak that will re-saturate any higher limit \u2014 scale down or restart the leaking workload instead. Also avoid when the database is at its hardware memory ceiling and cannot support more connections.\\n\", \"preconditions\": \"A ConfigMap holds the POSTGRESQL_MAX_CONNECTIONS value, the database Deployment reads it via envFrom, and the database has sufficient memory headroom to handle the increased connection count.\\n\"}, \"workflowName\": \"increase-db-connections-v1\", \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/increase-db-connections-job@sha256:30b82b424d3fb022fa33a30af4d5573f1fa43da2407f98bebfe0284d8017757d\", \"executionEngine\": \"job\", \"serviceAccountName\": \"increase-db-connections-v1-runner\"}, {\"name\": \"patch-configuration-v1\", \"version\": \"1.5.1\", \"workflowId\": \"359072fc-91d1-57da-8a56-ddb3e3f289bb\", \"description\": {\"what\": \"Patches a ConfigMap to remove invalid keys or restore known-good values from a backup ConfigMap, then restarts the Deployment that mounts it to recover from configuration-induced crashes\", \"whenToUse\": \"When a Deployment's pods are crashing because a mounted ConfigMap contains invalid data (bad directives, corrupted values, injected keys) and the Deployment spec itself has NOT changed \u2014 only the ConfigMap content was modified in-place. Look for: (1) CrashLoopBackOff with exit code 1 and startup errors referencing config files, (2) the Deployment's volume still references the same ConfigMap name as before, (3) the ConfigMap data contains keys or values that were recently added or modified. This is the correct workflow when the root cause is bad ConfigMap content, not a bad Deployment spec change.\", \"whenNotToUse\": \"When the Deployment spec was changed to reference a different ConfigMap name (e.g. volumes[].configMap.name was modified) \u2014 use CrashloopRollback instead, which reverts the entire pod template. When the crash is caused by an image change, resource limits, or external dependency failure. When the ConfigMap is managed by a GitOps tool (ArgoCD/Flux) \u2014 use GitRevert instead.\", \"preconditions\": \"The ConfigMap exists in the target namespace. Either a backup ConfigMap (<name>-backup, <name>-good, <name>-original) is available, or the bad keys can be identified and removed.\"}, \"workflowName\": \"patch-configuration-v1\", \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/patch-configuration-job@sha256:e8788f0fa8eb807ef27dfa3bbe2cba70cb9235faee7e1e6ada3c7f37e865f081\", \"executionEngine\": \"job\", \"serviceAccountName\": \"patch-configuration-v1-runner\"}, {\"name\": \"hotfix-config-v1\", \"version\": \"1.5.0\", \"workflowId\": \"ce266b4d-0d42-56e1-9660-9b50c72474ae\", \"description\": {\"what\": \"Patches a faulty ConfigMap in-place to remove an invalid configuration directive, then restarts the owning Deployment so pods load the corrected configuration\", \"whenToUse\": \"When a Deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap and the signal carries risk_tolerance=high. The target resource may be the ConfigMap itself or the Deployment that mounts it. Prefer this over rollback when the ConfigMap content is the root cause, because a deployment rollback only masks the problem -- the poisoned ConfigMap remains in the cluster and will re-trigger crashes if pods are rescheduled. In-place patching eliminates the root cause permanently. Best for staging environments or teams that accept the risk of modifying live resources for faster, definitive recovery.\", \"whenNotToUse\": \"When the environment is GitOps-managed (ArgoCD/Flux detected) -- an in-place patch will be overwritten by the next GitOps sync, use GitRevertCommit instead. Also do not use when risk_tolerance=low, when the configuration error cannot be identified programmatically, or when a clean rollback to a known-good revision is preferred for maximum safety.\", \"preconditions\": \"A Deployment mounts a ConfigMap as a volume, and the ConfigMap contains an identifiable invalid directive that can be removed to restore health.\"}, \"workflowName\": \"hotfix-config-v1\", \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:dc17c4e54cae249b4105492d4a911db827decbae108a067983f187b426875187\", \"executionEngine\": \"job\", \"serviceAccountName\": \"hotfix-config-v1-runner\"}], \"actionType\": \"PatchConfiguration\"}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:56:57+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "16775",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:57:02+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "7283",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "Excellent! Three workflows found. Based on the RCA \u2014 `risk_tolerance=high`, staging environment, invalid directive in ConfigMap \u2014 **`hotfix-config-v1`** is the strongest match. Let me fetch its full schema while updating todos."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:57:02+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"completed\", \"content\": \"Step 1: List available remediation action types\"}, {\"id\": \"2\", \"status\": \"completed\", \"content\": \"Step 2: List workflows for PatchConfiguration action type\"}, {\"id\": \"3\", \"status\": \"in_progress\", \"content\": \"Step 3: Get full workflow definition for hotfix-config-v1\"}, {\"id\": \"4\", \"status\": \"pending\", \"content\": \"Submit final result with selected workflow\"}]}",
+      "tool_result": "{\"total\": 7, \"by_status\": {\"pending\": 1, \"completed\": 3, \"in_progress\": 3}, \"in_progress\": [{\"id\": \"3\", \"status\": \"in_progress\", \"content\": \"Step 3: Get full workflow definition for hotfix-config-v1\"}, {\"id\": \"6\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}, {\"id\": \"7\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:57:02+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "get_workflow",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"workflow_id\": \"ce266b4d-0d42-56e1-9660-9b50c72474ae\"}",
+      "tool_result": "{\"type\": \"https://kubernaut.ai/problems/workflow-not-found\", \"title\": \"Not Found\", \"detail\": \"Workflow not found: ce266b4d-0d42-56e1-9660-9b50c72474ae\", \"status\": 404}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:57:02+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "17543",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:57:06+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "17981",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:57:06+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "get_workflow",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"workflow_id\": \"218efd66-e8a1-5d36-84eb-9927f7d95654\"}",
+      "tool_result": "{\"type\": \"https://kubernaut.ai/problems/workflow-not-found\", \"title\": \"Not Found\", \"detail\": \"Workflow not found: 218efd66-e8a1-5d36-84eb-9927f7d95654\", \"status\": 404}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:57:06+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "get_workflow",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"workflow_id\": \"359072fc-91d1-57da-8a56-ddb3e3f289bb\"}",
+      "tool_result": "{\"type\": \"https://kubernaut.ai/problems/workflow-not-found\", \"title\": \"Not Found\", \"detail\": \"Workflow not found: 359072fc-91d1-57da-8a56-ddb3e3f289bb\", \"status\": 404}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:57:06+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "7687",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "`hotfix-config-v1` returned 404. Let me fetch the full definitions for both remaining candidate workflows in parallel."
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-06-04T18:57:10+00:00",
+      "model": "claude-sonnet-4-6",
+      "prompt_length": "18538",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-06-04T18:57:10+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "todo_write",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"todos\": [{\"id\": \"1\", \"status\": \"completed\", \"content\": \"Step 1: List available remediation action types\"}, {\"id\": \"2\", \"status\": \"completed\", \"content\": \"Step 2: List workflows for PatchConfiguration action type\"}, {\"id\": \"3\", \"status\": \"completed\", \"content\": \"Step 3: Get full workflow definitions \u2014 all 3 returned 404 (not found)\"}, {\"id\": \"4\", \"status\": \"in_progress\", \"content\": \"Submit final result \u2014 no executable workflow available\"}]}",
+      "tool_result": "{\"total\": 7, \"by_status\": {\"completed\": 4, \"in_progress\": 3}, \"in_progress\": [{\"id\": \"4\", \"status\": \"in_progress\", \"content\": \"Submit final result \u2014 no executable workflow available\"}, {\"id\": \"6\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}, {\"id\": \"7\", \"status\": \"in_progress\", \"content\": \"Perform adversarial due diligence and submit RCA\"}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:57:10+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "8087",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "All three workflows returned 404 from `get_workflow`. This means none of the discovered workflows are currently retrievable/executable. Let me update my todos and submit the result accordingly."
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-06-04T18:57:26+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "9008",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    }
+  ],
+  "traceStats": {
+    "totalTokens": 175469,
+    "llmTurns": 14,
+    "totalToolCalls": 24,
+    "k8sToolCalls": 18,
+    "model": "claude-sonnet-4-6"
+  },
+  "kaResponse": {
+    "analysis": "ConfigMap 'worker-config' in demo-team-alpha was patched with an invalid directive ('invalid_directive: true') causing the worker container to abort on startup with exit code 1.",
+    "warnings": [],
+    "timestamp": "2026-06-04T18:57:26Z",
+    "confidence": 0.98,
+    "incidentId": "rr-df3cf7f0a467-7a008636",
+    "needsHumanReview": true,
+    "humanReviewReason": "no_matching_workflows",
+    "rootCauseAnalysis": {
+      "summary": "ConfigMap 'worker-config' in demo-team-alpha was patched with an invalid directive ('invalid_directive: true') causing the worker container to abort on startup with exit code 1.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: Pod worker-7d9884d695-cxt7v in demo-team-alpha is in CrashLoopBackOff (6 restarts, exit code 1)",
+        "Why? Container crashes in under 1 second with log: '[emerg] invalid directive found in /etc/demo-http-server/config.yaml \u2014 aborting'",
+        "Why? The config file mounted at /etc/demo-http-server/config.yaml contains an unsupported key 'invalid_directive: true'",
+        "Why? ConfigMap worker-config was patched via kubectl-patch at 2026-06-04T18:49:38Z, injecting 'invalid_directive: true' into config.yaml \u2014 31 seconds after initial creation with a valid config",
+        "Root cause: A bad kubectl-patch to ConfigMap worker-config introduced an invalid configuration directive that the demo-http-server application rejects at startup, causing every pod in the new ReplicaSet to abort immediately"
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "The remediation target is ConfigMap/worker-config because it is the resource whose data content needs to change (remove invalid_directive: true). The Deployment spec itself is correct and does not need modification. Patching the ConfigMap is the precise, minimal fix. The Deployment is listed as a contributing context but is not the resource to remediate.",
+        "proportionality": "The fix is scoped to a single ConfigMap key in one namespace. Only the new ReplicaSet pods are affected; old pods remain healthy. The remediation (patch ConfigMap to remove invalid_directive) is minimal and targeted. No cluster-wide or node-level intervention is required.",
+        "scopeCompleteness": "Investigated: the crashing pod (describe + logs + previous logs + events), the Deployment spec, both ReplicaSets (via pod inventory), the ConfigMap content and patch history, namespace inventory, and node health (implicitly via old RS pods being healthy on the same nodes). The Deployment owner chain was confirmed via get_namespaced_resource_context. No upstream/downstream dependencies are relevant \u2014 this is a pure config-content issue.",
+        "causalCompleteness": "Full causal chain traced: CrashLoopBackOff \u2192 exit code 1 \u2192 application log confirms invalid directive \u2192 ConfigMap patched with invalid_directive \u2192 kubectl-patch manager at 18:49:38Z introduced the change. Cannot go deeper without access to the actor/automation that issued the kubectl-patch command, but the config-level root cause is fully identified.",
+        "evidenceSufficiency": "All claims are backed by tool output: (1) pod logs (both current and previous) explicitly state the invalid directive error; (2) ConfigMap YAML shows 'invalid_directive: true' in the live data; (3) managedFields confirm kubectl-patch added it at 18:49:38Z; (4) last-applied-configuration annotation confirms the original config lacked this field; (5) pod events confirm BackOff with 34 occurrences; (6) old RS pods have 0 restarts confirming the config change is the differentiator. No inaccessible data sources impacted this investigation.",
+        "regressionAwareness": "No prior remediation history exists for demo-team-alpha/Deployment/worker (confirmed via get_namespaced_resource_context \u2014 tier1 and tier2 history both empty). This is the first remediation attempt.",
+        "alternativeHypotheses": "Considered: (1) OOMKill \u2014 ruled out: exit code is 1 (application error), not 137 (OOMKill); memory usage not elevated; (2) Image pull failure \u2014 ruled out: events show 'Container image already present on machine', no ImagePullBackOff; (3) Missing ConfigMap key/subPath issue \u2014 ruled out: the ConfigMap exists and has the config.yaml key; the error is about content not absence; (4) Node pressure \u2014 ruled out: old RS pods on same nodes are healthy with 0 restarts; (5) Liveness probe killing the container \u2014 ruled out: container exits before probe fires (crashes in <1s, liveness has 3s initial delay).",
+        "confidenceCalibration": "0.98: Starting at 1.0. -0.02 for not knowing the actor/automation that issued the kubectl-patch (could indicate a systemic issue if automated, but does not change the fix). All other evidence is direct and unambiguous \u2014 logs, ConfigMap content, patch timestamps, and healthy old-RS pods all consistently point to the same root cause."
       },
-      "workflowExecution": {
-        "phase": "Completed"
+      "remediationTarget": {
+        "kind": "ConfigMap",
+        "name": "worker-config",
+        "namespace": "demo-team-alpha"
       },
-      "effectivenessAssessment": {
-        "phase": "Completed",
-        "verdict": "Full"
-      }
+      "contributingFactors": [
+        "Manual kubectl-patch applied to worker-config at 2026-06-04T18:49:38Z introduced 'invalid_directive: true' into config.yaml",
+        "A kubectl rollout restart at 18:49:39Z created new ReplicaSet worker-7d9884d695 which picked up the corrupted ConfigMap",
+        "The application (demo-http-server) strictly validates config keys and aborts on unknown directives \u2014 no graceful degradation",
+        "Old ReplicaSet pods (worker-5ccfd4c787) remain healthy because they were created 31 seconds before the patch and are not restarted"
+      ]
     }
   },
-  "validationResult": {
-    "pass": true,
-    "assertions": 11,
-    "passed": 11,
-    "details": [
-      "Alpha RR phase = Completed",
-      "Alpha RR outcome = Remediated",
-      "Beta RR phase = Completed",
-      "Beta RR outcome = Remediated",
-      "Alpha AA selected a workflow",
-      "Beta AA selected a workflow",
-      "Different workflows selected (risk-based)",
-      "Alpha selected hotfix-config workflow",
-      "Beta selected hotfix-config-production workflow",
-      "Alpha auto-approved (staging)",
-      "Beta required manual approval (production)"
-    ]
-  }
+  "effectivenessAssessment": {}
 }

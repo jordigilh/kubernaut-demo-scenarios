@@ -6,7 +6,7 @@ set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO_NAME="slo-burn"
-DEMO_NS="demo-slo"
+DEMO_NS="demo-api"
 ALERT_NAME="ErrorBudgetBurn"
 RESOURCE_TAPE="slo-burn-pods.tape"
 SCREENS_TAPE="slo-burn-screens.tape"

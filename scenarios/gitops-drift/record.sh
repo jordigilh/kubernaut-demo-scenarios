@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIO_NAME="gitops-drift"
-DEMO_NS="demo-gitops"
+DEMO_NS="demo-webui"
 ALERT_NAME="KubePodCrashLooping"
 RESOURCE_TAPE="gitops-drift-pods.tape"
 SCREENS_TAPE="gitops-drift-screens.tape"

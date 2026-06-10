@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: blackbox-exporter
-  namespace: demo-slo
+  namespace: demo-api
   labels:
     app: blackbox-exporter
 spec:
@@ -39,7 +39,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: blackbox-exporter
-  namespace: demo-slo
+  namespace: demo-api
   labels:
     app: blackbox-exporter
     kubernaut.ai/managed: "true"
@@ -58,15 +58,15 @@ apiVersion: monitoring.coreos.com/v1
 kind: Probe
 metadata:
   name: api-gateway-probe
-  namespace: demo-slo
+  namespace: demo-api
   labels:
     release: kube-prometheus-stack
 spec:
   interval: 10s
   module: http_2xx
   prober:
-    url: blackbox-exporter.demo-slo.svc:9115
+    url: blackbox-exporter.demo-api.svc:9115
   targets:
     staticConfig:
       static:
-      - http://api-gateway.demo-slo.svc:8080/api/status
+      - http://api-gateway.demo-api.svc:8080/api/status

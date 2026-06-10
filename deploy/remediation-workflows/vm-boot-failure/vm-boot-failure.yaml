@@ -1,0 +1,84 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fix-datavolume-source-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-datavolume-source-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fix-datavolume-source-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-datavolume-source-v1
+rules:
+  - apiGroups: ["kubevirt.io"]
+    resources: ["virtualmachines"]
+    verbs: ["get", "list", "patch", "update"]
+  - apiGroups: ["kubevirt.io"]
+    resources: ["virtualmachineinstances"]
+    verbs: ["get", "list"]
+  - apiGroups: ["cdi.kubevirt.io"]
+    resources: ["datavolumes"]
+    verbs: ["get", "list", "patch", "update", "delete"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "delete"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fix-datavolume-source-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: fix-datavolume-source-v1
+subjects:
+  - kind: ServiceAccount
+    name: fix-datavolume-source-v1-runner
+    namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: fix-datavolume-source-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: fix-datavolume-source-v1
+  namespace: kubernaut-system
+spec:
+  version: "1.5.0"
+  actionType: FixDataVolumeSource
+  labels:
+    severity: [critical, high, medium]
+    environment: [staging, production]
+    component: [cdi.kubevirt.io/v1beta1/DataVolume, kubevirt.io/v1/VirtualMachine]
+    priority: "*"
+  description:
+    what: "Fix a DataVolume source URL that is preventing VM disk import"
+    whenToUse: "VirtualMachine is stuck in Provisioning, DataVolume shows ImportInProgress or failed, CDI importer pod logs show connection errors or HTTP failures"
+    whenNotToUse: "VM boot failure not related to disk import (e.g., resource quota, invalid machine config, OOM)"
+    preconditions: "The VirtualMachine is stuck in Provisioning status. A DataVolume import is in progress or failed. The CDI importer pod exists and may show errors in its logs. The investigation should follow: VM -> DataVolume -> CDI Importer Pod -> logs."
+  execution:
+    engine: job
+    serviceAccountName: fix-datavolume-source-v1-runner
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-datavolume-source-job@sha256:ab680a690a4caae4f911fcdfa02394fa2cfe932bc84efa00a2f1a529016e6948
+  parameters:
+    - name: TARGET_RESOURCE_NAMESPACE
+      type: string
+      required: true
+      description: "Namespace of the affected VirtualMachine"
+    - name: TARGET_RESOURCE_NAME
+      type: string
+      required: true
+      description: "Name of the VirtualMachine with the stuck DataVolume"
+    - name: TARGET_RESOURCE_KIND
+      type: string
+      required: true
+      description: "Must be VirtualMachine"

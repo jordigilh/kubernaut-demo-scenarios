@@ -1,30 +1,25 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: memory-leak-rules
-  namespace: demo-memory-leak
+  name: demo-app-alerts
+  namespace: demo-telemetry
   labels:
     release: prometheus
 spec:
   groups:
-  - name: memory-leak
+  - name: demo-app
     rules:
-    # Predict memory exhaustion using linear extrapolation
-    # Fires when the "leaker" container is projected to exceed its memory limit
-    # within 30 minutes (1800s) based on the last 5-minute trend
     - alert: ContainerMemoryExhaustionPredicted
       expr: |
         predict_linear(
           container_memory_working_set_bytes{
-            namespace="demo-memory-leak",
-            container="leaker"
+            namespace="demo-telemetry"
           }[5m], 1800
         )
         >
         on(namespace, pod, container)
         kube_pod_container_resource_limits{
-          namespace="demo-memory-leak",
-          container="leaker",
+          namespace="demo-telemetry",
           resource="memory"
         }
       for: 30s
@@ -35,11 +30,6 @@ spec:
           Container {{ $labels.container }} in {{ $labels.namespace }}/{{ $labels.pod }}
           predicted to exceed memory limit within 30 minutes.
         description: >
-          Linear extrapolation of container_memory_working_set_bytes over the last
-          5 minutes projects that container {{ $labels.container }} in pod
-          {{ $labels.pod }} (namespace {{ $labels.namespace }}) will exceed its
-          configured memory limit within approximately 30 minutes at the current
-          growth rate. The memory usage pattern is monotonically increasing,
-          consistent with a memory leak or unbounded allocation. If unaddressed,
-          the kubelet will OOMKill the container, potentially disrupting the
-          service.
+          A container in namespace {{ $labels.namespace }} is projected to exceed
+          its configured memory limit based on recent growth trends. Service
+          stability may be at risk.

@@ -25,7 +25,7 @@ done
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
-NAMESPACE="demo-hpa"
+NAMESPACE="demo-gateway"
 ALERT_NAME="KubeHpaMaxedOut"
 ALERT_TIMEOUT=300     # 5 min (for: 2m + scrape lag)
 PIPELINE_TIMEOUT=600  # 10 min

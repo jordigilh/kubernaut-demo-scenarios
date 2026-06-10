@@ -3,7 +3,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - postgres.yaml
-  - connection-leaker.yaml
+  - client-pool.yaml
   - app-workloads.yaml
   - servicemonitor.yaml
   - prometheus-rule.yaml

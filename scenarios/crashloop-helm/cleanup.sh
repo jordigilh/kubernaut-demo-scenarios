@@ -13,12 +13,12 @@ restore_production_approval || true
 echo "==> Cleaning up Helm CrashLoopBackOff demo..."
 
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
-    kubectl delete prometheusrule kubernaut-crashloop-helm-rules -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts-storefront -n openshift-monitoring --ignore-not-found
 else
     kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
 fi
-helm uninstall demo-crashloop-helm -n demo-crashloop-helm 2>/dev/null || true
-kubectl delete namespace demo-crashloop-helm --ignore-not-found
+helm uninstall demo-storefront -n demo-storefront 2>/dev/null || true
+kubectl delete namespace demo-storefront --ignore-not-found
 
 purge_pipeline_crds
 
