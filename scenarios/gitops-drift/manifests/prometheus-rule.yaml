@@ -16,7 +16,7 @@ spec:
             namespace="demo-webui",
             container="web-frontend"
           }[5m]
-        ) > 2
+        ) > 0
       for: 30s
       labels:
         severity: critical

@@ -16,7 +16,7 @@ spec:
             namespace="demo-team-beta",
             container="worker"
           }[10m]
-        ) > 3
+        ) > 0
       for: 3m
       labels:
         severity: critical

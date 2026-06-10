@@ -15,7 +15,7 @@ spec:
           kube_pod_container_status_restarts_total{
             namespace="demo-storefront"
           }[10m]
-        ) > 3
+        ) > 0
       for: 30s
       labels:
         severity: critical

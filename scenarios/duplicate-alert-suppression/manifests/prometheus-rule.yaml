@@ -16,7 +16,7 @@ spec:
             namespace="demo-ingress",
             container="api-gateway"
           }[10m]
-        ) > 3
+        ) > 0
       for: 30s
       labels:
         severity: critical
