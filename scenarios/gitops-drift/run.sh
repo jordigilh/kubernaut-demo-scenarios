@@ -336,8 +336,9 @@ cd "${WORK_DIR}"
 git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
 cd repo
 
-# Break the ConfigMap: inject an invalid_directive that the demo-http-server
-# detects on startup and aborts with [emerg] (same as nginx would).
+# Break the ConfigMap: change port from integer to string. The YAML is valid
+# but the demo-http-server fails type validation on startup and exits with
+# [emerg] (same as nginx would for a type mismatch).
 cat > manifests/configmap.yaml <<EOF
 apiVersion: v1
 kind: ConfigMap
@@ -348,9 +349,7 @@ metadata:
     app: web-frontend
 data:
   config.yaml: |
-    port: 8080
-    # INVALID: demo-http-server detects this and exits with [emerg]
-    invalid_directive: true
+    port: "http"
     routes:
       - path: /
         status: 200
@@ -424,7 +423,7 @@ DEPLOY_EOF
 git add .
 git config user.email "bad-actor@example.com"
 git config user.name "Bad Deploy"
-git commit -m "chore: update app config (broken value)"
+git commit -m "chore: standardize port config to named service"
 git push origin main
 
 kill "${PF_PID}" 2>/dev/null || true
