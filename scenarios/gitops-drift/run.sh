@@ -336,9 +336,10 @@ cd "${WORK_DIR}"
 git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
 cd repo
 
-# Break the ConfigMap: change port from integer to string. The YAML is valid
-# but the demo-http-server fails type validation on startup and exits with
-# [emerg] (same as nginx would for a type mismatch).
+# Break the ConfigMap: change the listen port from 8080 to 8443. The config is
+# valid YAML with a plausible value (HTTPS convention), but the container's
+# liveness probe and service still target 8080, so probes fail and k8s kills
+# the pod — resulting in CrashLoopBackOff.
 cat > manifests/configmap.yaml <<EOF
 apiVersion: v1
 kind: ConfigMap
@@ -349,7 +350,7 @@ metadata:
     app: web-frontend
 data:
   config.yaml: |
-    port: "http"
+    port: 8443
     routes:
       - path: /
         status: 200
@@ -423,7 +424,7 @@ DEPLOY_EOF
 git add .
 git config user.email "bad-actor@example.com"
 git config user.name "Bad Deploy"
-git commit -m "chore: standardize port config to named service"
+git commit -m "chore: migrate app port to 8443 for TLS termination"
 git push origin main
 
 kill "${PF_PID}" 2>/dev/null || true
