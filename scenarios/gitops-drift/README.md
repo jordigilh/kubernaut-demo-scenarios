@@ -280,7 +280,7 @@ spec:
         app: web-frontend
         kubernaut.ai/managed: "true"
       annotations:
-        kubernaut.ai/config-version: "broken"
+        kubectl.kubernetes.io/restartedAt: "2024-01-15T10:30:00Z"
     spec:
       containers:
       - name: web-frontend
