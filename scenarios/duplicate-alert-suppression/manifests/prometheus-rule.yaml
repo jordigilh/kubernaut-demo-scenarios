@@ -15,7 +15,7 @@ spec:
           kube_pod_container_status_restarts_total{
             namespace="demo-ingress",
             container="api-gateway"
-          }[10m]
+          }[1m]
         ) > 0
       for: 30s
       labels:
