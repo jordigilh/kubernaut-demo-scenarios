@@ -33,6 +33,32 @@ overnight-results-*.txt
 overnight-rerun-launcher-*.log
 nohup-*.log
 
+# Ad-hoc run/rerun/retest logs and result directories
+/*-run.log
+/*-retest*.log
+/*-rerun*.log
+/*-test*.log
+/*-final.log
+/overnight-*.log
+/rerun-*.log
+parallel-results-*/
+parallel-*-run*.log
+parallel-run-*.log
+rerun-logs-*/
+rerun-output.log
+rerun-failed.log
+redeploy-*/
+sequential-retest-*/
+
+# One-off runner scripts (use scripts/overnight-ocp-validation.sh instead)
+/rerun-*.sh
+/run-preflight-validation.sh
+/run-new-v14-scenarios.sh
+/run-sequential-retest.sh
+
+# Stale watch/debug artifacts
+scenarios/*/watch_*
+
 # Secrets (tracked via sealed-secrets or external vault)
 base/secrets/
 
