@@ -15,12 +15,11 @@ spec:
           kube_pod_container_status_restarts_total{
             namespace="demo-webui",
             container="web-frontend"
-          }[1m]
+          }[2m]
         ) > 0
       for: 30s
       labels:
         severity: critical
-        scenario: gitops-drift
       annotations:
         summary: >
           Pod {{ $labels.pod }} is crash looping in namespace {{ $labels.namespace }}.
