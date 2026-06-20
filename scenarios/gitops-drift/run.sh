@@ -14,7 +14,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-APPROVE_MODE="--auto-approve"
+APPROVE_MODE="--interactive"
 SKIP_VALIDATE=""
 SUBCOMMAND="all"
 for _arg in "$@"; do
@@ -102,7 +102,7 @@ metadata:
   name: ${NAMESPACE}
   labels:
     kubernaut.ai/managed: "true"
-    kubernaut.ai/environment: staging
+    kubernaut.ai/environment: production
     kubernaut.ai/business-unit: platform
     kubernaut.ai/service-owner: sre-team
     kubernaut.ai/criticality: high

@@ -6,7 +6,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="demo-webui"
-APPROVE_MODE="${1:---auto-approve}"
+APPROVE_MODE="${1:---interactive}"
 
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
@@ -46,10 +46,20 @@ assert_eq "$rr_outcome" "Remediated" "RR outcome"
 sp_phase=$(get_sp_phase "${NAMESPACE}")
 assert_eq "$sp_phase" "Completed" "SP phase"
 
+sp_env=$(kubectl get signalprocessings -n "${PLATFORM_NS}" \
+  -o jsonpath='{range .items[?(@.spec.targetNamespace=="'"${NAMESPACE}"'")]}{.status.environment}{end}' 2>/dev/null \
+  || kubectl get signalprocessings -n "${PLATFORM_NS}" --no-headers -o custom-columns=ENV:.status.environment 2>/dev/null | head -1 || echo "")
+assert_eq "$sp_env" "Production" "SP classified environment as Production"
+
 aa_phase=$(get_aa_phase "${NAMESPACE}")
 assert_eq "$aa_phase" "Completed" "AA phase"
 
 rr_name=$(get_rr_name "${NAMESPACE}")
+
+rar_decision=$(kubectl get remediationapprovalrequest "rar-${rr_name}" -n "${PLATFORM_NS}" \
+  -o jsonpath='{.status.decision}' 2>/dev/null || echo "")
+assert_eq "$rar_decision" "Approved" "RAR was created and approved (production environment)"
+
 aa_name="ai-${rr_name}"
 
 workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
