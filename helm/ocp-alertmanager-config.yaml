@@ -29,11 +29,9 @@ receivers:
   - name: default
   - name: gateway-webhook
     webhook_configs:
-      - url: "https://gateway-service.kubernaut-system.svc.cluster.local:8443/api/v1/signals/prometheus"
+      - url: "http://apifrontend.kubernaut-system.svc.cluster.local:8443/api/v1/signals/prometheus"
         send_resolved: false
         http_config:
           authorization:
             type: Bearer
             credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-          tls_config:
-            insecure_skip_verify: true

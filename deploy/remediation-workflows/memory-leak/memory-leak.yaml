@@ -17,7 +17,7 @@ metadata:
 rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
-    verbs: ["get", "list", "patch", "update"]
+    verbs: ["get", "list", "watch", "patch", "update"]
   - apiGroups: ["apps"]
     resources: ["replicasets"]
     verbs: ["get", "list"]
@@ -49,7 +49,7 @@ metadata:
 spec:
   # Graceful Restart Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #129 -- Proactive memory exhaustion -> graceful restart
-  version: "1.5.0"
+  version: "1.5.1"
   description:
     what: "Performs a zero-downtime rolling restart of a deployment to reset container runtime state, reclaiming memory consumed by leaks or unbounded allocations before the kubelet OOMKills the container"
     whenToUse: "When a container's memory usage is growing monotonically toward its limit — indicating a memory leak, unbounded cache, or resource accumulation — and a pod restart will reset the process memory without data loss. This is the standard production first-response for predicted OOM: preserve service availability now while the development team addresses the underlying defect in the next release cycle"

@@ -52,7 +52,6 @@ metadata:
   labels:
     app: demo-app
     kubernaut.ai/managed: "true"
-    kubernaut.ai/metrics: "true"
 spec:
   selector:
     app: demo-app

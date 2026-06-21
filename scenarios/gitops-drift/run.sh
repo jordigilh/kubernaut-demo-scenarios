@@ -14,7 +14,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-APPROVE_MODE="--auto-approve"
+APPROVE_MODE="--interactive"
 SKIP_VALIDATE=""
 SUBCOMMAND="all"
 for _arg in "$@"; do
@@ -102,7 +102,7 @@ metadata:
   name: ${NAMESPACE}
   labels:
     kubernaut.ai/managed: "true"
-    kubernaut.ai/environment: staging
+    kubernaut.ai/environment: production
     kubernaut.ai/business-unit: platform
     kubernaut.ai/service-owner: sre-team
     kubernaut.ai/criticality: high
@@ -336,8 +336,10 @@ cd "${WORK_DIR}"
 git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
 cd repo
 
-# Break the ConfigMap: inject an invalid_directive that the demo-http-server
-# detects on startup and aborts with [emerg] (same as nginx would).
+# Break the ConfigMap: change the listen port from 8080 to 8443. The config is
+# valid YAML with a plausible value (HTTPS convention), but the container's
+# liveness probe and service still target 8080, so probes fail and k8s kills
+# the pod — resulting in CrashLoopBackOff.
 cat > manifests/configmap.yaml <<EOF
 apiVersion: v1
 kind: ConfigMap
@@ -348,9 +350,7 @@ metadata:
     app: web-frontend
 data:
   config.yaml: |
-    port: 8080
-    # INVALID: demo-http-server detects this and exits with [emerg]
-    invalid_directive: true
+    port: 8443
     routes:
       - path: /
         status: 200
@@ -381,7 +381,7 @@ spec:
         app: web-frontend
         kubernaut.ai/managed: "true"
       annotations:
-        kubernaut.ai/config-version: "broken"
+        kubectl.kubernetes.io/restartedAt: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     spec:
       containers:
       - name: web-frontend
@@ -424,7 +424,7 @@ DEPLOY_EOF
 git add .
 git config user.email "bad-actor@example.com"
 git config user.name "Bad Deploy"
-git commit -m "chore: update app config (broken value)"
+git commit -m "chore: migrate app port to 8443 for TLS termination"
 git push origin main
 
 kill "${PF_PID}" 2>/dev/null || true

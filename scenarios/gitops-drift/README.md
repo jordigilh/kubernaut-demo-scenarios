@@ -2,24 +2,32 @@
 
 ## Overview
 
-Demonstrates Kubernaut remediating a broken ConfigMap in a GitOps-managed environment.
+Demonstrates Kubernaut remediating a broken ConfigMap in a GitOps-managed **production** environment.
 The LLM traces a pod crash signal to a ConfigMap root cause (signal != RCA resource)
 and selects `git revert` over `kubectl rollback` because the environment is GitOps-managed.
+Because this is a production namespace, the pipeline requires **human approval** before
+executing the remediation workflow.
 
-**Key differentiator**: Signal resource (crashing Pod) differs from RCA resource (broken ConfigMap).
-The LLM must choose the GitOps-aware remediation path.
+**Key differentiators**:
+- Signal resource (crashing Pod) differs from RCA resource (broken ConfigMap).
+  The LLM must choose the GitOps-aware remediation path.
+- Production environment triggers a `RemediationApprovalRequest` (RAR) — the pipeline
+  pauses at `AwaitingApproval` until an operator approves.
 
 ## Signal Flow
 
 ```
 Bad commit pushed to Gitea → ArgoCD syncs broken ConfigMap
-  → nginx pods enter CrashLoopBackOff
-  → Prometheus fires KubePodCrashLooping (for: 3m)
-  → Gateway → SP (enriches: environment=staging, criticality=high)
+  → pods enter CrashLoopBackOff
+  → Prometheus fires KubePodCrashLooping (for: 30s)
+  → RR created → SP (enriches: environment=Production, priority=P0)
   → AA (HAPI + LLM)
   → LabelDetector: gitOpsManaged=true (ArgoCD annotations)
   → LLM traces crash to ConfigMap (signal resource ≠ RCA resource)
   → Selects GitRevertCommit workflow (not RollbackDeployment)
+  → RO creates RemediationApprovalRequest (RAR)
+  → ⏸ Pipeline pauses at AwaitingApproval
+  → Human approves RAR
   → RO → WE (Job: git clone + git revert HEAD + git push)
   → ArgoCD syncs reverted ConfigMap
   → EM verifies pods Running and Ready
@@ -70,11 +78,14 @@ Feature: GitOps drift remediation via git revert
       And pods restart and enter CrashLoopBackOff
 
     Then Prometheus fires "KubePodCrashLooping" alert for namespace "demo-webui"
-      And Gateway creates a RemediationRequest
-      And Signal Processing enriches with namespace labels (environment=staging, criticality=high)
+      And a RemediationRequest is created
+      And Signal Processing enriches with namespace labels (environment=Production, priority=P0)
       And KA LabelDetector detects "gitOpsManaged=true" from ArgoCD annotations
       And the LLM traces the crash to ConfigMap "app-config" (RCA resource != signal resource)
       And the LLM selects "GitRevertCommit" workflow (not "RollbackDeployment")
+      And Remediation Orchestrator creates a RemediationApprovalRequest (RAR)
+      And the pipeline pauses at "AwaitingApproval"
+      And a human operator approves the RAR
       And Remediation Orchestrator creates WorkflowExecution
       And the WE Job clones the Gitea repo and runs "git revert HEAD"
       And ArgoCD syncs the reverted ConfigMap back to the cluster
@@ -85,14 +96,16 @@ Feature: GitOps drift remediation via git revert
 
 - [ ] Gitea + ArgoCD deployed and managing `demo-webui` namespace
 - [ ] Bad ConfigMap commit causes CrashLoopBackOff
-- [ ] SP enriches signal with business classification from namespace labels
+- [ ] SP enriches signal with business classification (environment=Production, priority=P0)
 - [ ] KA detects `gitOpsManaged=true` from ArgoCD annotations (DD-HAPI-018)
 - [ ] LLM identifies ConfigMap as root cause (signal != RCA)
 - [ ] LLM selects `GitRevertCommit` workflow over `RollbackDeployment`
+- [ ] RO creates RAR and pipeline pauses at `AwaitingApproval`
+- [ ] Human approval transitions pipeline to `Executing`
 - [ ] WE Job performs `git revert` in Gitea repository
 - [ ] ArgoCD auto-syncs the reverted state
 - [ ] EM verifies Deployment health restored (metricsScore > 0 via ServiceMonitor)
-- [ ] Full pipeline: Gateway -> RO -> SP -> AA -> WE -> EM
+- [ ] Full pipeline: RR -> RO -> SP -> AA -> RAR (approval) -> WE -> EM
 
 ## Running the Scenario
 
@@ -104,8 +117,16 @@ Feature: GitOps drift remediation via git revert
 
 ### Automated Run
 
+The default mode is `--interactive`, which pauses at the approval step for manual
+intervention (ideal for demos and video recording). Pass `--auto-approve` to skip
+the approval gate (CI/batch runs).
+
 ```bash
+# Interactive (default) — pauses for manual approval
 ./scenarios/gitops-drift/run.sh
+
+# Auto-approve — bypasses approval for CI
+./scenarios/gitops-drift/run.sh --auto-approve
 ```
 
 <details>
@@ -117,6 +138,16 @@ export PLATFORM=ocp
 ```
 
 </details>
+
+#### Approving the Remediation
+
+When the pipeline reaches `AwaitingApproval`, approve with:
+
+```bash
+RR=$(kubectl get rr -n kubernaut-system -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' | head -1)
+kubectl patch rar "rar-${RR}" -n kubernaut-system --type=merge \
+  --subresource=status -p '{"status":{"decision":"Approved"}}'
+```
 
 ### Manual Step-by-Step
 
@@ -280,7 +311,7 @@ spec:
         app: web-frontend
         kubernaut.ai/managed: "true"
       annotations:
-        kubernaut.ai/config-version: "broken"
+        kubectl.kubernetes.io/restartedAt: "2024-01-15T10:30:00Z"
     spec:
       containers:
       - name: web-frontend
@@ -396,7 +427,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 | **Target Resource** | ConfigMap/app-config (ns: demo-webui) |
 | **Workflow Selected** | git-revert-v2 (`GitRevertCommit`) |
 | **Confidence** | 0.97 |
-| **Approval** | not required (staging, high confidence) |
+| **Approval** | required (production environment — RAR created, pipeline pauses at AwaitingApproval) |
 | **Alternative** | hotfix-config-v1 (`PatchConfiguration`) — rejected at 0.35 confidence: "explicitly states do not use when environment is GitOps-managed; in-place patch will be overwritten by next ArgoCD sync" |
 
 **Key Reasoning Chain:**
@@ -422,7 +453,7 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
 | 1 | `todo_write`, `kubectl_describe(Pod/web-frontend-…)`, `kubectl_events(Pod/…)` | 4 672 | Planned investigation; identified OOMKilled-like exit code 1, CrashLoopBackOff, 4 restarts |
 | 2 | `kubectl_previous_logs(…)`, `kubectl_logs(…)` | 5 026 | Read container logs: `[emerg] invalid directive found in /etc/demo-http-server/config.yaml` |
 | 3 | `kubectl_get_by_name(ConfigMap/app-config)` | 18 331 | Fetched ConfigMap — confirmed `invalid_directive: true` in mounted config |
-| 4 | `todo_write`, `get_namespaced_resource_context(ConfigMap/app-config)` | 19 853 | Enriched context: detected `gitOpsManaged=true`, `gitOpsTool=argocd`, `environment=staging` |
+| 4 | `todo_write`, `get_namespaced_resource_context(ConfigMap/app-config)` | 19 853 | Enriched context: detected `gitOpsManaged=true`, `gitOpsTool=argocd`, `environment=production` |
 | 5 | `todo_write` | 20 109 | Updated investigation plan |
 | 6 | `todo_write` | 20 369 | Prepared RCA submission |
 | 7 | *submit_result (RCA)* | 20 427 | Root cause: ConfigMap/app-config with invalid directive, synced by ArgoCD |

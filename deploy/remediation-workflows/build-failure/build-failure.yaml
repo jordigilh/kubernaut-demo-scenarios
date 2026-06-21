@@ -56,7 +56,7 @@ metadata:
   name: fix-build-source-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.0"
+  version: "1.5.1"
   description:
     what: "Restores a BuildConfig's Git source reference to a known-good URI and branch, then triggers a new build to recover from build failures caused by broken source references"
     whenToUse: "When openshift_build_status_phase_total with build_phase=failed increases and no successful builds are completing. Check the Build resource status.phase and build pod logs for clone/fetch errors. Check BuildConfig spec.source.git.uri and spec.source.git.ref for incorrect repository URL or branch reference. Common after repository migrations, branch renames, or source secret expiry."

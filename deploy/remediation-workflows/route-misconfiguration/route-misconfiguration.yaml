@@ -47,7 +47,7 @@ metadata:
   name: fix-route-target-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.0"
+  version: "1.5.1"
   description:
     what: "Corrects an OpenShift Route's target Service reference when it points to a non-existent or wrong Service, restoring external traffic flow"
     whenToUse: "When an OpenShift Route's backend is down because spec.to.name references a Service that does not exist or has no healthy Endpoints. Common after blue/green deployment misconfigurations where the Route is switched to a new Service before it is ready."

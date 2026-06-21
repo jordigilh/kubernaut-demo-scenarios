@@ -17,7 +17,7 @@ metadata:
 rules:
   - apiGroups: ["apps"]
     resources: ["deployments"]
-    verbs: ["get", "list", "patch", "update"]
+    verbs: ["get", "list", "watch", "patch", "update"]
   - apiGroups: ["apps"]
     resources: ["replicasets"]
     verbs: ["get", "list"]
@@ -50,7 +50,7 @@ metadata:
   name: hotfix-config-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.0"
+  version: "1.5.1"
   description:
     what: "Patches a faulty ConfigMap in-place to remove an invalid configuration directive, then restarts the owning Deployment so pods load the corrected configuration"
     whenToUse: "When a Deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap and the signal carries risk_tolerance=high. The target resource may be the ConfigMap itself or the Deployment that mounts it. Prefer this over rollback when the ConfigMap content is the root cause, because a deployment rollback only masks the problem -- the poisoned ConfigMap remains in the cluster and will re-trigger crashes if pods are rescheduled. In-place patching eliminates the root cause permanently. Best for staging environments or teams that accept the risk of modifying live resources for faster, definitive recovery."

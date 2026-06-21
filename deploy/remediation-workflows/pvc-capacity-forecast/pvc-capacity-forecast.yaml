@@ -50,7 +50,7 @@ metadata:
   name: expand-pvc-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.0"
+  version: "1.5.1"
   description:
     what: "Expands a PersistentVolumeClaim to increase its storage capacity, preventing data loss from disk exhaustion"
     whenToUse: "When proactive analysis predicts PVC exhaustion based on storage growth trends, and the StorageClass supports volume expansion"

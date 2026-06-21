@@ -14,7 +14,7 @@ spec:
         increase(
           kube_pod_container_status_restarts_total{
             namespace="demo-checkout"
-          }[5m]
+          }[1m]
         ) > 0
       for: 30s
       labels:
