@@ -56,7 +56,7 @@ metadata:
   name: restore-operator-csv-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.1"
+  version: "1.5.2"
   description:
     what: "Restores a failed, deleted, or cycling operator CSV by deleting and recreating the OLM Subscription with correct settings, triggering OLM to cleanly re-install the operator's ClusterServiceVersion"
     whenToUse: "When csv_succeeded drops to 0 for an operator and the CSV shows phase Failed, Replacing, or is missing entirely. Also when the Subscription is stuck in UpgradePending, the adoption controller cannot find the Subscription anchor, or the CSV is caught in a repeating install/delete cycle. Common causes: accidental CSV deletion, corrupted or unreachable CatalogSource, installPlanApproval blocking new cycles, or failed operator upgrade. The workflow reads the original Subscription spec from an operator-restore-spec ConfigMap (if present) or from the live Subscription, deletes the broken Subscription, and recreates it with the correct CatalogSource to allow OLM to re-install the CSV."
@@ -74,7 +74,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: restore-operator-csv-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/restore-operator-csv-job@sha256:81303bbed67ad6e91fcc3b07bb4abfa3a3654d2a5ca4a230768162d35fbc1a23
+    bundle: quay.io/kubernaut-cicd/test-workflows/restore-operator-csv-job@sha256:97b21b6e249d62b941fb2c1e58d2c53b6e6a88d6fbb926f599c535b6d72613e2
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

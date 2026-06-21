@@ -50,7 +50,7 @@ metadata:
   name: fix-image-reference-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.1"
+  version: "1.5.2"
   description:
     what: "Corrects a Deployment's container image reference by reverting to the last known-good image from rollout history, recovering pods stuck in ImagePullBackOff due to a wrong tag or registry URL"
     whenToUse: "When pods are stuck in ImagePullBackOff or ErrImagePull because the container image reference points to a non-existent tag, a wrong registry URL, or a deleted image. The Deployment has at least one previous revision with a valid image in its ReplicaSet history. Common after botched image promotions, typos in CI/CD pipelines, or premature tag deletions."
@@ -68,7 +68,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-image-reference-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-image-reference-job@sha256:13206c6157cf8b767950775708ff8a5b6e8ccdaf0d1fd8f13a78b096a5879ecc
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-image-reference-job@sha256:aa2abd9e14d00bbf52595b99a3e156bae7f7fbc6577a1727ea1b6b9f4522603b
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
