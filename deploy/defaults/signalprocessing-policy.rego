@@ -76,9 +76,7 @@ default severity := "unknown"
 severity := "critical" if { lower(input.signal.severity) == "critical" }
 severity := "high"     if { lower(input.signal.severity) == "high" }
 severity := "warning"  if { lower(input.signal.severity) == "warning" }
-severity := "warning"  if { lower(input.signal.severity) == "medium" }
 severity := "info"     if { lower(input.signal.severity) == "info" }
-severity := "info"     if { lower(input.signal.severity) == "low" }
 
 # ========== Priority Assignment (BR-SP-070) ==========
 # Combines environment and severity to assign a priority bucket (P0–P3).
