@@ -47,7 +47,7 @@ metadata:
   name: refresh-pull-secret-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.1"
+  version: "1.5.2"
   description:
     what: "Recreates a missing or expired ImagePullSecret from a known-good credential source, then restarts the affected Deployment to recover pods stuck in ImagePullBackOff"
     whenToUse: "When pods are stuck in ImagePullBackOff because the referenced ImagePullSecret was deleted, expired, or corrupted. The ServiceAccount's imagePullSecrets reference a Secret that no longer exists or contains invalid credentials."
@@ -65,7 +65,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: refresh-pull-secret-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/refresh-pull-secret-job@sha256:b354c25f363271191172878079ff7171f50e870933e2de7fe1a62b8ef7012081
+    bundle: quay.io/kubernaut-cicd/test-workflows/refresh-pull-secret-job@sha256:de037c5c0a1e5a6611acab44d4b55368d657cd3851d24caf164a34877f8fab00
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

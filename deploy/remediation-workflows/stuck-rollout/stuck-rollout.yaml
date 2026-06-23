@@ -49,7 +49,7 @@ metadata:
 spec:
   # Rollback Deployment Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #130 -- Stuck rollout -> rollback to previous revision
-  version: "1.5.1"
+  version: "1.5.2"
   description:
     what: "Rolls back a deployment to its previous working revision when the current rollout is stuck"
     whenToUse: "When a deployment rollout has exceeded its progressDeadlineSeconds and new pods cannot start (ImagePullBackOff, CrashLoopBackOff from a bad spec change, or scheduling failures)"
@@ -67,7 +67,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: rollback-deployment-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/rollback-deployment-job@sha256:0d86760c9118535fda67b34fb1121dca252eb54ce1cf5d000f124754e2654c21
+    bundle: quay.io/kubernaut-cicd/test-workflows/rollback-deployment-job@sha256:20e8eeec4b4e77373f71e3b1fe56c1404266c482f25deb28491f66b1b383bce6
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
