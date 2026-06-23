@@ -26,7 +26,7 @@
     "humanReviewReason": null,
     "rootCauseAnalysis": {
       "summary": "PodDisruptionBudget 'payment-service-pdb' has minAvailable=2 but only 2 replicas exist, leaving disruptionsAllowed=0 and blocking all voluntary disruptions (node drains, evictions). Both pods are fully healthy \u2014 the issue is a structural misconfiguration where the PDB's minAvailable equals the total replica count.",
-      "severity": "medium",
+      "severity": "warning",
       "remediationTarget": {
         "kind": "PodDisruptionBudget",
         "name": "payment-service-pdb",

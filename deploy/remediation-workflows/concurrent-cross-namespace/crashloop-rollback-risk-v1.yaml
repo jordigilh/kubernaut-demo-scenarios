@@ -57,7 +57,7 @@ spec:
   actionType: RollbackDeployment
 
   labels:
-    severity: [critical, high, low]
+    severity: [critical, high, info]
     environment: [production]
     component: [apps/v1/Deployment]
     priority: "*"

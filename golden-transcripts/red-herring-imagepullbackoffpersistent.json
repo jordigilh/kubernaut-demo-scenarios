@@ -18,7 +18,7 @@
     "remediationId": "rr-fa6350213114-90e7deb9",
     "signal": {
       "signalName": "ImagePullBackOffPersistent",
-      "severity": "medium",
+      "severity": "warning",
       "environment": "Staging",
       "targetResource": {
         "kind": "Deployment",
@@ -45,7 +45,7 @@
         "name": "canary-v2",
         "namespace": "demo-red-herring"
       },
-      "severity": "medium",
+      "severity": "warning",
       "signalType": "ImagePullBackOffPersistent",
       "summary": "Deployment canary-v2 references a non-existent image registry.example.com/myorg/api-server:v2.0.0-rc1-does-not-exist \u2014 the registry hostname is unresolvable via DNS (no such host), and the image tag itself is explicitly named to not exist, causing persistent ImagePullBackOff."
     },
@@ -765,7 +765,7 @@
     "humanReviewReason": "no_matching_workflows",
     "rootCauseAnalysis": {
       "summary": "Deployment canary-v2 references a non-existent image registry.example.com/myorg/api-server:v2.0.0-rc1-does-not-exist \u2014 the registry hostname is unresolvable via DNS (no such host), and the image tag itself is explicitly named to not exist, causing persistent ImagePullBackOff.",
-      "severity": "medium",
+      "severity": "warning",
       "causalChain": [
         "Signal: Pod canary-v2-97d95787f-nznlz is in ImagePullBackOff \u2014 never started, 0 restarts",
         "Why? Kubelet cannot pull image registry.example.com/myorg/api-server:v2.0.0-rc1-does-not-exist",

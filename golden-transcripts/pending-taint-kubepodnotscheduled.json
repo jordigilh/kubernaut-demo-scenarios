@@ -18,7 +18,7 @@
     "remediationId": "rr-ed7fb5b4d0e0-52e9b87d",
     "signal": {
       "signalName": "KubePodNotScheduled",
-      "severity": "medium",
+      "severity": "warning",
       "environment": "Staging",
       "targetResource": {
         "kind": "Deployment",
@@ -48,7 +48,7 @@
         "name": "batch-processor",
         "namespace": "demo-scheduler"
       },
-      "severity": "medium",
+      "severity": "warning",
       "signalType": "KubePodNotScheduled",
       "summary": "Both batch-processor pods are unschedulable because the only node matching the required nodeSelector (kubernaut.ai/workload-pool=true) \u2014 dev-worker-0.redhat-internal.com \u2014 has a maintenance=scheduled:NoSchedule taint that the pods do not tolerate. With zero eligible schedulable nodes, both replicas remain Pending, causing full workload unavailability."
     },
@@ -1244,7 +1244,7 @@
     },
     "rootCauseAnalysis": {
       "summary": "Both batch-processor pods are unschedulable because the only node matching the required nodeSelector (kubernaut.ai/workload-pool=true) \u2014 dev-worker-0.redhat-internal.com \u2014 has a maintenance=scheduled:NoSchedule taint that the pods do not tolerate. With zero eligible schedulable nodes, both replicas remain Pending, causing full workload unavailability.",
-      "severity": "medium",
+      "severity": "warning",
       "causalChain": [
         "Signal: KubePodNotScheduled \u2014 both batch-processor pods stuck in Pending state in demo-scheduler namespace",
         "Why? Scheduler reports: 0/4 nodes available \u2014 2 nodes don't match nodeSelector, 2 nodes have untolerated taints",

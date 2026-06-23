@@ -18,7 +18,7 @@
     "remediationId": "rr-22dde42b198d-4df4096a",
     "signal": {
       "signalName": "KubePersistentVolumeClaimOrphaned",
-      "severity": "medium",
+      "severity": "warning",
       "environment": "Staging",
       "targetResource": {
         "kind": "Deployment",
@@ -48,7 +48,7 @@
         "name": "data-processor",
         "namespace": "demo-batch"
       },
-      "severity": "medium",
+      "severity": "warning",
       "signalType": "KubePersistentVolumeClaimOrphaned",
       "summary": "5 batch-job PVCs in demo-batch are Bound but orphaned \u2014 no Jobs, CronJobs, StatefulSets, or pods consume them \u2014 because the batch workloads that created them completed and were deleted without cleaning up their PVCs, leaving 1,500Mi of allocated TopoLVM storage idle."
     },
@@ -964,7 +964,7 @@
     "humanReviewReason": "no_matching_workflows",
     "rootCauseAnalysis": {
       "summary": "5 batch-job PVCs in demo-batch are Bound but orphaned \u2014 no Jobs, CronJobs, StatefulSets, or pods consume them \u2014 because the batch workloads that created them completed and were deleted without cleaning up their PVCs, leaving 1,500Mi of allocated TopoLVM storage idle.",
-      "severity": "medium",
+      "severity": "warning",
       "causalChain": [
         "Signal: KubePersistentVolumeClaimOrphaned \u2014 namespace demo-batch has more than 3 Bound PVCs",
         "Why? 5 PVCs (batch-output-job-1 through batch-output-job-5) are Bound but not mounted by any pod or VolumeAttachment",

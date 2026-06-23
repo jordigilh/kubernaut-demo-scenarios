@@ -16,7 +16,7 @@
     "humanReviewReason": "no_matching_workflows",
     "rootCauseAnalysis": {
       "summary": "The namespace ResourceQuota 'namespace-quota' memory limit (512Mi) is fully exhausted by 2 running pods (2 \u00d7 256Mi = 512Mi), preventing the Deployment/api-server from scaling to its desired 3 replicas.",
-      "severity": "medium",
+      "severity": "warning",
       "remediationTarget": {
         "kind": "Deployment",
         "name": "api-server",

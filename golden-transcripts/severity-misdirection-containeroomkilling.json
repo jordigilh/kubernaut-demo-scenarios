@@ -18,7 +18,7 @@
     "remediationId": "rr-e8c8c3a3a676-3096f376",
     "signal": {
       "signalName": "ContainerOOMKilling",
-      "severity": "medium",
+      "severity": "warning",
       "environment": "Staging",
       "targetResource": {
         "kind": "Namespace",
@@ -45,7 +45,7 @@
         "name": "postgres",
         "namespace": "demo-severity-misdirection"
       },
-      "severity": "low",
+      "severity": "info",
       "signalType": "ContainerOOMKilling",
       "summary": "ContainerOOMKilling signal is a misdirection \u2014 no actual OOM kills occurred; the postgres Deployment was temporarily patched to a critically insufficient 16Mi memory limit causing postgres failures and cascading api-gateway crash-loops, both now resolved."
     },
@@ -891,7 +891,7 @@
     "humanReviewReason": "no_matching_workflows",
     "rootCauseAnalysis": {
       "summary": "ContainerOOMKilling signal is a misdirection \u2014 no actual OOM kills occurred; the postgres Deployment was temporarily patched to a critically insufficient 16Mi memory limit causing postgres failures and cascading api-gateway crash-loops, both now resolved.",
-      "severity": "low",
+      "severity": "info",
       "causalChain": [
         "Signal: ContainerOOMKilling alert fired for namespace demo-severity-misdirection",
         "Why? The api-gateway pod restarted 6 times with exit code 1, and postgres Deployment had multiple rollouts with a critically low 16Mi memory limit",

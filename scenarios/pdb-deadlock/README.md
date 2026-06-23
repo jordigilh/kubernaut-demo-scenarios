@@ -289,7 +289,7 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
 | 3 | `todo_write` | 8 781 | 6 866 | Updated progress |
 | 4 | `kubectl_get_by_kind_in_namespace(Pod)`, `kubectl_get_by_kind_in_cluster(Node)` | 8 866 | 7 052 | Confirmed pods healthy, one node cordoned |
 | 5 | `kubectl_find_resource(Deployment/payment-service)`, `get_namespaced_resource_context(PDB/…)` | 14 909 | 9 502 | Found owning Deployment, gathered context |
-| 6 | *submit_result (RCA)* | 21 606 | 12 935 | Root cause: PDB deadlock, severity medium |
+| 6 | *submit_result (RCA)* | 21 606 | 12 935 | Root cause: PDB deadlock, severity warning |
 
 **Phase 2 — Workflow Selection** (9 LLM turns, 60 353 tokens, ~39 s)
 

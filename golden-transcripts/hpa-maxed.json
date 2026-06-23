@@ -27,7 +27,7 @@
     "humanReviewReason": null,
     "rootCauseAnalysis": {
       "summary": "The HPA api-frontend is maxed out at 3 replicas while CPU utilization is 135% of request (2.7\u00d7 the 50% target), because the maxReplicas cap of 3 is too low to absorb sustained CPU load \u2014 the HPA cannot scale further to relieve the pressure.",
-      "severity": "medium",
+      "severity": "warning",
       "remediationTarget": {
         "kind": "HorizontalPodAutoscaler",
         "name": "api-frontend",

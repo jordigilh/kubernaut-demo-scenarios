@@ -18,7 +18,7 @@
     "remediationId": "rr-4045c6c5fbaa-1e6fa16a",
     "signal": {
       "signalName": "KubeResourceQuotaExhausted",
-      "severity": "medium",
+      "severity": "warning",
       "environment": "Production",
       "targetResource": {
         "kind": "ReplicaSet",
@@ -45,7 +45,7 @@
         "name": "api-server",
         "namespace": "demo-quota"
       },
-      "severity": "medium",
+      "severity": "warning",
       "signalType": "KubeResourceQuotaExhausted",
       "summary": "The namespace-quota ResourceQuota in demo-quota limits memory to 512Mi, but the api-server Deployment requires 768Mi (3 replicas \u00d7 256Mi each), causing the third replica to be permanently blocked with 'exceeded quota' errors."
     },
@@ -681,7 +681,7 @@
     "humanReviewReason": "no_matching_workflows",
     "rootCauseAnalysis": {
       "summary": "The namespace-quota ResourceQuota in demo-quota limits memory to 512Mi, but the api-server Deployment requires 768Mi (3 replicas \u00d7 256Mi each), causing the third replica to be permanently blocked with 'exceeded quota' errors.",
-      "severity": "medium",
+      "severity": "warning",
       "causalChain": [
         "Signal: KubeResourceQuotaExhausted \u2014 namespace-quota in demo-quota is at 100% memory utilization (512Mi/512Mi used)",
         "Why? Two api-server pods each consume 256Mi memory (requests=limits=256Mi), fully exhausting the 512Mi quota after only 2 of the desired 3 replicas are created",

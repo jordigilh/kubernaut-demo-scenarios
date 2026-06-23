@@ -18,7 +18,7 @@
     "remediationId": "rr-668fbce6d8c3-f37a6b49",
     "signal": {
       "signalName": "KubePodDisruptionBudgetAtLimit",
-      "severity": "medium",
+      "severity": "warning",
       "environment": "Production",
       "targetResource": {
         "kind": "PodDisruptionBudget",
@@ -47,7 +47,7 @@
         "name": "payment-service",
         "namespace": "demo-payments"
       },
-      "severity": "medium",
+      "severity": "warning",
       "signalType": "KubePodDisruptionBudgetAtLimit",
       "summary": "PodDisruptionBudget payment-service-pdb has minAvailable=2 but Deployment payment-service runs exactly 2 replicas, leaving disruptionsAllowed=0 and blocking all voluntary cluster maintenance operations (node drains, rolling updates)."
     },
@@ -813,7 +813,7 @@
     },
     "rootCauseAnalysis": {
       "summary": "PodDisruptionBudget payment-service-pdb has minAvailable=2 but Deployment payment-service runs exactly 2 replicas, leaving disruptionsAllowed=0 and blocking all voluntary cluster maintenance operations (node drains, rolling updates).",
-      "severity": "medium",
+      "severity": "warning",
       "causalChain": [
         "Signal: KubePodDisruptionBudgetAtLimit \u2014 PDB payment-service-pdb reports disruptionsAllowed=0",
         "Why? PDB status shows currentHealthy=2 == desiredHealthy=2, so zero pods can be voluntarily removed (reason: InsufficientPods)",

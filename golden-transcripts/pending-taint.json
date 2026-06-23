@@ -28,7 +28,7 @@
     "humanReviewReason": null,
     "rootCauseAnalysis": {
       "summary": "Pod cannot schedule because its only eligible node (kubernaut-demo-worker, matching nodeSelector kubernaut.ai/demo-taint-target=true) has a NoSchedule taint (maintenance=scheduled) that the pod has no toleration for. Both Deployment replicas are 100% unavailable as a result.",
-      "severity": "medium",
+      "severity": "warning",
       "remediationTarget": {
         "kind": "Deployment",
         "name": "batch-processor",

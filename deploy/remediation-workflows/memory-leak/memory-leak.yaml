@@ -59,7 +59,7 @@ spec:
   actionType: GracefulRestart
   
   labels:
-    severity: [low, medium, high, critical]
+    severity: [info, warning, high, critical]
     environment: [production, staging]
     component: [apps/v1/Deployment]
     priority: "*"

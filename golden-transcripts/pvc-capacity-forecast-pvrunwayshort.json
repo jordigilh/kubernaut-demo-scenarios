@@ -18,7 +18,7 @@
     "remediationId": "rr-af9c7c3a3a50-db9a8757",
     "signal": {
       "signalName": "PVRunwayShort",
-      "severity": "medium",
+      "severity": "warning",
       "environment": "Staging",
       "targetResource": {
         "kind": "PersistentVolumeClaim",
@@ -46,7 +46,7 @@
         "name": "data-service",
         "namespace": "demo-archive"
       },
-      "severity": "medium",
+      "severity": "warning",
       "signalType": "PVRunwayShort",
       "summary": "PVC data-service-data in demo-archive is being exhausted by a data-writer sidecar container that continuously inserts 500 large uncompressed rows every 30 seconds into PostgreSQL with no data retention or cleanup, consuming ~400 MiB/hour against a 512Mi volume. The predict_linear function confirms exhaustion within 1 hour."
     },
@@ -882,7 +882,7 @@
     },
     "rootCauseAnalysis": {
       "summary": "PVC data-service-data in demo-archive is being exhausted by a data-writer sidecar container that continuously inserts 500 large uncompressed rows every 30 seconds into PostgreSQL with no data retention or cleanup, consuming ~400 MiB/hour against a 512Mi volume. The predict_linear function confirms exhaustion within 1 hour.",
-      "severity": "medium",
+      "severity": "warning",
       "causalChain": [
         "Signal: PVRunwayShort \u2014 PVC data-service-data in demo-archive projected to exhaust capacity within 1 hour",
         "Why? PVC used bytes growing at ~400 MiB/hour against a 448 MiB filesystem capacity (512Mi provisioned)",

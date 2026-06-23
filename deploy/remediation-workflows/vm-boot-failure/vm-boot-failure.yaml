@@ -56,7 +56,7 @@ spec:
   version: "1.5.1"
   actionType: FixDataVolumeSource
   labels:
-    severity: [critical, high, medium]
+    severity: [critical, high, warning]
     environment: [staging, production]
     component: [cdi.kubevirt.io/v1beta1/DataVolume, kubevirt.io/v1/VirtualMachine]
     priority: "*"

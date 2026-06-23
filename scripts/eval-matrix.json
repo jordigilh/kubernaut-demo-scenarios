@@ -73,7 +73,7 @@
     "pdb-deadlock": {
       "expected_bundle": "relax-pdb-v1",
       "expected_outcome": "Remediated",
-      "expected_severity": "medium",
+      "expected_severity": "warning",
       "expected_target_kind": "PodDisruptionBudget",
       "expected_aa_phase": "Completed",
       "confidence_floor": 0.80,
@@ -82,12 +82,12 @@
       "needs_human_review": false,
       "human_review_reason": null,
       "signal": "KubePodDisruptionBudgetAtLimit",
-      "_note": "Approval depends on Rego policy — production namespace but medium severity may skip approval."
+      "_note": "Approval depends on Rego policy — production namespace but warning severity may skip approval."
     },
     "orphaned-pvc-no-action": {
       "expected_bundle": "cleanup-pvc-v1",
       "expected_outcome": "Remediated",
-      "expected_severity": "medium",
+      "expected_severity": "warning",
       "expected_target_kind": "PersistentVolumeClaim",
       "expected_aa_phase": "Completed",
       "confidence_floor": 0.80,
@@ -101,7 +101,7 @@
     "resource-quota-exhaustion": {
       "expected_bundle": null,
       "expected_outcome": ["ManualReviewRequired", "Processing"],
-      "expected_severity": "medium",
+      "expected_severity": "warning",
       "expected_target_kind": ["ReplicaSet", "Deployment"],
       "expected_aa_phase": "Completed",
       "confidence_floor": null,
@@ -142,7 +142,7 @@
     "pending-taint": {
       "expected_bundle": "remove-taint-v1",
       "expected_outcome": "Remediated",
-      "expected_severity": "medium",
+      "expected_severity": "warning",
       "expected_target_kind": "Deployment",
       "expected_aa_phase": "Completed",
       "confidence_floor": 0.70,
@@ -151,7 +151,7 @@
       "needs_human_review": false,
       "human_review_reason": null,
       "signal": "KubePodSchedulingFailed",
-      "_note": "Staging namespace with medium severity — approval policy-dependent. Confidence baseline 0.78 on Kind."
+      "_note": "Staging namespace with warning severity — approval policy-dependent. Confidence baseline 0.78 on Kind."
     },
     "network-policy-block": {
       "expected_bundle": "fix-network-policy-v1",
@@ -169,7 +169,7 @@
     "hpa-maxed": {
       "expected_bundle": "patch-hpa-v1",
       "expected_outcome": ["Remediated", "Inconclusive"],
-      "expected_severity": "medium",
+      "expected_severity": "warning",
       "expected_target_kind": "HorizontalPodAutoscaler",
       "expected_aa_phase": "Completed",
       "confidence_floor": 0.80,
