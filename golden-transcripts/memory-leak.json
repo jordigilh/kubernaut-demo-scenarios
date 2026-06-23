@@ -26,7 +26,7 @@
     "humanReviewReason": null,
     "rootCauseAnalysis": {
       "summary": "Intentional memory leak via a 'leaker' sidecar container writing 1MiB/5s to a RAM-backed emptyDir volume (medium:Memory, sizeLimit 256Mi), causing progressive memory exhaustion predicted to hit the pod's 192Mi leaker container limit. Both replicas (on separate nodes) are accumulating leaked memory at ~12MiB/min with no restarts yet, making OOM kill or node memory pressure inevitable without intervention.",
-      "severity": "medium",
+      "severity": "warning",
       "remediationTarget": {
         "kind": "Deployment",
         "name": "leaky-app",

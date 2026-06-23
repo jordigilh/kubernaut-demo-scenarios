@@ -34,7 +34,7 @@
     },
     "rootCauseAnalysis": {
       "summary": "The data-processor sidecar container in data-service executes a deliberate infinite loop writing 1 MB of random data every 5 seconds to a RAM-backed emptyDir volume, causing unbounded memory growth that is predicted to exhaust the container's 192 MiB memory limit imminently.",
-      "severity": "medium",
+      "severity": "warning",
       "causalChain": [
         "Signal: ContainerMemoryExhaustionPredicted \u2014 container 'app' in demo-telemetry/data-service-6bfb5d698f-tctdb predicted to exceed memory limit within 30 minutes",
         "Why? The pod's overall memory working set is growing at ~90 KB/s \u2014 driven by the data-processor sidecar, not the app container",
@@ -978,7 +978,7 @@
     },
     "rootCauseAnalysis": {
       "summary": "The data-processor sidecar container in data-service executes a deliberate infinite loop writing 1 MB of random data every 5 seconds to a RAM-backed emptyDir volume (medium: Memory). Because the volume uses tmpfs, all writes count toward the container's memory working set. Both replica pods are at ~87-88% of the 192 MiB container limit (~23 MiB headroom remaining), with growth at ~90 KB/s \u2014 exhaustion is predicted within ~4 minutes. No OOM events have occurred yet; this is a predicted exhaustion requiring immediate proactive intervention.",
-      "severity": "medium",
+      "severity": "warning",
       "causalChain": [
         "Signal: ContainerMemoryExhaustionPredicted \u2014 container 'app' in demo-telemetry/data-service-6bfb5d698f-tctdb predicted to exceed memory limit within 30 minutes",
         "Why? The pod's overall memory working set is growing at ~90 KB/s \u2014 driven by the data-processor sidecar, not the app container",

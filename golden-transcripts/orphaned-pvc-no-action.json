@@ -27,7 +27,7 @@
     "humanReviewReason": null,
     "rootCauseAnalysis": {
       "summary": "Five PersistentVolumeClaims (batch-output-job-1 through batch-output-job-5) are orphaned in the demo-orphaned-pvc namespace after their batch Job workloads completed and were deleted, leaving 500Mi of local-path storage bound but unconsumed with no automated cleanup mechanism.",
-      "severity": "medium",
+      "severity": "warning",
       "remediationTarget": {
         "kind": "PersistentVolumeClaim",
         "name": "batch-output-job-1",

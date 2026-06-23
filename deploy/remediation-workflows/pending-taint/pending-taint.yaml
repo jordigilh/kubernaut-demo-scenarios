@@ -56,7 +56,7 @@ spec:
   actionType: RemoveTaint
   
   labels:
-    severity: [low, medium, high, critical]
+    severity: [info, warning, high, critical]
     environment: [staging]
     component: [v1/Node, apps/v1/Deployment]
     priority: "*"

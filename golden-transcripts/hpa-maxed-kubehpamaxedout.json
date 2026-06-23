@@ -18,7 +18,7 @@
     "remediationId": "rr-8cd39c258d75-60200091",
     "signal": {
       "signalName": "KubeHpaMaxedOut",
-      "severity": "medium",
+      "severity": "warning",
       "environment": "Staging",
       "targetResource": {
         "kind": "HorizontalPodAutoscaler",
@@ -46,7 +46,7 @@
         "name": "api-frontend",
         "namespace": "demo-gateway"
       },
-      "severity": "medium",
+      "severity": "warning",
       "signalType": "KubeHpaMaxedOut",
       "summary": "The HPA maxReplicas limit of 3 is too low to handle sustained CPU demand. All 3 pods are CPU-throttled at their 400m limit (200% of request vs 50% target), and the HPA calculates a desired replica count of 12 but is capped at 3, preventing the autoscaler from scaling out further. Cluster nodes have sufficient CPU headroom, so the bottleneck is purely the HPA maxReplicas configuration."
     },
@@ -980,7 +980,7 @@
     },
     "rootCauseAnalysis": {
       "summary": "The HPA maxReplicas limit of 3 is too low to handle sustained CPU demand. All 3 pods are CPU-throttled at their 400m limit (200% of request vs 50% target), and the HPA calculates a desired replica count of 12 but is capped at 3, preventing the autoscaler from scaling out further. Cluster nodes have sufficient CPU headroom, so the bottleneck is purely the HPA maxReplicas configuration.",
-      "severity": "medium",
+      "severity": "warning",
       "causalChain": [
         "Signal: KubeHpaMaxedOut \u2014 HPA api-frontend is at maxReplicas=3 with ScalingLimited=True",
         "Why? The HPA desiredReplicas=3 equals maxReplicas=3, meaning the controller wants more replicas but cannot create them",

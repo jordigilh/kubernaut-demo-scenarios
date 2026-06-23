@@ -241,7 +241,7 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc7`.
 | 2 | `kubectl_get_by_kind_in_namespace(ResourceQuota)`, **`kubectl_get_by_name(RS/api-server-…)`**, `kubectl_get_by_kind_in_namespace(Pod)` | — | Confirmed quota 100% exhausted, RS can't create 3rd pod |
 | 3 | **`kubectl_get_by_name(Deployment/api-server)`**, `kubectl_events(RS/…)`, `todo_write` | — | Confirmed FailedCreate events: "exceeded quota" |
 | 4 | `get_namespaced_resource_context(…)`, `todo_write` | — | Gathered context, no prior remediations |
-| 5 | *submit_result (RCA)* | — | Root cause: quota exhaustion, severity medium |
+| 5 | *submit_result (RCA)* | — | Root cause: quota exhaustion, severity warning |
 
 **Phase 2 — Workflow Selection** (7 LLM turns, ~84 000 tokens, ~76 s)
 

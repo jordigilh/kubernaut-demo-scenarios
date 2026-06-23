@@ -27,7 +27,7 @@ cleanup target, and the LLM proceeds without hesitation.
 | | |
 |---|---|
 | **Signal** | `KubePersistentVolumeClaimOrphaned` — >3 bound PVCs in namespace for >3 min |
-| **Severity** | `warning` / root cause severity `low` |
+| **Severity** | `warning` / root cause severity `info` |
 
 ## Signal Flow
 

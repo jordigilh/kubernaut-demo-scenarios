@@ -60,7 +60,7 @@ spec:
   actionType: ExpandPersistentVolumeClaim
 
   labels:
-    severity: [low, medium, high, critical]
+    severity: [info, warning, high, critical]
     environment: [production, staging]
     component: [v1/PersistentVolumeClaim, apps/v1/StatefulSet, apps/v1/Deployment]
     priority: "*"
