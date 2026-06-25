@@ -27,11 +27,13 @@ NAMESPACE="demo-batch"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
+ALERT_ONLY=""
 for _arg in "$@"; do
     case "$_arg" in
         --auto-approve)  APPROVE_MODE="--auto-approve" ;;
         --interactive)   APPROVE_MODE="--interactive" ;;
         --no-validate)   SKIP_VALIDATE=true ;;
+        --alert-only)    ALERT_ONLY=true ;;
     esac
 done
 
@@ -90,8 +92,15 @@ echo "            (approval reason: 'LLM warning: no remediation warranted')"
 echo "    Path C: LLM selects CleanupPVC    → executes cleanup → Remediated (PVCs deleted)"
 echo ""
 
-# Validate pipeline
-if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
+if [ "${ALERT_ONLY}" = "true" ]; then
+    echo ""
+    echo "==> Waiting for alert (--alert-only mode)..."
+    wait_for_alert "KubePersistentVolumeClaimOrphaned" "${NAMESPACE}" 480
+    show_alert "KubePersistentVolumeClaimOrphaned" "${NAMESPACE}"
+    echo ""
+    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
+    echo "    Exiting without entering validation pipeline."
+elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo "==> Running validation pipeline..."
     bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
 fi

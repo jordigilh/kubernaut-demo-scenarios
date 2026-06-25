@@ -19,11 +19,13 @@ NAMESPACE="demo-telemetry"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
+ALERT_ONLY=""
 for _arg in "$@"; do
     case "$_arg" in
         --auto-approve)  APPROVE_MODE="--auto-approve" ;;
         --interactive)   APPROVE_MODE="--interactive" ;;
         --no-validate)   SKIP_VALIDATE=true ;;
+        --alert-only)    ALERT_ONLY=true ;;
     esac
 done
 
@@ -46,9 +48,11 @@ echo ""
 # The data-processor refills memory at ~12MB/min after a graceful restart. The EM
 # must complete its assessment before the alert re-fires (~60-90s). Use a
 # short stabilization window so the EA samples the "reset" state quickly.
-echo "==> Configuring EM for fast-recurring fault scenario..."
-configure_em "30s" "90s"
-echo ""
+if [ "${ALERT_ONLY}" != "true" ]; then
+    echo "==> Configuring EM for fast-recurring fault scenario..."
+    configure_em "30s" "90s"
+    echo ""
+fi
 
 ensure_clean_slate "${NAMESPACE}"
 
@@ -70,14 +74,24 @@ echo "    predict_linear will fire once it projects OOM within 30 minutes,"
 echo "    typically after 5-7 minutes of trend data."
 
 # Validate pipeline
-if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
+if [ "${ALERT_ONLY}" = "true" ]; then
+    echo ""
+    echo "==> Waiting for alert (--alert-only mode)..."
+    wait_for_alert "ContainerMemoryExhaustionPredicted" "${NAMESPACE}" 600
+    show_alert "ContainerMemoryExhaustionPredicted" "${NAMESPACE}"
+    echo ""
+    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
+    echo "    Exiting without entering validation pipeline."
+elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
     bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}" || _rc=$?
 fi
 
-echo ""
-echo "==> Restoring EM configuration..."
-restore_em || true
+if [ "${ALERT_ONLY}" != "true" ]; then
+    echo ""
+    echo "==> Restoring EM configuration..."
+    restore_em || true
+fi
 
 exit "${_rc:-0}"
