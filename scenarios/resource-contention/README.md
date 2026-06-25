@@ -112,6 +112,7 @@ memory-escalation scenario:
 Options:
 - `--interactive` — pause at approval gate for manual decision
 - `--no-validate` — skip the automated validation pipeline
+- `--alert-only` — deploy and inject fault, wait for alert to fire, then exit (for AF/A2A demos)
 
 <details>
 <summary><strong>OCP</strong></summary>

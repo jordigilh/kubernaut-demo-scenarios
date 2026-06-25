@@ -29,7 +29,7 @@ to 0 and fire `OperatorCSVFailed`.
 Requires an OpenShift cluster with OLM, `community-operators`, and platform monitoring.
 
 ```bash
-./scenarios/operator-health/run.sh [--auto-approve|--interactive] [--no-validate]
+./scenarios/operator-health/run.sh [--auto-approve|--interactive] [--no-validate] [--alert-only]
 ./scenarios/operator-health/validate.sh [--auto-approve]
 ./scenarios/operator-health/cleanup.sh
 ```

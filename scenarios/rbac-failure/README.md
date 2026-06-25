@@ -30,7 +30,7 @@ Requires a cluster with Prometheus Operator / user-workload monitoring and
 kube-state-metrics scraping Deployment metrics.
 
 ```bash
-./scenarios/rbac-failure/run.sh [--auto-approve|--interactive] [--no-validate]
+./scenarios/rbac-failure/run.sh [--auto-approve|--interactive] [--no-validate] [--alert-only]
 ./scenarios/rbac-failure/validate.sh [--auto-approve]
 ./scenarios/rbac-failure/cleanup.sh
 ```

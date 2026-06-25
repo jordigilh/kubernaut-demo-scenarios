@@ -32,7 +32,7 @@ Requires OpenShift with Builds, user workload monitoring (or equivalent scraping
 `openshift`. The `oc` CLI is required (`start-build`).
 
 ```bash
-./scenarios/build-failure/run.sh [--auto-approve|--interactive] [--no-validate]
+./scenarios/build-failure/run.sh [--auto-approve|--interactive] [--no-validate] [--alert-only]
 ./scenarios/build-failure/validate.sh [--auto-approve]
 ./scenarios/build-failure/cleanup.sh
 ```
