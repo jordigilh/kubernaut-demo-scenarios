@@ -29,12 +29,14 @@ REPO_NAME="demo-warehouse-repo"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
+ALERT_ONLY=""
 SUBCOMMAND="all"
 for _arg in "$@"; do
     case "$_arg" in
         --auto-approve)  APPROVE_MODE="--auto-approve" ;;
         --interactive)   APPROVE_MODE="--interactive" ;;
         --no-validate)   SKIP_VALIDATE=true ;;
+        --alert-only)    ALERT_ONLY=true ;;
         setup|inject|all) SUBCOMMAND="$_arg" ;;
     esac
 done
@@ -1195,7 +1197,15 @@ echo "    8. Playbook: cordon -> pg_dump -> git commit (PVC + remove nodeSelecto
 echo "    9. EA verifies DiskPressure never materialized + DB accessible"
 echo ""
 
-if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
+if [ "${ALERT_ONLY}" = "true" ]; then
+    echo ""
+    echo "==> Waiting for alert (--alert-only mode)..."
+    wait_for_alert "PredictedDiskPressure" """" 600
+    show_alert "PredictedDiskPressure" """"
+    echo ""
+    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
+    echo "    Exiting without entering validation pipeline."
+elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
     bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"

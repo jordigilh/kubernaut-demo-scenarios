@@ -22,11 +22,13 @@ NAMESPACE="demo-platform"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
+ALERT_ONLY=""
 for _arg in "$@"; do
     case "$_arg" in
         --auto-approve)  APPROVE_MODE="--auto-approve" ;;
         --interactive)   APPROVE_MODE="--interactive" ;;
         --no-validate)   SKIP_VALIDATE=true ;;
+        --alert-only)    ALERT_ONLY=true ;;
     esac
 done
 
@@ -76,7 +78,15 @@ echo "    No previous revision exists -- rollback is not possible."
 echo "    Waiting for KubeResourceQuotaExhausted alert (~30s-2 min)."
 
 # Validate pipeline
-if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
+if [ "${ALERT_ONLY}" = "true" ]; then
+    echo ""
+    echo "==> Waiting for alert (--alert-only mode)..."
+    wait_for_alert "KubeResourceQuotaExhausted" "${NAMESPACE}" 480
+    show_alert "KubeResourceQuotaExhausted" "${NAMESPACE}"
+    echo ""
+    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
+    echo "    Exiting without entering validation pipeline."
+elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
     bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"

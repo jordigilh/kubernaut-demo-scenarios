@@ -36,7 +36,7 @@ Demonstrates Kubernaut remediating a Deployment that cannot roll out new pods be
 ## Usage
 
 ```bash
-./scenarios/scc-violation/run.sh [--auto-approve|--interactive] [--no-validate]
+./scenarios/scc-violation/run.sh [--auto-approve|--interactive] [--no-validate] [--alert-only]
 ./scenarios/scc-violation/validate.sh [--auto-approve]
 ./scenarios/scc-violation/cleanup.sh
 ```

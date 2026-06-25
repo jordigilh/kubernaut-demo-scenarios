@@ -101,6 +101,7 @@ Options:
 - `--auto-approve` (default): automatically approves Team Beta's manual approval request
 - `--interactive`: waits for manual approval via Slack or CLI
 - `--no-validate`: skips the validation pipeline
+- `--alert-only` — deploy and inject fault, wait for alert to fire, then exit (for AF/A2A demos)
 
 <details>
 <summary><strong>OCP</strong></summary>

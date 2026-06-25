@@ -26,11 +26,13 @@ NAMESPACE="demo-ml-pipeline"
 
 APPROVE_MODE="--auto-approve"
 SKIP_VALIDATE=""
+ALERT_ONLY=""
 for _arg in "$@"; do
     case "$_arg" in
         --auto-approve)  APPROVE_MODE="--auto-approve" ;;
         --interactive)   APPROVE_MODE="--interactive" ;;
         --no-validate)   SKIP_VALIDATE=true ;;
+        --alert-only)    ALERT_ONLY=true ;;
     esac
 done
 
@@ -74,11 +76,11 @@ json.dump(cm, sys.stdout)
     kubectl rollout restart deployment/gateway -n "${PLATFORM_NS}" >/dev/null 2>&1
     kubectl rollout status deployment/gateway -n "${PLATFORM_NS}" --timeout=60s >/dev/null 2>&1 || true
 }
-trap '_restore_cooldown' EXIT
-
-echo "==> Lowering gateway cooldownPeriod to 1m for escalation cycles..."
-kubectl get cm gateway-config -n "${PLATFORM_NS}" -o json 2>/dev/null \
-  | python3 -c "
+if [ "${ALERT_ONLY}" != "true" ]; then
+    trap '_restore_cooldown' EXIT
+    echo "==> Lowering gateway cooldownPeriod to 1m for escalation cycles..."
+    kubectl get cm gateway-config -n "${PLATFORM_NS}" -o json 2>/dev/null \
+      | python3 -c "
 import sys, json, re
 cm = json.load(sys.stdin)
 cfg = cm['data']['config.yaml']
@@ -86,10 +88,11 @@ cfg = re.sub(r'cooldownPeriod:.*', 'cooldownPeriod: 1m', cfg)
 cm['data']['config.yaml'] = cfg
 json.dump(cm, sys.stdout)
 " | kubectl apply -f - >/dev/null 2>&1
-kubectl rollout restart deployment/gateway -n "${PLATFORM_NS}" >/dev/null 2>&1
-kubectl rollout status deployment/gateway -n "${PLATFORM_NS}" --timeout=60s
-echo "  Gateway cooldownPeriod set to 1m (was ${_ORIG_COOLDOWN})."
-echo ""
+    kubectl rollout restart deployment/gateway -n "${PLATFORM_NS}" >/dev/null 2>&1
+    kubectl rollout status deployment/gateway -n "${PLATFORM_NS}" --timeout=60s
+    echo "  Gateway cooldownPeriod set to 1m (was ${_ORIG_COOLDOWN})."
+    echo ""
+fi
 
 # Step 1: Deploy scenario resources
 echo "==> Step 1: Deploying scenario resources..."
@@ -117,7 +120,15 @@ echo "  underlying memory leak means OOMKill always recurs. The platform recogni
 echo "  the pattern and stops throwing automated remediation at it."
 echo ""
 # Validate pipeline
-if [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
+if [ "${ALERT_ONLY}" = "true" ]; then
+    echo ""
+    echo "==> Waiting for alert (--alert-only mode)..."
+    wait_for_alert "ContainerOOMKilling" "${NAMESPACE}" 480
+    show_alert "ContainerOOMKilling" "${NAMESPACE}"
+    echo ""
+    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
+    echo "    Exiting without entering validation pipeline."
+elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
     bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"

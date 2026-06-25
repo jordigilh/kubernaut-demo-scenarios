@@ -153,6 +153,7 @@ scoped permissions (created automatically when workflows are seeded via
 Options:
 - `--interactive` — pause at approval gate for manual approve/reject
 - `--no-validate` — skip the automated validation pipeline
+- `--alert-only` — deploy and inject fault, wait for alert to fire, then exit (for AF/A2A demos)
 
 <details>
 <summary><strong>OCP</strong></summary>

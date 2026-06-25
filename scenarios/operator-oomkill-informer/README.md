@@ -83,6 +83,7 @@ export PLATFORM=ocp
 Options:
 - `--interactive` -- pause at approval step for manual approval
 - `--no-validate` -- skip the validation pipeline (deploy + inject only)
+- `--alert-only` — deploy and inject fault, wait for alert to fire, then exit (for AF/A2A demos)
 
 ## Cleanup
 
