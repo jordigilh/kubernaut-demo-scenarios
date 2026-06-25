@@ -64,7 +64,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: scale-replicas-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:ca02da796852b2ccbf50189ce4d28cb0cf6d19f9c488f5f0c1e01111ac67a7ad
+    bundle: quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:ec886736180027fe23aefa7f7037f0f8a1af7bf5a211d02226d037f1a19ea065
   parameters:
   - description: Namespace of the target Deployment
     name: TARGET_RESOURCE_NAMESPACE
@@ -82,4 +82,4 @@ spec:
     name: SCALE_REPLICAS
     required: false
     type: string
-  version: "1.5.2"
+  version: "1.5.3"
