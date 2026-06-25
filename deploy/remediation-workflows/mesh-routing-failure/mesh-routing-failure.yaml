@@ -46,7 +46,7 @@ metadata:
 spec:
   # Fix AuthorizationPolicy Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #136 -- Istio AuthorizationPolicy blocks traffic -> remove/fix policy
-  version: "1.5.2"
+  version: "1.5.3"
   description:
     what: "Removes or fixes an Istio AuthorizationPolicy that is blocking legitimate traffic"
     whenToUse: "When a meshed workload has high error rates (403s) due to a restrictive AuthorizationPolicy"
@@ -67,7 +67,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-authz-policy-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-authz-policy-job@sha256:887988d753ccbb083a459f080d07e096b5714f8b231773be3ee79cc08ccf35c3
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-authz-policy-job@sha256:86ccdaea092063ffbafa35f7cf6baa64975963944e4fda387c3123e2b28a7101
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

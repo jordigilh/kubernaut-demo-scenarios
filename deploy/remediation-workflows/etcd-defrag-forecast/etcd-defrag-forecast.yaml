@@ -47,7 +47,7 @@ metadata:
   name: defrag-etcd-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.2"
+  version: "1.5.3"
   description:
     what: "Performs a rolling defragmentation of etcd cluster members to reclaim fragmented database space, defragging one member at a time with health checks between each"
     whenToUse: "When etcd database fragmentation ratio exceeds 50% (etcd_mvcc_db_total_size_in_bytes much larger than etcd_mvcc_db_total_size_in_use_in_bytes). All etcd members must be healthy with a leader elected. The database size is stable (not actively growing from key creation)."
@@ -65,7 +65,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: defrag-etcd-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/defrag-etcd-job@sha256:6d955ac94792f6ec5fc6b53fdde96d0d5f43835aa40437f8d30599955d5a1ba5
+    bundle: quay.io/kubernaut-cicd/test-workflows/defrag-etcd-job@sha256:58940546651dee60dc57d47e232978910439421b5601777bef472a08920e60ba
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

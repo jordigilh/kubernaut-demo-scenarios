@@ -56,7 +56,7 @@ metadata:
   name: fix-build-source-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.2"
+  version: "1.5.3"
   description:
     what: "Restores a BuildConfig's Git source reference to a known-good URI and branch, then triggers a new build to recover from build failures caused by broken source references"
     whenToUse: "When openshift_build_status_phase_total with build_phase=failed increases and no successful builds are completing. Check the Build resource status.phase and build pod logs for clone/fetch errors. Check BuildConfig spec.source.git.uri and spec.source.git.ref for incorrect repository URL or branch reference. Common after repository migrations, branch renames, or source secret expiry."
@@ -74,7 +74,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-build-source-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-build-source-job@sha256:756db0d854a21d3e0d138e07aea23921a9efb88c9748d68940bd88451ea50eba
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-build-source-job@sha256:2b2c8739cea500a33386ecc8bc06c764720bfc231d16df6eb3d4e30411d97dae
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

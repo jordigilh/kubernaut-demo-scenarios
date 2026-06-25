@@ -49,7 +49,7 @@ metadata:
 spec:
   # Rollback Deployment Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: #120 -- Bad release / spec change -> CrashLoopBackOff -> rollback
-  version: "1.5.2"
+  version: "1.5.3"
   description:
     what: "Rolls back a Deployment to its previous revision to recover from CrashLoopBackOff caused by a bad release or pod spec change"
     whenToUse: "When a Deployment enters CrashLoopBackOff because its pod spec was modified (image tag, command/args, env vars, volume mount references including ConfigMap name changes in the volume spec, or resource limits) and the previous revision was healthy. This is the correct choice when the Deployment spec itself changed -- rollback reverts the entire pod template to the last known-good revision. Includes cases where the volume references a different ConfigMap name than before (e.g. volumes[].configMap.name was changed)."
@@ -67,7 +67,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: crashloop-rollback-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:c237777157c9d881c3a3803db23d13c6b1c6a542c58f13c7e6e9ed01afdc3e3b
+    bundle: quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:d2488483a61afe4936c64fcd6ea5e807636b0c13d970fd4f8a25f9096f01e9d5
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string

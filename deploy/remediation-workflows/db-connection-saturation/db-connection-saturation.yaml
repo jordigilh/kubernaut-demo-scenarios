@@ -50,7 +50,7 @@ metadata:
   name: increase-db-connections-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.2"
+  version: "1.5.3"
   description:
     what: >
       Increases the PostgreSQL max_connections limit by patching the database
@@ -83,7 +83,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: increase-db-connections-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/increase-db-connections-job@sha256:534c3f15b74ced20ecdee00ec0225d6e1e48e1f36ed1b27edf3b780c2e96d5a5
+    bundle: quay.io/kubernaut-cicd/test-workflows/increase-db-connections-job@sha256:54dc8cd0d4b13bcb53561e679c89b7e0dcb2905c7d215abcbe4e7449cb386e43
 
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
