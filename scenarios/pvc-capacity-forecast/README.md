@@ -168,3 +168,13 @@ kubectl get sa expand-pvc-v1-runner -n kubernaut-workflows
 # Cleanup
 ./scenarios/pvc-capacity-forecast/cleanup.sh
 ```
+
+### `run.sh` flags
+
+| Flag | Behavior | When to use |
+|------|----------|-------------|
+| *(no flag)* | Runs the full pipeline with auto-approval (default) | Automated regression testing |
+| `--no-validate` | Injects fault only, skips pipeline polling | **Always use with kagenti** |
+| `--interactive` | Runs the pipeline, pauses at AwaitingApproval for manual approval | Gateway flow with human-in-the-loop |
+| `--auto-approve` | Runs the full pipeline, auto-approves remediation | Automated regression testing (explicit) |
+| `--alert-only` | Deploys, injects fault, waits for alert to fire, then exits | AF/A2A demos |

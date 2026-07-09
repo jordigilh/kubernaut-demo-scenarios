@@ -114,10 +114,15 @@ scoped permissions (created automatically when workflows are seeded via
 ./scenarios/statefulset-pvc-failure/run.sh
 ```
 
-Options:
-- `--interactive` — pause at approval gate for manual approve/reject
-- `--no-validate` — skip the automated validation pipeline
-- `--alert-only` — deploy and inject fault, wait for alert to fire, then exit (for AF/A2A demos)
+### `run.sh` flags
+
+| Flag | Behavior | When to use |
+|------|----------|-------------|
+| *(no flag)* | Runs the full pipeline with auto-approval (default) | Automated regression testing |
+| `--no-validate` | Injects fault only, skips pipeline polling | **Always use with kagenti** |
+| `--interactive` | Runs the pipeline, pauses at AwaitingApproval for manual approval | Gateway flow with human-in-the-loop |
+| `--auto-approve` | Runs the full pipeline, auto-approves remediation | Automated regression testing (explicit) |
+| `--alert-only` | Deploys, injects fault, waits for alert to fire, then exits | AF/A2A demos |
 
 > Because StatefulSets always require approval, `--interactive` is recommended.
 
