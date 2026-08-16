@@ -11,10 +11,11 @@ spec:
     rules:
     - alert: KubePodCrashLooping
       expr: |
-        increase(
-          kube_pod_container_status_restarts_total{
-            namespace="demo-checkout"
-          }[1m]
+        max_over_time(
+          kube_pod_container_status_waiting_reason{
+            namespace="demo-checkout",
+            reason="CrashLoopBackOff"
+          }[2m]
         ) > 0
       for: 30s
       labels:
