@@ -218,6 +218,11 @@ wait_for_alert() {
 
     log_phase "Waiting for ${_c_cyan}${alert_name}${_c_reset} alert (timeout: ${timeout}s)..."
 
+    # amtool's --output=json embeds multi-line annotation text (from folded
+    # `>` YAML scalars) as raw, unescaped newlines, which is invalid JSON and
+    # makes json.load() raise on every single poll (silently swallowed by
+    # `|| echo 0` below) even while the alert is actively firing. Collapse
+    # those literal newlines to spaces before parsing.
     local ns_filter=()
     if [ -n "$namespace" ]; then
         ns_filter=("namespace=${namespace}")
@@ -229,6 +234,7 @@ wait_for_alert() {
             amtool alert query "alertname=${alert_name}" "${ns_filter[@]}" \
             --alertmanager.url=http://localhost:9093 \
             --output=json 2>/dev/null \
+            | tr '\n' ' ' \
             | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
 
         if [ "$count" != "0" ] && [ "$count" != "" ]; then
@@ -287,11 +293,15 @@ wait_for_alerts_cleared() {
     local elapsed=0
     local interval=10
 
+    # See wait_for_alert() above: amtool's JSON output can contain raw,
+    # unescaped newlines from multi-line annotations, which breaks
+    # json.load(); collapse them to spaces first.
     local count
     count=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
         amtool alert query "namespace=${namespace}" \
         --alertmanager.url=http://localhost:9093 \
         --output=json 2>/dev/null \
+        | tr '\n' ' ' \
         | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
 
     if [ "$count" = "0" ] || [ -z "$count" ]; then
@@ -305,6 +315,7 @@ wait_for_alerts_cleared() {
             amtool alert query "namespace=${namespace}" \
             --alertmanager.url=http://localhost:9093 \
             --output=json 2>/dev/null \
+            | tr '\n' ' ' \
             | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
 
         if [ "$count" = "0" ] || [ -z "$count" ]; then
@@ -392,11 +403,13 @@ show_alert() {
     local query_args=("alertname=${alert_name}")
     [ -n "$namespace" ] && query_args+=("namespace=${namespace}")
 
+    # See wait_for_alert() above: collapse amtool's raw, unescaped
+    # annotation newlines to spaces so json.loads() below doesn't choke.
     local alerts_json
     alerts_json=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
         amtool alert query "${query_args[@]}" \
         --alertmanager.url=http://localhost:9093 \
-        --output=json 2>/dev/null || echo "[]")
+        --output=json 2>/dev/null | tr '\n' ' ' || echo "[]")
 
     python3 -c "
 import sys, json

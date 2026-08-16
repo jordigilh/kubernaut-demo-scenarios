@@ -3,7 +3,20 @@
 # Source this from run.sh:
 #   source "$(dirname "$0")/../../scripts/monitoring-helper.sh"
 
-MONITORING_NS="${MONITORING_NS:-monitoring}"
+# Platform-aware default. Must match validation-helper.sh's logic: this file
+# can be sourced (via require_demo_ready's preflight) *before*
+# validation-helper.sh runs its own PLATFORM-aware assignment, and once
+# MONITORING_NS is non-empty here, that later assignment's "${MONITORING_NS:-...}"
+# default is a no-op -- so getting this wrong here silently sends every
+# subsequent `kubectl exec ... -n "$MONITORING_NS" alertmanager-main-0` (the
+# OCP pod name, chosen correctly elsewhere) at a nonexistent "monitoring"
+# namespace on OCP, and amtool alert polling fails/times out with no visible
+# error (stderr is routed to /dev/null by callers).
+if [ "${PLATFORM:-}" = "ocp" ]; then
+    MONITORING_NS="${MONITORING_NS:-openshift-monitoring}"
+else
+    MONITORING_NS="${MONITORING_NS:-monitoring}"
+fi
 DEMO_HELM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../helm" && pwd)"
 
 # Validate that an infrastructure component is present (no installs).
