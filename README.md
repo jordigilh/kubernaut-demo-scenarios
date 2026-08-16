@@ -244,6 +244,14 @@ for dir in deploy/remediation-workflows/*/; do kubectl apply -f "$dir"; done
 > **Ordering matters:** The authwebhook validates CRs on admission (`failurePolicy: Fail`).
 > If applied before the webhook is ready, the API server will reject them.
 
+> **Operator installs only — seed the Rego policies.** The Helm `--set-file` flags in Step B2 create the `signalprocessing-policy` and AIAnalysis approval-policy ConfigMaps for you; the operator intentionally does **not** create them (`spec.signalProcessing.policy.configMapName` / `spec.aiAnalysis.policy.configMapName` are pure references — see [kubernaut-operator#kubernaut_lifecycle_test.go](https://github.com/jordigilh/kubernaut-operator)). Without this step, `SignalProcessing` fails immediately with `environment policy returned no results` (or worse, silently reuses a stale/wrong ConfigMap left over from a previous install). Run:
+>
+> ```bash
+> ./scripts/seed-policies.sh
+> ```
+>
+> This applies the canonical reference policies from `deploy/defaults/` and is safe to re-run any time. It also detects the AIAnalysis ConfigMap name your specific install actually needs — the operator's own default (`aianalysis-policy`, singular) differs from the Helm chart's (`aianalysis-policies`, plural); see [#403](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/403).
+
 **Step B3: Configure AlertManager to route alerts to the Gateway.**
 
 Without this, Prometheus alerts fire but never reach the Kubernaut pipeline.

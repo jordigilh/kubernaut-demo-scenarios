@@ -176,9 +176,37 @@ _ensure_alertmanager_webhook() {
     echo "  AlertManager webhook configured for Gateway."
 }
 
+# Resolve the ConfigMap name AIAnalysis actually reads its approval policy
+# from for the detected install method (#403). The Helm chart and this
+# repo's own kustomize base (base/platform/aianalysis.yaml) both hardcode
+# "aianalysis-policies" (plural), but kubernaut-operator's default (when the
+# Kubernaut CR's spec.aiAnalysis.policy.configMapName is left unset) is
+# "aianalysis-policy" (singular) -- confirmed in
+# kubernaut-operator/internal/resources/common.go. Seeding the wrong name on
+# an operator-managed cluster silently leaves AIAnalysis unconfigured, so
+# this prefers whatever the live Kubernaut CR actually references.
+_aianalysis_policy_configmap_name() {
+    local kn_name
+    kn_name=$(kubectl get kubernaut -n "${PLATFORM_NS}" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    if [ -n "${kn_name}" ]; then
+        local cr_cm_name
+        cr_cm_name=$(kubectl get kubernaut "${kn_name}" -n "${PLATFORM_NS}" \
+            -o jsonpath='{.spec.aiAnalysis.policy.configMapName}' 2>/dev/null || true)
+        if [ -n "${cr_cm_name}" ]; then
+            echo "${cr_cm_name}"
+        else
+            echo "aianalysis-policy"
+        fi
+    else
+        echo "aianalysis-policies"
+    fi
+}
+
 _ensure_rego_policies() {
     local sp_policy="${REPO_ROOT}/deploy/defaults/signalprocessing-policy.rego"
     local aa_policy="${REPO_ROOT}/deploy/defaults/approval-policy.rego"
+    local aa_configmap
+    aa_configmap=$(_aianalysis_policy_configmap_name)
 
     if [ -f "$sp_policy" ]; then
         local current_hash desired_hash
@@ -196,15 +224,15 @@ _ensure_rego_policies() {
 
     if [ -f "$aa_policy" ]; then
         local current_hash desired_hash
-        current_hash=$(kubectl get configmap aianalysis-policies -n "${PLATFORM_NS}" \
+        current_hash=$(kubectl get configmap "${aa_configmap}" -n "${PLATFORM_NS}" \
             -o jsonpath='{.data.approval\.rego}' 2>/dev/null | shasum -a 256 | cut -d' ' -f1 || true)
         desired_hash=$(shasum -a 256 < "$aa_policy" | cut -d' ' -f1)
         if [ "$current_hash" != "$desired_hash" ]; then
-            echo "==> Applying aianalysis-policies from deploy/defaults..."
-            kubectl create configmap aianalysis-policies -n "${PLATFORM_NS}" \
+            echo "==> Applying ${aa_configmap} from deploy/defaults..."
+            kubectl create configmap "${aa_configmap}" -n "${PLATFORM_NS}" \
                 --from-file=approval.rego="$aa_policy" \
                 --dry-run=client -o yaml | kubectl apply -f - >/dev/null 2>&1
-            echo "  aianalysis-policies ConfigMap updated."
+            echo "  ${aa_configmap} ConfigMap updated."
         fi
     fi
 }
@@ -1020,20 +1048,25 @@ force_production_approval() {
     local ns="${PLATFORM_NS:-kubernaut-system}"
     echo "==> Enforcing deterministic production approval policy..."
 
+    # See _aianalysis_policy_configmap_name() (#403): the ConfigMap name
+    # actually mounted by AIAnalysis depends on install method / CR config.
+    local aa_configmap
+    aa_configmap=$(_aianalysis_policy_configmap_name)
+
     local current_rego existing_b64
-    existing_b64=$(kubectl get configmap aianalysis-policies -n "${ns}" \
+    existing_b64=$(kubectl get configmap "${aa_configmap}" -n "${ns}" \
       -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-approval-rego}' 2>/dev/null || echo "")
 
     if [ -n "${existing_b64}" ]; then
         current_rego=$(echo "${existing_b64}" | base64 -d)
-        kubectl patch configmap aianalysis-policies -n "${ns}" --type=merge \
+        kubectl patch configmap "${aa_configmap}" -n "${ns}" --type=merge \
           -p "{\"data\":{\"approval.rego\":$(echo "${current_rego}" | jq -Rs .)}}"
     else
-        current_rego=$(kubectl get configmap aianalysis-policies -n "${ns}" \
+        current_rego=$(kubectl get configmap "${aa_configmap}" -n "${ns}" \
           -o jsonpath='{.data.approval\.rego}')
     fi
 
-    kubectl annotate configmap aianalysis-policies -n "${ns}" \
+    kubectl annotate configmap "${aa_configmap}" -n "${ns}" \
       "kubernaut.ai/original-approval-rego=$(echo "${current_rego}" | base64 | tr -d '\n')" --overwrite
 
     local patched
@@ -1054,7 +1087,7 @@ text = re.sub(
 print(text, end='')
 " <<< "${current_rego}")
 
-    kubectl patch configmap aianalysis-policies -n "${ns}" --type=merge \
+    kubectl patch configmap "${aa_configmap}" -n "${ns}" --type=merge \
       -p "{\"data\":{\"approval.rego\":$(echo "${patched}" | jq -Rs .)}}"
     kubectl rollout restart deployment/aianalysis-controller -n "${ns}"
     kubectl rollout status deployment/aianalysis-controller -n "${ns}" --timeout=60s
@@ -1063,17 +1096,19 @@ print(text, end='')
 
 restore_production_approval() {
     local ns="${PLATFORM_NS:-kubernaut-system}"
+    local aa_configmap
+    aa_configmap=$(_aianalysis_policy_configmap_name)
     local saved_b64
-    saved_b64=$(kubectl get configmap aianalysis-policies -n "${ns}" \
+    saved_b64=$(kubectl get configmap "${aa_configmap}" -n "${ns}" \
       -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-approval-rego}' 2>/dev/null || echo "")
     if [ -z "${saved_b64}" ]; then
         return 0
     fi
     local original
     original=$(echo "${saved_b64}" | base64 -d)
-    kubectl patch configmap aianalysis-policies -n "${ns}" --type=merge \
+    kubectl patch configmap "${aa_configmap}" -n "${ns}" --type=merge \
       -p "{\"data\":{\"approval.rego\":$(echo "${original}" | jq -Rs .)}}"
-    kubectl annotate configmap aianalysis-policies -n "${ns}" \
+    kubectl annotate configmap "${aa_configmap}" -n "${ns}" \
       "kubernaut.ai/original-approval-rego-" 2>/dev/null || true
     kubectl rollout restart deployment/aianalysis-controller -n "${ns}" 2>/dev/null || true
     echo "  Approval policy restored to original."
