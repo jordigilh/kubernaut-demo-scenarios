@@ -43,6 +43,7 @@ spec:
     - production
     - staging
     priority: "*"
+    cluster: ["*"]
     severity:
     - critical
     - high

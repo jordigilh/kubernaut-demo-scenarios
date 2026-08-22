@@ -71,6 +71,7 @@ spec:
     environment: [production]
     component: [apps/v1/Deployment, v1/ConfigMap]
     priority: "*"
+    cluster: ["*"]
   
   detectedLabels:
     helmManaged: "true"

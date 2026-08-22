@@ -60,6 +60,7 @@ spec:
     environment: [staging, production]
     component: [v1/ConfigMap, apps/v1/Deployment]
     priority: "*"
+    cluster: ["*"]
   
   detectedLabels:
     gitOpsTool: "*"

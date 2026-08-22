@@ -57,6 +57,7 @@ spec:
     environment: [production, staging]
     component: [policy/v1/PodDisruptionBudget, apps/v1/Deployment]
     priority: "*"
+    cluster: ["*"]
   
   detectedLabels:
     pdbProtected: "true"

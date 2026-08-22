@@ -64,6 +64,7 @@ spec:
     environment: [production, staging]
     component: [v1/ConfigMap, apps/v1/Deployment]
     priority: "*"
+    cluster: ["*"]
 
   execution:
     engine: job

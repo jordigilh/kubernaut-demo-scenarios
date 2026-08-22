@@ -60,6 +60,7 @@ spec:
     environment: [staging]
     component: [v1/Node, apps/v1/Deployment]
     priority: "*"
+    cluster: ["*"]
   
   execution:
     engine: job

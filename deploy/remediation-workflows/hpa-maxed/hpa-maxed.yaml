@@ -60,6 +60,7 @@ spec:
     environment: [production, staging]
     component: [autoscaling/v2/HorizontalPodAutoscaler]
     priority: "*"
+    cluster: ["*"]
   
   detectedLabels:
     hpaEnabled: "true"

@@ -64,6 +64,7 @@ spec:
     environment: [production, staging]
     component: [v1/PersistentVolumeClaim, apps/v1/StatefulSet, apps/v1/Deployment]
     priority: "*"
+    cluster: ["*"]
 
   execution:
     engine: job

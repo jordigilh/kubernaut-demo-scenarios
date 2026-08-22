@@ -61,6 +61,7 @@ spec:
     environment: [production, staging]
     component: [route.openshift.io/v1/Route, apps/v1/Deployment]
     priority: "*"
+    cluster: ["*"]
 
   execution:
     engine: job

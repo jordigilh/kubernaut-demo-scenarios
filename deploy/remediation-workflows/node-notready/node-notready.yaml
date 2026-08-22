@@ -63,6 +63,7 @@ spec:
     environment: [production]
     component: [v1/Node]
     priority: "*"
+    cluster: ["*"]
   
   execution:
     engine: job

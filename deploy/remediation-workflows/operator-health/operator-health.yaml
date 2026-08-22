@@ -70,6 +70,7 @@ spec:
     environment: [production, staging]
     component: [operators.coreos.com/v1alpha1/Subscription, operators.coreos.com/v1alpha1/ClusterServiceVersion]
     priority: "*"
+    cluster: ["*"]
 
   execution:
     engine: job

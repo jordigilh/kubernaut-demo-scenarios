@@ -63,6 +63,7 @@ spec:
     environment: [production, staging]
     component: [apps/v1/StatefulSet, v1/PersistentVolumeClaim]
     priority: "*"
+    cluster: ["*"]
   
   detectedLabels:
     stateful: "true"
