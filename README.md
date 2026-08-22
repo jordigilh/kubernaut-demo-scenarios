@@ -416,6 +416,7 @@ The `--investigation` filter is particularly useful for validating prompt change
 | Guide | Description |
 |-------|-------------|
 | **[Setup Guide](docs/setup.md)** | Prerequisites, LLM providers (Vertex AI, Anthropic, OpenAI, local), bootstrap flags, Slack notifications |
+| **[Airgapped OCP Smoke Test](docs/airgap-smoke-test.md)** | Mirror platform/scenario images to an internal registry, then validate a disconnected deployment with the crashloop scenario |
 | **[Scenario Catalog](docs/scenarios.md)** | All 37 scenarios with alerts, fault injection, and remediation details |
 | **[Verification and Cleanup](docs/verification.md)** | Inspect pipeline status, monitoring, per-scenario cleanup, teardown |
 | **[Troubleshooting](docs/troubleshooting.md)** | Common issues and fixes |
