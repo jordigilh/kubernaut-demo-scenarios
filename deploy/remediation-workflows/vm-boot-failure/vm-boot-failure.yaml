@@ -53,7 +53,7 @@ metadata:
   name: fix-datavolume-source-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.3"
+  version: "1.5.4"
   actionType: FixDataVolumeSource
   labels:
     severity: [critical, high, warning]
@@ -69,7 +69,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-datavolume-source-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-datavolume-source-job@sha256:c4529fa4dfeca9d856993520680c0b76c382b8143719c2087a83e45297636981
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-datavolume-source-job@sha256:5f447c5c8eb41b2b9dc2351c1f2fb573f6e82fd70558400c7ac6a54c9f45d91c
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
