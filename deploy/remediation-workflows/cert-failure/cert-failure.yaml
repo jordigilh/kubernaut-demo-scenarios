@@ -63,6 +63,7 @@ spec:
     environment: [staging]
     component: [cert-manager.io/v1/Certificate, cert-manager.io/v1/ClusterIssuer]
     priority: "*"
+    cluster: ["*"]
   
   execution:
     engine: job

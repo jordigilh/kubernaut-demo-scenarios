@@ -61,6 +61,7 @@ spec:
     environment: [production, staging]
     component: [apps/v1/StatefulSet]
     priority: "*"
+    cluster: ["*"]
 
   execution:
     engine: job

@@ -82,6 +82,7 @@ spec:
     environment: ["*"]
     component: [v1/Node, apps/v1/Deployment]
     priority: "*"
+    cluster: ["*"]
 
   detectedLabels:
     gitOpsTool: "*"

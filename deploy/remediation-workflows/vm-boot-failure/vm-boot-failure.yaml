@@ -60,6 +60,7 @@ spec:
     environment: [staging, production]
     component: [cdi.kubevirt.io/v1beta1/DataVolume, kubevirt.io/v1/VirtualMachine]
     priority: "*"
+    cluster: ["*"]
   description:
     what: "Fix a DataVolume source URL that is preventing VM disk import"
     whenToUse: "VirtualMachine is stuck in Provisioning, DataVolume shows ImportInProgress or failed, CDI importer pod logs show connection errors or HTTP failures"

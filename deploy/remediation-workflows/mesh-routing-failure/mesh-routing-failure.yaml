@@ -60,6 +60,7 @@ spec:
     environment: [staging]
     component: [security.istio.io/v1/AuthorizationPolicy]
     priority: "*"
+    cluster: ["*"]
   
   detectedLabels:
     serviceMesh: "*"

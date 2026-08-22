@@ -63,6 +63,7 @@ spec:
     environment: [production]
     component: [apps/v1/Deployment]
     priority: "*"
+    cluster: ["*"]
   
   customLabels:
     remediation_strategy: "rollback"

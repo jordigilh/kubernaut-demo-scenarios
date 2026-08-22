@@ -64,6 +64,7 @@ spec:
     environment: [production]
     component: [v1/ConfigMap, apps/v1/Deployment]
     priority: "*"
+    cluster: ["*"]
 
   customLabels:
     risk_tolerance: "low"

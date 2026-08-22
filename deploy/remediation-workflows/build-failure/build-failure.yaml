@@ -70,6 +70,7 @@ spec:
     environment: [production, staging]
     component: [build.openshift.io/v1/BuildConfig, apps/v1/Deployment]
     priority: "*"
+    cluster: ["*"]
 
   execution:
     engine: job
