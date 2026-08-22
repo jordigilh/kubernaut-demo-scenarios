@@ -1,6 +1,6 @@
 # Scenario: Operator Health Management (OLM)
 
-**Status**: IN PROGRESS — scenario scripts and manifests implemented; end-to-end validation pending on live cluster.
+**Status**: Validated — end-to-end run against a live cluster passed (`golden-transcripts/operator-health-operatorcsvfailed.json`).
 
 ## Overview
 
