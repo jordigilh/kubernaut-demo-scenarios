@@ -64,3 +64,6 @@ base/secrets/
 
 # OS files
 .DS_Store
+
+# Machine-specific local editor/MCP config (shared kubernaut-family convention)
+.cursor/
