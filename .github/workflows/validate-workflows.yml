@@ -1,0 +1,100 @@
+name: Validate RemediationWorkflow Manifests
+
+# Two independent checks against every deploy/remediation-workflows/**
+# manifest, closing the gap that let kubernaut-demo-scenarios#416 (quoted
+# "true" strings instead of real booleans) slip through five workflows
+# undetected and break KA's workflow catalog list call wholesale.
+#
+# 1. crd-schema-validation: applies the *real* upstream RemediationWorkflow
+#    CRD (fetched live from kubernaut) to a throwaway Kind cluster and runs
+#    `kubectl apply --dry-run=server` on every manifest -- authoritative,
+#    structural validation for every typed field (execution, parameters,
+#    labels, ...) using the exact same API-server admission path a real
+#    apply would go through.
+#
+# 2. detected-labels-type-check: spec.detectedLabels is declared
+#    `x-kubernetes-preserve-unknown-fields: true` in that same CRD (see
+#    kubernaut's +kubebuilder:pruning:PreserveUnknownFields), so job 1
+#    cannot type-check anything inside it -- that's exactly the blind spot
+#    PR #416's bug lived in. scripts/validate-detected-labels.py
+#    independently re-implements kubernaut's DetectedLabels field-type
+#    contract to close that gap.
+#
+# Authority: kubernaut-demo-scenarios#416
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/remediation-workflows/**'
+      - 'scripts/validate-detected-labels.py'
+      - '.github/workflows/validate-workflows.yml'
+  workflow_dispatch:
+    inputs:
+      kubernaut_ref:
+        description: 'kubernaut branch/tag to fetch the RemediationWorkflow CRD from'
+        required: false
+        default: 'main'
+        type: string
+
+env:
+  KUBERNAUT_REF: ${{ inputs.kubernaut_ref || 'main' }}
+
+jobs:
+  crd-schema-validation:
+    name: CRD schema (dry-run against real RemediationWorkflow CRD)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1.14.0
+        with:
+          cluster_name: workflow-schema-validation
+
+      - name: Install RemediationWorkflow CRD from kubernaut
+        run: |
+          curl -sfL "https://raw.githubusercontent.com/jordigilh/kubernaut/${KUBERNAUT_REF}/config/crd/bases/kubernaut.ai_remediationworkflows.yaml" \
+            -o /tmp/remediationworkflow-crd.yaml
+          kubectl apply -f /tmp/remediationworkflow-crd.yaml
+          kubectl wait --for=condition=Established crd/remediationworkflows.kubernaut.ai --timeout=60s
+
+      - name: Create namespaces referenced by workflow manifests
+        run: |
+          grep -rhoE '^\s*namespace: [a-zA-Z0-9-]+' deploy/remediation-workflows \
+            | awk '{print $2}' | sort -u \
+            | while IFS= read -r ns; do
+                kubectl create namespace "$ns" --dry-run=client -o yaml | kubectl apply -f -
+              done
+
+      - name: Server-side dry-run apply every workflow manifest
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            echo "::group::$f"
+            if ! kubectl apply --dry-run=server -f "$f"; then
+              fail=1
+            fi
+            echo "::endgroup::"
+          done < <(find deploy/remediation-workflows -name '*.yaml' | sort)
+          exit "$fail"
+
+  detected-labels-type-check:
+    name: detectedLabels field types (kubernaut DetectedLabels contract)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate detectedLabels types
+        run: python3 scripts/validate-detected-labels.py deploy/remediation-workflows

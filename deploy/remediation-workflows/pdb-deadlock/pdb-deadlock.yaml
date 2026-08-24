@@ -60,7 +60,7 @@ spec:
     cluster: ["*"]
   
   detectedLabels:
-    pdbProtected: "true"
+    pdbProtected: true
   
   execution:
     engine: job

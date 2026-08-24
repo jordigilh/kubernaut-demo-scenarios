@@ -74,7 +74,7 @@ spec:
     cluster: ["*"]
   
   detectedLabels:
-    helmManaged: "true"
+    helmManaged: true
   
   execution:
     engine: job
