@@ -63,7 +63,7 @@ spec:
     cluster: ["*"]
   
   detectedLabels:
-    networkIsolated: "true"
+    networkIsolated: true
   
   execution:
     engine: job

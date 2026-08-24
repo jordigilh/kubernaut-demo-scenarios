@@ -63,7 +63,7 @@ spec:
     cluster: ["*"]
   
   detectedLabels:
-    hpaEnabled: "true"
+    hpaEnabled: true
   
   execution:
     engine: job
