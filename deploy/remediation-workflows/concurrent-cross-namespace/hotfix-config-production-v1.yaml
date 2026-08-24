@@ -50,7 +50,7 @@ metadata:
   name: hotfix-config-production-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.4"
+  version: "1.5.5"
   description:
     what: "Patches a faulty ConfigMap in-place to remove an invalid configuration directive, then restarts the owning Deployment so pods load the corrected configuration"
     whenToUse: "When a Deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap, the signal carries risk_tolerance=low, and the workload is NOT managed by Helm or GitOps. The target resource may be the ConfigMap itself or the Deployment that mounts it. This workflow patches the ConfigMap in-place, which is only appropriate for imperatively managed resources. For Helm-managed workloads, use HelmRollback instead — a Helm rollback reverts the entire release including all ConfigMaps to the previous healthy revision."
@@ -72,7 +72,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: hotfix-config-production-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:384b7bd0d6ea8b1150ece923525d99c003493fe905a6d10cd3be24305bdf5913
+    bundle: quay.io/kubernaut-cicd/test-workflows/hotfix-config-job@sha256:13caeff40da7a14c880c903e1668d065233c7755b650f9c31188779fabfcc885
 
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
