@@ -50,7 +50,7 @@ metadata:
   name: fix-security-context-v1
   namespace: kubernaut-system
 spec:
-  version: "1.5.4"
+  version: "1.5.5"
   description:
     what: "Reverts a Deployment's SecurityContext to a known-good configuration that complies with the namespace's Security Context Constraints (SCC) policy, restoring pod creation"
     whenToUse: "When a Deployment has zero available replicas and the ReplicaSet shows FailedCreate events containing 'unable to validate against any security context constraint' or 'is not valid for the pod'. This indicates the pod spec requires capabilities (such as NET_ADMIN, SYS_PTRACE) or UID/GID settings (runAsUser: 0, privileged: true) that violate the namespace's SCC policy (typically restricted-v2 on OpenShift). The fix is to revert the SecurityContext to a compliant configuration, NOT to grant a more permissive SCC."
@@ -69,7 +69,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: fix-security-context-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/fix-security-context-job@sha256:ab79e09d8aa2d9d9c9099f18bb07287dea26d74f1cbf8113bf3720ee10bcb300
+    bundle: quay.io/kubernaut-cicd/test-workflows/fix-security-context-job@sha256:47038ac8fe7837c05fa1bf12aa558060315d00906c051de37e2c25d667e0964c
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
