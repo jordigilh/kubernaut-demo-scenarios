@@ -116,17 +116,17 @@ fleet_check_connectivity() {
 }
 
 # Deploy scenario workload resources (namespace/configmap/deployment) to the
-# spoke cluster. Deliberately skips any PrometheusRule/ServiceMonitor
+# spoke cluster. Deliberately skips any PrometheusRule/ServiceMonitor/Probe
 # documents in the manifest dir -- the spoke has no prometheus-operator CRDs
-# to accept them (use fleet_load_prometheus_rule for the raw-Prometheus
-# equivalent instead).
+# to accept them (use fleet_load_prometheus_rule + fleet_ensure_scrape_job
+# for the raw-Prometheus equivalents instead).
 #
 # Args: $1 = manifest dir (e.g. scenarios/crashloop/manifests)
 fleet_deploy_workload() {
     _fleet_require_mode "fleet_deploy_workload" || return 1
     local manifest_dir="${1:?usage: fleet_deploy_workload <manifest-dir>}"
 
-    echo "==> [fleet] Deploying workload manifests to spoke (skipping PrometheusRule/ServiceMonitor -- no operator on spoke)..."
+    echo "==> [fleet] Deploying workload manifests to spoke (skipping PrometheusRule/ServiceMonitor/Probe -- no operator on spoke)..."
     local tmpdir
     tmpdir=$(mktemp -d)
     trap 'rm -rf "${tmpdir}"' RETURN
@@ -146,7 +146,7 @@ for line in open(sys.argv[2]):
     local applied=0 skipped=0
     for doc in "${tmpdir}"/doc-*.yaml; do
         [ -f "$doc" ] || continue
-        if grep -qE 'kind: (PrometheusRule|ServiceMonitor)' "$doc"; then
+        if grep -qE 'kind: (PrometheusRule|ServiceMonitor|Probe)' "$doc"; then
             skipped=$((skipped + 1))
             continue
         fi
