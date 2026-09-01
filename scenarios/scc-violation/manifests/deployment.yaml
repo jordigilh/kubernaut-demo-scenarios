@@ -18,6 +18,13 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
+        # Explicit UID for Kind: the busybox image has no USER directive, so
+        # without this, kubelet rejects the pod ("container has runAsNonRoot
+        # and image will run as root") since there's no OCP-style SCC to
+        # auto-assign one. The OCP overlay strips this field back out so
+        # OpenShift's restricted-v2 SCC keeps auto-assigning from the
+        # namespace's allocated range, unchanged from before.
+        runAsUser: 1000
         seccompProfile:
           type: RuntimeDefault
       containers:
