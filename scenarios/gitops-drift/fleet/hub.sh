@@ -37,11 +37,11 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> [hub=${HUB_KUBECONFIG}] Ensuring Gitea + ArgoCD are installed..."
 if ! kubectl get deployment gitea -n "${GITEA_NAMESPACE}" &>/dev/null; then
-    bash "${SCRIPT_DIR}/../../gitops/scripts/setup-gitea.sh"
+    bash "${SCRIPT_DIR}/../gitops/scripts/setup-gitea.sh"
 fi
 ARGOCD_NS=$(get_argocd_namespace)
 if ! kubectl get deployment argocd-server -n "${ARGOCD_NS}" &>/dev/null; then
-    bash "${SCRIPT_DIR}/../../gitops/scripts/setup-argocd.sh"
+    bash "${SCRIPT_DIR}/../gitops/scripts/setup-argocd.sh"
 fi
 
 echo ""
