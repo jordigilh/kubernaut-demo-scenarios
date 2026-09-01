@@ -396,6 +396,41 @@ print(text)
     _FLEET_PROM_CONFIG_CHANGED=1
 }
 
+# Ensure an additional static-target scrape job exists on the spoke's raw
+# Prometheus, for scenarios whose alert depends on a metrics endpoint other
+# than kube-state-metrics/kubelet-cadvisor -- e.g. cert-manager, etcd, or a
+# scenario's own exporter Service. Verified live (kubernaut-demo-scenarios
+# spike, 2026-09-01): cert-manager's own metrics Service
+# (cert-manager.cert-manager.svc.cluster.local:9402) is a stable in-cluster
+# target, scraped the exact same way kube-state-metrics already is below --
+# no operator/ServiceMonitor required on the spoke. Not every custom metric
+# fits this shape (Istio's per-pod sidecar metrics and blackbox_exporter's
+# Probe-style /probe?target=... scraping need a different scrape_configs
+# shape entirely), but it covers any scenario whose custom metric comes from
+# a single well-known Service:port. No-op if a job with this name already
+# exists (matched by job_name, so keep job_name unique per scenario). Call
+# fleet_reload_spoke_prometheus afterward to pick up the change.
+#
+# Args: $1 = job_name, $2 = target (host:port), $3 = optional extra
+#       scrape_configs YAML lines (e.g. metrics_path/params), indented to
+#       match the job's top level.
+fleet_ensure_scrape_job() {
+    _fleet_require_mode "fleet_ensure_scrape_job" || return 1
+    local job_name="${1:?usage: fleet_ensure_scrape_job <job_name> <target> [extra_yaml]}"
+    local target="${2:?usage: fleet_ensure_scrape_job <job_name> <target> [extra_yaml]}"
+    local extra="${3:-}"
+    local fragment="- job_name: '${job_name}'
+  scrape_interval: 15s"
+    if [ -n "$extra" ]; then
+        fragment="${fragment}
+${extra}"
+    fi
+    fragment="${fragment}
+  static_configs:
+  - targets: ['${target}']"
+    _fleet_ensure_prometheus_config_has "'${job_name}' scrape job" "$fragment"
+}
+
 # Roll out the spoke Prometheus if fleet_load_prometheus_rule changed its
 # config or mounted a new volume. Call once after all fleet_load_prometheus_rule
 # calls for a scenario, not per-call, to avoid redundant restarts.
