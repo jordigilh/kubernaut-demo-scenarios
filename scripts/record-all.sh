@@ -56,7 +56,6 @@ if [ "${GROUP_FILTER}" = "ALL" ] || [ "${GROUP_FILTER}" = "A" ]; then
   record_scenario network-policy-block
   record_scenario duplicate-alert-suppression
   record_scenario memory-leak
-  record_scenario memory-escalation
 fi
 
 # ── Group B: Multi-Node Kind + Podman ────────────────────

@@ -360,7 +360,7 @@ but this matrix lets you plan ahead:
 | **cert-manager** | cert-failure | OCP: `openshift-cert-manager-operator` from OperatorHub. Kind: installed by `setup-demo-cluster.sh`. |
 | **Istio / Service Mesh** | mesh-routing-failure | OCP: OpenShift Service Mesh (OSSM) from OperatorHub. Kind: `--with-istio`. |
 | **metrics-server** | autoscale, hpa-maxed | Built-in on OCP. Kind: installed by `setup-demo-cluster.sh`. |
-| **KA Prometheus toolset** | autoscale, hpa-maxed, memory-leak, memory-escalation, slo-burn, disk-pressure-emptydir, resource-contention, resource-quota-exhaustion | Auto-enabled by `run.sh`. [Manual enablement](docs/prometheus-toolset.md). |
+| **KA Prometheus toolset** | autoscale, hpa-maxed, memory-leak, slo-burn, disk-pressure-emptydir, resource-contention, resource-quota-exhaustion | Auto-enabled by `run.sh`. [Manual enablement](docs/prometheus-toolset.md). |
 | **LVMS / expandable StorageClass** | pvc-capacity-forecast | StorageClass with `allowVolumeExpansion: true` (e.g. `lvms-vg1`). |
 | **postgres\_exporter** | db-connection-saturation | Deployed as sidecar (included in scenario manifests). |
 | **Shadow agent enabled** | prompt-injection, alert-misdirection | Enabled by default since v1.4. Auto-configured by `run.sh`. |

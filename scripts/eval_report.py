@@ -111,7 +111,7 @@ def validate_sync(matrix: dict, workflow_mappings_path: str | None) -> list[str]
                 mapping_scenarios.add(scenario)
 
     matrix_scenarios = set(matrix.keys())
-    special_entries = {"memory-escalation-cycle2"}
+    special_entries: set[str] = set()
     escalation_scenarios = {s for s in matrix_scenarios
                            if matrix[s].get("expected_bundle") is None}
     matrix_base = matrix_scenarios - special_entries - escalation_scenarios

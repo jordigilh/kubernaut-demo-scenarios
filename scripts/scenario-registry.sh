@@ -37,7 +37,6 @@ declare -A SCENARIO_NS=(
   [db-connection-saturation]="demo-orders"
   [autoscale]="demo-loadtest"
   [image-pull-failure]="demo-inventory"
-  [memory-escalation]="demo-ml-pipeline"
   [node-notready]="demo-compute"
   [build-failure]="demo-ci"
   [pvc-capacity-forecast]="demo-archive"

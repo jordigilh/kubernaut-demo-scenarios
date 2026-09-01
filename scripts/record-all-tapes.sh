@@ -92,7 +92,6 @@ SCENARIOS=(
   crashloop
   pending-taint
   hpa-maxed
-  memory-escalation
   network-policy-block
   duplicate-alert-suppression
   statefulset-pvc-failure

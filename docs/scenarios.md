@@ -62,7 +62,6 @@ The **Approval** column indicates whether the scenario enforces a manual approva
 | [**memory-leak**](../scenarios/memory-leak/) | `ContainerMemoryExhaustionPredicted` | Linear memory growth predicted to OOM | Graceful restart (rolling) | — | Both |
 | [**stuck-rollout**](../scenarios/stuck-rollout/) | `KubeDeploymentRolloutStuck` | Non-existent image tag | `kubectl rollout undo` | Production | Both |
 | [**slo-burn**](../scenarios/slo-burn/) | `ErrorBudgetBurn` | Blackbox probe error rate >1.44% | Proactive rollback | Production | Both |
-| [**memory-escalation**](../scenarios/memory-escalation/) | `ContainerMemoryHigh` | Memory usage exceeds threshold | Increase memory limits | Production | Both |
 
 ## Autoscaling and Resources
 

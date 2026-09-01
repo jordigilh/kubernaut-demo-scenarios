@@ -29,7 +29,6 @@ SCENARIOS=(
   concurrent-cross-namespace
   stuck-rollout
   memory-leak
-  memory-escalation
   network-policy-block
   resource-quota-exhaustion
   hpa-maxed
