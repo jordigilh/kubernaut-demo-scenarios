@@ -27,6 +27,19 @@ is_fleet_mode() {
     [ -n "${HUB_KUBECONFIG:-}" ] && [ -n "${SPOKE_KUBECONFIG:-}" ]
 }
 
+# Every scenario's fleet/run.sh runs spoke.sh then hub.sh unconditionally
+# and stops once the alert fires -- there's no single-cluster AF/A2A
+# validation/approval pipeline to run against a remote spoke yet, so flags
+# that steer it (--interactive/--auto-approve/--no-validate/--alert-only)
+# have nothing to attach to in fleet mode. Warn once so that's not
+# surprising to someone passing them out of habit; call from each
+# scenario's top-level run.sh right before dispatching to fleet/run.sh.
+fleet_warn_ignored_args() {
+    if [ "$#" -gt 0 ]; then
+        echo "NOTE: fleet mode always runs alert-only; ignoring CLI arg(s): $*" >&2
+    fi
+}
+
 _fleet_require_mode() {
     if ! is_fleet_mode; then
         echo "ERROR: $1 requires HUB_KUBECONFIG and SPOKE_KUBECONFIG to be set." >&2

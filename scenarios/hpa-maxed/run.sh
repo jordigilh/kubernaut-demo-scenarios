@@ -20,6 +20,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
 if is_fleet_mode; then
+    fleet_warn_ignored_args "$@"
     exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
 else
     exec bash "${SCRIPT_DIR}/local/run.sh" "$@"
