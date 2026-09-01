@@ -50,7 +50,7 @@ metadata:
   name: patch-configuration-v1
   namespace: kubernaut-system
 spec:
-  version: "1.6.0"
+  version: "1.6.1"
   description:
     what: "Patches a ConfigMap to remove invalid keys or restore known-good values from a backup ConfigMap, then restarts the Deployment that mounts it to recover from configuration-induced crashes"
     whenToUse: "When a Deployment's pods are crashing because a mounted ConfigMap contains invalid data (bad directives, corrupted values, injected keys) and the Deployment spec itself has NOT changed — only the ConfigMap content was modified in-place. Look for: (1) CrashLoopBackOff with exit code 1 and startup errors referencing config files, (2) the Deployment's volume still references the same ConfigMap name as before, (3) the ConfigMap data contains keys or values that were recently added or modified. This is the correct workflow when the root cause is bad ConfigMap content, not a bad Deployment spec change."
@@ -69,7 +69,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: patch-configuration-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/patch-configuration-job@sha256:c4d1bb16b764d84703ad1f0452d01be48179e8c810c52bb3e115f9332caa78b9
+    bundle: quay.io/kubernaut-cicd/test-workflows/patch-configuration-job@sha256:72f9eea98885067737dcde96be67da4d855bf783f73e7db85fe024f362ec9126
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
