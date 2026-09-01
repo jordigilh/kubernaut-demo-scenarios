@@ -90,8 +90,8 @@ fleet_get_manifest_dir() {
 # which touches nothing else.
 fleet_check_hub_connectivity() {
     _fleet_require_mode "fleet_check_hub_connectivity" || return 1
-    if ! kubectl cluster-info &>/dev/null; then
-        echo "ERROR: Cannot connect to hub cluster (ambient KUBECONFIG). Point KUBECONFIG at the hub." >&2
+    if ! kubectl --kubeconfig="${HUB_KUBECONFIG}" cluster-info &>/dev/null; then
+        echo "ERROR: Cannot connect to hub cluster (HUB_KUBECONFIG)." >&2
         return 1
     fi
 }
