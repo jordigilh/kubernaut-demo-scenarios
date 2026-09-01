@@ -19,9 +19,19 @@ spec:
       serviceAccountName: metrics-collector
       containers:
         - name: metrics-collector
-          image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+          # Portable kubectl-capable image, works on both vanilla k8s/Kind
+          # and OCP (public registry, no per-platform overlay needed -- same
+          # convention as other scenarios' quay.io/registry.k8s.io images).
+          # Not the OCP-only internal registry the base manifest previously
+          # hardcoded (image-registry.openshift-image-registry.svc:5000/...),
+          # which never resolves on Kind/vanilla clusters; see README
+          # "IN PROGRESS" note. Not bitnami/kubectl either -- Bitnami
+          # deprecated its free catalog in 2025 (versioned tags gone, only
+          # an unstable "latest" trial remains). alpine/k8s is community
+          # maintained, multi-arch, and ships a shell (needed here).
+          image: docker.io/alpine/k8s:1.30.0
           command:
-            - /bin/bash
+            - /bin/sh
             - -c
           args:
             - |
@@ -39,11 +49,3 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
             failureThreshold: 3
-          securityContext:
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
-            seccompProfile:
-              type: RuntimeDefault
-            capabilities:
-              drop:
-                - ALL

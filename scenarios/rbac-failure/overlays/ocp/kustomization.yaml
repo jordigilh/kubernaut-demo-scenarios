@@ -22,3 +22,16 @@ patches:
       - op: replace
         path: /metadata/namespace
         value: openshift-monitoring
+  - target:
+      kind: Deployment
+      name: metrics-collector
+    patch: |
+      - op: add
+        path: /spec/template/spec/containers/0/securityContext
+        value:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop: ["ALL"]

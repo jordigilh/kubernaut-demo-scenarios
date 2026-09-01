@@ -35,7 +35,6 @@ NS_MAP = {
     "demo-payments": "pdb-deadlock",
     "demo-gateway": "hpa-maxed",
     "demo-telemetry": "memory-leak",
-    "demo-ml-pipeline": "memory-escalation",
     "demo-frontend": "network-policy-block",
     "demo-loadtest": "autoscale",
     "demo-api": "slo-burn",

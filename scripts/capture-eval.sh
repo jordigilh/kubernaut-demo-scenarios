@@ -560,7 +560,6 @@ NS_TO_SCENARIO = {
     'demo-orders': 'db-connection-saturation',
     'demo-loadtest': 'autoscale',
     'demo-inventory': 'image-pull-failure',
-    'demo-ml-pipeline': 'memory-escalation',
     'demo-compute': 'node-notready',
     'demo-ci': 'build-failure',
     'demo-archive': 'pvc-capacity-forecast',
