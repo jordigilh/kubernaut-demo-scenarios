@@ -116,17 +116,18 @@ fleet_check_connectivity() {
 }
 
 # Deploy scenario workload resources (namespace/configmap/deployment) to the
-# spoke cluster. Deliberately skips any PrometheusRule/ServiceMonitor/Probe
-# documents in the manifest dir -- the spoke has no prometheus-operator CRDs
-# to accept them (use fleet_load_prometheus_rule + fleet_ensure_scrape_job
-# for the raw-Prometheus equivalents instead).
+# spoke cluster. Deliberately skips any PrometheusRule/ServiceMonitor/Probe/
+# PodMonitor documents in the manifest dir -- the spoke has no
+# prometheus-operator CRDs to accept them (use fleet_load_prometheus_rule +
+# fleet_ensure_scrape_job/fleet_ensure_pod_scrape_job for the raw-Prometheus
+# equivalents instead).
 #
 # Args: $1 = manifest dir (e.g. scenarios/crashloop/manifests)
 fleet_deploy_workload() {
     _fleet_require_mode "fleet_deploy_workload" || return 1
     local manifest_dir="${1:?usage: fleet_deploy_workload <manifest-dir>}"
 
-    echo "==> [fleet] Deploying workload manifests to spoke (skipping PrometheusRule/ServiceMonitor/Probe -- no operator on spoke)..."
+    echo "==> [fleet] Deploying workload manifests to spoke (skipping PrometheusRule/ServiceMonitor/Probe/PodMonitor -- no operator on spoke)..."
     local tmpdir
     tmpdir=$(mktemp -d)
     trap 'rm -rf "${tmpdir}"' RETURN
@@ -146,7 +147,7 @@ for line in open(sys.argv[2]):
     local applied=0 skipped=0
     for doc in "${tmpdir}"/doc-*.yaml; do
         [ -f "$doc" ] || continue
-        if grep -qE 'kind: (PrometheusRule|ServiceMonitor|Probe)' "$doc"; then
+        if grep -qE 'kind: (PrometheusRule|ServiceMonitor|Probe|PodMonitor)' "$doc"; then
             skipped=$((skipped + 1))
             continue
         fi
@@ -487,6 +488,41 @@ fleet_ensure_kubelet_metrics_job() {
     regex: '${keep_regex}'
     action: keep"
     _fleet_ensure_prometheus_config_has "'${job_name}' scrape job" "$fragment"
+}
+
+# Ensure a per-pod scrape job (kubernetes_sd_configs role: pod, scoped to one
+# namespace) exists, for sidecar/per-pod metrics with no single stable
+# Service endpoint to hit statically -- e.g. istio-proxy's Envoy stats port,
+# which exists once per meshed pod, not behind one shared Service. Unlike
+# fleet_ensure_scrape_job (one static target) or fleet_ensure_kubelet_metrics_job
+# (role: node), this discovers pods dynamically so it keeps working as pods
+# are added/removed/rescheduled -- the same thing a PodMonitor would do via
+# prometheus-operator, reproduced by hand for the spoke's raw Prometheus.
+#
+# Args: $1 = job_name, $2 = namespace to discover pods in, $3 = metrics_path,
+#       $4 = full relabel_configs block (verbatim, caller's responsibility --
+#       typically a container-name/port-name "keep" filter first, since
+#       role: pod emits one target per exposed container port, then a
+#       namespace/pod label rewrite from __meta_kubernetes_namespace/
+#       __meta_kubernetes_pod_name -- prometheus-operator's PodMonitor
+#       controller adds this namespace relabeling automatically; there's no
+#       operator here to do it for us).
+fleet_ensure_pod_scrape_job() {
+    _fleet_require_mode "fleet_ensure_pod_scrape_job" || return 1
+    local job_name="${1:?usage: fleet_ensure_pod_scrape_job <job_name> <namespace> <metrics_path> <relabel_configs_yaml>}"
+    local target_ns="${2:?usage: fleet_ensure_pod_scrape_job <job_name> <namespace> <metrics_path> <relabel_configs_yaml>}"
+    local metrics_path="${3:?usage: fleet_ensure_pod_scrape_job <job_name> <namespace> <metrics_path> <relabel_configs_yaml>}"
+    local relabel="${4:?usage: fleet_ensure_pod_scrape_job <job_name> <namespace> <metrics_path> <relabel_configs_yaml>}"
+    local fragment="- job_name: '${job_name}'
+  scrape_interval: 15s
+  metrics_path: ${metrics_path}
+  kubernetes_sd_configs:
+  - role: pod
+    namespaces:
+      names: ['${target_ns}']
+  relabel_configs:
+${relabel}"
+    _fleet_ensure_prometheus_config_has "'${job_name}' pod-scrape job" "$fragment"
 }
 
 # Roll out the spoke Prometheus if fleet_load_prometheus_rule changed its
