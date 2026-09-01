@@ -345,7 +345,7 @@ Prometheus alert fires (KubePodCrashLooping)
   -> Notification delivers the final result including effectiveness assessment
 ```
 
-Each of the 37 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
+Each of the 38 demo scenarios triggers a different alert and remediation path. Browse the full list in the [Scenario Catalog](docs/scenarios.md).
 
 ## Scenario Prerequisites Matrix
 
@@ -373,6 +373,29 @@ resource-quota-exhaustion, image-pull-failure, route-misconfiguration, build-fai
 scc-violation, operator-health, rbac-failure, cascading-service-failure,
 etcd-defrag-forecast, cross-namespace-dependency, severity-misdirection,
 red-herring-noise) require only the base Kubernaut platform.
+
+## Fleet Mode
+
+By default every scenario runs single-cluster: `run.sh` deploys the workload, injects the
+fault, and confirms the fix on one cluster. **Fleet mode** instead splits that across two
+clusters -- a **hub** running the Kubernaut control plane, and a separate **spoke** running
+the demo workload -- to demonstrate remote/multi-cluster investigation.
+
+Fleet mode is opt-in and detected via two environment variables; every scenario's default
+single-cluster behavior is completely unaffected when they're unset:
+
+```bash
+export HUB_KUBECONFIG=~/tmp/hub.yaml     # cluster running the Kubernaut control plane
+export SPOKE_KUBECONFIG=~/tmp/spoke.yaml # cluster running the demo workload
+
+./scenarios/crashloop/run.sh
+```
+
+Fleet mode currently only confirms that the alert reaches Alertmanager on the hub -- it
+does not exercise the full remediation loop. See the **Fleet** column in the
+[Scenario Catalog](docs/scenarios.md) for which of the 38 scenarios support it, and
+[`scripts/fleet-helper.sh`](scripts/fleet-helper.sh) for the shared plumbing
+(`fleet_deploy_workload`, `fleet_wait_for_alert`, `fleet_ensure_scrape_job`, etc.).
 
 ## Shadow Agent (Alignment Check)
 
@@ -417,7 +440,7 @@ The `--investigation` filter is particularly useful for validating prompt change
 |-------|-------------|
 | **[Setup Guide](docs/setup.md)** | Prerequisites, LLM providers (Vertex AI, Anthropic, OpenAI, local), bootstrap flags, Slack notifications |
 | **[Airgapped OCP Smoke Test](docs/airgap-smoke-test.md)** | Mirror platform/scenario images to an internal registry, then validate a disconnected deployment with the crashloop scenario |
-| **[Scenario Catalog](docs/scenarios.md)** | All 37 scenarios with alerts, fault injection, and remediation details |
+| **[Scenario Catalog](docs/scenarios.md)** | All 38 scenarios with alerts, fault injection, and remediation details |
 | **[Verification and Cleanup](docs/verification.md)** | Inspect pipeline status, monitoring, per-scenario cleanup, teardown |
 | **[Troubleshooting](docs/troubleshooting.md)** | Common issues and fixes |
 | **[Building Workflow Images](docs/building.md)** | For contributors rebuilding scenario OCI images |
