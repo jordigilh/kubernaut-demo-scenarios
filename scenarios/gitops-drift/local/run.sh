@@ -1,0 +1,476 @@
+#!/usr/bin/env bash
+# GitOps Drift Remediation Demo -- Automated Runner
+# Scenario #125: Signal != RCA (Pod crash -> ConfigMap is root cause)
+#
+# Prerequisites:
+#   - Kind cluster with overlays/kind/kind-cluster-config.yaml
+#   - Gitea and ArgoCD installed (run setup scripts first)
+#
+# Usage: ./scenarios/gitops-drift/run.sh [setup|inject|all]
+#   setup  -- deploy infrastructure, ArgoCD app, and establish healthy baseline
+#   inject -- push bad ConfigMap via git (assumes setup already ran)
+#   all    -- run full flow (default)
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+APPROVE_MODE="--interactive"
+SKIP_VALIDATE=""
+ALERT_ONLY=""
+SUBCOMMAND="all"
+for _arg in "$@"; do
+    case "$_arg" in
+        --auto-approve)  APPROVE_MODE="--auto-approve" ;;
+        --interactive)   APPROVE_MODE="--interactive" ;;
+        --no-validate)   SKIP_VALIDATE=true ;;
+        --alert-only)    ALERT_ONLY=true ;;
+        setup|inject|all) SUBCOMMAND="$_arg" ;;
+    esac
+done
+
+# shellcheck source=../../scripts/platform-helper.sh
+source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+require_demo_ready
+# shellcheck source=../../scripts/monitoring-helper.sh
+source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
+require_infra gitea
+require_infra argocd
+
+preflight_check metrics-pipeline
+
+enable_prometheus_toolset
+
+# Ensure the git-revert-v2 workflow is seeded. It depends on gitea-repo-creds,
+# which only exists after Gitea is installed. If the initial seed ran before
+# Gitea was available, the workflow was skipped (#237).
+echo "==> Seeding ActionType CRDs..."
+kubectl apply -f "${SCRIPT_DIR}/../../deploy/action-types/" -n "${PLATFORM_NS:-kubernaut-system}" --quiet 2>/dev/null || true
+echo "==> Seeding RemediationWorkflow CRDs (namespace: ${PLATFORM_NS:-kubernaut-system})..."
+bash "${SCRIPT_DIR}/../../scripts/seed-workflows.sh" --scenario gitops-drift --continue-on-error 2>&1 \
+  | grep -E '(Applied|SKIP|ERROR|FAIL|error|git-revert|created)' | sed 's/^/    /'
+
+GITEA_NAMESPACE="gitea"
+GITEA_ADMIN_USER="kubernaut"
+GITEA_ADMIN_PASS="kubernaut123"
+REPO_NAME="demo-gitops-repo"
+NAMESPACE="demo-webui"
+
+run_setup() {
+echo "============================================="
+echo " GitOps Drift Remediation Demo (#125)"
+echo "============================================="
+echo ""
+
+# Step 0: Clean up stale state from any previous run (#245)
+# Delete the ArgoCD Application first so selfHeal doesn't fight the
+# namespace deletion inside ensure_clean_slate.
+local argocd_ns
+argocd_ns=$(get_argocd_namespace)
+kubectl delete application web-frontend -n "$argocd_ns" \
+  --ignore-not-found 2>/dev/null || true
+
+ensure_clean_slate "${NAMESPACE}"
+
+# Push healthy manifests to Gitea so the scenario is self-contained.
+# This also resets the repo to a known-good state if a previous run
+# left a broken commit (#245).
+echo "==> Pushing healthy manifests to Gitea repo..."
+kill_stale_gitea_pf
+kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http \
+  "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
+local pf_pid=$!
+wait_for_port "${GITEA_LOCAL_PORT}" 45
+
+# Create repo if it doesn't exist (idempotent)
+curl -sf -X POST "http://localhost:${GITEA_LOCAL_PORT}/api/v1/user/repos" \
+  -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
+  -H "Content-Type: application/json" \
+  -d "{\"name\": \"${REPO_NAME}\", \"auto_init\": true}" -o /dev/null 2>/dev/null || true
+
+local work_dir
+work_dir=$(mktemp -d)
+cd "${work_dir}"
+git init -b main
+git config user.email "kubernaut@kubernaut.ai"
+git config user.name "Kubernaut Setup"
+mkdir -p manifests
+
+cat > manifests/namespace.yaml <<NS_EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${NAMESPACE}
+  labels:
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/environment: production
+    kubernaut.ai/business-unit: platform
+    kubernaut.ai/service-owner: sre-team
+    kubernaut.ai/criticality: high
+    kubernaut.ai/sla-tier: tier-2
+    kubernaut.ai/component: web-frontend
+$([ "$PLATFORM" = "ocp" ] && echo '    openshift.io/cluster-monitoring: "true"')
+$([ "$PLATFORM" = "ocp" ] && echo '    argocd.argoproj.io/managed-by: openshift-gitops')
+NS_EOF
+
+cat > manifests/configmap.yaml <<CM_EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: ${NAMESPACE}
+  labels:
+    app: web-frontend
+data:
+  config.yaml: |
+    port: 8080
+    routes:
+      - path: /
+        status: 200
+        body: 'healthy'
+      - path: /healthz
+        status: 200
+        body: 'ok'
+CM_EOF
+
+cat > manifests/deployment.yaml <<DEPLOY_EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-frontend
+  namespace: ${NAMESPACE}
+  labels:
+    app: web-frontend
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-frontend
+  template:
+    metadata:
+      labels:
+        app: web-frontend
+        kubernaut.ai/managed: "true"
+    spec:
+      containers:
+      - name: web-frontend
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 2
+          periodSeconds: 3
+      volumes:
+      - name: config
+        configMap:
+          name: app-config
+DEPLOY_EOF
+
+cat > manifests/service.yaml <<SVC_EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-frontend
+  namespace: ${NAMESPACE}
+  labels:
+    app: web-frontend
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/metrics: "true"
+spec:
+  selector:
+    app: web-frontend
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  type: ClusterIP
+SVC_EOF
+
+git add .
+git commit -m "Initial deployment: web-frontend with healthy config"
+git remote add origin "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
+git push -u origin main --force
+echo "  Healthy manifests pushed to Gitea."
+
+# Ensure the Gitea→ArgoCD webhook exists so pushes trigger immediate sync.
+# setup-argocd.sh creates this on Kind, but the webhook may be missing if the
+# repo was (re-)created by this script or if setup-argocd.sh ran first.
+local argocd_ns
+argocd_ns=$(get_argocd_namespace)
+local argocd_svc
+argocd_svc=$(get_argocd_server_svc)
+local webhook_url
+if [ "$PLATFORM" = "ocp" ]; then
+    webhook_url="https://openshift-gitops-server.${argocd_ns}.svc/api/webhook"
+else
+    webhook_url="http://${argocd_svc}.${argocd_ns}.svc.cluster.local/api/webhook"
+fi
+local gitea_api="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}"
+
+# On OCP, ArgoCD uses TLS. Configure Gitea to skip certificate verification
+# so webhook delivery succeeds (same pattern as disk-pressure-emptydir).
+if [ "$PLATFORM" = "ocp" ]; then
+    local current_wh_cfg
+    current_wh_cfg=$(kubectl get secret gitea-inline-config -n "${GITEA_NAMESPACE}" \
+      -o jsonpath='{.data.webhook}' 2>/dev/null | base64 -d 2>/dev/null || true)
+    if ! echo "$current_wh_cfg" | grep -q "SKIP_TLS_VERIFY"; then
+        kubectl patch secret gitea-inline-config -n "${GITEA_NAMESPACE}" --type=merge \
+          -p '{"stringData":{"webhook":"SKIP_TLS_VERIFY=true\nALLOWED_HOST_LIST=*"}}' 2>/dev/null
+        kubectl rollout restart deployment/gitea -n "${GITEA_NAMESPACE}" 2>/dev/null
+        kubectl rollout status deployment/gitea -n "${GITEA_NAMESPACE}" --timeout=120s 2>/dev/null
+        echo "  Gitea SKIP_TLS_VERIFY configured for OCP webhook delivery."
+    fi
+fi
+
+local existing_hooks
+existing_hooks=$(curl -sf "${gitea_api}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" 2>/dev/null || echo "[]")
+if ! echo "${existing_hooks}" | grep -q "${webhook_url}"; then
+    echo "  Registering Gitea webhook → ArgoCD (${webhook_url})..."
+    curl -sf -X POST "${gitea_api}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"type\": \"gitea\",
+        \"active\": true,
+        \"config\": { \"url\": \"${webhook_url}\", \"content_type\": \"json\" },
+        \"events\": [\"push\"]
+      }" -o /dev/null 2>/dev/null \
+      && echo "  Webhook registered." \
+      || echo "  WARNING: webhook registration failed; ArgoCD will fall back to polling."
+fi
+
+cd /
+rm -rf "${work_dir}"
+kill "$pf_pid" 2>/dev/null || true
+
+# Speed up ArgoCD polling as a fallback if the webhook is unavailable.
+kubectl patch configmap argocd-cm -n "$argocd_ns" --type merge \
+  -p '{"data":{"timeout.reconciliation":"60s"}}' 2>/dev/null || true
+
+# Step 1: Apply all manifests (namespace, ArgoCD Application, deployment, PrometheusRule)
+echo "==> Step 1: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}" --server-side --force-conflicts
+
+echo "==> Step 2: Waiting for ArgoCD to sync and pods to be ready..."
+echo "  Waiting for namespace to be created by ArgoCD..."
+for i in $(seq 1 60); do
+  if kubectl get namespace "${NAMESPACE}" &>/dev/null; then
+    break
+  fi
+  sleep 5
+done
+kubectl wait --for=condition=Available deployment/web-frontend \
+  -n "${NAMESPACE}" --timeout=180s
+echo "  web-frontend is healthy."
+
+# Wait for ArgoCD to settle so only one ReplicaSet is active (#245).
+# Both kubectl and ArgoCD manage the deployment; ArgoCD may re-apply with
+# tracking labels, creating a transient second RS whose pods then disappear.
+# If we inject before that settles, the alert fires for the terminated pod
+# and the Gateway drops it (correctly) because the pod no longer exists.
+echo "  Waiting for ArgoCD to reconcile (single ReplicaSet)..."
+local active_rs=0
+local rs_elapsed=0
+while [ "$rs_elapsed" -lt 120 ]; do
+  active_rs=$(kubectl get rs -n "${NAMESPACE}" --no-headers 2>/dev/null \
+    | awk '$2 > 0 { n++ } END { print n+0 }')
+  if [ "$active_rs" -le 1 ]; then
+    break
+  fi
+  if (( rs_elapsed % 20 == 0 )) && [ "$rs_elapsed" -gt 0 ]; then
+    echo "  Still waiting... ${active_rs} active ReplicaSets (${rs_elapsed}s elapsed)"
+  fi
+  sleep 5
+  rs_elapsed=$((rs_elapsed + 5))
+done
+if [ "$active_rs" -gt 1 ]; then
+  echo "  WARNING: ${active_rs} active ReplicaSets after ${rs_elapsed}s — stale alert risk remains."
+fi
+
+postdeploy_check prometheusrule:KubePodCrashLooping
+
+# Step 3: Establish baseline (let Prometheus scrape healthy metrics)
+echo ""
+echo "==> Step 3: Establishing healthy baseline (30s)..."
+kubectl get pods -n "${NAMESPACE}" -o wide
+sleep 30
+echo "  Baseline established."
+echo ""
+}
+
+run_inject() {
+# Step 4: Inject failure -- push bad ConfigMap to Gitea
+echo "==> Step 4: Injecting failure (bad ConfigMap via Git commit)..."
+
+WORK_DIR=$(mktemp -d)
+kill_stale_gitea_pf
+kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &
+PF_PID=$!
+wait_for_port "${GITEA_LOCAL_PORT}" 45
+
+cd "${WORK_DIR}"
+git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" repo
+cd repo
+
+# Break the ConfigMap: change the listen port from 8080 to 8443. The config is
+# valid YAML with a plausible value (HTTPS convention), but the container's
+# liveness probe and service still target 8080, so probes fail and k8s kills
+# the pod — resulting in CrashLoopBackOff.
+cat > manifests/configmap.yaml <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: ${NAMESPACE}
+  labels:
+    app: web-frontend
+data:
+  config.yaml: |
+    port: 8443
+    routes:
+      - path: /
+        status: 200
+        body: 'healthy'
+      - path: /healthz
+        status: 200
+        body: 'ok'
+EOF
+
+# Also update deployment annotation to force a pod rollout with the new config
+cat > manifests/deployment.yaml <<DEPLOY_EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-frontend
+  namespace: ${NAMESPACE}
+  labels:
+    app: web-frontend
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-frontend
+  template:
+    metadata:
+      labels:
+        app: web-frontend
+        kubernaut.ai/managed: "true"
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    spec:
+      containers:
+      - name: web-frontend
+        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: CONFIG_PATH
+          value: /etc/demo-http-server/config.yaml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/demo-http-server/config.yaml
+          subPath: config.yaml
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 2
+          periodSeconds: 3
+      volumes:
+      - name: config
+        configMap:
+          name: app-config
+DEPLOY_EOF
+
+git add .
+git config user.email "bad-actor@example.com"
+git config user.name "Bad Deploy"
+git commit -m "chore: migrate app port to 8443 for TLS termination"
+git push origin main
+
+kill "${PF_PID}" 2>/dev/null || true
+cd /
+rm -rf "${WORK_DIR}"
+
+echo "  Bad commit pushed to Gitea. ArgoCD will sync the broken ConfigMap."
+
+# Force ArgoCD to refresh immediately instead of waiting for the next poll
+# cycle. The webhook should also trigger sync, but this guarantees it.
+local argocd_ns
+argocd_ns=$(get_argocd_namespace)
+kubectl annotate application web-frontend -n "$argocd_ns" \
+  argocd.argoproj.io/refresh=hard --overwrite 2>/dev/null || true
+echo ""
+}
+
+run_monitor() {
+# Step 5: Wait for ArgoCD to sync and pods to crash
+echo "==> Step 5: Waiting for ArgoCD to sync and pods to enter CrashLoopBackOff..."
+echo "  Gitea webhook notifies ArgoCD on push. Waiting for sync + crash..."
+sleep 30
+kubectl get pods -n "${NAMESPACE}"
+echo ""
+
+# Step 6: Validate pipeline
+if [ "${ALERT_ONLY}" = "true" ]; then
+    echo ""
+    echo "==> Waiting for alert (--alert-only mode)..."
+    wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 480
+    show_alert "KubePodCrashLooping" "${NAMESPACE}"
+    echo ""
+    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
+    echo "    Exiting without entering validation pipeline."
+elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
+    echo ""
+    echo "==> Running validation pipeline..."
+    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
+fi
+}
+
+case "$SUBCOMMAND" in
+  setup)  run_setup ;;
+  inject) run_inject ;;
+  all)    run_setup; run_inject; run_monitor ;;
+  *)      echo "Usage: $0 [setup|inject|all]"; exit 1 ;;
+esac

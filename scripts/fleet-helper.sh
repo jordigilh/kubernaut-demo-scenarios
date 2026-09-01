@@ -598,6 +598,109 @@ sys.exit(1)
     return 1
 }
 
+# Register the spoke as a remote target cluster with ArgoCD running on the
+# hub, so a hub-side Application can sync resources onto the spoke (the
+# GitOps-hub topology: git repo + ArgoCD live where the remediation
+# workflow's credentials live, target workload lives on the spoke where the
+# rest of fleet's monitoring stack already is -- see kubernaut#2326 for the
+# WorkflowExecution.Spec.ClusterID decoupling this mirrors on the Kubernaut
+# side).
+#
+# Bootstraps a cluster-admin ServiceAccount + token on the spoke for ArgoCD
+# to authenticate as (demo-grade broad RBAC; a real deployment would scope
+# this down), then writes the corresponding cluster registration Secret into
+# the hub's ArgoCD namespace.
+#
+# A real fleet spoke's kubeconfig server is already routable from hub pods
+# (that's the whole premise of two real clusters on a shared network). Local
+# Kind dev runs both clusters as sibling containers on one Docker/Podman
+# network instead, where the kubeconfig's server is a host-mapped loopback
+# port that means nothing from inside a hub pod's network namespace -- this
+# substitutes the spoke control-plane container's real Docker/Podman network
+# IP in that case, verified reachable from a hub pod (`kubectl run ... curl
+# https://<spoke-ip>:6443`) before wiring it into ArgoCD.
+#
+# Args: $1 = registered cluster label ArgoCD will show it as (default:
+#       "spoke"), $2 = ArgoCD namespace on the hub (default: "argocd"),
+#       $3 = spoke Kind cluster name, only needed for the loopback-
+#       substitution case above (container name is "<name>-control-plane");
+#       default: the spoke kubeconfig's current-context name with a
+#       leading "kind-" stripped, kind's own naming convention.
+#
+# Prints the resolved server URL to stdout (for patching an Application's
+# destination.server); all progress logging goes to stderr.
+fleet_register_argocd_spoke_cluster() {
+    _fleet_require_mode "fleet_register_argocd_spoke_cluster" || return 1
+    local cluster_label="${1:-spoke}"
+    local argocd_ns="${2:-argocd}"
+    local kind_cluster_name="${3:-}"
+    if [ -z "$kind_cluster_name" ]; then
+        kind_cluster_name=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" config view --minify -o jsonpath='{.current-context}' | sed 's/^kind-//')
+    fi
+
+    echo "==> [fleet] Bootstrapping ArgoCD manager ServiceAccount on spoke..." >&2
+    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" create serviceaccount argocd-manager -n kube-system \
+        --dry-run=client -o yaml | kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - >/dev/null
+    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" create clusterrolebinding argocd-manager \
+        --clusterrole=cluster-admin --serviceaccount=kube-system:argocd-manager \
+        --dry-run=client -o yaml | kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - >/dev/null
+    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - >/dev/null <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-manager-token
+  namespace: kube-system
+  annotations:
+    kubernetes.io/service-account.name: argocd-manager
+type: kubernetes.io/service-account-token
+EOF
+    sleep 2
+    local token
+    token=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get secret argocd-manager-token -n kube-system \
+        -o jsonpath='{.data.token}' | base64 -d)
+    if [ -z "$token" ]; then
+        echo "ERROR: fleet_register_argocd_spoke_cluster: failed to mint a token for argocd-manager on the spoke." >&2
+        return 1
+    fi
+
+    local server
+    server=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+    if [[ "$server" =~ ^https://(127\.0\.0\.1|localhost) ]]; then
+        local container="${kind_cluster_name}-control-plane"
+        local ip
+        ip=$(docker inspect "${container}" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
+        if [ -z "$ip" ]; then
+            echo "ERROR: fleet_register_argocd_spoke_cluster: spoke kubeconfig server is loopback (${server}) and could not resolve '${container}' container IP for local Kind substitution." >&2
+            return 1
+        fi
+        server="https://${ip}:6443"
+        echo "  [fleet] Spoke kubeconfig server is loopback; substituting local Kind sibling-container address ${server}" >&2
+    fi
+
+    echo "==> [fleet] Registering spoke cluster '${cluster_label}' (${server}) with ArgoCD on hub..." >&2
+    kubectl --kubeconfig="${HUB_KUBECONFIG}" apply -f - >/dev/null <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ${cluster_label}-cluster
+  namespace: ${argocd_ns}
+  labels:
+    argocd.argoproj.io/secret-type: cluster
+type: Opaque
+stringData:
+  name: ${cluster_label}
+  server: ${server}
+  config: |
+    {
+      "bearerToken": "${token}",
+      "tlsClientConfig": {
+        "insecure": true
+      }
+    }
+EOF
+    echo "$server"
+}
+
 # One-call bootstrap for scenario run.sh scripts: deploys kube-state-metrics
 # and loads the scenario's PrometheusRule onto the spoke, then rolls out
 # Prometheus if anything changed. No-op in single-cluster mode.
