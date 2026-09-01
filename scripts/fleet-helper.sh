@@ -158,6 +158,13 @@ for line in open(sys.argv[2]):
 
 # Ensure kube-state-metrics is deployed on the spoke's monitoring namespace.
 # Idempotent: no-op if the Deployment already exists.
+#
+# The RBAC rules and --resources flag below must cover every kube_*
+# resource kind any scenario's PrometheusRule keys off of, or that rule can
+# never fire on the spoke (found live, 2026-09-01: hpa-maxed's
+# kube_horizontalpodautoscaler_* was silently missing). Cross-check with:
+#   grep -ohE 'kube_[a-z_]+' scenarios/*/manifests/prometheus-rule.yaml | sort -u
+# when adding a new scenario that depends on a kube-state-metrics series.
 fleet_ensure_kube_state_metrics() {
     _fleet_require_mode "fleet_ensure_kube_state_metrics" || return 1
 
@@ -181,10 +188,16 @@ metadata:
   name: kube-state-metrics
 rules:
 - apiGroups: [""]
-  resources: ["pods", "nodes", "namespaces"]
+  resources: ["pods", "nodes", "namespaces", "persistentvolumeclaims"]
   verbs: ["list", "watch"]
 - apiGroups: ["apps"]
   resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+  verbs: ["list", "watch"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["list", "watch"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
   verbs: ["list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -222,7 +235,7 @@ spec:
       - name: kube-state-metrics
         image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0
         args:
-        - --resources=pods,deployments,replicasets,statefulsets,daemonsets,nodes
+        - --resources=pods,deployments,replicasets,statefulsets,daemonsets,nodes,horizontalpodautoscalers,persistentvolumeclaims,poddisruptionbudgets
         ports:
         - containerPort: 8080
           name: http-metrics
