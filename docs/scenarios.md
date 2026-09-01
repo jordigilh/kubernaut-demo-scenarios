@@ -50,7 +50,7 @@ All 38 scenarios run single-cluster (`run.sh` → `local/run.sh`) by default -- 
 |--------|---------|
 | **Kind** | Validated on a local Kind cluster (Linux and macOS, unless noted). |
 | **Fleet** | Validated in fleet mode: a hub cluster runs the Kubernaut control plane, a separate spoke cluster runs the demo workload (`HUB_KUBECONFIG`/`SPOKE_KUBECONFIG`). ✅ fully verified end-to-end · ⚠️ fleet code exists but the scenario's defining signal/narrative doesn't fully come through (see linked issue) · ❌ no fleet split written · — not applicable. |
-| **OCP** | Validated on real OpenShift. |
+| **OCP** | Validated on real OpenShift. ⚠️ = manifests/overlay exist but no golden transcript or overnight-validation record exists yet -- never actually run. |
 
 ## Approval Legend
 
@@ -78,7 +78,7 @@ Known-error, single deterministic fix.
 | [**image-pull-failure**](../scenarios/image-pull-failure/) | ✅ | ❌ | ✅ | — | Deleted ImagePullSecret → recreate from template + restart Deployment |
 | [**rbac-failure**](../scenarios/rbac-failure/) | ✅ | ✅ | ✅ | — | Deleted RoleBinding → restore from template + restart affected Deployments |
 | [**duplicate-alert-suppression**](../scenarios/duplicate-alert-suppression/) | ✅ | ✅ | ✅ | — | Same bad config as crashloop → tests RR deduplication, not a new fix |
-| [**vm-boot-failure**](../scenarios/vm-boot-failure/) | ❌ | ❌ | ✅ | Production | Bad DataVolume source URL → VM stuck Provisioning → fix the DV source (`KubeVirtVMProvisioningStuck`) |
+| [**vm-boot-failure**](../scenarios/vm-boot-failure/) | ❌ | ❌ | ⚠️ | Production | Bad DataVolume source URL → VM stuck Provisioning → fix the DV source (`KubeVirtVMProvisioningStuck`). Manifests/overlay exist but this has never actually been run: absent from `run-overnight.sh`'s matrix, no golden transcript. Pending real OCP+CNV validation. |
 
 ## L2 -- Technical/Second-line
 
