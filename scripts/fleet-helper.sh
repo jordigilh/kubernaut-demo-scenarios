@@ -426,12 +426,17 @@ print(text)
 #
 # Args: $1 = job_name, $2 = target (host:port), $3 = optional extra
 #       scrape_configs YAML lines (e.g. metrics_path/params), indented to
-#       match the job's top level.
+#       match the job's top level. $4 = optional static labels to attach
+#       directly to this target (e.g. when the exporter itself has no
+#       concept of a k8s namespace, unlike cert-manager's own metrics --
+#       postgres_exporter's pg_stat_activity_count is one such case),
+#       indented to match under the static_configs target item.
 fleet_ensure_scrape_job() {
     _fleet_require_mode "fleet_ensure_scrape_job" || return 1
-    local job_name="${1:?usage: fleet_ensure_scrape_job <job_name> <target> [extra_yaml]}"
-    local target="${2:?usage: fleet_ensure_scrape_job <job_name> <target> [extra_yaml]}"
+    local job_name="${1:?usage: fleet_ensure_scrape_job <job_name> <target> [extra_yaml] [target_labels_yaml]}"
+    local target="${2:?usage: fleet_ensure_scrape_job <job_name> <target> [extra_yaml] [target_labels_yaml]}"
     local extra="${3:-}"
+    local target_labels="${4:-}"
     local fragment="- job_name: '${job_name}'
   scrape_interval: 15s"
     if [ -n "$extra" ]; then
@@ -441,6 +446,11 @@ ${extra}"
     fragment="${fragment}
   static_configs:
   - targets: ['${target}']"
+    if [ -n "$target_labels" ]; then
+        fragment="${fragment}
+    labels:
+${target_labels}"
+    fi
     _fleet_ensure_prometheus_config_has "'${job_name}' scrape job" "$fragment"
 }
 
