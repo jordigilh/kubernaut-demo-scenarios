@@ -1,98 +1,26 @@
 #!/usr/bin/env bash
-# HPA Maxed Out Demo -- Automated Runner
+# HPA Maxed Out Demo -- Dispatcher
 # Scenario #123: HPA at ceiling -> temporarily raise maxReplicas
 #
-# Prerequisites:
-#   - Kind or OCP cluster with Kubernaut services
-#   - Prometheus with kube-state-metrics
-#   - metrics-server installed (for HPA CPU metrics)
+# Usage: ./scenarios/hpa-maxed/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
 #
-# Usage: ./scenarios/hpa-maxed/run.sh [--auto-approve|--interactive]
+# Single cluster (default): runs local/run.sh -- full pipeline against one
+# Kubernaut cluster, as documented there.
+#
+# Fleet mode: set HUB_KUBECONFIG (Kubernaut control plane) and
+# SPOKE_KUBECONFIG (demo workload cluster) to run fleet/run.sh instead,
+# which deploys the workload on the spoke and always behaves as
+# --alert-only (see scripts/fleet-helper.sh). Requires metrics-server on
+# the spoke, same as local mode.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-gateway"
 
-APPROVE_MODE="--auto-approve"
-SKIP_VALIDATE=""
-ALERT_ONLY=""
-for _arg in "$@"; do
-    case "$_arg" in
-        --auto-approve)  APPROVE_MODE="--auto-approve" ;;
-        --interactive)   APPROVE_MODE="--interactive" ;;
-        --no-validate)   SKIP_VALIDATE=true ;;
-        --alert-only)    ALERT_ONLY=true ;;
-    esac
-done
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
-# shellcheck source=../../scripts/platform-helper.sh
-source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
-require_demo_ready
-# shellcheck source=../../scripts/monitoring-helper.sh
-source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
-require_infra metrics-server
-# shellcheck source=../../scripts/validation-helper.sh
-source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
-
-echo "============================================="
-echo " HPA Maxed Out Demo (#123)"
-echo "============================================="
-echo ""
-
-# Enable KA Prometheus toolset for this scenario (kubernaut#473, #108).
-echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
-enable_prometheus_toolset
-echo ""
-
-ensure_clean_slate "${NAMESPACE}"
-
-# Step 1: Deploy scenario resources
-echo "==> Step 1: Deploying scenario resources..."
-MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
-kubectl apply -k "${MANIFEST_DIR}"
-
-# Step 2: Wait for healthy deployment
-echo "==> Step 2: Waiting for api-frontend to be ready..."
-kubectl wait --for=condition=Available deployment/api-frontend \
-  -n "${NAMESPACE}" --timeout=120s
-echo "  api-frontend is running."
-kubectl get pods -n "${NAMESPACE}"
-kubectl get hpa -n "${NAMESPACE}"
-echo ""
-
-# Step 3: Establish baseline
-echo "==> Step 3: Establishing baseline (15s)..."
-sleep 15
-echo ""
-
-# Step 4: Inject CPU load (background — watch for remediation while validation runs)
-echo "==> Step 4: Generating CPU load to push HPA to ceiling..."
-bash "${SCRIPT_DIR}/inject-load.sh" &
-INJECT_PID=$!
-echo ""
-
-# Step 5: Wait for alert
-echo "==> Step 5: Waiting for HPA to reach maxReplicas and alert to fire (~3-5 min)..."
-echo "  Watch HPA: kubectl get hpa -n ${NAMESPACE} -w"
-echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
-echo ""
-
-# Step 6: Validate pipeline
-_rc=0
-if [ "${ALERT_ONLY}" = "true" ]; then
-    echo ""
-    echo "==> Waiting for alert (--alert-only mode)..."
-    wait_for_alert "KubeHpaMaxedOut" "${NAMESPACE}" 300
-    show_alert "KubeHpaMaxedOut" "${NAMESPACE}"
-    echo ""
-    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
-    echo "    Exiting without entering validation pipeline."
-elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
-    echo ""
-    echo "==> Running validation pipeline..."
-    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}" || _rc=$?
+if is_fleet_mode; then
+    exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
+else
+    exec bash "${SCRIPT_DIR}/local/run.sh" "$@"
 fi
-
-kill "$INJECT_PID" 2>/dev/null || true
-wait "$INJECT_PID" 2>/dev/null || true
-exit "${_rc}"
