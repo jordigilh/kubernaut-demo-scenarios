@@ -454,6 +454,41 @@ ${target_labels}"
     _fleet_ensure_prometheus_config_has "'${job_name}' scrape job" "$fragment"
 }
 
+# Ensure a scrape job against kubelet's main /metrics endpoint (not the
+# /metrics/cadvisor sub-path the existing kubelet-cadvisor job uses)
+# exists, for scenarios keying off metrics kubelet exposes itself rather
+# than via cAdvisor -- e.g. kubelet_volume_stats_* (PVC capacity/usage),
+# which cAdvisor doesn't report. Same kubernetes_sd_configs shape as
+# kubelet-cadvisor (role: node, scrape the node's kubelet port directly),
+# just a different path and metric_relabel_configs keep filter, so this
+# doesn't fit fleet_ensure_scrape_job's single-static-target shape.
+#
+# Args: $1 = job_name (must be unique), $2 = regex of metric names to keep
+#       (passed through metric_relabel_configs, e.g.
+#       'kubelet_volume_stats_(used_bytes|capacity_bytes)').
+fleet_ensure_kubelet_metrics_job() {
+    _fleet_require_mode "fleet_ensure_kubelet_metrics_job" || return 1
+    local job_name="${1:?usage: fleet_ensure_kubelet_metrics_job <job_name> <keep_regex>}"
+    local keep_regex="${2:?usage: fleet_ensure_kubelet_metrics_job <job_name> <keep_regex>}"
+    local fragment="- job_name: '${job_name}'
+  scrape_interval: 15s
+  kubernetes_sd_configs:
+  - role: node
+  scheme: https
+  tls_config:
+    insecure_skip_verify: true
+  bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+  relabel_configs:
+  - source_labels: [__meta_kubernetes_node_address_InternalIP]
+    target_label: __address__
+    replacement: \${1}:10250
+  metric_relabel_configs:
+  - source_labels: [__name__]
+    regex: '${keep_regex}'
+    action: keep"
+    _fleet_ensure_prometheus_config_has "'${job_name}' scrape job" "$fragment"
+}
+
 # Roll out the spoke Prometheus if fleet_load_prometheus_rule changed its
 # config or mounted a new volume. Call once after all fleet_load_prometheus_rule
 # calls for a scenario, not per-call, to avoid redundant restarts.

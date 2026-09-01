@@ -9,7 +9,13 @@ metadata:
 spec:
   accessModes:
   - ReadWriteOnce
-  storageClassName: lvms-vg1
+  # No storageClassName here: let the cluster's default StorageClass bind
+  # (Kind's "standard" via local-path-provisioner). The overlays/ocp variant
+  # patches this back to the CSI-backed lvms-vg1 that OCP demos actually use
+  # -- online-expansion support (required by local/run.sh's downstream
+  # ExpandPersistentVolumeClaim remediation step) is OCP/lvms-vg1-only either
+  # way, so Kind's default here only needs to bind and expose kubelet volume
+  # stats, which it does regardless of provisioner.
   resources:
     requests:
       storage: 512Mi
