@@ -29,7 +29,7 @@ spec:
     spec:
       containers:
       - name: postgres
-        image: image-registry.openshift-image-registry.svc:5000/openshift/postgresql:15-el9
+        image: quay.io/sclorg/postgresql-15-c9s:latest
         ports:
         - containerPort: 5432
         envFrom:

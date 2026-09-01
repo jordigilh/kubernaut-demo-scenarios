@@ -1,94 +1,29 @@
 #!/usr/bin/env bash
-# Resource Contention Demo -- Automated Runner
+# Resource Contention Demo -- Dispatcher
 # Issue #231: Demonstrates external actor interference pattern
 #
-# Scenario: Kubernaut remediates a Deployment with OOMKill by increasing memory
-# limits, but an external actor (simulating GitOps or another controller) reverts
-# the spec back to the original misconfigured state. After N cycles, the RO
-# detects the ineffective chain via DataStorage hash analysis (spec_drift) and
-# escalates to human review.
+# Usage: ./scenarios/resource-contention/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
 #
-# Flow:
-#   1. Deploy workload with low memory limits (causes OOMKill)
-#   2. Kubernaut detects alert -> creates RR -> AIA -> WFE applies fix
-#   3. External actor script reverts memory limits back
-#   4. OOMKill recurs -> new RR -> new cycle
-#   5. After 3 cycles: CheckIneffectiveRemediationChain blocks with ManualReviewRequired
+# Single cluster (default): runs local/run.sh -- full pipeline against one
+# Kubernaut cluster (OOMKill -> fix -> external actor reverts -> repeat ->
+# escalate), as documented there.
 #
-# Prerequisites:
-#   - Kind cluster with Kubernaut platform deployed
-#   - Prometheus with kube-state-metrics
-#
-# Usage: ./scenarios/resource-contention/run.sh
+# Fleet mode: set HUB_KUBECONFIG (Kubernaut control plane) and
+# SPOKE_KUBECONFIG (demo workload cluster) to run fleet/run.sh instead.
+# Only the first OOMKill -> ContainerOOMKilling alert is exercised --
+# fleet mode never runs the AIA/WFE remediation loop (single-cluster only
+# today), so the external-actor revert cycle and ineffective-remediation-
+# chain escalation this scenario is really about don't happen here. See
+# kubernaut-demo-scenarios#423 for the fuller story.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-analytics"
 
-APPROVE_MODE="--auto-approve"
-SKIP_VALIDATE=""
-ALERT_ONLY=""
-for _arg in "$@"; do
-    case "$_arg" in
-        --auto-approve)  APPROVE_MODE="--auto-approve" ;;
-        --interactive)   APPROVE_MODE="--interactive" ;;
-        --no-validate)   SKIP_VALIDATE=true ;;
-        --alert-only)    ALERT_ONLY=true ;;
-    esac
-done
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
-# shellcheck source=../../scripts/platform-helper.sh
-source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
-require_demo_ready
-# shellcheck source=../../scripts/validation-helper.sh
-source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
-
-echo "============================================="
-echo " Resource Contention Demo (Issue #231)"
-echo " OOMKill -> Fix -> External Revert -> Repeat -> Escalate"
-echo "============================================="
-echo ""
-
-# Enable KA Prometheus toolset for this scenario (kubernaut#473, #108).
-echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
-enable_prometheus_toolset
-echo ""
-
-ensure_clean_slate "${NAMESPACE}"
-
-echo ">> Step 1: Deploying scenario resources..."
-MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
-kubectl apply -k "${MANIFEST_DIR}"
-
-echo ">> Step 2: Starting external actor (runs in background)..."
-bash "${SCRIPT_DIR}/scripts/external-actor.sh" &
-EXTERNAL_ACTOR_PID=$!
-trap "kill ${EXTERNAL_ACTOR_PID} 2>/dev/null || true" EXIT
-
-echo ">> Step 3: Waiting for workload to become ready..."
-kubectl -n "${NAMESPACE}" rollout status deployment/analytics-worker --timeout=60s || true
-
-echo ""
-echo ">> Demo is running. The following cycle will repeat:"
-echo "    1. OOMKill alert fires -> Kubernaut creates RR"
-echo "    2. AIA analyzes -> WFE increases memory limits"
-echo "    3. External actor reverts limits back to original value"
-echo "    4. OOMKill recurs"
-echo "    5. After 3 cycles: RO detects ineffective chain via spec_drift"
-echo "       -> Blocks with ManualReviewRequired"
-# Validate pipeline
-if [ "${ALERT_ONLY}" = "true" ]; then
-    echo ""
-    echo "==> Waiting for alert (--alert-only mode)..."
-    wait_for_alert "ContainerOOMKilling" "${NAMESPACE}" 480
-    show_alert "ContainerOOMKilling" "${NAMESPACE}"
-    echo ""
-    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
-    echo "    Exiting without entering validation pipeline."
-elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
-    echo ""
-    echo "==> Running validation pipeline..."
-    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
+if is_fleet_mode; then
+    exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
+else
+    exec bash "${SCRIPT_DIR}/local/run.sh" "$@"
 fi
-
-kill "${EXTERNAL_ACTOR_PID}" 2>/dev/null || true

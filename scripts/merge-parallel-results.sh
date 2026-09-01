@@ -20,7 +20,7 @@ if [ ! -d "$RESULTS_DIR" ]; then
 fi
 
 ALL_SCENARIOS=(
-    crashloop crashloop-helm stuck-rollout memory-leak memory-escalation
+    crashloop crashloop-helm stuck-rollout memory-leak
     resource-contention hpa-maxed autoscale duplicate-alert-suppression
     network-policy-block statefulset-pvc-failure resource-quota-exhaustion
     cert-failure slo-burn orphaned-pvc-no-action concurrent-cross-namespace

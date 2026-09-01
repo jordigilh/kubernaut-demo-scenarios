@@ -1,97 +1,25 @@
 #!/usr/bin/env bash
-# Proactive Memory Exhaustion Demo -- Automated Runner
+# Proactive Memory Exhaustion Demo -- Dispatcher
 # Scenario #129: predict_linear detects OOM trend -> graceful restart
 #
-# The 'data-processor' sidecar allocates ~1MB every 5 seconds (~12MB/min) via a
-# memory-backed emptyDir. predict_linear projects OOM within 30 minutes,
-# triggering ContainerMemoryExhaustionPredicted. The LLM selects
-# GracefulRestart (rolling restart) to reset memory before OOM.
+# Usage: ./scenarios/memory-leak/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
 #
-# Prerequisites:
-#   - Kind or OCP cluster with Kubernaut services
-#   - Prometheus with kube-state-metrics and cAdvisor scraping
+# Single cluster (default): runs local/run.sh -- full pipeline against one
+# Kubernaut cluster, as documented there.
 #
-# Usage: ./scenarios/memory-leak/run.sh [--auto-approve|--interactive]
+# Fleet mode: set HUB_KUBECONFIG (Kubernaut control plane) and
+# SPOKE_KUBECONFIG (demo workload cluster) to run fleet/run.sh instead,
+# which deploys the workload on the spoke and always behaves as
+# --alert-only (see scripts/fleet-helper.sh).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NAMESPACE="demo-telemetry"
 
-APPROVE_MODE="--auto-approve"
-SKIP_VALIDATE=""
-ALERT_ONLY=""
-for _arg in "$@"; do
-    case "$_arg" in
-        --auto-approve)  APPROVE_MODE="--auto-approve" ;;
-        --interactive)   APPROVE_MODE="--interactive" ;;
-        --no-validate)   SKIP_VALIDATE=true ;;
-        --alert-only)    ALERT_ONLY=true ;;
-    esac
-done
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
-# shellcheck source=../../scripts/platform-helper.sh
-source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
-require_demo_ready
-# shellcheck source=../../scripts/validation-helper.sh
-source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
-
-echo "============================================="
-echo " Proactive Memory Exhaustion Demo (#129)"
-echo "============================================="
-echo ""
-
-# Enable KA Prometheus toolset for this scenario (kubernaut#473, #108).
-echo "==> Enabling Kubernaut Agent Prometheus toolset for this scenario..."
-enable_prometheus_toolset
-echo ""
-
-# The data-processor refills memory at ~12MB/min after a graceful restart. The EM
-# must complete its assessment before the alert re-fires (~60-90s). Use a
-# short stabilization window so the EA samples the "reset" state quickly.
-if [ "${ALERT_ONLY}" != "true" ]; then
-    echo "==> Configuring EM for fast-recurring fault scenario..."
-    configure_em "30s" "90s"
-    echo ""
+if is_fleet_mode; then
+    exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
+else
+    exec bash "${SCRIPT_DIR}/local/run.sh" "$@"
 fi
-
-ensure_clean_slate "${NAMESPACE}"
-
-# Step 1: Deploy scenario resources
-echo "==> Step 1: Deploying scenario resources..."
-MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
-kubectl apply -k "${MANIFEST_DIR}"
-
-# Step 2: Wait for deployment to be healthy
-echo "==> Step 2: Waiting for data-service to be ready..."
-kubectl wait --for=condition=Available deployment/data-service \
-  -n "${NAMESPACE}" --timeout=120s
-echo "  data-service is running (2 pods with data-processor sidecar)."
-kubectl get pods -n "${NAMESPACE}"
-echo ""
-
-echo "==> Step 3: Memory leak building (~12MB/min per pod)."
-echo "    predict_linear will fire once it projects OOM within 30 minutes,"
-echo "    typically after 5-7 minutes of trend data."
-
-# Validate pipeline
-if [ "${ALERT_ONLY}" = "true" ]; then
-    echo ""
-    echo "==> Waiting for alert (--alert-only mode)..."
-    wait_for_alert "ContainerMemoryExhaustionPredicted" "${NAMESPACE}" 600
-    show_alert "ContainerMemoryExhaustionPredicted" "${NAMESPACE}"
-    echo ""
-    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
-    echo "    Exiting without entering validation pipeline."
-elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
-    echo ""
-    echo "==> Running validation pipeline..."
-    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}" || _rc=$?
-fi
-
-if [ "${ALERT_ONLY}" != "true" ]; then
-    echo ""
-    echo "==> Restoring EM configuration..."
-    restore_em || true
-fi
-
-exit "${_rc:-0}"

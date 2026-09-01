@@ -3,6 +3,12 @@ kind: Namespace
 metadata:
   name: demo-agents
   labels:
+    # Kind's closest equivalent to an OCP SCC denial: Pod Security Admission
+    # "restricted" rejects the same privileged securityContext patch
+    # (runAsUser 0, added capabilities, allowPrivilegeEscalation) that
+    # OpenShift's restricted-v2 SCC rejects, for the same underlying reasons.
+    # No-op on OCP, which already enforces SCCs regardless of this label.
+    pod-security.kubernetes.io/enforce: restricted
     kubernaut.ai/managed: "true"
     kubernaut.ai/environment: production
     kubernaut.ai/business-unit: engineering
