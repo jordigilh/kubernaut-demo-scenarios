@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# StatefulSet PVC Failure Demo -- Automated Runner
+# Scenario #137: PVC deleted -> pod stuck Pending -> recreate PVC
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+NAMESPACE="demo-keystore"
+
+APPROVE_MODE="--auto-approve"
+SKIP_VALIDATE=""
+ALERT_ONLY=""
+for _arg in "$@"; do
+    case "$_arg" in
+        --auto-approve)  APPROVE_MODE="--auto-approve" ;;
+        --interactive)   APPROVE_MODE="--interactive" ;;
+        --no-validate)   SKIP_VALIDATE=true ;;
+        --alert-only)    ALERT_ONLY=true ;;
+    esac
+done
+
+# shellcheck source=../../scripts/platform-helper.sh
+source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+# shellcheck source=../../scripts/monitoring-helper.sh
+source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
+# shellcheck source=../../scripts/validation-helper.sh
+source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
+require_demo_ready
+
+preflight_check metrics-pipeline storage
+
+echo "============================================="
+echo " StatefulSet PVC Failure Demo (#137)"
+echo "============================================="
+echo ""
+
+# Step 0: Clean up stale alerts/RRs from any previous run (#193)
+ensure_clean_slate "${NAMESPACE}"
+
+echo "==> Step 1: Deploying scenario resources..."
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
+
+echo "==> Step 2: Waiting for all StatefulSet pods to be ready..."
+kubectl rollout status statefulset/kv-store -n "${NAMESPACE}" --timeout=180s
+kubectl get pods -n "${NAMESPACE}"
+echo ""
+
+echo "==> Step 3: Establishing healthy baseline (20s)..."
+sleep 20
+echo "  Baseline established."
+echo ""
+
+echo "==> Step 4: Injecting PVC failure..."
+bash "${SCRIPT_DIR}/inject-pvc-issue.sh"
+echo ""
+
+echo "==> Step 5: Waiting for KubeStatefulSetReplicasMismatch alert (~3-4 min)..."
+echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
+echo ""
+# Validate pipeline
+if [ "${ALERT_ONLY}" = "true" ]; then
+    echo ""
+    echo "==> Waiting for alert (--alert-only mode)..."
+    wait_for_alert "KubeStatefulSetReplicasMismatch" "${NAMESPACE}" 480
+    show_alert "KubeStatefulSetReplicasMismatch" "${NAMESPACE}"
+    echo ""
+    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
+    echo "    Exiting without entering validation pipeline."
+elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
+    echo ""
+    echo "==> Running validation pipeline..."
+    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
+fi
