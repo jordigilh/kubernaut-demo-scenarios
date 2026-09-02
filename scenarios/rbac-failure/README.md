@@ -45,6 +45,26 @@ kube-state-metrics scraping Deployment metrics.
 | `--auto-approve` | Runs the full pipeline, auto-approves remediation | Automated regression testing (explicit) |
 | `--alert-only` | Deploys, injects fault, waits for alert to fire, then exits | AF/A2A demos |
 
+## Fleet Mode
+
+Runs the workload on a separate **spoke** cluster while the Kubernaut control plane runs
+on a **hub** cluster. Requires the `--fleet` flag plus both kubeconfig env vars (passing
+`--fleet` without either is a hard error):
+
+```bash
+export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config       # e.g. from `make setup-fleet-demo-infra`
+export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
+
+./scenarios/rbac-failure/run.sh --fleet                # full pipeline, auto-approve (default)
+./scenarios/rbac-failure/run.sh --fleet --interactive  # full pipeline, manual RAR approval
+./scenarios/rbac-failure/run.sh --fleet --alert-only    # stop once the alert reaches the hub
+```
+
+Deploys and faults the workload on the spoke, confirms the `RBACPolicyDenied` alert
+reaches the hub's Alertmanager, then (unless `--alert-only`) drives the same
+`wait_for_rr`/`poll_pipeline` loop single-cluster mode uses -- just pointed at the hub's
+`kubernaut-system` namespace instead of the ambient cluster.
+
 ## Remediation
 
 Register `deploy/remediation-workflows/rbac-failure/rbac-failure.yaml` and the

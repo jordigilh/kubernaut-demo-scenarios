@@ -178,3 +178,12 @@ kubectl get sa expand-pvc-v1-runner -n kubernaut-workflows
 | `--interactive` | Runs the pipeline, pauses at AwaitingApproval for manual approval | Gateway flow with human-in-the-loop |
 | `--auto-approve` | Runs the full pipeline, auto-approves remediation | Automated regression testing (explicit) |
 | `--alert-only` | Deploys, injects fault, waits for alert to fire, then exits | AF/A2A demos |
+
+### Fleet Mode
+
+Fleet mode's spoke Kind cluster hits an upstream kubelet regression that breaks
+`kubelet_volume_stats_used_bytes`/`kubelet_volume_stats_capacity_bytes` -- the metrics
+this scenario's whole signal is built on -- with no workaround
+([kubernaut#2338](https://github.com/jordigilh/kubernaut/issues/2338), confirmed). `--fleet`
+is not usable for this scenario until that's fixed upstream; use single-cluster mode or a
+real OCP spoke instead.
