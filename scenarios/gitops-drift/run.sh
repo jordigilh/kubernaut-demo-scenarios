@@ -2,7 +2,7 @@
 # GitOps Drift Remediation Demo -- Dispatcher
 # Scenario #125: Signal != RCA (Pod crash -> ConfigMap is root cause)
 #
-# Usage: ./scenarios/gitops-drift/run.sh [setup|inject|all] [--auto-approve|--interactive|--alert-only|--no-validate]
+# Usage: ./scenarios/gitops-drift/run.sh [--fleet] [setup|inject|all] [--auto-approve|--interactive|--alert-only|--no-validate]
 #
 # Single cluster (default): runs local/run.sh -- full pipeline against one
 # Kubernaut cluster, as documented there.
@@ -26,7 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
-if is_fleet_mode; then
+if fleet_dispatch_requested "$@"; then
     fleet_warn_ignored_args "$@"
     exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
 else

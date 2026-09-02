@@ -16,4 +16,4 @@ echo ""
 
 bash "${SCRIPT_DIR}/spoke.sh"
 echo ""
-bash "${SCRIPT_DIR}/hub.sh"
+bash "${SCRIPT_DIR}/hub.sh" "$@"

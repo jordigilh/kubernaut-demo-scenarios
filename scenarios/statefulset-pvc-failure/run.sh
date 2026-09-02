@@ -2,7 +2,7 @@
 # StatefulSet PVC Failure Demo -- Dispatcher
 # Scenario #137: PVC deleted -> pod stuck Pending -> recreate PVC
 #
-# Usage: ./scenarios/statefulset-pvc-failure/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
+# Usage: ./scenarios/statefulset-pvc-failure/run.sh [--fleet] [--auto-approve|--interactive|--alert-only|--no-validate]
 #
 # Single cluster (default): runs local/run.sh -- full pipeline against one
 # Kubernaut cluster, as documented there.
@@ -18,8 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
-if is_fleet_mode; then
-    fleet_warn_ignored_args "$@"
+if fleet_dispatch_requested "$@"; then
     exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
 else
     exec bash "${SCRIPT_DIR}/local/run.sh" "$@"
