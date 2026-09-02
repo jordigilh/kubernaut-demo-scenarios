@@ -2,12 +2,14 @@
 # Prompt Injection Detection Demo -- Fleet Hub Steps
 #
 # Confirms the KubePodCrashLooping alert fired on the spoke reached the
-# hub's Alertmanager. Touches only the hub -- run fleet/spoke.sh first (or
-# use ../run.sh, which runs both in order for the common single-spoke case).
-# Note: fleet mode does not exercise the shadow-agent/HumanReviewNeeded
-# escalation this scenario is really about -- that's downstream of the
-# alert, in validate.sh, which fleet mode skips. This only proves the
-# CrashLoop signal reaches the hub.
+# hub's Alertmanager, then (unless --alert-only) drives the full pipeline
+# on the hub -- which does exercise the shadow-agent/HumanReviewNeeded
+# escalation this scenario is about, since that's part of AIAnalysis. What
+# this script doesn't run is this scenario's own validate.sh assertions
+# (8/8), which are single-cluster-only -- check the console/notification
+# for the verdict instead. Touches only the hub -- run fleet/spoke.sh first
+# (or use ../run.sh, which runs both in order for the common single-spoke
+# case).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

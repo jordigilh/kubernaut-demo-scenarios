@@ -2,8 +2,8 @@
 # RBAC Failure Demo -- Fleet Runner (hub + spoke)
 # RoleBinding deleted -> 403 Forbidden -> RestoreRoleBinding
 #
-# Dispatched from ../run.sh when HUB_KUBECONFIG and SPOKE_KUBECONFIG are
-# set. Runs spoke.sh then hub.sh in order -- the common single-spoke path.
+# Dispatched from ../run.sh via --fleet (validated against HUB_KUBECONFIG and
+# SPOKE_KUBECONFIG). Runs spoke.sh then hub.sh in order -- the common single-spoke path.
 # For multi-spoke demos, invoke spoke.sh directly against each spoke's
 # SPOKE_KUBECONFIG, then hub.sh once (or per spoke) to confirm.
 set -euo pipefail
