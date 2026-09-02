@@ -15,9 +15,10 @@
 # spoke only scrapes kubelet-cadvisor by default, so any rule keying off
 # kube_state_metrics_* / kube_pod_* series would otherwise never fire).
 #
-# Fleet mode is opt-in and detected via two env vars; every function below
-# is a no-op (or must not be called) when they are unset, so single-cluster
-# scenarios are unaffected.
+# Fleet mode is opt-in: explicit at the CLI via --fleet (see
+# fleet_dispatch_requested below), validated against two env vars; every
+# function below is a no-op (or must not be called) when they are unset, so
+# single-cluster scenarios are unaffected.
 #
 #   HUB_KUBECONFIG    kubeconfig for the cluster running the Kubernaut
 #                      control plane
@@ -25,6 +26,59 @@
 
 is_fleet_mode() {
     [ -n "${HUB_KUBECONFIG:-}" ] && [ -n "${SPOKE_KUBECONFIG:-}" ]
+}
+
+# Dispatch-decision gate for each scenario's top-level run.sh: fleet mode
+# only activates when --fleet is explicitly passed, never implicitly from
+# stray env vars left over from a previous fleet session (a real footgun --
+# a plain, no-args invocation would otherwise silently run against a remote
+# spoke instead of locally). Hard error if --fleet is passed without both
+# kubeconfig env vars set (fail loud, not a silent fallback to local mode);
+# returns 1 with no error if --fleet is absent, even when both env vars
+# happen to be set, so is_fleet_mode()'s own env-var-only check (still used
+# internally by kubectl_workload et al. once fleet mode is confirmed active)
+# never gets reached from a plain invocation.
+#
+# Call as: if fleet_dispatch_requested "$@"; then ... fi
+fleet_dispatch_requested() {
+    local _arg _requested=""
+    for _arg in "$@"; do
+        if [ "$_arg" = "--fleet" ]; then
+            _requested=1
+            break
+        fi
+    done
+    [ -n "$_requested" ] || return 1
+
+    local _missing=()
+    [ -z "${HUB_KUBECONFIG:-}" ] && _missing+=("HUB_KUBECONFIG")
+    [ -z "${SPOKE_KUBECONFIG:-}" ] && _missing+=("SPOKE_KUBECONFIG")
+    if [ "${#_missing[@]}" -gt 0 ]; then
+        echo "ERROR: --fleet requires ${_missing[*]} to be set (missing: ${_missing[*]})." >&2
+        exit 1
+    fi
+    return 0
+}
+
+# A couple of scenarios' fleet/hub.sh stay alert-only for scenario-specific
+# reasons unrelated to fleet mode in general (see each call site) -- there's
+# no single-cluster AF/A2A pipeline to run against a remote spoke for them,
+# so flags that steer it (--interactive/--auto-approve/--no-validate) have
+# nothing to attach to. Warn once so that's not surprising to someone
+# passing them out of habit; call from that scenario's top-level run.sh
+# right before dispatching to fleet/run.sh. Every other fleet-aware
+# scenario's hub.sh now parses and acts on these flags itself (via
+# fleet_drive_pipeline below), so they don't call this anymore -- --fleet
+# itself is never reported as "ignored" here since it's the dispatch
+# selector, always consumed by definition.
+fleet_warn_ignored_args() {
+    local _ignored=() _arg
+    for _arg in "$@"; do
+        [ "$_arg" = "--fleet" ] || _ignored+=("$_arg")
+    done
+    if [ "${#_ignored[@]}" -gt 0 ]; then
+        echo "NOTE: this scenario's fleet mode stays alert-only (see fleet/hub.sh for why); ignoring CLI arg(s): ${_ignored[*]}" >&2
+    fi
 }
 
 _fleet_require_mode() {
@@ -596,6 +650,36 @@ sys.exit(1)
     done
     echo "  WARNING: ${desc} did not fire within ${timeout}s."
     return 1
+}
+
+# Drive the full remediation pipeline on the hub after fleet_wait_for_alert
+# has confirmed the scenario's alert firing: waits for Gateway to create the
+# RemediationRequest, then polls it through to a terminal phase (handling
+# the RemediationApprovalRequest gate per approve_mode). Mirrors local
+# mode's own validate.sh (wait_for_rr + poll_pipeline from
+# validation-helper.sh), just pointed at HUB_KUBECONFIG instead of the
+# ambient/single-cluster context -- PLATFORM_NS (kubernaut-system) lives on
+# the hub in fleet mode, and both functions are pure `kubectl` against it
+# (no kubectl_workload calls), so they work unmodified once KUBECONFIG is
+# switched. Call from a scenario's fleet/hub.sh once the alert is
+# confirmed firing, unless --alert-only was requested.
+#
+# Args: $1 = namespace (the signal's target namespace, used by
+#       validation-helper.sh to match the RR), $2 = approve_mode
+#       (--interactive|--auto-approve), $3 = optional poll_pipeline timeout
+#       in seconds (default 600, matches validate.sh's own default).
+fleet_drive_pipeline() {
+    _fleet_require_mode "fleet_drive_pipeline" || return 1
+    local namespace="${1:?usage: fleet_drive_pipeline <namespace> <approve_mode> [timeout]}"
+    local approve_mode="${2:?usage: fleet_drive_pipeline <namespace> <approve_mode> [timeout]}"
+    local timeout="${3:-600}"
+
+    export KUBECONFIG="${HUB_KUBECONFIG}"
+    # shellcheck source=./validation-helper.sh
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/validation-helper.sh"
+
+    wait_for_rr "${namespace}" 120
+    poll_pipeline "${namespace}" "${timeout}" "${approve_mode}"
 }
 
 # Register the spoke as a remote target cluster with ArgoCD running on the

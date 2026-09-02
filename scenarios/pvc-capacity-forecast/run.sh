@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PVC Capacity Forecast Demo -- Dispatcher (RHACM PoC)
 #
-# Usage: ./scenarios/pvc-capacity-forecast/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
+# Usage: ./scenarios/pvc-capacity-forecast/run.sh [--fleet] [--auto-approve|--interactive|--alert-only|--no-validate]
 #
 # Single cluster (default): runs local/run.sh -- full pipeline against one
 # Kubernaut cluster, as documented there.
@@ -23,7 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
-if is_fleet_mode; then
+if fleet_dispatch_requested "$@"; then
     exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
 else
     exec bash "${SCRIPT_DIR}/local/run.sh" "$@"

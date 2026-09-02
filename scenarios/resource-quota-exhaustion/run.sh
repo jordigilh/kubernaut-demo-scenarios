@@ -2,7 +2,7 @@
 # Resource Quota Exhaustion Demo -- Dispatcher
 # Scenario #171: ResourceQuota prevents pod creation -> LLM escalates to human review
 #
-# Usage: ./scenarios/resource-quota-exhaustion/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
+# Usage: ./scenarios/resource-quota-exhaustion/run.sh [--fleet] [--auto-approve|--interactive|--alert-only|--no-validate]
 #
 # Single cluster (default): runs local/run.sh -- full pipeline against one
 # Kubernaut cluster, as documented there.
@@ -18,7 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
-if is_fleet_mode; then
+if fleet_dispatch_requested "$@"; then
     exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
 else
     exec bash "${SCRIPT_DIR}/local/run.sh" "$@"

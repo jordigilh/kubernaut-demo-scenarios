@@ -2,7 +2,7 @@
 # Resource Contention Demo -- Dispatcher
 # Issue #231: Demonstrates external actor interference pattern
 #
-# Usage: ./scenarios/resource-contention/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
+# Usage: ./scenarios/resource-contention/run.sh [--fleet] [--auto-approve|--interactive|--alert-only|--no-validate]
 #
 # Single cluster (default): runs local/run.sh -- full pipeline against one
 # Kubernaut cluster (OOMKill -> fix -> external actor reverts -> repeat ->
@@ -22,7 +22,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
-if is_fleet_mode; then
+if fleet_dispatch_requested "$@"; then
+    fleet_warn_ignored_args "$@"
     exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
 else
     exec bash "${SCRIPT_DIR}/local/run.sh" "$@"
