@@ -90,6 +90,14 @@ _fleet_require_mode() {
 
 FLEET_MONITORING_NS="${FLEET_MONITORING_NS:-monitoring}"
 
+_fleet_sha256_stdin() {
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 | cut -d' ' -f1
+    else
+        sha256sum | cut -d' ' -f1
+    fi
+}
+
 # Run a kubectl command against the workload cluster: the spoke in fleet
 # mode, the ambient KUBECONFIG otherwise. Scenario fleet/run.sh scripts use
 # this for every command that targets the demo workload namespace (as
@@ -338,7 +346,8 @@ fleet_load_prometheus_rule() {
         return 0
     fi
 
-    local rule_name rules_yaml
+    local rule_name rules_yaml spoke_cluster_label replace_default_rule
+    spoke_cluster_label="${SPOKE_CLUSTER_LABEL:-remote-cluster}"
     # Every scenario's PrometheusRule is conventionally named "demo-app-alerts"
     # (disambiguated by CRD namespace, like the OCP overlays' -monitoring/
     # -analytics/etc. suffixes do). The spoke's raw rule_files ConfigMap has
@@ -352,16 +361,43 @@ print(f\"{doc['metadata']['namespace']}-{doc['metadata']['name']}\")
     rules_yaml=$(python3 -c "
 import yaml, sys
 doc = yaml.safe_load(open(sys.argv[1]))
+cluster = sys.argv[2]
+for group in doc.get('spec', {}).get('groups', []):
+    for rule in group.get('rules', []):
+        if rule.get('alert'):
+            rule.setdefault('labels', {})['cluster'] = cluster
 print(yaml.dump({'groups': doc['spec']['groups']}, default_flow_style=False))
-" "$rule_file")
+" "$rule_file" "$spoke_cluster_label")
 
-    local desired_hash current_hash
-    desired_hash=$(printf '%s' "$rules_yaml" | shasum -a 256 | cut -d' ' -f1)
+    # The fleet infrastructure historically preloads a generic demo-app-alerts
+    # rule for demo-checkout. Replace it with the scenario rule rather than
+    # leaving two KubePodCrashLooping evaluations for the same pod.
+    replace_default_rule=0
+    if python3 -c "
+import sys, yaml
+doc = yaml.safe_load(open(sys.argv[1]))
+has_crashloop = any(
+    rule.get('alert') == 'KubePodCrashLooping'
+    for group in doc.get('spec', {}).get('groups', [])
+    for rule in group.get('rules', [])
+)
+sys.exit(0 if doc.get('metadata', {}).get('namespace') == 'demo-checkout' and has_crashloop else 1)
+" "$rule_file"; then
+        replace_default_rule=1
+    fi
+
+    local desired_hash current_hash default_rule_present
+    desired_hash=$(printf '%s' "$rules_yaml" | _fleet_sha256_stdin)
     current_hash=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get configmap prometheus-rules \
         -n "${FLEET_MONITORING_NS}" -o jsonpath="{.data.${rule_name}\.yml}" 2>/dev/null \
-        | shasum -a 256 | cut -d' ' -f1 || true)
+        | _fleet_sha256_stdin || true)
+    default_rule_present=""
+    if [ "$replace_default_rule" = "1" ]; then
+        default_rule_present=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get configmap prometheus-rules \
+            -n "${FLEET_MONITORING_NS}" -o jsonpath='{.data.demo-app-alerts\.yml}' 2>/dev/null || true)
+    fi
 
-    if [ "$desired_hash" = "$current_hash" ]; then
+    if [ "$desired_hash" = "$current_hash" ] && [ -z "$default_rule_present" ]; then
         echo "  [fleet] Prometheus rule '${rule_name}' already loaded on spoke."
     else
         echo "==> [fleet] Loading Prometheus rule '${rule_name}' onto spoke (raw rule_files, no operator)..."
@@ -380,9 +416,11 @@ except json.JSONDecodeError:
 if not cm:
     cm = {'apiVersion': 'v1', 'kind': 'ConfigMap',
           'metadata': {'name': 'prometheus-rules', 'namespace': '${FLEET_MONITORING_NS}'}}
+if sys.argv[2] == '1':
+    cm.setdefault('data', {}).pop('demo-app-alerts.yml', None)
 cm.setdefault('data', {})['${rule_name}.yml'] = sys.argv[1]
 json.dump(cm, sys.stdout)
-" "$rules_yaml" | kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - 2>&1 | sed 's/^/    /'
+" "$rules_yaml" "$replace_default_rule" | kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - 2>&1 | sed 's/^/    /'
         # Prometheus only globs /etc/prometheus/rules/*.yml at startup/reload,
         # not continuously -- a new or changed rule file needs a restart to
         # be picked up, same as the prometheus-config edits below.
@@ -606,14 +644,11 @@ fleet_wait_for_alert() {
     local alertname="${1:?usage: fleet_wait_for_alert <alertname> <namespace> [timeout] [cluster]}"
     local namespace="${2:?usage: fleet_wait_for_alert <alertname> <namespace> [timeout] [cluster]}"
     local timeout="${3:-300}"
-    # Optional disambiguator for multi-spoke demos: every spoke's Prometheus
-    # stamps its alerts with global.external_labels.cluster (see
-    # prometheus-config on the spoke), which Alertmanager preserves on the
-    # hub. Pass this (or set SPOKE_CLUSTER_LABEL) to confirm the alert from
-    # one specific spoke when several spokes run the same scenario/
-    # namespace concurrently. Left unset (the default), matches any
-    # cluster -- today's single-spoke behavior.
-    local cluster="${4:-${SPOKE_CLUSTER_LABEL:-}}"
+    # Every fleet-loaded alert receives a static cluster rule label. Use it by
+    # default so an unlabeled twin cannot satisfy the wait condition.
+    # Override this for multi-spoke demos by passing the fourth argument or
+    # setting SPOKE_CLUSTER_LABEL.
+    local cluster="${4:-${SPOKE_CLUSTER_LABEL:-remote-cluster}}"
 
     local ham_pod
     ham_pod=$(kubectl --kubeconfig="${HUB_KUBECONFIG}" get pods -n "${FLEET_MONITORING_NS}" \
