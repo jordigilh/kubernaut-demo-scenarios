@@ -28,6 +28,12 @@ if [ -n "${HUB_KUBECONFIG:-}" ] || [ -n "${SPOKE_KUBECONFIG:-}" ]; then
     fi
     FLEET_MODE=true
     export KUBECONFIG="${HUB_KUBECONFIG}"
+    if [ -z "${FLEET_EXECUTION_CLUSTER_ID:-}" ]; then
+        FLEET_EXECUTION_CLUSTER_ID=$(kubectl get configmap prometheus-config -n monitoring \
+            -o jsonpath='{.data.prometheus\.yml}' 2>/dev/null \
+            | awk '$1 == "cluster:" {print $2; exit}' || true)
+        export FLEET_EXECUTION_CLUSTER_ID
+    fi
     echo "==> Fleet mode: targeting workflows and dependencies at hub ${HUB_KUBECONFIG}"
 fi
 

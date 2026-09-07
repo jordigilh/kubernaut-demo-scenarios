@@ -231,6 +231,7 @@ For fleet setup, export the hub and spoke kubeconfigs first:
 ```bash
 export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config
 export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
+# Optional override; otherwise setup reads the hub Prometheus cluster label.
 export FLEET_EXECUTION_CLUSTER_ID=hub
 ```
 
