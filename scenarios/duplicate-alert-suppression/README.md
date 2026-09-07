@@ -102,6 +102,26 @@ export PLATFORM=ocp
 
 </details>
 
+### Fleet Mode
+
+Runs the workload on a separate **spoke** cluster while the Kubernaut control plane runs
+on a **hub** cluster. Requires the `--fleet` flag plus both kubeconfig env vars (passing
+`--fleet` without either is a hard error):
+
+```bash
+export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config       # e.g. from `make setup-fleet-demo-infra`
+export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
+
+./scenarios/duplicate-alert-suppression/run.sh --fleet                # full pipeline, auto-approve (default)
+./scenarios/duplicate-alert-suppression/run.sh --fleet --interactive  # full pipeline, manual RAR approval
+./scenarios/duplicate-alert-suppression/run.sh --fleet --alert-only    # stop once the alert reaches the hub
+```
+
+Deploys and faults the workload on the spoke, confirms the `KubePodCrashLooping` alert
+reaches the hub's Alertmanager, then (unless `--alert-only`) drives the same
+`wait_for_rr`/`poll_pipeline` loop single-cluster mode uses -- just pointed at the hub's
+`kubernaut-system` namespace instead of the ambient cluster.
+
 ### Manual Step-by-Step
 
 #### 1. Deploy the workload

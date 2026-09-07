@@ -15,9 +15,10 @@
 # spoke only scrapes kubelet-cadvisor by default, so any rule keying off
 # kube_state_metrics_* / kube_pod_* series would otherwise never fire).
 #
-# Fleet mode is opt-in and detected via two env vars; every function below
-# is a no-op (or must not be called) when they are unset, so single-cluster
-# scenarios are unaffected.
+# Fleet mode is opt-in: explicit at the CLI via --fleet (see
+# fleet_dispatch_requested below), validated against two env vars; every
+# function below is a no-op (or must not be called) when they are unset, so
+# single-cluster scenarios are unaffected.
 #
 #   HUB_KUBECONFIG    kubeconfig for the cluster running the Kubernaut
 #                      control plane
@@ -25,6 +26,59 @@
 
 is_fleet_mode() {
     [ -n "${HUB_KUBECONFIG:-}" ] && [ -n "${SPOKE_KUBECONFIG:-}" ]
+}
+
+# Dispatch-decision gate for each scenario's top-level run.sh: fleet mode
+# only activates when --fleet is explicitly passed, never implicitly from
+# stray env vars left over from a previous fleet session (a real footgun --
+# a plain, no-args invocation would otherwise silently run against a remote
+# spoke instead of locally). Hard error if --fleet is passed without both
+# kubeconfig env vars set (fail loud, not a silent fallback to local mode);
+# returns 1 with no error if --fleet is absent, even when both env vars
+# happen to be set, so is_fleet_mode()'s own env-var-only check (still used
+# internally by kubectl_workload et al. once fleet mode is confirmed active)
+# never gets reached from a plain invocation.
+#
+# Call as: if fleet_dispatch_requested "$@"; then ... fi
+fleet_dispatch_requested() {
+    local _arg _requested=""
+    for _arg in "$@"; do
+        if [ "$_arg" = "--fleet" ]; then
+            _requested=1
+            break
+        fi
+    done
+    [ -n "$_requested" ] || return 1
+
+    local _missing=()
+    [ -z "${HUB_KUBECONFIG:-}" ] && _missing+=("HUB_KUBECONFIG")
+    [ -z "${SPOKE_KUBECONFIG:-}" ] && _missing+=("SPOKE_KUBECONFIG")
+    if [ "${#_missing[@]}" -gt 0 ]; then
+        echo "ERROR: --fleet requires ${_missing[*]} to be set (missing: ${_missing[*]})." >&2
+        exit 1
+    fi
+    return 0
+}
+
+# A couple of scenarios' fleet/hub.sh stay alert-only for scenario-specific
+# reasons unrelated to fleet mode in general (see each call site) -- there's
+# no single-cluster AF/A2A pipeline to run against a remote spoke for them,
+# so flags that steer it (--interactive/--auto-approve/--no-validate) have
+# nothing to attach to. Warn once so that's not surprising to someone
+# passing them out of habit; call from that scenario's top-level run.sh
+# right before dispatching to fleet/run.sh. Every other fleet-aware
+# scenario's hub.sh now parses and acts on these flags itself (via
+# fleet_drive_pipeline below), so they don't call this anymore -- --fleet
+# itself is never reported as "ignored" here since it's the dispatch
+# selector, always consumed by definition.
+fleet_warn_ignored_args() {
+    local _ignored=() _arg
+    for _arg in "$@"; do
+        [ "$_arg" = "--fleet" ] || _ignored+=("$_arg")
+    done
+    if [ "${#_ignored[@]}" -gt 0 ]; then
+        echo "NOTE: this scenario's fleet mode stays alert-only (see fleet/hub.sh for why); ignoring CLI arg(s): ${_ignored[*]}" >&2
+    fi
 }
 
 _fleet_require_mode() {
@@ -35,6 +89,14 @@ _fleet_require_mode() {
 }
 
 FLEET_MONITORING_NS="${FLEET_MONITORING_NS:-monitoring}"
+
+_fleet_sha256_stdin() {
+    if command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 | cut -d' ' -f1
+    else
+        sha256sum | cut -d' ' -f1
+    fi
+}
 
 # Run a kubectl command against the workload cluster: the spoke in fleet
 # mode, the ambient KUBECONFIG otherwise. Scenario fleet/run.sh scripts use
@@ -284,7 +346,8 @@ fleet_load_prometheus_rule() {
         return 0
     fi
 
-    local rule_name rules_yaml
+    local rule_name rules_yaml spoke_cluster_label replace_default_rule
+    spoke_cluster_label="${SPOKE_CLUSTER_LABEL:-remote-cluster}"
     # Every scenario's PrometheusRule is conventionally named "demo-app-alerts"
     # (disambiguated by CRD namespace, like the OCP overlays' -monitoring/
     # -analytics/etc. suffixes do). The spoke's raw rule_files ConfigMap has
@@ -298,16 +361,43 @@ print(f\"{doc['metadata']['namespace']}-{doc['metadata']['name']}\")
     rules_yaml=$(python3 -c "
 import yaml, sys
 doc = yaml.safe_load(open(sys.argv[1]))
+cluster = sys.argv[2]
+for group in doc.get('spec', {}).get('groups', []):
+    for rule in group.get('rules', []):
+        if rule.get('alert'):
+            rule.setdefault('labels', {})['cluster'] = cluster
 print(yaml.dump({'groups': doc['spec']['groups']}, default_flow_style=False))
-" "$rule_file")
+" "$rule_file" "$spoke_cluster_label")
 
-    local desired_hash current_hash
-    desired_hash=$(printf '%s' "$rules_yaml" | shasum -a 256 | cut -d' ' -f1)
+    # The fleet infrastructure historically preloads a generic demo-app-alerts
+    # rule for demo-checkout. Replace it with the scenario rule rather than
+    # leaving two KubePodCrashLooping evaluations for the same pod.
+    replace_default_rule=0
+    if python3 -c "
+import sys, yaml
+doc = yaml.safe_load(open(sys.argv[1]))
+has_crashloop = any(
+    rule.get('alert') == 'KubePodCrashLooping'
+    for group in doc.get('spec', {}).get('groups', [])
+    for rule in group.get('rules', [])
+)
+sys.exit(0 if doc.get('metadata', {}).get('namespace') == 'demo-checkout' and has_crashloop else 1)
+" "$rule_file"; then
+        replace_default_rule=1
+    fi
+
+    local desired_hash current_hash default_rule_present
+    desired_hash=$(printf '%s' "$rules_yaml" | _fleet_sha256_stdin)
     current_hash=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get configmap prometheus-rules \
         -n "${FLEET_MONITORING_NS}" -o jsonpath="{.data.${rule_name}\.yml}" 2>/dev/null \
-        | shasum -a 256 | cut -d' ' -f1 || true)
+        | _fleet_sha256_stdin || true)
+    default_rule_present=""
+    if [ "$replace_default_rule" = "1" ]; then
+        default_rule_present=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get configmap prometheus-rules \
+            -n "${FLEET_MONITORING_NS}" -o jsonpath='{.data.demo-app-alerts\.yml}' 2>/dev/null || true)
+    fi
 
-    if [ "$desired_hash" = "$current_hash" ]; then
+    if [ "$desired_hash" = "$current_hash" ] && [ -z "$default_rule_present" ]; then
         echo "  [fleet] Prometheus rule '${rule_name}' already loaded on spoke."
     else
         echo "==> [fleet] Loading Prometheus rule '${rule_name}' onto spoke (raw rule_files, no operator)..."
@@ -326,9 +416,11 @@ except json.JSONDecodeError:
 if not cm:
     cm = {'apiVersion': 'v1', 'kind': 'ConfigMap',
           'metadata': {'name': 'prometheus-rules', 'namespace': '${FLEET_MONITORING_NS}'}}
+if sys.argv[2] == '1':
+    cm.setdefault('data', {}).pop('demo-app-alerts.yml', None)
 cm.setdefault('data', {})['${rule_name}.yml'] = sys.argv[1]
 json.dump(cm, sys.stdout)
-" "$rules_yaml" | kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - 2>&1 | sed 's/^/    /'
+" "$rules_yaml" "$replace_default_rule" | kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - 2>&1 | sed 's/^/    /'
         # Prometheus only globs /etc/prometheus/rules/*.yml at startup/reload,
         # not continuously -- a new or changed rule file needs a restart to
         # be picked up, same as the prometheus-config edits below.
@@ -552,14 +644,11 @@ fleet_wait_for_alert() {
     local alertname="${1:?usage: fleet_wait_for_alert <alertname> <namespace> [timeout] [cluster]}"
     local namespace="${2:?usage: fleet_wait_for_alert <alertname> <namespace> [timeout] [cluster]}"
     local timeout="${3:-300}"
-    # Optional disambiguator for multi-spoke demos: every spoke's Prometheus
-    # stamps its alerts with global.external_labels.cluster (see
-    # prometheus-config on the spoke), which Alertmanager preserves on the
-    # hub. Pass this (or set SPOKE_CLUSTER_LABEL) to confirm the alert from
-    # one specific spoke when several spokes run the same scenario/
-    # namespace concurrently. Left unset (the default), matches any
-    # cluster -- today's single-spoke behavior.
-    local cluster="${4:-${SPOKE_CLUSTER_LABEL:-}}"
+    # Every fleet-loaded alert receives a static cluster rule label. Use it by
+    # default so an unlabeled twin cannot satisfy the wait condition.
+    # Override this for multi-spoke demos by passing the fourth argument or
+    # setting SPOKE_CLUSTER_LABEL.
+    local cluster="${4:-${SPOKE_CLUSTER_LABEL:-remote-cluster}}"
 
     local ham_pod
     ham_pod=$(kubectl --kubeconfig="${HUB_KUBECONFIG}" get pods -n "${FLEET_MONITORING_NS}" \
@@ -596,6 +685,36 @@ sys.exit(1)
     done
     echo "  WARNING: ${desc} did not fire within ${timeout}s."
     return 1
+}
+
+# Drive the full remediation pipeline on the hub after fleet_wait_for_alert
+# has confirmed the scenario's alert firing: waits for Gateway to create the
+# RemediationRequest, then polls it through to a terminal phase (handling
+# the RemediationApprovalRequest gate per approve_mode). Mirrors local
+# mode's own validate.sh (wait_for_rr + poll_pipeline from
+# validation-helper.sh), just pointed at HUB_KUBECONFIG instead of the
+# ambient/single-cluster context -- PLATFORM_NS (kubernaut-system) lives on
+# the hub in fleet mode, and both functions are pure `kubectl` against it
+# (no kubectl_workload calls), so they work unmodified once KUBECONFIG is
+# switched. Call from a scenario's fleet/hub.sh once the alert is
+# confirmed firing, unless --alert-only was requested.
+#
+# Args: $1 = namespace (the signal's target namespace, used by
+#       validation-helper.sh to match the RR), $2 = approve_mode
+#       (--interactive|--auto-approve), $3 = optional poll_pipeline timeout
+#       in seconds (default 600, matches validate.sh's own default).
+fleet_drive_pipeline() {
+    _fleet_require_mode "fleet_drive_pipeline" || return 1
+    local namespace="${1:?usage: fleet_drive_pipeline <namespace> <approve_mode> [timeout]}"
+    local approve_mode="${2:?usage: fleet_drive_pipeline <namespace> <approve_mode> [timeout]}"
+    local timeout="${3:-600}"
+
+    export KUBECONFIG="${HUB_KUBECONFIG}"
+    # shellcheck source=./validation-helper.sh
+    source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/validation-helper.sh"
+
+    wait_for_rr "${namespace}" 120
+    poll_pipeline "${namespace}" "${timeout}" "${approve_mode}"
 }
 
 # Register the spoke as a remote target cluster with ArgoCD running on the

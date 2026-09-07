@@ -1,0 +1,691 @@
+{
+  "schema_version": 1,
+  "_metadata": {
+    "captured_at": "2026-09-02T21:50:58Z",
+    "ka_image": "localhost/kubernautagent:pr-2342",
+    "model": "claude-sonnet-5",
+    "cluster": "kind-kubernaut-hub",
+    "chart_version": "1.6.0",
+    "phaseModels": {
+      "rootCauseAnalysis": "claude-sonnet-5",
+      "workflowDiscovery": "claude-haiku-4-5",
+      "source": "grouped from llmTrace[].model by phase (RCA calls precede the KA workflow-discovery-protocol tool calls: list_available_actions/list_workflows/get_workflow)"
+    },
+    "fleetMode": true,
+    "hubCluster": "kind-kubernaut-hub",
+    "spokeCluster": "kind-kubernaut-remote-cluster"
+  },
+  "scenario": "crashloop-fleet",
+  "signalName": "KubePodCrashLooping",
+  "remediationRequest": {
+    "name": "rr-54a4d4c99584-61ca63b2",
+    "phase": "Completed",
+    "outcome": "Remediated"
+  },
+  "analysis": {
+    "remediationId": "rr-54a4d4c99584-61ca63b2",
+    "signal": {
+      "signalName": "KubePodCrashLooping",
+      "severity": "critical",
+      "environment": "Production",
+      "targetResource": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-checkout"
+      },
+      "businessPriority": "P0"
+    },
+    "investigation": {
+      "sessionId": "as-rr-54a4d4c99584-61ca63b2",
+      "durationMs": null,
+      "pollCount": 4
+    },
+    "rootCauseAnalysis": {
+      "summary": "Deployment worker's second revision (ReplicaSet worker-6cbd6f7457) had its container command overridden with a failing abort script ('echo fatal: bad release 1.1.0 -- aborting && exit 1'), causing immediate pod exit(1) and CrashLoopBackOff. The rollout stalled (ProgressDeadlineExceeded) with the bad ReplicaSet's pod running indefinitely alongside healthy revision 1 pods. The injected command is not present in the kubectl.kubernetes.io/last-applied-configuration annotation, indicating out-of-band mutation rather than tracked deployment.",
+      "severity": "critical",
+      "reasoning": "",
+      "causalChain": [
+        "Signal: KubePodCrashLooping fired for pod worker-6cbd6f7457-fpx2n in demo-checkout (Deployment/worker).",
+        "Why? Container 'worker' exits immediately with exit code 1 on every start (230 restarts observed, current and previous logs both show 'fatal: bad release 1.1.0 -- aborting').",
+        "Why? The pod's container spec (inherited from ReplicaSet worker-6cbd6f7457, Deployment revision 2) has command overridden to: sh -c 'echo fatal: bad release 1.1.0 -- aborting && exit 1', replacing the normal demo-http-server entrypoint.",
+        "Why? This command is not present in the Deployment's kubectl.kubernetes.io/last-applied-configuration annotation, indicating it was injected into the live Deployment object via a direct edit/patch outside the normal declarative deployment pipeline, simulating/representing a 'bad release 1.1.0' rollout.",
+        "Root cause: An out-of-band modification injected a self-aborting command into the Deployment's revision-2 pod template, and because the Deployment has no automatic rollback on ProgressDeadlineExceeded (rollout has been stuck in 'ReplicaSet worker-6cbd6f7457 has timed out progressing' since 2026-09-02T01:37:42Z), the broken ReplicaSet's pod continues to crash-loop indefinitely instead of being rolled back to the last known-good revision (worker-7b6d74d8b9)."
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "Targeting Deployment/worker because its pod template spec.containers[0].command field is the exact configuration that must be changed (removed or reverted) to stop the crash loop. This is not just the signal-reporting Pod but the owning resource whose spec change (rollback/patch) resolves the issue for all future pods in this ReplicaSet lineage.",
+        "proportionality": "Single Deployment (worker) with one of its two ReplicaSets affected; only 1 of 3 pods is crash-looping. The remediation (revert/patch the container command in Deployment/worker, e.g., roll back to revision 1) is narrowly scoped to the exact misconfigured resource and does not require broader infrastructure changes.",
+        "scopeCompleteness": "Investigated all 3 pods in the namespace (per the pod sampling limit), both ReplicaSets (revision 1 and 2), the Deployment resource and its annotations/status conditions, namespace events, current and previous container logs, and the mounted ConfigMap. No other resources (Services, NetworkPolicies, PVCs) were implicated by the signal or evidence, so they were not further examined. Node conditions were not separately checked since 2 of 3 pods on the same node/cluster are healthy, ruling out node-level issues.",
+        "causalCompleteness": "Traced from the observed CrashLoopBackOff symptom down to the exact injected command string in the pod/ReplicaSet/Deployment spec, and further identified that this command is absent from the Deployment's own last-applied-configuration annotation, proving it was introduced by an out-of-band mutation rather than the normal CI/CD apply. This is the deepest cause reachable via cluster-side evidence; the identity/tool that performed the out-of-band edit is not visible from Kubernetes API objects alone (would require audit logs, which were not accessible with available tools).",
+        "evidenceSufficiency": "All claims are backed by tool output: pods_list_in_namespace, events_list, resources_get (Deployment), resources_list (ReplicaSets), pods_log/previous logs, pods_get (full pod spec/status), and resources_get (ConfigMap). No permission errors were encountered. The only unverifiable claim (stated as such, not asserted as fact) is the identity/mechanism of who/what performed the out-of-band edit to inject the command \u2014 this would require API server audit logs, which were not queried/available via current toolset.",
+        "regressionAwareness": "get_namespaced_resource_context reported remediation_history with tier1: [] and tier2: [] and regression_detected: false \u2014 no prior remediation attempts exist for this target, so there is no known failed-remediation pattern to avoid.",
+        "alternativeHypotheses": "Considered: (1) ConfigMap misconfiguration \u2014 ruled out, worker-config contains valid healthy routes and is correctly mounted, and the crash occurs at process start (echo/exit) before app code or config would even be read. (2) Resource limits/OOMKill \u2014 ruled out, exit code is 1 (Error) not 137 (OOMKilled), and resource requests/limits are unchanged and modest. (3) Image pull/registry issue \u2014 ruled out, events show image successfully 'Pulled'/'already present on machine'. (4) Liveness/readiness probe misconfiguration \u2014 ruled out, container never reaches a running state long enough for probes to be the cause; the command itself terminates the process immediately.",
+        "confidenceCalibration": "0.9: Started at 1.0. -0.05 because the exact actor/mechanism that injected the bad command into the live Deployment object could not be verified (no access to API audit logs). -0.05 because this pattern (self-aborting echo command referencing a fictitious 'release 1.1.0') strongly suggests an intentionally-injected demo/chaos fault rather than a naturally-occurring production bug, which is inferred from evidence but not explicitly confirmed by a chaos-engineering tool or annotation."
+      },
+      "reasoningRedacted": false,
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-checkout"
+      },
+      "contributingFactors": [
+        "Container command overridden with explicit abort/failure script via out-of-band patch",
+        "No automatic rollback policy configured on Deployment",
+        "Rollout stalled (ProgressDeadlineExceeded) with broken ReplicaSet replica running indefinitely",
+        "RollingUpdate strategy allowed bad revision to create live pod before failing"
+      ]
+    },
+    "rootCauseSummary": "Deployment worker's second revision (ReplicaSet worker-6cbd6f7457) had its container command overridden with a failing abort script ('echo fatal: bad release 1.1.0 -- aborting && exit 1'), causing immediate pod exit(1) and CrashLoopBackOff. The rollout stalled (ProgressDeadlineExceeded) with the bad ReplicaSet's pod running indefinitely alongside healthy revision 1 pods. The injected command is not present in the kubectl.kubernetes.io/last-applied-configuration annotation, indicating out-of-band mutation rather than tracked deployment.",
+    "postRCAContext": {
+      "cdiManaged": false,
+      "failedDetections": [
+        "gitOpsManaged",
+        "helmManaged",
+        "stateful",
+        "serviceMesh",
+        "hpaEnabled",
+        "pdbProtected",
+        "networkIsolated",
+        "resourceQuotaConstrained",
+        "virtualMachine",
+        "liveMigratable",
+        "cdiManaged",
+        "storageBackend"
+      ],
+      "gitOpsManaged": false,
+      "helmManaged": false,
+      "hpaEnabled": false,
+      "liveMigratable": false,
+      "networkIsolated": false,
+      "pdbProtected": false,
+      "resourceQuotaConstrained": false,
+      "stateful": false,
+      "virtualMachine": false
+    },
+    "selectedWorkflow": {
+      "confidence": 0.95,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "worker",
+        "TARGET_RESOURCE_NAMESPACE": "demo-checkout",
+        "TARGET_RESOURCE_API_VERSION": "apps/v1"
+      },
+      "workflowId": "29e9faa9-b00d-50c6-b91f-7a158df6191c",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:a1ba466eb15a5964d2a7bbeaf164a312c681593805f768c122e4ea6de829f0d3",
+      "workflowName": "crashloop-rollback-v1"
+    },
+    "alternativeWorkflows": [
+      {
+        "rationale": "rollback-deployment-v1 is also applicable as it handles stuck rollouts with ProgressDeadlineSeconds exceeded. Our Deployment exhibits ProgressDeadlineExceeded status since 2026-09-02T01:37:42Z, meeting the preconditions. However, crashloop-rollback-v1 is more specialized for spec-change induced CrashLoopBackOff scenarios.",
+        "confidence": 0.85,
+        "workflowId": "58246f70-094e-59bc-97b9-4709fe9915c8"
+      },
+      {
+        "rationale": "crashloop-rollback-risk-v1 could apply as a safety-focused alternative, but our incident has medium risk tolerance (not low) and the root cause is clearly a Deployment spec change (not ConfigMap content), making it less optimal than crashloop-rollback-v1.",
+        "confidence": 0.7,
+        "workflowId": "810ce7af-e2f2-5976-8b3a-fba16c1660e3"
+      }
+    ],
+    "actionability": true,
+    "approvalRequired": null,
+    "approvalReason": null,
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "phase": "Completed"
+  },
+  "llmTrace": [
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:13:24+00:00",
+      "model": "claude-sonnet-5",
+      "prompt_length": "14509",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-09-02T21:13:28+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "13940",
+      "tool_call_count": "3",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:13:36+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "pods_list_in_namespace",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"namespace\": \"demo-checkout\"}",
+      "tool_result": "# Pod Status Summary - demo-checkout Namespace\n\n## Overview\n- **Namespace:** demo-checkout\n- **Total Pods:** 3 worker pods\n- **Status:** 2 Healthy / 1 CrashLooping\n\n---\n\n## Pod Details\n\n### \u274c CRITICAL - Pod 1: `worker-6cbd6f7457-fpx2n`\n**Status:** CrashLoopBackOff (NOT READY)\n- **Created:** 2026-09-02 01:27:41Z\n- **Owner:** ReplicaSet `worker-6cbd6f7457`\n- **Image:** quay.io/kubernaut-cicd/demo-http-server:1.0.0\n- **Restart Count:** 229\n- **Exit Code:** 1 (Error)\n- **Last State:** Terminated at 2026-09-02 21:08:35Z\n\n**Root Cause:** Pod has injected startup command:\n```bash\necho fatal: bad release 1.1.0 -- aborting && exit 1\n```\nThis immediately exits with code 1, causing continuous restart failures.\n\n**Backoff Status:** Currently in 5m0s backoff before next restart attempt\n\n---\n\n### \u2705 HEALTHY - Pod 2: `worker-7b6d74d8b9-9llcn`\n**Status:** Running and Ready\n- **Created:** 2026-09-02 01:27:11Z\n- **Owner:** ReplicaSet `worker-7b6d74d8b9`\n- **Restart Count:** 0\n- **Uptime:** Running since 01:27:14Z\n- **Probes:** All passing (Liveness & Readiness)\n\n---\n\n### \u2705 HEALTHY - Pod 3: `worker-7b6d74d8b9-w8cm5`\n**Status:** Running and Ready\n- **Created:** 2026-09-02 01:27:11Z\n- **Owner:** ReplicaSet `worker-7b6d74d8b9`\n- **Restart Count:** 0\n- **Uptime:** Running since 01:27:14Z\n- **Probes:** All passing (Liveness & Readiness)\n\n---\n\n## Key Findings for Investigation\n\n1. **Two Different ReplicaSets Active:** Pods from `worker-6cbd6f7457` and `worker-7b6d74d8b9` suggest a recent rollout/update\n2. **Problematic Pod Has Invalid Command:** Pod 1 contains an explicit failure command - appears to be corrupted deployment spec\n3. **Resource Allocation:** All pods request 10m CPU / 32Mi memory (within limits)\n4. **Configuration:** All pods mount `worker-config` ConfigMap at `/etc/demo-http-server/config.yaml`\n\n## Recommended Actions\n- Investigate why `worker-6cbd6f7457` ReplicaSet was deployed with failure command\n- Delete the failing ReplicaSet or cordon its pods\n- Verify rollout strategy and deployment history\n- Check ConfigMap `worker-config` for misconfigurations",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:13:36+00:00",
+      "model": "claude-sonnet-5",
+      "prompt_length": "21430",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:13:36+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "events_list",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"namespace\": \"demo-checkout\"}",
+      "tool_result": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: worker-6cbd6f7457-fpx2n\n    apiVersion: v1\n  Message: Container image \"quay.io/kubernaut-cicd/demo-http-server:1.0.0\" already\n    present on machine and can be accessed by the pod\n  Namespace: demo-checkout\n  Reason: Pulled\n  Timestamp: 2026-09-02 21:08:34 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: worker-6cbd6f7457-fpx2n\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-checkout\n  Reason: Created\n  Timestamp: 2026-09-02 20:26:47 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: worker-6cbd6f7457-fpx2n\n    apiVersion: v1\n  Message: Back-off restarting failed container worker in pod worker-6cbd6f7457-fpx2n_demo-checkout(a2edd2da-fb3e-41ca-b7d6-725e966956ba)\n  Namespace: demo-checkout\n  Reason: BackOff\n  Timestamp: 2026-09-02 21:12:14 +0000 UTC\n  Type: Warning",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:13:36+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "resources_get",
+      "tool_call_index": "2",
+      "tool_arguments": "{\"kind\": \"Deployment\", \"name\": \"worker\", \"namespace\": \"demo-checkout\", \"apiVersion\": \"apps/v1\"}",
+      "tool_result": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"2\"\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"worker\",\"kubernaut.ai/managed\":\"true\"},\"name\":\"worker\",\"namespace\":\"demo-checkout\"},\"spec\":{\"replicas\":2,\"selector\":{\"matchLabels\":{\"app\":\"worker\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"worker\"}},\"spec\":{\"containers\":[{\"env\":[{\"name\":\"CONFIG_PATH\",\"value\":\"/etc/demo-http-server/config.yaml\"}],\"image\":\"quay.io/kubernaut-cicd/demo-http-server:1.0.0\",\"livenessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":8080},\"initialDelaySeconds\":3,\"periodSeconds\":5},\"name\":\"worker\",\"ports\":[{\"containerPort\":8080,\"name\":\"http\"}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":8080},\"initialDelaySeconds\":2,\"periodSeconds\":3},\"resources\":{\"limits\":{\"cpu\":\"50m\",\"memory\":\"64Mi\"},\"requests\":{\"cpu\":\"10m\",\"memory\":\"32Mi\"}},\"volumeMounts\":[{\"mountPath\":\"/etc/demo-http-server/config.yaml\",\"name\":\"config\",\"subPath\":\"config.yaml\"}]}],\"volumes\":[{\"configMap\":{\"name\":\"worker-config\"},\"name\":\"config\"}]}}}}\n  creationTimestamp: \"2026-09-02T01:27:11Z\"\n  generation: 2\n  labels:\n    app: worker\n    kubernaut.ai/managed: \"true\"\n  name: worker\n  namespace: demo-checkout\n  resourceVersion: \"7060\"\n  uid: b5b110c9-dfdb-4984-a971-e594b29db17c\nspec:\n  progressDeadlineSeconds: 600\n  replicas: 2\n  revisionHistoryLimit: 10\n  selector:\n    matchLabels:\n      app: worker\n  strategy:\n    rollingUpdate:\n      maxSurge: 25%\n      maxUnavailable: 25%\n    type: RollingUpdate\n  template:\n    metadata:\n      labels:\n        app: worker\n    spec:\n      containers:\n      - command:\n        - sh\n        - -c\n        - 'echo fatal: bad release 1.1.0 -- aborting && exit 1'\n        env:\n        - name: CONFIG_PATH\n          value: /etc/demo-http-server/config.yaml\n        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0\n        imagePullPolicy: IfNotPresent\n        livenessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 3\n          periodSeconds: 5\n          successThreshold: 1\n          timeoutSeconds: 1\n        name: worker\n        ports:\n        - containerPort: 8080\n          name: http\n          protocol: TCP\n        readinessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 2\n          periodSeconds: 3\n          successThreshold: 1\n          timeoutSeconds: 1\n        resources:\n          limits:\n            cpu: 50m\n            memory: 64Mi\n          requests:\n            cpu: 10m\n            memory: 32Mi\n        terminationMessagePath: /dev/termination-log\n        terminationMessagePolicy: File\n        volumeMounts:\n        - mountPath: /etc/demo-http-server/config.yaml\n          name: config\n          subPath: config.yaml\n      dnsPolicy: ClusterFirst\n      restartPolicy: Always\n      schedulerName: default-scheduler\n      securityContext: {}\n      terminationGracePeriodSeconds: 30\n      volumes:\n      - configMap:\n          defaultMode: 420\n          name: worker-config\n        name: config\nstatus:\n  availableReplicas: 2\n  conditions:\n  - lastTransitionTime: \"2026-09-02T01:27:18Z\"\n    lastUpdateTime: \"2026-09-02T01:27:18Z\"\n    message: Deployment has minimum availability.\n    reason: MinimumReplicasAvailable\n    status: \"True\"\n    type: Available\n  - lastTransitionTime: \"2026-09-02T01:37:42Z\"\n    lastUpdateTime: \"2026-09-02T01:37:42Z\"\n    message: ReplicaSet \"worker-6cbd6f7457\" has timed out progressing.\n    reason: ProgressDeadlineExceeded\n    status: \"False\"\n    type: Progressing\n  observedGeneration: 2\n  readyReplicas: 2\n  replicas: 3\n  terminatingReplicas: 0\n  unavailableReplicas: 1\n  updatedReplicas: 1",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-09-02T21:13:44+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "18019",
+      "tool_call_count": "4",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:13:45+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "resources_list",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"kind\": \"ReplicaSet\", \"namespace\": \"demo-checkout\", \"apiVersion\": \"apps/v1\"}",
+      "tool_result": "- apiVersion: apps/v1\n  kind: ReplicaSet\n  metadata:\n    annotations:\n      deployment.kubernetes.io/desired-replicas: \"2\"\n      deployment.kubernetes.io/max-replicas: \"3\"\n      deployment.kubernetes.io/revision: \"2\"\n    creationTimestamp: \"2026-09-02T01:27:41Z\"\n    generation: 1\n    labels:\n      app: worker\n      pod-template-hash: 6cbd6f7457\n    name: worker-6cbd6f7457\n    namespace: demo-checkout\n    ownerReferences:\n    - apiVersion: apps/v1\n      blockOwnerDeletion: true\n      controller: true\n      kind: Deployment\n      name: worker\n      uid: b5b110c9-dfdb-4984-a971-e594b29db17c\n    resourceVersion: \"6142\"\n    uid: e3613483-5ac8-41c4-90ad-893a33639f69\n  spec:\n    replicas: 1\n    selector:\n      matchLabels:\n        app: worker\n        pod-template-hash: 6cbd6f7457\n    template:\n      metadata:\n        labels:\n          app: worker\n          pod-template-hash: 6cbd6f7457\n      spec:\n        containers:\n        - command:\n          - sh\n          - -c\n          - 'echo fatal: bad release 1.1.0 -- aborting && exit 1'\n          env:\n          - name: CONFIG_PATH\n            value: /etc/demo-http-server/config.yaml\n          image: quay.io/kubernaut-cicd/demo-http-server:1.0.0\n          imagePullPolicy: IfNotPresent\n          livenessProbe:\n            failureThreshold: 3\n            httpGet:\n              path: /healthz\n              port: 8080\n              scheme: HTTP\n            initialDelaySeconds: 3\n            periodSeconds: 5\n            successThreshold: 1\n            timeoutSeconds: 1\n          name: worker\n          ports:\n          - containerPort: 8080\n            name: http\n            protocol: TCP\n          readinessProbe:\n            failureThreshold: 3\n            httpGet:\n              path: /healthz\n              port: 8080\n              scheme: HTTP\n            initialDelaySeconds: 2\n            periodSeconds: 3\n            successThreshold: 1\n            timeoutSeconds: 1\n          resources:\n            limits:\n              cpu: 50m\n              memory: 64Mi\n            requests:\n              cpu: 10m\n              memory: 32Mi\n          terminationMessagePath: /dev/termination-log\n          terminationMessagePolicy: File\n          volumeMounts:\n          - mountPath: /etc/demo-http-server/config.yaml\n            name: config\n            subPath: config.yaml\n        dnsPolicy: ClusterFirst\n        restartPolicy: Always\n        schedulerName: default-scheduler\n        securityContext: {}\n        terminationGracePeriodSeconds: 30\n        volumes:\n        - configMap:\n            defaultMode: 420\n            name: worker-config\n          name: config\n  status:\n    fullyLabeledReplicas: 1\n    observedGeneration: 1\n    replicas: 1\n    terminatingReplicas: 0\n- apiVersion: apps/v1\n  kind: ReplicaSet\n  metadata:\n    annotations:\n      deployment.kubernetes.io/desired-replicas: \"2\"\n      deployment.kubernetes.io/max-replicas: \"3\"\n      deployment.kubernetes.io/revision: \"1\"\n    creationTimestamp: \"2026-09-02T01:27:11Z\"\n    generation: 1\n    labels:\n      app: worker\n      pod-template-hash: 7b6d74d8b9\n    name: worker-7b6d74d8b9\n    namespace: demo-checkout\n    ownerReferences:\n    - apiVersion: apps/v1\n      blockOwnerDeletion: true\n      controller: true\n      kind: Deployment\n      name: worker\n      uid: b5b110c9-dfdb-4984-a971-e594b29db17c\n    resourceVersion: \"6064\"\n    uid: 2385575a-8692-48a5-a5f5-86b18091a9c9\n  spec:\n    replicas: 2\n    selector:\n      matchLabels:\n        app: worker\n        pod-template-hash: 7b6d74d8b9\n    template:\n      metadata:\n        labels:\n          app: worker\n          pod-template-hash: 7b6d74d8b9\n      spec:\n        containers:\n        - env:\n          - name: CONFIG_PATH\n            value: /etc/demo-http-server/config.yaml\n          image: quay.io/kubernaut-cicd/demo-http-server:1.0.0\n          imagePullPolicy: IfNotPresent\n          livenessProbe:\n            failureThreshold: 3\n            httpGet:\n              path: /healthz\n              port: 8080\n              scheme: HTTP\n            initialDelaySeconds: 3\n            periodSeconds: 5\n            successThreshold: 1\n            timeoutSeconds: 1\n          name: worker\n          ports:\n          - containerPort: 8080\n            name: http\n            protocol: TCP\n          readinessProbe:\n            failureThreshold: 3\n            httpGet:\n              path: /healthz\n              port: 8080\n              scheme: HTTP\n            initialDelaySeconds: 2\n            periodSeconds: 3\n            successThreshold: 1\n            timeoutSeconds: 1\n          resources:\n            limits:\n              cpu: 50m\n              memory: 64Mi\n            requests:\n              cpu: 10m\n              memory: 32Mi\n          terminationMessagePath: /dev/termination-log\n          terminationMessagePolicy: File\n          volumeMounts:\n          - mountPath: /etc/demo-http-server/config.yaml\n            name: config\n            subPath: config.yaml\n        dnsPolicy: ClusterFirst\n        restartPolicy: Always\n        schedulerName: default-scheduler\n        securityContext: {}\n        terminationGracePeriodSeconds: 30\n        volumes:\n        - configMap:\n            defaultMode: 420\n            name: worker-config\n          name: config\n  status:\n    availableReplicas: 2\n    fullyLabeledReplicas: 2\n    observedGeneration: 1\n    readyReplicas: 2\n    replicas: 2\n    terminatingReplicas: 0",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:13:45+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "pods_log",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"name\": \"worker-6cbd6f7457-fpx2n\", \"tail\": 50, \"namespace\": \"demo-checkout\"}",
+      "tool_result": "fatal: bad release 1.1.0 -- aborting",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:13:45+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "pods_log",
+      "tool_call_index": "2",
+      "tool_arguments": "{\"name\": \"worker-6cbd6f7457-fpx2n\", \"tail\": 50, \"previous\": true, \"namespace\": \"demo-checkout\"}",
+      "tool_result": "fatal: bad release 1.1.0 -- aborting",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:13:45+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "get_namespaced_resource_context",
+      "tool_call_index": "3",
+      "tool_arguments": "{\"kind\": \"Deployment\", \"name\": \"worker\", \"namespace\": \"demo-checkout\"}",
+      "tool_result": "{\"root_owner\": {\"kind\": \"Deployment\", \"name\": \"worker\", \"namespace\": \"demo-checkout\"}, \"remediation_history\": {\"tier1\": [], \"tier2\": [], \"tier1_window\": \"24h0m0s\", \"tier2_window\": \"2160h0m0s\", \"target_resource\": \"demo-checkout/Deployment/worker\", \"regression_detected\": false}}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:13:45+00:00",
+      "model": "claude-sonnet-5",
+      "prompt_length": "27154",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-09-02T21:14:10+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "22724",
+      "tool_call_count": "2",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:14:10+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "pods_get",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"name\": \"worker-6cbd6f7457-fpx2n\", \"namespace\": \"demo-checkout\"}",
+      "tool_result": "apiVersion: v1\nkind: Pod\nmetadata:\n  creationTimestamp: \"2026-09-02T01:27:41Z\"\n  generateName: worker-6cbd6f7457-\n  generation: 1\n  labels:\n    app: worker\n    pod-template-hash: 6cbd6f7457\n  name: worker-6cbd6f7457-fpx2n\n  namespace: demo-checkout\n  ownerReferences:\n  - apiVersion: apps/v1\n    blockOwnerDeletion: true\n    controller: true\n    kind: ReplicaSet\n    name: worker-6cbd6f7457\n    uid: e3613483-5ac8-41c4-90ad-893a33639f69\n  resourceVersion: \"104740\"\n  uid: a2edd2da-fb3e-41ca-b7d6-725e966956ba\nspec:\n  containers:\n  - command:\n    - sh\n    - -c\n    - 'echo fatal: bad release 1.1.0 -- aborting && exit 1'\n    env:\n    - name: CONFIG_PATH\n      value: /etc/demo-http-server/config.yaml\n    image: quay.io/kubernaut-cicd/demo-http-server:1.0.0\n    imagePullPolicy: IfNotPresent\n    livenessProbe:\n      failureThreshold: 3\n      httpGet:\n        path: /healthz\n        port: 8080\n        scheme: HTTP\n      initialDelaySeconds: 3\n      periodSeconds: 5\n      successThreshold: 1\n      timeoutSeconds: 1\n    name: worker\n    ports:\n    - containerPort: 8080\n      name: http\n      protocol: TCP\n    readinessProbe:\n      failureThreshold: 3\n      httpGet:\n        path: /healthz\n        port: 8080\n        scheme: HTTP\n      initialDelaySeconds: 2\n      periodSeconds: 3\n      successThreshold: 1\n      timeoutSeconds: 1\n    resources:\n      limits:\n        cpu: 50m\n        memory: 64Mi\n      requests:\n        cpu: 10m\n        memory: 32Mi\n    terminationMessagePath: /dev/termination-log\n    terminationMessagePolicy: File\n    volumeMounts:\n    - mountPath: /etc/demo-http-server/config.yaml\n      name: config\n      subPath: config.yaml\n    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount\n      name: kube-api-access-7ntf6\n      readOnly: true\n  dnsPolicy: ClusterFirst\n  enableServiceLinks: true\n  nodeName: kubernaut-remote-cluster-control-plane\n  preemptionPolicy: PreemptLowerPriority\n  priority: 0\n  restartPolicy: Always\n  schedulerName: default-scheduler\n  securityContext: {}\n  serviceAccount: default\n  serviceAccountName: default\n  terminationGracePeriodSeconds: 30\n  tolerations:\n  - effect: NoExecute\n    key: node.kubernetes.io/not-ready\n    operator: Exists\n    tolerationSeconds: 300\n  - effect: NoExecute\n    key: node.kubernetes.io/unreachable\n    operator: Exists\n    tolerationSeconds: 300\n  volumes:\n  - configMap:\n      defaultMode: 420\n      name: worker-config\n    name: config\n  - name: kube-api-access-7ntf6\n    projected:\n      defaultMode: 420\n      sources:\n      - serviceAccountToken:\n          expirationSeconds: 3607\n          path: token\n      - configMap:\n          items:\n          - key: ca.crt\n            path: ca.crt\n          name: kube-root-ca.crt\n      - downwardAPI:\n          items:\n          - fieldRef:\n              apiVersion: v1\n              fieldPath: metadata.namespace\n            path: namespace\nstatus:\n  allocatedResources:\n    cpu: 10m\n    memory: 32Mi\n  conditions:\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-09-02T01:27:42Z\"\n    observedGeneration: 1\n    status: \"True\"\n    type: PodReadyToStartContainers\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-09-02T01:27:41Z\"\n    observedGeneration: 1\n    status: \"True\"\n    type: Initialized\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-09-02T01:27:41Z\"\n    message: 'containers with unready status: [worker]'\n    observedGeneration: 1\n    reason: ContainersNotReady\n    status: \"False\"\n    type: Ready\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-09-02T01:27:41Z\"\n    message: 'containers with unready status: [worker]'\n    observedGeneration: 1\n    reason: ContainersNotReady\n    status: \"False\"\n    type: ContainersReady\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-09-02T01:27:41Z\"\n    observedGeneration: 1\n    status: \"True\"\n    type: PodScheduled\n  containerStatuses:\n  - allocatedResources:\n      cpu: 10m\n      memory: 32Mi\n    containerID: containerd://f40c1479363f2de821db382fbd357cb6bae1413e2a9d1637a9f524fea415f70d\n    image: quay.io/kubernaut-cicd/demo-http-server:1.0.0\n    imageID: quay.io/kubernaut-cicd/demo-http-server@sha256:bfb8c9879b679bd436e1a940864ad318c0bea0d9bb8fc14d35652cab49020b53\n    lastState:\n      terminated:\n        containerID: containerd://f40c1479363f2de821db382fbd357cb6bae1413e2a9d1637a9f524fea415f70d\n        exitCode: 1\n        finishedAt: \"2026-09-02T21:13:44Z\"\n        reason: Error\n        startedAt: \"2026-09-02T21:13:44Z\"\n    name: worker\n    ready: false\n    resources:\n      limits:\n        cpu: 50m\n        memory: 64Mi\n      requests:\n        cpu: 10m\n        memory: 32Mi\n    restartCount: 230\n    started: false\n    state:\n      waiting:\n        message: back-off 5m0s restarting failed container=worker pod=worker-6cbd6f7457-fpx2n_demo-checkout(a2edd2da-fb3e-41ca-b7d6-725e966956ba)\n        reason: CrashLoopBackOff\n    user:\n      linux:\n        gid: 65534\n        supplementalGroups:\n        - 65534\n        uid: 65534\n    volumeMounts:\n    - mountPath: /etc/demo-http-server/config.yaml\n      name: config\n    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount\n      name: kube-api-access-7ntf6\n      readOnly: true\n      recursiveReadOnly: Disabled\n  hostIP: [REDACTED]\n  hostIPs:\n  - ip: [REDACTED]\n  observedGeneration: 1\n  phase: Running\n  podIP: [REDACTED]\n  podIPs:\n  - ip: [REDACTED]\n  qosClass: Burstable\n  resources:\n    limits:\n      cpu: 50m\n      memory: 64Mi\n    requests:\n      memory: 32Mi\n  startTime: \"2026-09-02T01:27:41Z\"",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:14:10+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "resources_get",
+      "tool_call_index": "1",
+      "tool_arguments": "{\"kind\": \"ConfigMap\", \"name\": \"worker-config\", \"namespace\": \"demo-checkout\", \"apiVersion\": \"v1\"}",
+      "tool_result": "apiVersion: v1\ndata:\n  config.yaml: |\n    port: 8080\n    routes:\n      - path: /\n        status: 200\n        body: 'healthy'\n      - path: /healthz\n        status: 200\n        body: 'ok'\nkind: ConfigMap\nmetadata:\n  annotations:\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"v1\",\"data\":{\"config.yaml\":\"port: 8080\\nroutes:\\n  - path: /\\n    status: 200\\n    body: 'healthy'\\n  - path: /healthz\\n    status: 200\\n    body: 'ok'\\n\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":[REDACTED],\"name\":\"worker-config\",\"namespace\":\"demo-checkout\"}}\n  creationTimestamp: \"2026-09-02T01:27:11Z\"\n  name: worker-config\n  namespace: demo-checkout\n  resourceVersion: \"5975\"\n  uid: ce6e3b1f-f040-42f6-a519-5a8514779fe0",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:14:10+00:00",
+      "model": "claude-sonnet-5",
+      "prompt_length": "33366",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:14:51+00:00",
+      "model": "claude-sonnet-5",
+      "prompt_length": "33794",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-09-02T21:14:51+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "29793",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "false",
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:16:11+00:00",
+      "model": "claude-sonnet-5",
+      "prompt_length": "34436",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:16:11+00:00",
+      "model": "claude-haiku-4-5",
+      "prompt_length": "10918",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-09-02T21:16:12+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "4959",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "I'll follow the three-step workflow discovery protocol to select the appropriate remediation workflow for this incident.\n\n## Step 1: Discover Available Remediation Action Types\n\nLet me start by listing all available actions in the workflow catalog."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:16:12+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "list_available_actions",
+      "tool_call_index": "0",
+      "tool_arguments": "{}",
+      "tool_result": "{\"pagination\": {\"hasNext\": true, \"nextCursor\": \"eyJvIjoxMCwibCI6MTB9\"}, \"actionTypes\": [{\"actionType\": \"ExpandPersistentVolumeClaim\", \"description\": {\"what\": \"Expand a PersistentVolumeClaim by patching its storage request to a larger size, leveraging the CSI driver's online volume expansion capability.\", \"whenToUse\": \"When a PVC is projected to exhaust capacity based on storage growth trends (predict_linear), and the underlying StorageClass supports allowVolumeExpansion. The workload must be using a CSI-backed PVC with a filesystem that supports online resize (ext4, xfs).\", \"whenNotToUse\": \"When disk growth is caused by stale data that should be cleaned up rather than accommodated. When the StorageClass does not support volume expansion. When the PVC is backed by a non-CSI provisioner.\", \"preconditions\": \"The PVC's StorageClass has allowVolumeExpansion: true. The CSI driver supports ControllerExpandVolume and NodeExpandVolume RPCs. Sufficient storage capacity exists in the underlying storage pool.\"}, \"workflowCount\": 1}, {\"actionType\": \"FixBuildSource\", \"description\": {\"what\": \"Patches an OCP BuildConfig's source URI or ref to point to a valid Git repository, then triggers a new build.\", \"whenToUse\": \"Builds fail repeatedly because the BuildConfig references a non-existent Git repository, wrong branch, or unreachable URI.\", \"whenNotToUse\": \"When the build fails due to image builder errors, insufficient resources, or registry push failures.\", \"preconditions\": \"The correct Git URI and ref are known. The BuildConfig exists and the builder image is available.\"}, \"workflowCount\": 1}, {\"actionType\": \"FixRouteTarget\", \"description\": {\"what\": \"Patches an OCP Route whose spec.to.name points to a non-existent or wrong Service, restoring external traffic flow.\", \"whenToUse\": \"An OCP Route returns 503/404 because spec.to.name references a Service that was renamed, deleted, or never created.\", \"whenNotToUse\": \"When the backend Service exists but the pods behind it are unhealthy. When TLS termination is misconfigured.\", \"preconditions\": \"The correct backend Service name is known. The Route exists and is owned by the target application.\"}, \"workflowCount\": 1}, {\"actionType\": \"FixSecurityContext\", \"description\": {\"what\": \"Patches a Deployment's securityContext to comply with the assigned OCP SecurityContextConstraint, allowing pods to schedule.\", \"whenToUse\": \"Pods are blocked by SCC admission because the Deployment requests capabilities, runAsUser, or volume types not allowed by the SCC bound to the ServiceAccount.\", \"whenNotToUse\": \"When the SCC itself needs to be changed or when the workload genuinely requires privileged access.\", \"preconditions\": \"The target Deployment and namespace are known. The allowed SCC and its constraints are discoverable from the cluster.\"}, \"workflowCount\": 1}, {\"actionType\": \"GracefulRestart\", \"description\": {\"what\": \"Perform a graceful rolling restart of a workload to reset its runtime state.\", \"whenToUse\": \"Predictive analysis indicates an impending failure (memory leak, resource exhaustion) that can be prevented by proactively restarting before the crash occurs.\", \"whenNotToUse\": \"When the issue is caused by a code bug or misconfiguration that will recur after restart.\", \"preconditions\": \"Evidence of gradual resource degradation (trending metrics) and the workload supports rolling restarts without data loss.\"}, \"workflowCount\": 1}, {\"actionType\": \"HelmRollback\", \"description\": {\"what\": \"Roll back a Helm release to its previous healthy revision.\", \"whenToUse\": \"A Helm-managed workload is crashing after a helm upgrade introduced a bad configuration, and the previous Helm revision was healthy.\", \"whenNotToUse\": \"When the workload is not managed by Helm (use RollbackDeployment or GracefulRestart instead), or when the crash is caused by an external dependency failure.\", \"preconditions\": \"The Helm release has at least one previous healthy revision in its history, and the Helm tiller/controller has access to roll back.\"}, \"workflowCount\": 1}, {\"actionType\": \"IncreaseMemoryLimits\", \"description\": {\"what\": \"Increase memory resource limits on containers.\", \"whenToUse\": \"OOM kills are caused by memory limits being too low relative to the workload's requirements. This is the correct action for any ContainerOOMKilling signal, including suspected memory leaks -- increasing limits is the proper first-pass mitigation to buy runtime for investigation. The platform's escalation guardrails handle repeated ineffective attempts automatically.\", \"whenNotToUse\": \"When the deployment is constrained by a ResourceQuota -- increasing individual container limits does not increase the namespace's total allocation and may worsen it by requesting more memory per pod against a fixed quota ceiling.\", \"preconditions\": \"The deployment exists and containers have memory limits set. The node has sufficient allocatable memory for the increased limit.\"}, \"workflowCount\": 1}, {\"actionType\": \"PatchConfiguration\", \"description\": {\"what\": \"Patch a faulty ConfigMap or configuration resource in-place to fix a configuration error without rolling back the deployment.\", \"whenToUse\": \"When the root cause is a specific, identifiable configuration error in a mounted ConfigMap, and the fix is deterministic. Prioritizes speed over safety by modifying live resources.\", \"whenNotToUse\": \"When the root cause is unclear, when multiple configuration resources may be affected, or when a full rollback to a known-good revision is preferred for safety.\", \"preconditions\": \"The faulty configuration resource is identified and the correction can be applied programmatically.\"}, \"workflowCount\": 3}, {\"actionType\": \"ProactiveRollback\", \"description\": {\"what\": \"Roll back a deployment to stop SLO error-budget burn caused by a bad deployment change.\", \"whenToUse\": \"When an ErrorBudgetBurn or SLO-violation alert fires and the root cause is a recent deployment revision that changed the pod spec (image, volume mounts, environment variables). Use this instead of RollbackDeployment when the trigger is an SLO or error-budget signal.\", \"whenNotToUse\": \"When the rollout is stuck or pods are crashlooping without SLO impact (use RollbackDeployment instead). When the ConfigMap content itself is corrupt and must be patched in-place (use PatchConfiguration).\", \"preconditions\": \"A previous stable deployment revision exists, and the error spike correlates with a recent deployment change.\"}, \"workflowCount\": 1}, {\"actionType\": \"ProvisionNode\", \"description\": {\"what\": \"Request provisioning of a new Kubernetes node to increase cluster capacity.\", \"whenToUse\": \"Pods are Pending due to insufficient cluster-wide resources (CPU, memory) and no existing node has capacity.\", \"whenNotToUse\": \"When scheduling failures are caused by taints, affinity rules, or PDB constraints rather than resource exhaustion.\", \"preconditions\": \"Confirmed that all schedulable nodes are at or near capacity and pending pods have resource requests that cannot be satisfied.\"}, \"workflowCount\": 1}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:16:12+00:00",
+      "model": "claude-haiku-4-5",
+      "prompt_length": "18058",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-09-02T21:16:15+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "6717",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "The response shows there are more action types available. Let me continue to page through all of them before making my selection."
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:16:15+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "list_available_actions",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"page\": \"next\", \"cursor\": \"eyJvIjoxMCwibCI6MTB9\"}",
+      "tool_result": "{\"pagination\": {\"hasPrevious\": true, \"previousCursor\": \"eyJvIjowLCJsIjoxMH0\"}, \"actionTypes\": [{\"actionType\": \"RefreshImagePullSecret\", \"description\": {\"what\": \"Recreates a missing or expired ImagePullSecret and restarts affected workloads to recover from ImagePullBackOff.\", \"whenToUse\": \"Pods are stuck in ImagePullBackOff because the referenced ImagePullSecret was deleted, expired, or contains invalid registry credentials.\", \"whenNotToUse\": \"When the image reference itself is wrong (tag does not exist, wrong registry URL). When the registry is rate-limiting pulls.\", \"preconditions\": \"The target namespace and Deployment name are known. A known-good credential template exists.\"}, \"workflowCount\": 1}, {\"actionType\": \"RelaxPDB\", \"description\": {\"what\": \"Temporarily relax a PodDisruptionBudget to unblock a pending node drain, then restore it.\", \"whenToUse\": \"A node drain is blocked because a PDB prevents evicting the required number of pods.\", \"whenNotToUse\": \"When the PDB is correctly preventing unsafe evictions and the drain should be postponed.\", \"preconditions\": \"Confirmed that the drain is intentional and the PDB is the sole blocker. The workload can tolerate temporary reduced availability.\"}, \"workflowCount\": 1}, {\"actionType\": \"RestoreRoleBinding\", \"description\": {\"what\": \"Recreates a deleted or corrupted RoleBinding / ClusterRoleBinding so that the affected ServiceAccount regains its RBAC permissions.\", \"whenToUse\": \"A workload fails with 403 Forbidden because its RoleBinding was accidentally deleted or modified, removing required RBAC grants.\", \"whenNotToUse\": \"When the ServiceAccount itself is missing. When the ClusterRole referenced by the binding does not exist.\", \"preconditions\": \"The target namespace, ServiceAccount, and required Role/ClusterRole are known. The original binding spec is recoverable from the workflow definition.\"}, \"workflowCount\": 1}, {\"actionType\": \"RollbackDeployment\", \"description\": {\"what\": \"Revert a deployment to its previous stable revision.\", \"whenToUse\": \"Root cause is a recent deployment that introduced a regression (bad image, broken command/args, misconfigured env vars), and the previous revision was healthy. Intended for stuck rollouts (progressDeadlineSeconds exceeded) and crashlooping pods caused by spec changes.\", \"whenNotToUse\": \"When the trigger is an SLO error-budget burn alert (ErrorBudgetBurn) or SLO-violation signal \u2014 use ProactiveRollback instead. Do not use when containers are OOMKilled (ContainerOOMKilling signal or OOMKilled termination reason) \u2014 OOMKill is a memory pressure problem, not a deployment regression. Rollback does not change memory limits; use IncreaseMemoryLimits instead.\", \"preconditions\": \"A previous healthy revision exists (verify via rollout history) and the issue started after the most recent deployment. The container must not be terminated with reason OOMKilled.\"}, \"workflowCount\": 4}, {\"actionType\": \"ScaleReplicas\", \"description\": {\"what\": \"Horizontally scale a workload by adjusting the replica count.\", \"whenToUse\": \"Root cause is insufficient capacity to handle current load and the workload supports horizontal scaling.\", \"preconditions\": \"Evidence of increased incoming traffic or load correlating with the resource exhaustion.\"}, \"workflowCount\": 1}]}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:16:15+00:00",
+      "model": "claude-haiku-4-5",
+      "prompt_length": "21403",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-09-02T21:16:20+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "7910",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "Perfect! I've now reviewed all available action types. Based on the RCA findings, let me analyze which action type is most appropriate:\n\n**RCA Analysis Against Action Types**:\n- The root cause is a **bad deployment revision** (revision 2) with an injected failing command that caused immediate pod exits\n- The deployment's **previous revision (revision 1) was healthy**\n- The rollout is **stuck** (ProgressDeadlineExceeded) with the bad revision unable to complete\n- This is NOT an SLO/error-budget b"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:16:20+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "list_workflows",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"action_type\": \"RollbackDeployment\"}",
+      "tool_result": "{\"workflows\": [{\"name\": \"crashloop-rollback-v1\", \"version\": \"1.6.0\", \"workflowId\": \"29e9faa9-b00d-50c6-b91f-7a158df6191c\", \"description\": {\"what\": \"Rolls back a Deployment to its previous revision to recover from CrashLoopBackOff caused by a bad release or pod spec change\", \"whenToUse\": \"When a Deployment enters CrashLoopBackOff because its pod spec was modified (image tag, command/args, env vars, volume mount references including ConfigMap name changes in the volume spec, or resource limits) and the previous revision was healthy. This is the correct choice when the Deployment spec itself changed -- rollback reverts the entire pod template to the last known-good revision. Includes cases where the volume references a different ConfigMap name than before (e.g. volumes[].configMap.name was changed).\", \"whenNotToUse\": \"When the Deployment spec is completely unchanged and only the content inside a mounted ConfigMap was edited in-place (the volume reference still points to the same ConfigMap name but its data keys were modified) -- rollback cannot revert ConfigMap data. Do not use when the crash is caused by an external dependency failure (database down, network partition) rather than a local spec change. Do not use when the primary signal is ContainerOOMKilling or the container termination reason is OOMKilled -- OOMKill indicates memory pressure, not a bad release or spec regression. Rollback does not change memory limits; use IncreaseMemoryLimits instead for OOM scenarios.\", \"preconditions\": \"The Deployment has at least one previous healthy revision in its rollout history. The RCA target must be a Deployment, not a ConfigMap. The container must NOT be terminated with reason OOMKilled.\"}, \"workflowName\": \"crashloop-rollback-v1\", \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:a1ba466eb15a5964d2a7bbeaf164a312c681593805f768c122e4ea6de829f0d3\", \"executionEngine\": \"job\", \"serviceAccountName\": \"crashloop-rollback-v1-runner\"}, {\"name\": \"rollback-deployment-v1\", \"version\": \"1.6.0\", \"workflowId\": \"58246f70-094e-59bc-97b9-4709fe9915c8\", \"description\": {\"what\": \"Rolls back a deployment to its previous working revision when the current rollout is stuck\", \"whenToUse\": \"When a deployment rollout has exceeded its progressDeadlineSeconds and new pods cannot start (ImagePullBackOff, CrashLoopBackOff from a bad spec change, or scheduling failures)\", \"whenNotToUse\": \"When the rollout is still within its deadline and may succeed with more time, or when the issue affects all revisions (cluster-wide problem). Do not use when containers are OOMKilled (ContainerOOMKilling signal or OOMKilled termination reason) \u2014 OOMKill is a memory pressure problem, not a stuck rollout. Use IncreaseMemoryLimits instead.\", \"preconditions\": \"The deployment has at least one previous successful revision in its history\"}, \"workflowName\": \"rollback-deployment-v1\", \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/rollback-deployment-job@sha256:7a824f612f59ea45aeef80cc75b6347e96f0214044d98603b641550b1d95f4da\", \"executionEngine\": \"job\", \"serviceAccountName\": \"rollback-deployment-v1-runner\"}, {\"name\": \"crashloop-rollback-risk-v1\", \"version\": \"1.6.0\", \"workflowId\": \"810ce7af-e2f2-5976-8b3a-fba16c1660e3\", \"description\": {\"what\": \"Rolls back a Deployment to its previous healthy revision to recover from CrashLoopBackOff caused by a bad configuration change (e.g., a poisoned ConfigMap) or a bad image change\", \"whenToUse\": \"When a Deployment enters CrashLoopBackOff and the signal carries risk_tolerance=low. The root cause analysis must identify a Deployment as the target resource, since this workflow operates exclusively on Deployments by reverting to the last known-good pod template. This full rollback approach prioritizes safety over speed. Best for production teams that require guaranteed recovery with minimal risk.\", \"whenNotToUse\": \"When the root cause analysis identifies a ConfigMap as the target resource -- rolling back a Deployment does not modify the ConfigMap, so the EA pre/post hash check on the ConfigMap would show no change and the remediation would be flagged as ineffective. Use a PatchConfiguration workflow instead to directly fix the ConfigMap. Also do not use when the crash is caused by an external dependency failure, when no previous healthy revision exists, or when the signal carries risk_tolerance=high.\", \"preconditions\": \"The Deployment has at least one previous healthy revision in its rollout history. The RCA target must be a Deployment, not a ConfigMap.\"}, \"workflowName\": \"crashloop-rollback-risk-v1\", \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:a1ba466eb15a5964d2a7bbeaf164a312c681593805f768c122e4ea6de829f0d3\", \"executionEngine\": \"job\", \"serviceAccountName\": \"crashloop-rollback-ri[REDACTED]\"}, {\"name\": \"fix-image-reference-v1\", \"version\": \"1.6.0\", \"workflowId\": \"ab5eb886-9a10-53e8-bb41-a2b67ba89499\", \"description\": {\"what\": \"Corrects a Deployment's container image reference by reverting to the last known-good image from rollout history, recovering pods stuck in ImagePullBackOff due to a wrong tag or registry URL\", \"whenToUse\": \"When pods are stuck in ImagePullBackOff or ErrImagePull because the container image reference points to a non-existent tag, a wrong registry URL, or a deleted image. The Deployment has at least one previous revision with a valid image in its ReplicaSet history. Common after botched image promotions, typos in CI/CD pipelines, or premature tag deletions.\", \"whenNotToUse\": \"When the image pull failure is caused by expired or missing ImagePullSecrets (authentication issue) \u2014 use RefreshImagePullSecret instead. When the registry itself is down or rate-limiting \u2014 wait for recovery. When all revisions use the same broken image (no good revision to revert to).\", \"preconditions\": \"The Deployment has at least one previous ReplicaSet with a valid, pullable container image. The registry hosting the known-good image is accessible.\"}, \"workflowName\": \"fix-image-reference-v1\", \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/fix-image-reference-job@sha256:238348684957f4c9aa9826cfb591356051761c6be24333ec05abdf44ad0b6d6d\", \"executionEngine\": \"job\", \"serviceAccountName\": \"fix-image-reference-v1-runner\"}], \"actionType\": \"RollbackDeployment\"}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:16:20+00:00",
+      "model": "claude-haiku-4-5",
+      "prompt_length": "28967",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-09-02T21:16:25+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "10116",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "Excellent! Four RollbackDeployment workflows are available. Let me analyze which one best matches the RCA:\n\n**Workflow Analysis**:\n\n1. **crashloop-rollback-v1** \u2705 **BEST MATCH**\n   - Designed specifically for CrashLoopBackOff caused by pod spec changes (command/args, image, env vars)\n   - Handles exactly our case: \"command/args were modified\"\n   - Precondition: previous healthy revision exists \u2705\n   - Precondition: Deployment target \u2705\n   - Precondition: NOT OOMKilled \u2705\n\n2. **rollback-depl"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-09-02T21:16:25+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": "get_workflow",
+      "tool_call_index": "0",
+      "tool_arguments": "{\"workflow_id\": \"29e9faa9-b00d-50c6-b91f-7a158df6191c\"}",
+      "tool_result": "{\"name\": \"crashloop-rollback-v1\", \"labels\": {\"cluster\": [\"*\"], \"priority\": \"*\", \"severity\": [\"critical\", \"info\"], \"component\": [\"apps/v1/Deployment\"], \"environment\": [\"production\"]}, \"status\": \"Active\", \"content\": \"{\\\"apiVersion\\\":\\\"kubernaut.ai/v1alpha1\\\",\\\"kind\\\":\\\"RemediationWorkflow\\\",\\\"metadata\\\":{\\\"name\\\":\\\"crashloop-rollback-v1\\\"},\\\"spec\\\":{\\\"version\\\":\\\"1.6.0\\\",\\\"description\\\":{\\\"what\\\":\\\"Rolls back a Deployment to its previous revision to recover from CrashLoopBackOff caused by a bad release or pod spec change\\\",\\\"whenToUse\\\":\\\"When a Deployment enters CrashLoopBackOff because its pod spec was modified (image tag, command/args, env vars, volume mount references including ConfigMap name changes in the volume spec, or resource limits) and the previous revision was healthy. This is the correct choice when the Deployment spec itself changed -- rollback reverts the entire pod template to the last known-good revision. Includes cases where the volume references a different ConfigMap name than before (e.g. volumes[].configMap.name was changed).\\\",\\\"whenNotToUse\\\":\\\"When the Deployment spec is completely unchanged and only the content inside a mounted ConfigMap was edited in-place (the volume reference still points to the same ConfigMap name but its data keys were modified) -- rollback cannot revert ConfigMap data. Do not use when the crash is caused by an external dependency failure (database down, network partition) rather than a local spec change. Do not use when the primary signal is ContainerOOMKilling or the container termination reason is OOMKilled -- OOMKill indicates memory pressure, not a bad release or spec regression. Rollback does not change memory limits; use IncreaseMemoryLimits instead for OOM scenarios.\\\",\\\"preconditions\\\":\\\"The Deployment has at least one previous healthy revision in its rollout history. The RCA target must be a Deployment, not a ConfigMap. The container must NOT be terminated with reason OOMKilled.\\\"},\\\"actionType\\\":\\\"RollbackDeployment\\\",\\\"labels\\\":{\\\"severity\\\":[\\\"critical\\\",\\\"info\\\"],\\\"environment\\\":[\\\"production\\\"],\\\"component\\\":[\\\"apps/v1/Deployment\\\"],\\\"priority\\\":\\\"*\\\",\\\"cluster\\\":[\\\"*\\\"]},\\\"execution\\\":{\\\"engine\\\":\\\"job\\\",\\\"bundle\\\":\\\"quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:a1ba466eb15a5964d2a7bbeaf164a312c681593805f768c122e4ea6de829f0d3\\\",\\\"serviceAccountName\\\":\\\"crashloop-rollback-v1-runner\\\"},\\\"parameters\\\":[{\\\"name\\\":\\\"TARGET_RESOURCE_NAMESPACE\\\",\\\"type\\\":\\\"string\\\",\\\"required\\\":true,\\\"description\\\":\\\"Namespace of the affected deployment\\\"},{\\\"name\\\":\\\"TARGET_RESOURCE_NAME\\\",\\\"type\\\":\\\"string\\\",\\\"required\\\":true,\\\"description\\\":\\\"Name of the deployment to roll back\\\"},{\\\"name\\\":\\\"TARGET_RESOURCE_KIND\\\",\\\"type\\\":\\\"string\\\",\\\"required\\\":true,\\\"description\\\":\\\"Must be Deployment\\\"}]}}\", \"version\": \"1.6.0\", \"createdAt\": \"2026-09-02T19:04:44Z\", \"updatedAt\": \"2026-09-02T19:04:44Z\", \"actionType\": \"RollbackDeployment\", \"parameters\": {\"schema\": {\"parameters\": [{\"name\": \"TARGET_RESOURCE_NAMESPACE\", \"type\": \"string\", \"required\": true, \"description\": \"Namespace of the affected deployment\"}, {\"name\": \"TARGET_RESOURCE_NAME\", \"type\": \"string\", \"required\": true, \"description\": \"Name of the deployment to roll back\"}, {\"name\": \"TARGET_RESOURCE_KIND\", \"type\": \"string\", \"required\": true, \"description\": \"Must be Deployment\"}]}}, \"workflowId\": \"29e9faa9-b00d-50c6-b91f-7a158df6191c\", \"contentHash\": \"ce3fcea2c2c30c6f13d170631b13d931672eb842d7117556274527a0ca8ed6a3\", \"description\": {\"what\": \"Rolls back a Deployment to its previous revision to recover from CrashLoopBackOff caused by a bad release or pod spec change\", \"whenToUse\": \"When a Deployment enters CrashLoopBackOff because its pod spec was modified (image tag, command/args, env vars, volume mount references including ConfigMap name changes in the volume spec, or resource limits) and the previous revision was healthy. This is the correct choice when the Deployment spec itself changed -- rollback reverts the entire pod template to the last known-good revision. Includes cases where the volume references a different ConfigMap name than before (e.g. volumes[].configMap.name was changed).\", \"whenNotToUse\": \"When the Deployment spec is completely unchanged and only the content inside a mounted ConfigMap was edited in-place (the volume reference still points to the same ConfigMap name but its data keys were modified) -- rollback cannot revert ConfigMap data. Do not use when the crash is caused by an external dependency failure (database down, network partition) rather than a local spec change. Do not use when the primary signal is ContainerOOMKilling or the container termination reason is OOMKilled -- OOMKill indicates memory pressure, not a bad release or spec regression. Rollback does not change memory limits; use IncreaseMemoryLimits instead for OOM scenarios.\", \"preconditions\": \"The Deployment has at least one previous healthy revision in its rollout history. The RCA target must be a Deployment, not a ConfigMap. The container must NOT be terminated with reason OOMKilled.\"}, \"workflowName\": \"crashloop-rollback-v1\", \"schemaVersion\": \"\", \"detectedLabels\": {}, \"executionBundle\": \"quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:a1ba466eb15a5964d2a7bbeaf164a312c681593805f768c122e4ea6de829f0d3\", \"executionEngine\": \"job\", \"isLatestVersion\": true, \"serviceAccountName\": \"crashloop-rollback-v1-runner\"}",
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:16:25+00:00",
+      "model": "claude-haiku-4-5",
+      "prompt_length": "35668",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-09-02T21:16:36+00:00",
+      "model": null,
+      "prompt_length": null,
+      "tokens_used": "12762",
+      "tool_call_count": "1",
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": "true",
+      "analysis_preview": "Perfect! I have the complete workflow definition. The **crashloop-rollback-v1** workflow requires three parameters:\n- `TARGET_RESOURCE_NAMESPACE`: demo-checkout\n- `TARGET_RESOURCE_NAME`: worker\n- `TARGET_RESOURCE_KIND`: Deployment\n\nNow I'll submit the result with the selected workflow and also identify the alternative workflows for reference."
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-09-02T21:16:36+00:00",
+      "model": "",
+      "prompt_length": "0",
+      "tokens_used": null,
+      "tool_call_count": null,
+      "tool_name": null,
+      "tool_call_index": null,
+      "tool_arguments": null,
+      "tool_result": null,
+      "has_analysis": null,
+      "analysis_preview": null
+    }
+  ],
+  "traceStats": {
+    "totalTokens": 126940,
+    "llmTurns": 12,
+    "totalToolCalls": 13,
+    "k8sToolCalls": 13,
+    "model": "claude-sonnet-5"
+  },
+  "kaResponse": {
+    "analysis": "Deployment worker's second revision (ReplicaSet worker-6cbd6f7457) had its container command overridden with a failing abort script ('echo fatal: bad release 1.1.0 -- aborting && exit 1'), causing immediate pod exit(1) and CrashLoopBackOff. The rollout stalled (ProgressDeadlineExceeded) with the bad ReplicaSet's pod running indefinitely alongside healthy revision 1 pods. The injected command is not present in the kubectl.kubernetes.io/last-applied-configuration annotation, indicating out-of-band mutation rather than tracked deployment.",
+    "warnings": [],
+    "timestamp": "2026-09-02T21:16:36Z",
+    "confidence": 0.95,
+    "incidentId": "rr-54a4d4c99584-61ca63b2",
+    "isActionable": true,
+    "needsHumanReview": false,
+    "selectedWorkflow": {
+      "confidence": 0.95,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "worker",
+        "TARGET_RESOURCE_NAMESPACE": "demo-checkout",
+        "TARGET_RESOURCE_API_VERSION": "apps/v1"
+      },
+      "workflowId": "29e9faa9-b00d-50c6-b91f-7a158df6191c",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/crashloop-rollback-job@sha256:a1ba466eb15a5964d2a7bbeaf164a312c681593805f768c122e4ea6de829f0d3"
+    },
+    "rootCauseAnalysis": {
+      "summary": "Deployment worker's second revision (ReplicaSet worker-6cbd6f7457) had its container command overridden with a failing abort script ('echo fatal: bad release 1.1.0 -- aborting && exit 1'), causing immediate pod exit(1) and CrashLoopBackOff. The rollout stalled (ProgressDeadlineExceeded) with the bad ReplicaSet's pod running indefinitely alongside healthy revision 1 pods. The injected command is not present in the kubectl.kubernetes.io/last-applied-configuration annotation, indicating out-of-band mutation rather than tracked deployment.",
+      "severity": "critical",
+      "reasoning": "",
+      "causalChain": [
+        "Signal: KubePodCrashLooping fired for pod worker-6cbd6f7457-fpx2n in demo-checkout (Deployment/worker).",
+        "Why? Container 'worker' exits immediately with exit code 1 on every start (230 restarts observed, current and previous logs both show 'fatal: bad release 1.1.0 -- aborting').",
+        "Why? The pod's container spec (inherited from ReplicaSet worker-6cbd6f7457, Deployment revision 2) has command overridden to: sh -c 'echo fatal: bad release 1.1.0 -- aborting && exit 1', replacing the normal demo-http-server entrypoint.",
+        "Why? This command is not present in the Deployment's kubectl.kubernetes.io/last-applied-configuration annotation, indicating it was injected into the live Deployment object via a direct edit/patch outside the normal declarative deployment pipeline, simulating/representing a 'bad release 1.1.0' rollout.",
+        "Root cause: An out-of-band modification injected a self-aborting command into the Deployment's revision-2 pod template, and because the Deployment has no automatic rollback on ProgressDeadlineExceeded (rollout has been stuck in 'ReplicaSet worker-6cbd6f7457 has timed out progressing' since 2026-09-02T01:37:42Z), the broken ReplicaSet's pod continues to crash-loop indefinitely instead of being rolled back to the last known-good revision (worker-7b6d74d8b9)."
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "Targeting Deployment/worker because its pod template spec.containers[0].command field is the exact configuration that must be changed (removed or reverted) to stop the crash loop. This is not just the signal-reporting Pod but the owning resource whose spec change (rollback/patch) resolves the issue for all future pods in this ReplicaSet lineage.",
+        "proportionality": "Single Deployment (worker) with one of its two ReplicaSets affected; only 1 of 3 pods is crash-looping. The remediation (revert/patch the container command in Deployment/worker, e.g., roll back to revision 1) is narrowly scoped to the exact misconfigured resource and does not require broader infrastructure changes.",
+        "scopeCompleteness": "Investigated all 3 pods in the namespace (per the pod sampling limit), both ReplicaSets (revision 1 and 2), the Deployment resource and its annotations/status conditions, namespace events, current and previous container logs, and the mounted ConfigMap. No other resources (Services, NetworkPolicies, PVCs) were implicated by the signal or evidence, so they were not further examined. Node conditions were not separately checked since 2 of 3 pods on the same node/cluster are healthy, ruling out node-level issues.",
+        "causalCompleteness": "Traced from the observed CrashLoopBackOff symptom down to the exact injected command string in the pod/ReplicaSet/Deployment spec, and further identified that this command is absent from the Deployment's own last-applied-configuration annotation, proving it was introduced by an out-of-band mutation rather than the normal CI/CD apply. This is the deepest cause reachable via cluster-side evidence; the identity/tool that performed the out-of-band edit is not visible from Kubernetes API objects alone (would require audit logs, which were not accessible with available tools).",
+        "evidenceSufficiency": "All claims are backed by tool output: pods_list_in_namespace, events_list, resources_get (Deployment), resources_list (ReplicaSets), pods_log/previous logs, pods_get (full pod spec/status), and resources_get (ConfigMap). No permission errors were encountered. The only unverifiable claim (stated as such, not asserted as fact) is the identity/mechanism of who/what performed the out-of-band edit to inject the command \u2014 this would require API server audit logs, which were not queried/available via current toolset.",
+        "regressionAwareness": "get_namespaced_resource_context reported remediation_history with tier1: [] and tier2: [] and regression_detected: false \u2014 no prior remediation attempts exist for this target, so there is no known failed-remediation pattern to avoid.",
+        "alternativeHypotheses": "Considered: (1) ConfigMap misconfiguration \u2014 ruled out, worker-config contains valid healthy routes and is correctly mounted, and the crash occurs at process start (echo/exit) before app code or config would even be read. (2) Resource limits/OOMKill \u2014 ruled out, exit code is 1 (Error) not 137 (OOMKilled), and resource requests/limits are unchanged and modest. (3) Image pull/registry issue \u2014 ruled out, events show image successfully 'Pulled'/'already present on machine'. (4) Liveness/readiness probe misconfiguration \u2014 ruled out, container never reaches a running state long enough for probes to be the cause; the command itself terminates the process immediately.",
+        "confidenceCalibration": "0.9: Started at 1.0. -0.05 because the exact actor/mechanism that injected the bad command into the live Deployment object could not be verified (no access to API audit logs). -0.05 because this pattern (self-aborting echo command referencing a fictitious 'release 1.1.0') strongly suggests an intentionally-injected demo/chaos fault rather than a naturally-occurring production bug, which is inferred from evidence but not explicitly confirmed by a chaos-engineering tool or annotation."
+      },
+      "reasoningRedacted": false,
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-checkout"
+      },
+      "contributingFactors": [
+        "Container command overridden with explicit abort/failure script via out-of-band patch",
+        "No automatic rollback policy configured on Deployment",
+        "Rollout stalled (ProgressDeadlineExceeded) with broken ReplicaSet replica running indefinitely",
+        "RollingUpdate strategy allowed bad revision to create live pod before failing"
+      ]
+    },
+    "alternativeWorkflows": [
+      {
+        "rationale": "rollback-deployment-v1 is also applicable as it handles stuck rollouts with ProgressDeadlineSeconds exceeded. Our Deployment exhibits ProgressDeadlineExceeded status since 2026-09-02T01:37:42Z, meeting the preconditions. However, crashloop-rollback-v1 is more specialized for spec-change induced CrashLoopBackOff scenarios.",
+        "confidence": 0.85,
+        "workflowId": "58246f70-094e-59bc-97b9-4709fe9915c8"
+      },
+      {
+        "rationale": "crashloop-rollback-risk-v1 could apply as a safety-focused alternative, but our incident has medium risk tolerance (not low) and the root cause is clearly a Deployment spec change (not ConfigMap content), making it less optimal than crashloop-rollback-v1.",
+        "confidence": 0.7,
+        "workflowId": "810ce7af-e2f2-5976-8b3a-fba16c1660e3"
+      }
+    ]
+  },
+  "effectivenessAssessment": {
+    "metricsScore": null,
+    "alertScore": null,
+    "healthScore": 1
+  }
+}

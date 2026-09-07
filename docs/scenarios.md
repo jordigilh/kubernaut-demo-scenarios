@@ -49,7 +49,7 @@ All 38 scenarios run single-cluster (`run.sh` → `local/run.sh`) by default -- 
 | Column | Meaning |
 |--------|---------|
 | **Kind** | Validated on a local Kind cluster (Linux and macOS, unless noted). |
-| **Fleet** | Validated in fleet mode: a hub cluster runs the Kubernaut control plane, a separate spoke cluster runs the demo workload (`HUB_KUBECONFIG`/`SPOKE_KUBECONFIG`). ✅ fully verified end-to-end · ⚠️ fleet code exists but the scenario's defining signal/narrative doesn't fully come through (see linked issue) · ❌ no fleet split written · — not applicable. |
+| **Fleet** | Validated in fleet mode: a hub cluster runs the Kubernaut control plane, a separate spoke cluster runs the demo workload. Requires `--fleet` plus `HUB_KUBECONFIG`/`SPOKE_KUBECONFIG` (hard error if either is missing). ✅ fully verified end-to-end · ⚠️ fleet code exists but the scenario's defining signal/narrative doesn't fully come through (see linked issue) · ❌ no fleet split written · — not applicable. Every ✅/⚠️ scenario except `resource-contention` ([#423](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/423)) and `gitops-drift` ([kubernaut#2326](https://github.com/jordigilh/kubernaut/issues/2326)) now drives the **full remediation pipeline** on the hub (`--auto-approve`/`--interactive`, `--alert-only` stops early) via the shared `fleet_drive_pipeline` helper -- live-verified end-to-end for `crashloop`; the rest share the identical mechanism, unverified individually. Those two remain alert-only for scenario-specific reasons (see their own `fleet/hub.sh`). |
 | **OCP** | Validated on real OpenShift. ⚠️ = manifests/overlay exist but no golden transcript or overnight-validation record exists yet -- never actually run. |
 
 ## Approval Legend

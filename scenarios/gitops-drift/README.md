@@ -159,6 +159,29 @@ kubectl patch rar "rar-${RR}" -n kubernaut-system --type=merge \
   --subresource=status -p '{"status":{"decision":"Approved"}}'
 ```
 
+### Fleet Mode
+
+Runs the workload on a separate **spoke** cluster while Gitea + ArgoCD (and the rest of
+the Kubernaut control plane) run on a **hub** cluster. Requires the `--fleet` flag plus
+both kubeconfig env vars (passing `--fleet` without either is a hard error):
+
+```bash
+export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config       # e.g. from `make setup-fleet-demo-infra`
+export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
+
+./scenarios/gitops-drift/run.sh --fleet
+```
+
+Unlike every other fleet-verified scenario, fleet mode here stops after confirming the
+`KubePodCrashLooping` alert reaches the hub's Alertmanager -- `--interactive`/
+`--auto-approve` have no effect. This topology (signal on the spoke, GitOps/Gitea/ArgoCD
+on the hub) is exactly the case `RemediationWorkflow.spec.execution.clusterId`
+([kubernaut#2326](https://github.com/jordigilh/kubernaut/issues/2326)) was added for --
+the `git-revert-v2` workflow's Job should run on the hub (it holds the Gitea credentials),
+not the spoke. Fleet mode doesn't create a WorkflowExecution in alert-only mode though, so
+that field itself isn't exercised here; this only proves the cross-cluster ArgoCD sync
+half of the topology. See `fleet/hub.sh` for details.
+
 ### Manual Step-by-Step
 
 #### 1. Install GitOps Infrastructure

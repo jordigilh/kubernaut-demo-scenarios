@@ -2,7 +2,7 @@
 # Operator OOMKill from Informer Cache Flooding -- Dispatcher
 # Based on kubeflow/spark-operator#2878.
 #
-# Usage: ./scenarios/operator-oomkill-informer/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
+# Usage: ./scenarios/operator-oomkill-informer/run.sh [--fleet] [--auto-approve|--interactive|--alert-only|--no-validate]
 #
 # Single cluster (default): runs local/run.sh (OCP-only -- see local/run.sh and
 # README for PrometheusRule namespace assumptions).
@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
-if is_fleet_mode; then
+if fleet_dispatch_requested "$@"; then
     exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
 else
     exec bash "${SCRIPT_DIR}/local/run.sh" "$@"

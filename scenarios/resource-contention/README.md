@@ -132,6 +132,25 @@ export PLATFORM=ocp
 The validate.sh checks the first cycle only (Completed/Remediated). The full
 multi-cycle escalation takes 15-20 minutes and can be observed manually.
 
+### Fleet Mode
+
+Runs the workload on a separate **spoke** cluster while the Kubernaut control plane runs
+on a **hub** cluster. Requires the `--fleet` flag plus both kubeconfig env vars (passing
+`--fleet` without either is a hard error):
+
+```bash
+export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config       # e.g. from `make setup-fleet-demo-infra`
+export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
+
+./scenarios/resource-contention/run.sh --fleet
+```
+
+Fleet mode stops after confirming the `ContainerOOMKilling` alert reaches the hub's
+Alertmanager -- `--interactive`/`--auto-approve` have no effect. The external-actor
+revert loop and ineffective-remediation-chain escalation this scenario demonstrates need
+the full multi-cycle pipeline, single-cluster only today. See
+[kubernaut-demo-scenarios#423](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/423).
+
 ### Manual Step-by-Step
 
 #### 1. Deploy

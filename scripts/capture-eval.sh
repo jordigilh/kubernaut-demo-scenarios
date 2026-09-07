@@ -195,6 +195,18 @@ spec = aa.get('spec', {})
 status = aa.get('status', aa)  # DB event_data has fields at top level
 signal = spec.get('analysisRequest', {}).get('signalContext', {})
 
+# The AIAnalysis CRD status has since been restructured to group RCA/workflow
+# fields under status.rcaResult, approval fields under status.approval, and
+# review fields under status.review (found live, 2026-09-02: a successful
+# fleet crashloop capture came back with rootCauseAnalysis/selectedWorkflow/
+# etc. all null because this script still read the old flat status.* shape).
+# DB-reconstructed event_data (the _AA_FROM_DB path below) still uses the
+# flat shape, so fall back to it when the nested groups are absent.
+rca_result = status.get('rcaResult', {})
+approval = status.get('approval', {})
+review = status.get('review', {})
+investigation_meta = status.get('investigationMetadata', {})
+
 result = {
     'remediationId': spec.get('remediationId'),
     'signal': {
@@ -206,19 +218,19 @@ result = {
     },
     'investigation': {
         'sessionId': status.get('investigationSession', {}).get('id'),
-        'durationMs': status.get('investigationTime'),
+        'durationMs': investigation_meta.get('investigationTime', status.get('investigationTime')),
         'pollCount': status.get('investigationSession', {}).get('pollCount'),
     },
-    'rootCauseAnalysis': status.get('rootCauseAnalysis'),
-    'rootCauseSummary': status.get('rootCause'),
+    'rootCauseAnalysis': rca_result.get('rootCauseAnalysis', status.get('rootCauseAnalysis')),
+    'rootCauseSummary': rca_result.get('rootCause', status.get('rootCause')),
     'postRCAContext': status.get('postRCAContext', {}).get('detectedLabels'),
-    'selectedWorkflow': status.get('selectedWorkflow'),
-    'alternativeWorkflows': status.get('alternativeWorkflows'),
-    'actionability': status.get('actionability'),
-    'approvalRequired': status.get('approvalRequired'),
-    'approvalReason': status.get('approvalReason'),
-    'needsHumanReview': status.get('needsHumanReview'),
-    'humanReviewReason': status.get('humanReviewReason'),
+    'selectedWorkflow': rca_result.get('selectedWorkflow', status.get('selectedWorkflow')),
+    'alternativeWorkflows': rca_result.get('alternativeWorkflows', status.get('alternativeWorkflows')),
+    'actionability': rca_result.get('actionability', status.get('actionability')),
+    'approvalRequired': approval.get('approvalRequired', status.get('approvalRequired')),
+    'approvalReason': approval.get('approvalReason', status.get('approvalReason')),
+    'needsHumanReview': review.get('needsHumanReview', status.get('needsHumanReview')),
+    'humanReviewReason': review.get('humanReviewReason', status.get('humanReviewReason')),
     'phase': status.get('phase'),
 }
 
@@ -433,7 +445,12 @@ print(r.get('status',{}).get('overallPhase',''))
     RR_OUTCOME=$(echo "$RR_JSON" | python3 -c "
 import json, sys
 r = json.load(sys.stdin)
-print(r.get('status',{}).get('outcome',''))
+status = r.get('status', {})
+# RemediationRequest CRD status has since nested outcome under
+# status.completionStatus.outcome (found live, 2026-09-02: status.outcome
+# came back empty for a Completed/Remediated fleet crashloop RR). Fall back
+# to the old flat field for older captures.
+print(status.get('completionStatus', {}).get('outcome', status.get('outcome', '')))
 ")
 else
     echo "  WARN: RR $RR_NAME not found on cluster. Inferring phase from DB..."

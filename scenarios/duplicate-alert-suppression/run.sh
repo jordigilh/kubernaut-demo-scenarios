@@ -2,7 +2,7 @@
 # Duplicate Alert Suppression Demo -- Dispatcher
 # Scenario #170: Alert storm (5 pods crash) -> Gateway deduplicates to 1 RR
 #
-# Usage: ./scenarios/duplicate-alert-suppression/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
+# Usage: ./scenarios/duplicate-alert-suppression/run.sh [--fleet] [--auto-approve|--interactive|--alert-only|--no-validate]
 #
 # Single cluster (default): runs local/run.sh -- full pipeline against one
 # Kubernaut cluster, as documented there.
@@ -18,7 +18,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
-if is_fleet_mode; then
+if fleet_dispatch_requested "$@"; then
     exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
 else
     exec bash "${SCRIPT_DIR}/local/run.sh" "$@"

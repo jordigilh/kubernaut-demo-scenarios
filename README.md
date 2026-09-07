@@ -381,21 +381,27 @@ fault, and confirms the fix on one cluster. **Fleet mode** instead splits that a
 clusters -- a **hub** running the Kubernaut control plane, and a separate **spoke** running
 the demo workload -- to demonstrate remote/multi-cluster investigation.
 
-Fleet mode is opt-in and detected via two environment variables; every scenario's default
-single-cluster behavior is completely unaffected when they're unset:
+Fleet mode is opt-in and explicit at the CLI via `--fleet`, validated against two
+environment variables (passing `--fleet` without both set is a hard error listing
+whichever is missing); every scenario's default single-cluster behavior is completely
+unaffected when `--fleet` isn't passed, even if the env vars happen to be set:
 
 ```bash
 export HUB_KUBECONFIG=~/tmp/hub.yaml     # cluster running the Kubernaut control plane
 export SPOKE_KUBECONFIG=~/tmp/spoke.yaml # cluster running the demo workload
 
-./scenarios/crashloop/run.sh
+./scenarios/crashloop/run.sh --fleet
 ```
 
-Fleet mode currently only confirms that the alert reaches Alertmanager on the hub -- it
-does not exercise the full remediation loop. See the **Fleet** column in the
-[Scenario Catalog](docs/scenarios.md) for which of the 38 scenarios support it, and
+Most fleet-aware scenarios now run the **full remediation pipeline** on the hub, same as
+single-cluster mode -- `--auto-approve` (default) or `--interactive` drive it through to
+completion, `--alert-only` stops right after the alert reaches the hub's Alertmanager. Two
+scenarios (`resource-contention`, `gitops-drift`) remain alert-only only, for
+scenario-specific reasons documented in their own `fleet/hub.sh`. See the **Fleet** column
+in the [Scenario Catalog](docs/scenarios.md) for which of the 38 scenarios support it, and
 [`scripts/fleet-helper.sh`](scripts/fleet-helper.sh) for the shared plumbing
-(`fleet_deploy_workload`, `fleet_wait_for_alert`, `fleet_ensure_scrape_job`, etc.).
+(`fleet_dispatch_requested`, `fleet_deploy_workload`, `fleet_wait_for_alert`,
+`fleet_drive_pipeline`, `fleet_ensure_scrape_job`, etc.).
 
 ## Shadow Agent (Alignment Check)
 
