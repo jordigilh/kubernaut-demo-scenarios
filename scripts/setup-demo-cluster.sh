@@ -1,35 +1,34 @@
 #!/usr/bin/env bash
-# Setup the full Kubernaut demo environment in a Kind cluster.
+# Set up demo dependencies and catalog content on an existing cluster.
 #
-# Installs: Kind cluster, monitoring stack, Kubernaut platform (Helm),
-# infrastructure dependencies (cert-manager, metrics-server, Istio,
-# blackbox-exporter, Gitea, ArgoCD), and seeds the workflow catalog.
+# The upstream Kubernaut repository owns cluster and core-platform bootstrap.
+# This script installs the remaining demo dependencies and seeds policies,
+# ActionTypes, and RemediationWorkflows. In fleet mode, all control-plane
+# resources are applied to HUB_KUBECONFIG; the spoke is never used for
+# credentials or catalog content.
 #
 # Usage:
 #   ./scripts/setup-demo-cluster.sh
-#   ./scripts/setup-demo-cluster.sh --create-cluster
 #   ./scripts/setup-demo-cluster.sh --skip-infra
-#   ./scripts/setup-demo-cluster.sh --kind-config path/to/config.yaml
+#   ./scripts/setup-demo-cluster.sh --with-awx
 #
-# After setup, run any scenario directly:
-#   ./scenarios/crashloop/run.sh
+# Local setup uses the ambient KUBECONFIG. Fleet setup requires:
+#   HUB_KUBECONFIG=/path/to/hub.yaml \
+#   SPOKE_KUBECONFIG=/path/to/spoke.yaml \
+#   ./scripts/setup-demo-cluster.sh
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIOS_DIR="${SCRIPT_DIR}/../scenarios"
 
-CREATE_FLAG=""
 SKIP_INFRA=false
 WITH_AWX=false
-KIND_CONFIG="${SCENARIOS_DIR}/kind-config-multinode.yaml"
+FLEET_MODE=false
 export CHART_VERSION="${CHART_VERSION:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --create-cluster)
-            CREATE_FLAG="--create-cluster"
-            shift
-            ;;
         --skip-infra)
             SKIP_INFRA=true
             shift
@@ -38,24 +37,21 @@ while [[ $# -gt 0 ]]; do
             WITH_AWX=true
             shift
             ;;
-        --kind-config)
-            KIND_CONFIG="$2"
-            shift 2
-            ;;
         --chart-version)
             CHART_VERSION="$2"
             export CHART_VERSION
             shift 2
             ;;
         --help|-h)
-            echo "Usage: $0 [--create-cluster] [--skip-infra] [--with-awx] [--kind-config PATH] [--chart-version VERSION]"
+            echo "Usage: $0 [--skip-infra] [--with-awx] [--chart-version VERSION]"
+            echo ""
+            echo "The cluster must already be bootstrapped. Local mode uses KUBECONFIG;"
+            echo "fleet mode requires HUB_KUBECONFIG and SPOKE_KUBECONFIG."
             echo ""
             echo "Options:"
-            echo "  --create-cluster      Force-recreate the Kind cluster (deletes existing)"
-            echo "  --skip-infra          Skip optional infrastructure (cert-manager, Gitea, etc.)"
+            echo "  --skip-infra          Skip optional demo dependencies (Gitea, ArgoCD, etc.)"
             echo "  --with-awx            Install AWX Operator for Ansible engine demos (#312)"
-            echo "  --kind-config PATH    Override Kind cluster config (default: multinode)"
-            echo "  --chart-version VER   Pin Helm chart version (e.g. 1.4.0); required for pre-release tags"
+            echo "  --chart-version VER   Pin the Kubernaut chart version"
             exit 0
             ;;
         *)
@@ -65,6 +61,19 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+if [ -n "${HUB_KUBECONFIG:-}" ] || [ -n "${SPOKE_KUBECONFIG:-}" ]; then
+    if [ -z "${HUB_KUBECONFIG:-}" ] || [ -z "${SPOKE_KUBECONFIG:-}" ]; then
+        echo "ERROR: fleet setup requires both HUB_KUBECONFIG and SPOKE_KUBECONFIG."
+        exit 1
+    fi
+    FLEET_MODE=true
+    export KUBECONFIG="${HUB_KUBECONFIG}"
+elif [ -z "${KUBECONFIG:-}" ]; then
+    echo "ERROR: KUBECONFIG must identify an existing local cluster."
+    echo "       For fleet setup, set HUB_KUBECONFIG and SPOKE_KUBECONFIG."
+    exit 1
+fi
+
 TOTAL_START=$(date +%s)
 
 echo "============================================="
@@ -72,62 +81,58 @@ echo " Kubernaut Demo Environment Setup"
 echo "============================================="
 echo ""
 
-# ── 1. Kind cluster ─────────────────────────────────────────────────────────
-
-echo "==> Phase 1: Kind cluster"
-# shellcheck source=kind-helper.sh
-source "${SCRIPT_DIR}/kind-helper.sh"
-ensure_kind_cluster "${KIND_CONFIG}" "${CREATE_FLAG}"
-echo "  Using kubeconfig: ${KUBECONFIG}"
-echo ""
-
-# ── 2. Monitoring stack ─────────────────────────────────────────────────────
-
-echo "==> Phase 2: Monitoring stack"
-# shellcheck source=monitoring-helper.sh
-source "${SCRIPT_DIR}/monitoring-helper.sh"
-ensure_monitoring_stack
-echo ""
-
-# ── 3. Infrastructure dependencies (non-Kubernaut) ──────────────────────────
-
-if [ "$SKIP_INFRA" = false ]; then
-    echo "==> Phase 3: Infrastructure dependencies"
-
-    echo "--- cert-manager ---"
-    ensure_cert_manager
-    echo ""
-
-    echo "--- metrics-server ---"
-    ensure_metrics_server
-    echo ""
-
-    echo "--- Istio ---"
-    ensure_istio
-    echo ""
-
-    echo "--- blackbox-exporter ---"
-    ensure_blackbox_exporter
-    echo ""
+if [ "$FLEET_MODE" = true ]; then
+    echo "==> Fleet mode: configuring hub ${HUB_KUBECONFIG}"
+    echo "    Spoke remains available at ${SPOKE_KUBECONFIG} for scenario runners."
 else
-    echo "==> Phase 3: Skipping infrastructure dependencies (--skip-infra)"
-    echo ""
+    echo "==> Local mode: configuring ${KUBECONFIG}"
 fi
+echo ""
 
-# ── 4. Kubernaut platform ───────────────────────────────────────────────────
-# Install before Gitea/ArgoCD because the Helm chart creates the
-# kubernaut-workflows namespace that ArgoCD setup provisions secrets into.
+# ── 1. Existing platform ────────────────────────────────────────────────────
 
-echo "==> Phase 4: Kubernaut platform (Helm)"
+echo "==> Phase 1: Kubernaut platform"
 # shellcheck source=platform-helper.sh
 source "${SCRIPT_DIR}/platform-helper.sh"
 ensure_platform
 echo ""
 
-# ── 4b. GitOps infrastructure (depends on kubernaut-workflows namespace) ────
+# Upstream's fleet bootstrap owns the hub/spoke monitoring and fleet services.
+# The local bootstrap path may still need the shared demo dependencies.
+if [ "$FLEET_MODE" = false ]; then
+    # ── 2. Local monitoring and infrastructure dependencies ─────────────────
+    if [ "$SKIP_INFRA" = false ]; then
+        echo "==> Phase 2: Monitoring stack"
+        # shellcheck source=monitoring-helper.sh
+        source "${SCRIPT_DIR}/monitoring-helper.sh"
+        ensure_monitoring_stack
+        echo ""
+
+        echo "==> Phase 3: Infrastructure dependencies"
+        echo "--- cert-manager ---"
+        ensure_cert_manager
+        echo ""
+        echo "--- metrics-server ---"
+        ensure_metrics_server
+        echo ""
+        echo "--- Istio ---"
+        ensure_istio
+        echo ""
+        echo "--- blackbox-exporter ---"
+        ensure_blackbox_exporter
+        echo ""
+    else
+        echo "==> Phases 2-3: Skipping local infrastructure (--skip-infra)"
+        echo ""
+    fi
+fi
+
+# ── 2/4. GitOps infrastructure ─────────────────────────────────────────────
+# In fleet mode this entire phase runs against the hub. The spoke must never
+# receive the repository credential.
 
 if [ "$SKIP_INFRA" = false ]; then
-    echo "==> Phase 4b: GitOps infrastructure"
+    echo "==> GitOps infrastructure (hub/control-plane context)"
 
     echo "--- Gitea ---"
     if kubectl get namespace gitea &>/dev/null; then
@@ -142,10 +147,10 @@ if [ "$SKIP_INFRA" = false ]; then
     echo ""
 fi
 
-# ── 4c. AWX for Ansible engine demos (optional) ─────────────────────────────
+# ── Optional AWX ─────────────────────────────────────────────────────────────
 
 if [ "$WITH_AWX" = true ] && [ "$SKIP_INFRA" = false ]; then
-    echo "==> Phase 4c: AWX (Ansible engine)"
+    echo "==> AWX (Ansible engine)"
     if kubectl get deployment -n kubernaut-system -l app.kubernetes.io/managed-by=awx-operator --no-headers 2>/dev/null | grep -q .; then
         echo "  AWX already installed."
     else
@@ -154,40 +159,31 @@ if [ "$WITH_AWX" = true ] && [ "$SKIP_INFRA" = false ]; then
     echo ""
 fi
 
-# ── 5. Seed action types + workflow catalog ─────────────────────────────────
+# ── Catalog and policy content ──────────────────────────────────────────────
 
-echo "==> Phase 5a: Seeding ActionType CRDs (must exist before workflows)"
+echo "==> Seeding policy ConfigMaps"
+bash "${SCRIPT_DIR}/seed-policies.sh"
+echo ""
+
+echo "==> Seeding ActionType CRDs (must exist before workflows)"
 bash "${SCRIPT_DIR}/seed-action-types.sh" --continue-on-error --skip-wait
 echo ""
 
-echo "==> Phase 5b: Seeding workflow catalog"
-
-DS_PORT_FORWARD_PID=""
-cleanup_port_forward() {
-    if [ -n "$DS_PORT_FORWARD_PID" ]; then
-        kill "$DS_PORT_FORWARD_PID" 2>/dev/null || true
-    fi
-}
-trap cleanup_port_forward EXIT
-
-if ! curl -sf -o /dev/null --connect-timeout 2 "http://localhost:30081/healthz" 2>/dev/null; then
-    echo "  Starting DataStorage port-forward..."
-    kubectl port-forward -n kubernaut-system svc/data-storage-service 30081:8081 >/dev/null 2>&1 &
-    DS_PORT_FORWARD_PID=$!
-    sleep 3
-fi
-
+echo "==> Seeding workflow catalog"
 bash "${SCRIPT_DIR}/seed-workflows.sh" --continue-on-error
 echo ""
 
-# ── 6. Final validation ────────────────────────────────────────────────────
+# ── Final validation ─────────────────────────────────────────────────────────
 
-echo "==> Phase 6: Final readiness validation"
+echo "==> Final readiness validation"
 echo ""
 
-NAMESPACES=("kubernaut-system" "monitoring")
+NAMESPACES=("kubernaut-system" "kubernaut-workflows")
 if [ "$SKIP_INFRA" = false ]; then
-    NAMESPACES+=("cert-manager" "istio-system" "gitea" "argocd")
+    NAMESPACES+=("gitea" "$(get_argocd_namespace)")
+    if [ "$FLEET_MODE" = false ]; then
+        NAMESPACES+=("monitoring" "cert-manager" "istio-system")
+    fi
 fi
 
 all_ready=true
@@ -210,6 +206,16 @@ for ns in "${NAMESPACES[@]}"; do
         fi
     done
 done
+
+if [ "$FLEET_MODE" = true ]; then
+    if kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get secret gitea-repo-creds \
+        -n kubernaut-workflows &>/dev/null; then
+        echo "  ERROR: gitea-repo-creds must not exist on the spoke."
+        all_ready=false
+    else
+        echo "  OK: gitea-repo-creds is absent from the spoke."
+    fi
+fi
 
 TOTAL_END=$(date +%s)
 TOTAL_DURATION=$((TOTAL_END - TOTAL_START))

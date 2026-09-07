@@ -34,6 +34,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NAMESPACE="${PLATFORM_NS:-kubernaut-system}"
 
+if [ -n "${HUB_KUBECONFIG:-}" ] || [ -n "${SPOKE_KUBECONFIG:-}" ]; then
+    if [ -z "${HUB_KUBECONFIG:-}" ] || [ -z "${SPOKE_KUBECONFIG:-}" ]; then
+        echo "ERROR: fleet seeding requires both HUB_KUBECONFIG and SPOKE_KUBECONFIG." >&2
+        exit 1
+    fi
+    export KUBECONFIG="${HUB_KUBECONFIG}"
+    echo "==> Fleet mode: targeting policy ConfigMaps at hub ${HUB_KUBECONFIG}"
+fi
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --namespace)

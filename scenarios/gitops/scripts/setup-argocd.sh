@@ -133,13 +133,21 @@ if [ "$PLATFORM" != "ocp" ]; then
     kill_stale_gitea_pf 2>/dev/null || true
     kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
     _WEBHOOK_PF_PID=$!
+    cleanup_webhook_pf() {
+        if [ -n "${_WEBHOOK_PF_PID:-}" ]; then
+            kill "${_WEBHOOK_PF_PID}" 2>/dev/null || true
+            _WEBHOOK_PF_PID=""
+        fi
+    }
+    trap cleanup_webhook_pf EXIT
     wait_for_port "${GITEA_LOCAL_PORT}"
 
     GITEA_API="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}"
 
     EXISTING_HOOKS=$(curl -sf "${GITEA_API}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" 2>/dev/null || echo "[]")
-    if echo "${EXISTING_HOOKS}" | grep -q "${ARGOCD_WEBHOOK_URL}"; then
-        echo "  Webhook already exists, skipping."
+    if python3 -c 'import json, sys; url = sys.argv[1]; hooks = json.load(sys.stdin); raise SystemExit(0 if any(h.get("active") and h.get("config", {}).get("url") == url for h in hooks) else 1)' \
+        "${ARGOCD_WEBHOOK_URL}" <<<"${EXISTING_HOOKS}"; then
+        echo "  Active webhook already exists, skipping."
     else
         HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
           -X POST "${GITEA_API}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" \
@@ -156,11 +164,14 @@ if [ "$PLATFORM" != "ocp" ]; then
         if [ "$HTTP_CODE" = "201" ]; then
             echo "  Webhook created successfully."
         else
-            echo "  WARNING: Failed to create webhook (HTTP ${HTTP_CODE}). ArgoCD will fall back to polling."
+            echo "  ERROR: Failed to create required Gitea webhook (HTTP ${HTTP_CODE})." >&2
+            echo "  Refusing to continue without push-triggered ArgoCD reconciliation." >&2
+            exit 1
         fi
     fi
 
-    kill "$_WEBHOOK_PF_PID" 2>/dev/null || true
+    cleanup_webhook_pf
+    trap - EXIT
 fi
 
 echo "==> ArgoCD setup complete (platform: ${PLATFORM})"
