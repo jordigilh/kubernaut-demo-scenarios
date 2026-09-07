@@ -88,4 +88,4 @@ Delete the entire Kind cluster:
 kind delete cluster --name kubernaut-demo
 ```
 
-This removes all resources. To recreate, run `./scripts/setup-demo-cluster.sh` again (see [Create the Cluster](setup.md#create-the-cluster)).
+This removes all resources. Recreate the cluster with the upstream Kubernaut bootstrap target, then run `./scripts/setup-demo-cluster.sh` again (see [Bootstrap and Configure](setup.md#create-the-cluster)).

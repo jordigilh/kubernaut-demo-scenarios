@@ -61,22 +61,41 @@ cp helm/sdk-config.yaml.example ~/.kubernaut/sdk-config.yaml
 
 See the [LLM Provider Configuration](docs/setup.md#llm-provider-configuration) guide for all supported providers: Vertex AI, Anthropic, OpenAI, and local models (Ollama, vLLM, LM Studio).
 
-### 4. Create the cluster
+### 4. Bootstrap the cluster
 
 <details>
-<summary><strong>Option A: New Kind cluster</strong> (recommended for first-time users)</summary>
+<summary><strong>Option A: Kind environment</strong> (recommended for first-time users)</summary>
 
-This creates a Kind cluster, installs monitoring (Prometheus, Grafana), deploys the Kubernaut platform, and seeds the workflow catalog post-install (ActionTypes and RemediationWorkflows are applied after the authwebhook is ready). Takes ~10 minutes on first run:
+Use the upstream Kubernaut bootstrap target to create and install the core environment. For fleet:
+
+```bash
+cd /path/to/kubernaut
+make setup-fleet-demo-infra
+```
+
+For a single local Kind cluster, use upstream's `make setup-local-infra` target when available. Then return to this repository and run the demo setup step below.
+
+Set the kubeconfigs for the environment you bootstrapped:
+
+```bash
+# Local:
+export KUBECONFIG=~/.kube/<local-kubeconfig>
+
+# Fleet:
+export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config
+export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
+export FLEET_EXECUTION_CLUSTER_ID=hub
+```
+
+Run the demo setup script to install Gitea/ArgoCD as needed and seed the policies, ActionTypes, and RemediationWorkflows:
 
 ```bash
 ./scripts/setup-demo-cluster.sh
 ```
 
-> **Pre-release charts:** Helm's OCI resolver skips pre-release tags by default. To install a specific version (e.g. `1.4.0`), pass `--chart-version`:
->
-> ```bash
-> ./scripts/setup-demo-cluster.sh --chart-version 1.4.0
-> ```
+In fleet mode, the script targets the hub for all control-plane resources and keeps `gitea-repo-creds` off the spoke. The Kind GitOps setup also requires the Gitea push webhook to ArgoCD; setup fails if the hook cannot be created.
+
+> **Pre-release charts:** Chart version selection belongs to the upstream bootstrap target. Follow the upstream Kubernaut setup documentation for pinned versions.
 
 </details>
 

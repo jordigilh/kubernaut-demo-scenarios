@@ -15,11 +15,11 @@ Two scenarios have detailed write-ups capturing real LLM decision-making observe
 
 ## Dependencies
 
-Some scenarios require additional components beyond the base platform. All dependencies are installed by [`setup-demo-cluster.sh`](setup.md#create-the-cluster) (use `--skip-infra` to skip optional ones, `--with-awx` for AWX). If a scenario's `run.sh` detects a missing dependency, it exits with a clear error message.
+Some scenarios require additional components beyond the base platform. Bootstrap the cluster with the upstream Kubernaut setup target, then run [`setup-demo-cluster.sh`](setup.md#create-the-cluster) for repository-owned dependencies and catalog content. Use `--skip-infra` to skip optional demo dependencies and `--with-awx` for AWX. If a scenario's `run.sh` detects a missing dependency, it exits with a clear error message.
 
 | Dependency | Scenarios | Notes |
 |------------|-----------|-------|
-| [**kube-prometheus-stack**](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) | All scenarios | Installed by `setup-demo-cluster.sh` |
+| [**kube-prometheus-stack**](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) | All scenarios | Provided by the upstream local/fleet bootstrap or an existing cluster |
 | [**metrics-server**](https://github.com/kubernetes-sigs/metrics-server) | hpa-maxed, autoscale | Required for HPA CPU metrics |
 | [**cert-manager**](https://cert-manager.io/docs/installation/) | cert-failure | Certificate lifecycle management |
 | [**Istio**](https://istio.io/latest/docs/setup/getting-started/) | mesh-routing-failure | Service mesh control plane |
