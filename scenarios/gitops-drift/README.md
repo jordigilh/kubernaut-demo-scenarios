@@ -184,6 +184,23 @@ cluster -- a security decision (credentials never leave the hub), not a limitati
 ArgoCD then reconciles the reverted state back onto the spoke. See `fleet/hub.sh`
 for details.
 
+#### Overriding the execution cluster (`FLEET_EXECUTION_CLUSTER_ID`)
+
+The `git-revert-v2` workflow's `execution.clusterId` defaults to `hub` (seeded by
+`scripts/seed-workflows.sh`). To run the revert Job on a different execution
+cluster instead, export the override **before** seeding:
+
+```bash
+export FLEET_EXECUTION_CLUSTER_ID=spoke
+bash scripts/setup-demo-cluster.sh   # or: bash scripts/seed-workflows.sh
+```
+
+The override is read once at seed time and baked into the catalog
+`RemediationWorkflow`; re-seed after changing it. Unset (or empty) means the
+`hub` default. Keep it on `hub` unless you have a reason: the Gitea
+credentials live there, and moving execution elsewhere moves the credentials
+with it.
+
 ### Manual Step-by-Step
 
 #### 1. Install GitOps Infrastructure

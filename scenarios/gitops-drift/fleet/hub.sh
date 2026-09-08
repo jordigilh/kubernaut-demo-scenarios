@@ -7,8 +7,10 @@
 # ArgoCD syncs the web-frontend Application onto the SPOKE as a registered
 # remote cluster -- real cross-cluster sync over the wire, not a
 # simulation. Run fleet/spoke.sh first (or use ../run.sh, which runs both
-# in order for the common single-spoke case) so kube-state-metrics and the
-# raw Prometheus rule are in place before pods land there.
+# in order for the common single-spoke case) so kube-state-metrics is in
+# place before pods land there. Monitoring resources (PrometheusRule +
+# ServiceMonitor) are part of the Application payload below, so they stay
+# ArgoCD-managed.
 #
 # This exercises the topology kubernaut#2326 (RemediationWorkflow.spec.
 # execution.clusterId) exists for: target cluster (signal origin) = spoke,
@@ -186,6 +188,64 @@ spec:
     targetPort: 8080
     name: http
 SVC_EOF
+
+# Monitoring travels with the Application (ArgoCD-managed, never applied
+# imperatively): the PrometheusRule the hub waits on, plus the
+# ServiceMonitor matching the kubernaut.ai/metrics label above. NOTE:
+# this heredoc is unquoted so ${NAMESPACE} expands -- the alert
+# templating's $labels refs are therefore escaped as \$labels (the script
+# runs under `set -u`, a bare $labels would fail as unbound).
+cat > manifests/prometheus-rule.yaml <<RULE_EOF
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-app-alerts
+  namespace: ${NAMESPACE}
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+  - name: demo-app
+    rules:
+    - alert: KubePodCrashLooping
+      expr: |
+        increase(
+          kube_pod_container_status_restarts_total{
+            namespace="${NAMESPACE}",
+            container="web-frontend"
+          }[2m]
+        ) > 0
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: >
+          Pod {{ \$labels.pod }} is crash looping in namespace {{ \$labels.namespace }}.
+        description: >
+          Pod {{ \$labels.pod }} in namespace {{ \$labels.namespace }} is restarting
+          repeatedly. Application availability may be degraded until the
+          workload stabilizes.
+        runbook_url: "https://kubernaut.ai/runbooks/crashloop-gitops"
+RULE_EOF
+
+cat > manifests/servicemonitor.yaml <<SM_EOF
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: demo-app-metrics
+  namespace: ${NAMESPACE}
+  labels:
+    release: kube-prometheus-stack
+    app.kubernetes.io/managed-by: kubernaut-demo-scenarios
+spec:
+  selector:
+    matchLabels:
+      kubernaut.ai/metrics: "true"
+  endpoints:
+  - port: http
+    interval: 10s
+    path: /metrics
+SM_EOF
 
 git add .
 git commit -q -m "Initial deployment: web-frontend with healthy config"
