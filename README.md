@@ -420,8 +420,8 @@ scenarios (`resource-contention`, `gitops-drift`) remain alert-only only, for
 scenario-specific reasons documented in their own `fleet/hub.sh`. See the **Fleet** column
 in the [Scenario Catalog](docs/scenarios.md) for which of the 38 scenarios support it, and
 [`scripts/fleet-helper.sh`](scripts/fleet-helper.sh) for the shared plumbing
-(`fleet_dispatch_requested`, `fleet_deploy_workload`, `fleet_wait_for_alert`,
-`fleet_drive_pipeline`, `fleet_ensure_scrape_job`, etc.).
+(`fleet_dispatch_requested`, `fleet_deploy_workload`, `fleet_deploy_monitoring`,
+`fleet_bootstrap_monitoring`, `fleet_wait_for_alert`, `fleet_drive_pipeline`, etc.).
 
 ## Shadow Agent (Alignment Check)
 
