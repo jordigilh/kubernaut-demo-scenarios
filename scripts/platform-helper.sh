@@ -794,10 +794,30 @@ _ensure_pre_install_secrets() {
 }
 
 _check_llm_credentials() {
-    if ! kubectl get secret llm-credentials -n "${PLATFORM_NS}" &>/dev/null; then
+    local credential_secret
+    credential_secret=$(kubectl get deployment kubernaut-agent -n "${PLATFORM_NS}" \
+        -o jsonpath='{range .spec.template.spec.volumes[*]}{.name}={.secret.secretName}{"\n"}{end}' 2>/dev/null \
+        | awk -F= '$1 == "llm-credentials-file" {print $2; exit}') || true
+
+    if [ -n "${credential_secret}" ] && \
+       kubectl get secret "${credential_secret}" -n "${PLATFORM_NS}" &>/dev/null; then
+        return 0
+    fi
+
+    # Keep compatibility with older chart/operator layouts that do not expose
+    # the credential Secret through the current Deployment volume name.
+    if kubectl get secret llm-credentials -n "${PLATFORM_NS}" &>/dev/null || \
+       kubectl get secret llm-credentials-primary -n "${PLATFORM_NS}" &>/dev/null; then
+        return 0
+    fi
+
+    if [ -z "${credential_secret}" ]; then
+        credential_secret="llm-credentials"
+    fi
+    if ! kubectl get secret "${credential_secret}" -n "${PLATFORM_NS}" &>/dev/null; then
         echo ""
         echo "  WARNING: LLM credentials not configured."
-        echo "  AI analysis will not work until you create the llm-credentials Secret."
+        echo "  AI analysis will not work until the configured LLM credential Secret exists."
         echo ""
         echo "  Quick setup (Vertex AI):"
         echo "    cp credentials/vertex-ai-example.yaml my-llm-credentials.yaml"

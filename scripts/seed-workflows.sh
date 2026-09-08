@@ -19,6 +19,23 @@ WORKFLOWS_DIR="${SCRIPT_DIR}/../deploy/remediation-workflows"
 NAMESPACE="${PLATFORM_NS:-kubernaut-system}"
 SINGLE_SCENARIO=""
 CONTINUE_ON_ERROR=false
+FLEET_MODE=false
+
+if [ -n "${HUB_KUBECONFIG:-}" ] || [ -n "${SPOKE_KUBECONFIG:-}" ]; then
+    if [ -z "${HUB_KUBECONFIG:-}" ] || [ -z "${SPOKE_KUBECONFIG:-}" ]; then
+        echo "ERROR: fleet seeding requires both HUB_KUBECONFIG and SPOKE_KUBECONFIG." >&2
+        exit 1
+    fi
+    FLEET_MODE=true
+    export KUBECONFIG="${HUB_KUBECONFIG}"
+    if [ -z "${FLEET_EXECUTION_CLUSTER_ID:-}" ]; then
+        FLEET_EXECUTION_CLUSTER_ID=$(kubectl get configmap prometheus-config -n monitoring \
+            -o jsonpath='{.data.prometheus\.yml}' 2>/dev/null \
+            | awk '$1 == "cluster:" {print $2; exit}' || true)
+        export FLEET_EXECUTION_CLUSTER_ID
+    fi
+    echo "==> Fleet mode: targeting workflows and dependencies at hub ${HUB_KUBECONFIG}"
+fi
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -38,24 +55,45 @@ failed_names=()
 if kubectl get namespace gitea &>/dev/null; then
     GITEA_USER="${GITEA_ADMIN_USER:-kubernaut}"
     GITEA_PASS="${GITEA_ADMIN_PASS:-kubernaut123}"
-    for _ns in "${NAMESPACE}" "${WE_NAMESPACE:-kubernaut-workflows}"; do
-        if kubectl get namespace "$_ns" &>/dev/null && \
-           ! kubectl get secret gitea-repo-creds -n "$_ns" &>/dev/null; then
-            kubectl create secret generic gitea-repo-creds \
-              -n "$_ns" \
-              --from-literal=username="${GITEA_USER}" \
-              --from-literal=password="${GITEA_PASS}" \
-              --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
-            echo "  Pre-created gitea-repo-creds in ${_ns}"
-        fi
-    done
+    _ns="${WE_NAMESPACE:-kubernaut-workflows}"
+    if kubectl get namespace "$_ns" &>/dev/null && \
+       ! kubectl get secret gitea-repo-creds -n "$_ns" &>/dev/null; then
+        kubectl create secret generic gitea-repo-creds \
+          -n "$_ns" \
+          --from-literal=username="${GITEA_USER}" \
+          --from-literal=password="${GITEA_PASS}" \
+          --dry-run=client -o yaml | kubectl apply -f - 2>/dev/null
+        echo "  Pre-created gitea-repo-creds in ${_ns}"
+    fi
 fi
 
 _apply_workflow_yaml() {
     local yaml_file="$1" ns="$2"
     local tmpdir
     tmpdir=$(mktemp -d)
+    # Double quotes: expand now so the trap holds the literal path (a
+    # single-quoted '${tmpdir}' evaluates at RETURN time, when the local is
+    # out of scope under `set -u`).
     trap "rm -rf '${tmpdir}'" RETURN
+
+    local rendered_yaml="${yaml_file}"
+    if [ "$FLEET_MODE" = true ] && grep -q 'name: git-revert-v2' "$yaml_file"; then
+        if [ -z "${FLEET_EXECUTION_CLUSTER_ID:-}" ]; then
+            echo "ERROR: FLEET_EXECUTION_CLUSTER_ID is required to seed git-revert-v2 in fleet mode." >&2
+            return 1
+        fi
+        rendered_yaml="${tmpdir}/rendered-workflow.yaml"
+        python3 -c '
+import pathlib, sys
+source = pathlib.Path(sys.argv[1]).read_text()
+cluster_id = sys.argv[2]
+needle = "  execution:\n"
+if needle not in source:
+    raise SystemExit("workflow has no execution block")
+source = source.replace(needle, needle + f"    clusterId: {cluster_id}\n", 1)
+pathlib.Path(sys.argv[3]).write_text(source)
+' "$yaml_file" "$FLEET_EXECUTION_CLUSTER_ID" "$rendered_yaml"
+    fi
 
     kubectl create namespace "${WE_NAMESPACE:-kubernaut-workflows}" \
         --dry-run=client -o yaml 2>/dev/null | kubectl apply -f - 2>/dev/null || true
@@ -68,7 +106,7 @@ for line in open(sys.argv[2]):
         n += 1; f = None; continue
     if f is None: f = open(os.path.join(d, f'doc-{n}.yaml'), 'a')
     f.write(line)
-" "$tmpdir" "$yaml_file"
+" "$tmpdir" "$rendered_yaml"
 
     for doc in "$tmpdir"/doc-*.yaml; do
         [ -f "$doc" ] || continue

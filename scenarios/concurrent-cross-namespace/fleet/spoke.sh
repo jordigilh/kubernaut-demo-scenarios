@@ -22,12 +22,10 @@ fleet_check_spoke_connectivity
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying team-alpha and team-beta workloads..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
 fleet_deploy_workload "${MANIFEST_DIR}"
-# Two PrometheusRules, one per team namespace -- not the usual single
-# manifests/prometheus-rule.yaml.
-fleet_ensure_kube_state_metrics
-fleet_load_prometheus_rule "${SCRIPT_DIR}/manifests/team-alpha/prometheus-rule.yaml"
-fleet_load_prometheus_rule "${SCRIPT_DIR}/manifests/team-beta/prometheus-rule.yaml"
-fleet_reload_spoke_prometheus
+# Both team-alpha and team-beta PrometheusRules (plus their component
+# ServiceMonitors) render from the top-level kustomization, so one
+# operator-native bootstrap covers both namespaces.
+fleet_bootstrap_monitoring "${MANIFEST_DIR}"
 
 echo "==> [spoke] Waiting for both deployments to be healthy..."
 kubectl_workload wait --for=condition=Available deployment/worker -n demo-team-alpha --timeout=120s

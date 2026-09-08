@@ -6,7 +6,7 @@ This guide covers the full setup process for running Kubernaut demo scenarios. I
 
 There are three deployment paths:
 
-- **Option A** -- Run `setup-demo-cluster.sh` to create a new Kind cluster with everything pre-configured (recommended for first-time users).
+- **Option A** -- Use the upstream Kubernaut bootstrap target for a local or fleet Kind environment, then run this repository's `setup-demo-cluster.sh` to install demo dependencies and seed content.
 - **Option B** -- Bring your own cluster (existing Kind or OCP) and install the platform via Helm (Kind / dev).
 - **Option C** -- Use the [Kubernaut Operator](https://github.com/jordigilh/kubernaut-operator) on OCP (recommended for production and demos on OpenShift).
 
@@ -220,48 +220,38 @@ kubectl exec -it deploy/kubernaut-agent -n kubernaut-system -- \
 
 ## Create the Cluster
 
-`setup-demo-cluster.sh` is the single entry point for creating the entire demo environment:
+The upstream Kubernaut repository owns cluster creation and core-platform bootstrap. This repository's `setup-demo-cluster.sh` is the post-bootstrap demo setup entry point:
 
 ```bash
 ./scripts/setup-demo-cluster.sh
 ```
 
-This takes ~10 minutes on first run and performs the following steps:
-
-1. **Kind cluster** -- Creates a multi-node Kind cluster (`kubernaut-demo`) with port mappings for Gateway, DataStorage, and monitoring
-2. **Monitoring stack** -- Installs kube-prometheus-stack (Prometheus, AlertManager, Grafana, kube-state-metrics) and the Kubernaut Grafana dashboard
-3. **Infrastructure dependencies** -- cert-manager, metrics-server, Istio, blackbox-exporter, Gitea, ArgoCD
-4. **Kubernaut platform** -- Pre-creates required Secrets (`postgresql-secret`, `valkey-secret`, `llm-credentials`, `slack-webhook`), then installs the Helm chart (from OCI registry, or local sibling if present), including CRDs and all 10 platform services
-5. **Workflow catalog** (post-install) -- Waits for the authwebhook to become ready, then applies ActionType CRDs and RemediationWorkflow definitions from this repo (not bundled in the chart or operator).
-
-Every step is idempotent -- you can safely re-run the script if it fails partway through.
-
-### Kind Node Topology for Node-Drain Scenarios
-
-Scenarios that cordon or drain worker nodes (`pdb-deadlock`, `pending-taint`, `node-notready`) need pods to reschedule to the control-plane node. `setup-demo-cluster.sh` handles this automatically, but the two requirements are worth understanding:
-
-1. **Control-plane label** — `kind-config-multinode.yaml` labels the control-plane with `kubernaut.ai/managed=true` so it satisfies the `nodeSelector` used by workload deployments. Without this label, evicted pods stay Pending after a drain.
-
-2. **Control-plane taint** — Kind applies `node-role.kubernetes.io/control-plane:NoSchedule` to the control-plane by default. The bootstrap removes this taint at cluster creation time. Without this, neither workload pods nor WorkflowExecution jobs can schedule on the control-plane.
-
-If you create a cluster manually (without the bootstrap script), apply both:
+For fleet setup, export the hub and spoke kubeconfigs first:
 
 ```bash
-kubectl label node <control-plane-node> kubernaut.ai/managed=true
-kubectl taint nodes <control-plane-node> node-role.kubernetes.io/control-plane:NoSchedule-
+export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config
+export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
+# Optional override; otherwise setup reads the hub Prometheus cluster label.
+export FLEET_EXECUTION_CLUSTER_ID=hub
 ```
 
-> **Note:** kubernaut#498 tracks adding control-plane tolerations to WFE jobs so that taint removal is no longer required for remediation jobs.
+The script performs the following steps on the existing environment:
+
+1. **Platform readiness** -- Validates or reuses the upstream Kubernaut installation.
+2. **Demo dependencies** -- Installs Gitea and ArgoCD when not skipped. In fleet mode these run on the hub.
+3. **Policies** -- Applies the canonical SignalProcessing and AIAnalysis policy ConfigMaps.
+4. **Catalog content** -- Applies ActionType CRDs and RemediationWorkflow definitions from this repository.
+5. **GitOps security** -- Creates `gitea-repo-creds` only in the hub's `kubernaut-workflows` namespace and requires the Kind Gitea-to-ArgoCD push webhook.
+
+Every step is idempotent -- you can safely re-run the script if it fails partway through.
 
 ### Flags
 
 | Flag | Purpose |
 |------|---------|
-| `--create-cluster` | Delete and recreate the Kind cluster from scratch |
-| `--skip-infra` | Skip optional infrastructure (cert-manager, Istio, Gitea, ArgoCD) |
-| `--with-awx` | Install AWX (required for OCP-only Ansible-engine scenario: `disk-pressure-emptydir`) |
-| `--kind-config PATH` | Custom Kind cluster config (default: `scenarios/kind-config-multinode.yaml`) |
-| `--chart-version VER` | Pin Helm chart version (e.g. `1.4.0`); required for pre-release tags |
+| `--skip-infra` | Skip optional demo dependencies (Gitea, ArgoCD, and local-only infrastructure) |
+| `--with-awx` | Install AWX for Ansible-engine scenarios |
+| `--chart-version VER` | Retained for compatibility; core chart versioning belongs to upstream bootstrap |
 
 ### AWX/AAP Ansible Engine Configuration
 
@@ -340,7 +330,7 @@ Each scenario's `run.sh` does three things:
 2. **Deploys** scenario-specific manifests (namespace, deployment, PrometheusRule, configmaps)
 3. **Injects** the fault (bad config, bad image, CPU load, taint, etc.)
 
-> `run.sh` does **not** create the Kind cluster or install the platform. That is handled by `setup-demo-cluster.sh`. If you see an error like `"ERROR: Cannot connect to Kubernetes cluster"`, run the bootstrap first.
+> `run.sh` does **not** create the Kind cluster or install the platform. Use the upstream bootstrap target first, then run `setup-demo-cluster.sh`. If you see an error like `"ERROR: Cannot connect to Kubernetes cluster"`, verify the appropriate kubeconfig is exported.
 
 Browse all 38 available scenarios in the [Scenario Catalog](scenarios.md).
 

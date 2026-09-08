@@ -2,11 +2,12 @@
 # etcd Defrag Forecast Demo -- Fleet Spoke Steps
 #
 # Deploys the 3-member etcd StatefulSet and injects fragmentation against
-# SPOKE_KUBECONFIG. etcd exposes its own /metrics (no ServiceMonitor/operator
-# on the spoke), and its metrics carry no k8s namespace label on their own
-# (same situation as postgres_exporter in db-connection-saturation) -- attach
-# one as a static scrape-time label to match the PrometheusRule's
-# namespace="demo-datastore" filter. Touches only the spoke -- safe to invoke
+# SPOKE_KUBECONFIG. Monitoring is operator-native:
+# manifests/servicemonitor.yaml selects the headless Service so all three
+# members are discovered individually with endpoint identity (a ClusterIP
+# Service would collapse them to a single VIP target), and attaches
+# namespace="demo-datastore" via relabelings to match the PrometheusRule's
+# filter. Touches only the spoke -- safe to invoke
 # directly, multiple times, once per spoke cluster if demoing across several
 # spokes. Run ../fleet/hub.sh afterward (once all spokes are done) to confirm
 # the alert(s) reached the hub's Alertmanager, or use ../run.sh which runs
@@ -23,10 +24,7 @@ fleet_check_spoke_connectivity
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying scenario resources..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
 fleet_deploy_workload "${MANIFEST_DIR}"
-fleet_ensure_scrape_job "etcd-metrics" "etcd-client.${NAMESPACE}.svc.cluster.local:2381" "" \
-  "      namespace: ${NAMESPACE}"
-fleet_load_prometheus_rule "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-fleet_reload_spoke_prometheus
+fleet_bootstrap_monitoring "${MANIFEST_DIR}"
 
 echo "==> [spoke] Waiting for etcd StatefulSet to be ready..."
 kubectl_workload rollout status statefulset/etcd -n "${NAMESPACE}" --timeout=600s

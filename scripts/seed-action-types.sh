@@ -49,6 +49,15 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ACTION_TYPES_DIR="${SCRIPT_DIR}/../deploy/action-types"
 
+if [ -n "${HUB_KUBECONFIG:-}" ] || [ -n "${SPOKE_KUBECONFIG:-}" ]; then
+    if [ -z "${HUB_KUBECONFIG:-}" ] || [ -z "${SPOKE_KUBECONFIG:-}" ]; then
+        echo "ERROR: fleet seeding requires both HUB_KUBECONFIG and SPOKE_KUBECONFIG." >&2
+        exit 1
+    fi
+    export KUBECONFIG="${HUB_KUBECONFIG}"
+    echo "==> Fleet mode: targeting ActionTypes at hub ${HUB_KUBECONFIG}"
+fi
+
 if [ ! -d "$ACTION_TYPES_DIR" ]; then
     echo "ERROR: ActionType CRD directory not found: ${ACTION_TYPES_DIR}"
     exit 1
