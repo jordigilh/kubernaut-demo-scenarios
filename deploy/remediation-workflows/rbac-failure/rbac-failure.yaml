@@ -53,7 +53,7 @@ metadata:
   name: restore-rolebinding-v1
   namespace: kubernaut-system
 spec:
-  version: "1.6.1"
+  version: "1.6.2"
   description:
     what: "Recreates a missing RoleBinding from a known-good template to restore a ServiceAccount's RBAC permissions, recovering workloads that lost API access"
     whenToUse: "When a Deployment has zero available replicas and pod logs show 'forbidden' or '403' errors when accessing the Kubernetes API. Check the ServiceAccount's RoleBindings and ClusterRoleBindings in the namespace. If a RoleBinding that previously existed is missing, the ServiceAccount has lost its RBAC permissions. Common after security audit cleanup scripts, namespace RBAC policy changes, or accidental deletion. The fix is to recreate the RoleBinding from a known-good template."
@@ -72,7 +72,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: restore-rolebinding-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/restore-rolebinding-job@sha256:0bab4f28cbdcb11a37b5aa5aeeb9f1991325cde9d158b6ce2f9e0f835c9dbf6a
+    bundle: quay.io/kubernaut-cicd/test-workflows/restore-rolebinding-job@sha256:9c799bdc9f134d498511334bc4bc9575e9838e45fab2d275c4deacc830477146
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
