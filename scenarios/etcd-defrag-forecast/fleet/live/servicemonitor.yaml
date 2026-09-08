@@ -1,0 +1,21 @@
+# ServiceMonitor for the LIVE kind control-plane etcd, scraped through
+# the hostNetwork proxy (etcd-live-metrics Service). Selects only the
+# proxy Service -- never the demo StatefulSet services (those are not
+# deployed in live mode at all).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: etcd-live-metrics
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-proxy
+    kubernaut.ai/managed: "true"
+spec:
+  selector:
+    matchLabels:
+      app: etcd-live-proxy
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+    scheme: http

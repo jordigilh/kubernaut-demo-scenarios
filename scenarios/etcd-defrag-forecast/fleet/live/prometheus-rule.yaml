@@ -1,0 +1,38 @@
+# PrometheusRule for the LIVE kind control-plane etcd (fleet live mode).
+# Same alert name, thresholds and namespace filter as the dedicated demo
+# rule so fleet/hub.sh works unchanged: the operator injects
+# namespace="demo-datastore" from the proxy Service, and the proxied
+# series carry the live member's pod/instance identity. Only the summary
+# wording differs (live spoke member, not a demo pod).
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-app-alerts
+  namespace: demo-datastore
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: demo-app
+    rules:
+    - alert: EtcdHighFragmentationRatio
+      expr: |
+        (
+          etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"}
+          - etcd_mvcc_db_total_size_in_use_in_bytes{namespace="demo-datastore"}
+        )
+        / etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"}
+        > 0.15
+        and
+        etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"} > 1048576
+      for: 2m
+      labels:
+        severity: critical
+      annotations:
+        summary: >
+          Spoke etcd member shows on-disk storage far exceeding active data size.
+        description: >
+          Total allocated storage on the live spoke etcd is significantly
+          larger than the storage currently holding live data. This gap may
+          indicate stale space that has not yet been reclaimed -- defragment
+          the member to reclaim it.

@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etcd-metrics-proxy
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-proxy
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: etcd-live-proxy
+  template:
+    metadata:
+      labels:
+        app: etcd-live-proxy
+        kubernaut.ai/managed: "true"
+    spec:
+      # Must share the control-plane node's network namespace: the etcd
+      # metrics port only exists on 127.0.0.1:2381 of that node.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      containers:
+      - name: proxy
+        # Multi-arch: kind spokes may be arm64 (amd64-only images crash
+        # there -- the same reason the dedicated demo etcd cannot run on
+        # Apple-Silicon hosts).
+        image: docker.io/library/python:3.12-alpine
+        command: ["python3", "/etc/proxy/forward.py"]
+        env:
+        # Node address for the metrics bind (status.podIP == node IP for
+        # hostNetwork pods). See proxy-config.yaml for why 0.0.0.0 is wrong.
+        - name: NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        # NOTE: no ports: declaration -- with hostNetwork:true the scheduler
+        # treats declared containerPorts as host-port claims and refuses to
+        # schedule (the node already serves 127.0.0.1:2381 itself). The
+        # Service routes to the pod IP (= node IP) numerically, which needs
+        # no declaration.
+        volumeMounts:
+        - name: script
+          mountPath: /etc/proxy
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+      volumes:
+      - name: script
+        configMap:
+          name: etcd-metrics-proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: etcd-live-metrics
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-proxy
+    kubernaut.ai/managed: "true"
+spec:
+  selector:
+    app: etcd-live-proxy
+  ports:
+  - name: metrics
+    port: 2381
+    targetPort: 2381
+  type: ClusterIP
