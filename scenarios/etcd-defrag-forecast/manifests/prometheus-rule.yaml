@@ -19,7 +19,10 @@ spec:
         > 0.15
         and
         etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"} > 1048576
-      for: 2m
+      # Short for-clause is deliberate: this is a demo with a huge injected
+      # margin (~80% vs the 0.15 threshold), so there is no threshold hover
+      # to flap on; 30s keeps the cause->effect story tight.
+      for: 30s
       labels:
         severity: critical
       annotations:
