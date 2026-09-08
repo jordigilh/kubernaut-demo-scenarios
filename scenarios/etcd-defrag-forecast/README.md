@@ -186,3 +186,35 @@ Deploys and faults the workload on the spoke, confirms the `EtcdHighFragmentatio
 alert reaches the hub's Alertmanager, then (unless `--alert-only`) drives the same
 `wait_for_rr`/`poll_pipeline` loop single-cluster mode uses -- just pointed at the hub's
 `kubernaut-system` namespace instead of the ambient cluster.
+
+#### Live-spoke mode (`ETCD_FLEET_LIVE=1`, kind spokes only)
+
+Validates against the **live kind control-plane etcd** instead of the disposable
+demo StatefulSet -- remediating a real cluster datastore, which is the
+production scenario (defragging a throwaway etcd proves little). OCP spokes
+always use the dedicated StatefulSet: the platform etcd is off-limits there.
+
+```bash
+export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config
+export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
+ETCD_FLEET_LIVE=1 ./scenarios/etcd-defrag-forecast/run.sh --fleet --alert-only
+```
+
+How it works (`fleet/live/`, applied by `fleet/spoke.sh` in sequence):
+
+1. A hostNetwork proxy exposes kind's loopback-only `:2381` metrics port to
+   the pod network; a ServiceMonitor scrapes it (per-member identity comes
+   from the single live member's endpoint).
+2. A defrag Job establishes the healthy baseline (kind etcds are typically
+   already fragmented -- ~70% observed on a fresh cluster).
+3. A loader Job writes ~64MB under `/demo-frag/`, deletes it, and compacts,
+   driving the fragmentation ratio toward ~95%.
+4. `fleet/hub.sh` waits for `EtcdHighFragmentationRatio` on the hub AM as usual.
+
+Remediate afterwards by re-applying `fleet/defrag-job.yaml` and watching the
+alert resolve. Loader and defrag Jobs authenticate with the node's
+healthcheck client cert via a read-only hostPath mount -- no credentials are
+written anywhere. Risks: the loader temporarily grows the live datastore
+(~150MB observed) and compacts to the current revision; both are routine
+etcd maintenance, fully reclaimed by the defrag. Do not use on shared
+production clusters -- this mode exists for throwaway kind spokes.

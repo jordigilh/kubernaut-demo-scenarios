@@ -1,0 +1,88 @@
+# Fragments the LIVE kind control-plane etcd on the spoke (fleet live
+# mode only): writes ~64MB of throwaway keys under /demo-frag/, then
+# deletes them, leaving the backend fragmented so EtcdHighFragmentationRatio
+# fires. Applied imperatively by fleet/spoke.sh AFTER the baseline defrag
+# job completes -- never via kustomize (ordering matters).
+#
+# Writes go to the real cluster datastore: keep the volume modest (well
+# under the default 2GB quota) and the keyspace prefixed so cleanup is a
+# single prefix delete (done here; the keys are gone when this Job
+# succeeds -- only the fragmentation remains, until defrag reclaims it).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: etcd-frag-loader
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-loader
+    kubernaut.ai/managed: "true"
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app: etcd-live-loader
+    spec:
+      restartPolicy: Never
+      # Same node network as the proxy: reach etcd on 127.0.0.1:2379.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      containers:
+      - name: loader
+        # Debian provides a multi-arch etcd-client (v3 API stable against
+        # the kind server); see defrag-job.yaml for why the etcd images
+        # themselves are unsuitable here.
+        image: docker.io/library/debian:12-slim
+        env:
+        - name: ETCDCTL_API
+          value: "3"
+        - name: ENDPOINTS
+          value: "https://127.0.0.1:2379"
+        - name: CACERT
+          value: "/pki/ca.crt"
+        - name: CERT
+          value: "/pki/healthcheck-client.crt"
+        - name: KEY
+          value: "/pki/healthcheck-client.key"
+        # The node PKI is mounted read-only: the Job authenticates as the
+        # healthcheck client (the least-privileged etcd client identity the
+        # node already trusts). Nothing is written back to the host.
+        volumeMounts:
+        - name: etcd-pki
+          mountPath: /pki
+          readOnly: true
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq && apt-get install -y -qq etcd-client >/dev/null
+          OPTS="--endpoints=${ENDPOINTS} --cacert=${CACERT} --cert=${CERT} --key=${KEY}"
+          echo "==> baseline DB status:"
+          etcdctl $OPTS endpoint status --write-out=json
+          echo "==> writing 500 x 128KB keys under /demo-frag/ ..."
+          i=1
+          while [ "$i" -le 500 ]; do
+            VAL=$(head -c 131072 /dev/urandom | base64 | head -c 131000)
+            etcdctl $OPTS put "/demo-frag/key-$i" "$VAL" >/dev/null
+            if [ $((i % 100)) -eq 0 ]; then echo "  wrote $i/500"; fi
+            i=$((i + 1))
+          done
+          echo "==> DB status after load:"
+          etcdctl $OPTS endpoint status --write-out=json
+          echo "==> deleting /demo-frag/ prefix (keys gone, space fragmented) ..."
+          etcdctl $OPTS del /demo-frag/ --prefix
+          echo "==> compacting to current revision (tombstones become reclaimable) ..."
+          REV=$(etcdctl $OPTS endpoint status --write-out=json | grep -o '"revision":[0-9]*' | head -n 1 | grep -o '[0-9]*')
+          etcdctl $OPTS compact "$REV"
+          echo "==> DB status fragmented (compare total vs in-use):"
+          etcdctl $OPTS endpoint status --write-out=json
+      volumes:
+      - name: etcd-pki
+        hostPath:
+          path: /etc/kubernetes/pki/etcd
+          type: Directory

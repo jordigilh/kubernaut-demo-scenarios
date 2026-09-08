@@ -1,0 +1,69 @@
+# Defragments the LIVE kind control-plane etcd on the spoke (fleet live
+# mode). Applied by fleet/spoke.sh BEFORE the loader (healthy baseline)
+# and re-applied manually as the remediation step once
+# EtcdHighFragmentationRatio fires -- the same operation the
+# defrag-etcd-v1 workflow performs, exercised here directly because the
+# gateway-driven pipeline is out of scope for this environment.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: etcd-live-defrag
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-loader
+    kubernaut.ai/managed: "true"
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: etcd-live-loader
+    spec:
+      restartPolicy: Never
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      containers:
+      - name: defrag
+        # Debian provides a multi-arch etcd-client (v3 API stable against
+        # the kind server). Rationale: registry.k8s.io/etcd is arch-correct
+        # but shell-less, quay.io/coreos/etcd is amd64-only (crashes on
+        # arm64 hosts), and bitnami/etcd publishes no resolvable pinned
+        # minor tag -- apt from frozen bookworm is reproducible enough here.
+        image: docker.io/library/debian:12-slim
+        env:
+        - name: ETCDCTL_API
+          value: "3"
+        - name: ENDPOINTS
+          value: "https://127.0.0.1:2379"
+        - name: CACERT
+          value: "/pki/ca.crt"
+        - name: CERT
+          value: "/pki/healthcheck-client.crt"
+        - name: KEY
+          value: "/pki/healthcheck-client.key"
+        volumeMounts:
+        - name: etcd-pki
+          mountPath: /pki
+          readOnly: true
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -qq && apt-get install -y -qq etcd-client >/dev/null
+          OPTS="--endpoints=${ENDPOINTS} --cacert=${CACERT} --cert=${CERT} --key=${KEY}"
+          echo "==> DB status before defrag:"
+          etcdctl $OPTS endpoint status --write-out=json
+          echo "==> defragmenting ..."
+          etcdctl $OPTS defrag
+          echo "==> DB status after defrag:"
+          etcdctl $OPTS endpoint status --write-out=json
+      volumes:
+      - name: etcd-pki
+        hostPath:
+          path: /etc/kubernetes/pki/etcd
+          type: Directory
