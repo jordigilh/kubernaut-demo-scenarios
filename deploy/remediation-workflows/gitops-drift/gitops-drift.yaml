@@ -68,6 +68,12 @@ spec:
   execution:
     engine: job
     serviceAccountName: git-revert-v2-runner
+    # GitOps credentials live on the hub: this workflow always executes on
+    # the hub cluster, decoupled from the signal's origin cluster
+    # (kubernaut#2326). Overridden at seed time by FLEET_EXECUTION_CLUSTER_ID
+    # for environments whose hub id is not "hub". Single-cluster deployments
+    # run it locally: non-fleet WE ignores the id (kubernaut#2378).
+    clusterId: hub
     bundle: quay.io/kubernaut-cicd/test-workflows/git-revert-job@sha256:7806117552743890d191e8556d1f53a37e475df03f12f58b9a1ff0e6298afd3a
 
   dependencies:

@@ -84,7 +84,7 @@ export KUBECONFIG=~/.kube/<local-kubeconfig>
 # Fleet:
 export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config
 export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
-# Optional override; otherwise setup reads the hub Prometheus cluster label.
+# Only needed when the hub is registered under an id other than "hub" (git-revert-v2 hardcodes execution.clusterId: hub).
 export FLEET_EXECUTION_CLUSTER_ID=hub
 ```
 

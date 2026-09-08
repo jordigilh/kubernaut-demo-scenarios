@@ -28,13 +28,8 @@ if [ -n "${HUB_KUBECONFIG:-}" ] || [ -n "${SPOKE_KUBECONFIG:-}" ]; then
     fi
     FLEET_MODE=true
     export KUBECONFIG="${HUB_KUBECONFIG}"
-    if [ -z "${FLEET_EXECUTION_CLUSTER_ID:-}" ]; then
-        FLEET_EXECUTION_CLUSTER_ID=$(kubectl get configmap prometheus-config -n monitoring \
-            -o jsonpath='{.data.prometheus\.yml}' 2>/dev/null \
-            | awk '$1 == "cluster:" {print $2; exit}' || true)
-        export FLEET_EXECUTION_CLUSTER_ID
-    fi
     echo "==> Fleet mode: targeting workflows and dependencies at hub ${HUB_KUBECONFIG}"
+    echo "    (git-revert-v2 execution.clusterId: ${FLEET_EXECUTION_CLUSTER_ID:-hub (hardcoded)})"
 fi
 
 while [[ $# -gt 0 ]]; do
@@ -124,22 +119,32 @@ _apply_workflow_yaml() {
     trap "rm -rf '${tmpdir}'" RETURN
 
     local rendered_yaml="${yaml_file}"
-    if [ "$FLEET_MODE" = true ] && grep -q 'name: git-revert-v2' "$yaml_file"; then
-        if [ -z "${FLEET_EXECUTION_CLUSTER_ID:-}" ]; then
-            echo "ERROR: FLEET_EXECUTION_CLUSTER_ID is required to seed git-revert-v2 in fleet mode." >&2
-            return 1
-        fi
+    if [ -n "${FLEET_EXECUTION_CLUSTER_ID:-}" ] && grep -q 'name: git-revert-v2' "$yaml_file"; then
+        # Explicit override for third environments whose hub id is not "hub"
+        # (the file hardcodes execution.clusterId: hub).
         rendered_yaml="${tmpdir}/rendered-workflow.yaml"
-        python3 -c '
-import pathlib, sys
+        python3 - "$yaml_file" "$rendered_yaml" "${FLEET_EXECUTION_CLUSTER_ID}" <<'PYEOF'
+import pathlib, re, sys
 source = pathlib.Path(sys.argv[1]).read_text()
-cluster_id = sys.argv[2]
+override = sys.argv[3]
 needle = "  execution:\n"
 if needle not in source:
     raise SystemExit("workflow has no execution block")
-source = source.replace(needle, needle + f"    clusterId: {cluster_id}\n", 1)
-pathlib.Path(sys.argv[3]).write_text(source)
-' "$yaml_file" "$FLEET_EXECUTION_CLUSTER_ID" "$rendered_yaml"
+out = []
+in_execution = False
+for line in source.splitlines(keepends=True):
+    if line == needle:
+        in_execution = True
+        out.append(line)
+        continue
+    if in_execution and line.startswith("    clusterId:"):
+        out.append(f"    clusterId: {override}\n")
+        continue
+    if in_execution and re.match(r"  \S", line):
+        in_execution = False
+    out.append(line)
+pathlib.Path(sys.argv[2]).write_text("".join(out))
+PYEOF
     fi
 
     kubectl create namespace "${WE_NAMESPACE:-kubernaut-workflows}" \
