@@ -1,13 +1,19 @@
 # Fragments the LIVE kind control-plane etcd on the spoke (fleet live
-# mode only): writes ~64MB of throwaway keys under /demo-frag/, then
+# mode only): writes ~16MB of throwaway keys under /demo-frag/, then
 # deletes them, leaving the backend fragmented so EtcdHighFragmentationRatio
 # fires. Applied imperatively by fleet/spoke.sh AFTER the baseline defrag
 # job completes -- never via kustomize (ordering matters).
 #
-# Writes go to the real cluster datastore: keep the volume modest (well
-# under the default 2GB quota) and the keyspace prefixed so cleanup is a
-# single prefix delete (done here; the keys are gone when this Job
-# succeeds -- only the fragmentation remains, until defrag reclaims it).
+# Kept small on purpose: the alert needs total > 1MB and a ratio > 0.15,
+# so ~16MB over a ~5MB baseline (≈75% fragmented) has ample margin while
+# keeping the load step around a minute. Shape is 128 x 128KB puts in
+# 8-wide parallel batches: values must stay under the kernel's 128KB
+# MAX_ARG_STRLEN per exec argument (1MB values fail with E2BIG), and one
+# etcdctl fork per put dominates latency, so parallelism -- not value
+# size -- is the speedup. Writes go to the real cluster datastore: the
+# keyspace is prefixed so cleanup is a single prefix delete (done here;
+# the keys are gone when this Job succeeds -- only the fragmentation
+# remains, until defrag reclaims it).
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -66,13 +72,19 @@ spec:
           OPTS="--endpoints=${ENDPOINTS} --cacert=${CACERT} --cert=${CERT} --key=${KEY}"
           echo "==> baseline DB status:"
           etcdctl $OPTS endpoint status --write-out=json
-          echo "==> writing 500 x 128KB keys under /demo-frag/ ..."
+          echo "==> writing 128 x 128KB keys under /demo-frag/ (8 parallel workers) ..."
           i=1
-          while [ "$i" -le 500 ]; do
-            VAL=$(head -c 131072 /dev/urandom | base64 | head -c 131000)
-            etcdctl $OPTS put "/demo-frag/key-$i" "$VAL" >/dev/null
-            if [ $((i % 100)) -eq 0 ]; then echo "  wrote $i/500"; fi
-            i=$((i + 1))
+          while [ "$i" -le 128 ]; do
+            j=0
+            pids=""
+            while [ "$j" -lt 8 ] && [ "$i" -le 128 ]; do
+              ( VAL=$(head -c 131072 /dev/urandom | base64 | head -c 131000); etcdctl $OPTS put "/demo-frag/key-$i" "$VAL" >/dev/null ) &
+              pids="$pids $!"
+              i=$((i + 1)); j=$((j + 1))
+            done
+            # shellcheck disable=SC2086
+            for pid in $pids; do wait "$pid" || exit 1; done
+            echo "  wrote $((i - 1))/128"
           done
           echo "==> DB status after load:"
           etcdctl $OPTS endpoint status --write-out=json

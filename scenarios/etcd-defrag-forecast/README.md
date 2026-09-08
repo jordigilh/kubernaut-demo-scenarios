@@ -207,14 +207,14 @@ How it works (`fleet/live/`, applied by `fleet/spoke.sh` in sequence):
    from the single live member's endpoint).
 2. A defrag Job establishes the healthy baseline (kind etcds are typically
    already fragmented -- ~70% observed on a fresh cluster).
-3. A loader Job writes ~64MB under `/demo-frag/`, deletes it, and compacts,
-   driving the fragmentation ratio toward ~95%.
+3. A loader Job writes ~16MB under `/demo-frag/`, deletes it, and compacts,
+   driving the fragmentation ratio toward ~75% within a minute.
 4. `fleet/hub.sh` waits for `EtcdHighFragmentationRatio` on the hub AM as usual.
 
 Remediate afterwards by re-applying `fleet/defrag-job.yaml` and watching the
 alert resolve. Loader and defrag Jobs authenticate with the node's
 healthcheck client cert via a read-only hostPath mount -- no credentials are
 written anywhere. Risks: the loader temporarily grows the live datastore
-(~150MB observed) and compacts to the current revision; both are routine
+(~20MB observed) and compacts to the current revision; both are routine
 etcd maintenance, fully reclaimed by the defrag. Do not use on shared
 production clusters -- this mode exists for throwaway kind spokes.
