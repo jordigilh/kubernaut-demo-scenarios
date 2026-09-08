@@ -10,6 +10,10 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+fleet_fail_if_requested "pdb-deadlock" "$@"
 NAMESPACE="demo-payments"
 
 APPROVE_MODE="--auto-approve"
