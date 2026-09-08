@@ -177,10 +177,11 @@ Unlike every other fleet-verified scenario, fleet mode here stops after confirmi
 `--auto-approve` have no effect. This topology (signal on the spoke, GitOps/Gitea/ArgoCD
 on the hub) is exactly the case `RemediationWorkflow.spec.execution.clusterId`
 ([kubernaut#2326](https://github.com/jordigilh/kubernaut/issues/2326)) was added for --
-the `git-revert-v2` workflow's Job should run on the hub (it holds the Gitea credentials),
-not the spoke. Fleet mode doesn't create a WorkflowExecution in alert-only mode though, so
-that field itself isn't exercised here; this only proves the cross-cluster ArgoCD sync
-half of the topology. See `fleet/hub.sh` for details.
+the `git-revert-v2` workflow declares `execution.clusterId: hub` so its Job can run on
+the hub (it holds the Gitea credentials), not the spoke. Fleet mode doesn't create a
+WorkflowExecution in alert-only mode though, so that field itself isn't exercised here;
+this only proves the cross-cluster ArgoCD sync half of the topology. See `fleet/hub.sh`
+for details.
 
 #### Overriding the execution cluster (`FLEET_EXECUTION_CLUSTER_ID`)
 

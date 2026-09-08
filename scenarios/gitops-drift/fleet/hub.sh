@@ -16,7 +16,9 @@
 # execution.clusterId) exists for: target cluster (signal origin) = spoke,
 # GitOps-hub/execution cluster = hub. Fleet mode doesn't create a
 # WorkflowExecution in alert-only mode though, so that field itself isn't
-# exercised here -- this only proves the cross-cluster ArgoCD sync half.
+# exercised here -- this only proves the cross-cluster ArgoCD sync half. The
+# git-revert-v2 workflow declares execution.clusterId: hub; seed-workflows.sh
+# supports an explicit FLEET_EXECUTION_CLUSTER_ID override.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
