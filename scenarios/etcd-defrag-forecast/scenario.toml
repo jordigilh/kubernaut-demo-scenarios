@@ -2,6 +2,8 @@ name = 'etcd-defrag-forecast'
 title = 'Fragmentation ratio predicted to degrade -> rolling per-member defrag'
 
 [platforms]
-kind  = 'no'
+# kind: dedicated demo etcd is amd64-only; arm64 kind uses the live-cluster
+# mode (ETCD_LIVE_CLUSTER=1) instead -- both validated, so kind is supported.
+kind  = 'yes'
 ocp   = 'yes'
 fleet = 'full'
