@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # etcd Defrag Forecast Demo -- Fleet Spoke Steps
 #
-# Two modes, selected by ETCD_FLEET_LIVE (default: dedicated):
+# Two modes, selected by ETCD_LIVE_CLUSTER (default: dedicated):
 #
 # - Dedicated (default, all platforms): deploys the 3-member demo etcd
 #   StatefulSet and fragments it. Monitoring is operator-native:
 #   manifests/servicemonitor.yaml selects the headless Service so all
 #   three members are discovered individually with endpoint identity.
-# - Live (ETCD_FLEET_LIVE=1, kind spokes only): uses the kind
+# - Live (ETCD_LIVE_CLUSTER=1, kind spokes only): uses the kind
 #   control-plane etcd in place -- no demo StatefulSet. A hostNetwork
 #   proxy exposes its loopback-only :2381 metrics port, the loader Job
 #   fragments it with ~64MB of throwaway keys (deleted afterwards), and
@@ -27,10 +27,10 @@ NAMESPACE="demo-datastore"
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 fleet_check_spoke_connectivity
 
-if [ "${ETCD_FLEET_LIVE:-0}" = "1" ]; then
+if [ "${ETCD_LIVE_CLUSTER:-0}" = "1" ]; then
     platform=$(detect_spoke_platform)
     if [ "$platform" != "kind" ]; then
-        echo "ERROR: ETCD_FLEET_LIVE=1 requires a kind spoke (got: ${platform}) -- the live control-plane etcd is only reachable there. Use the dedicated mode on OCP." >&2
+        echo "ERROR: ETCD_LIVE_CLUSTER=1 requires a kind spoke (got: ${platform}) -- the live control-plane etcd is only reachable there. Use the dedicated mode on OCP." >&2
         exit 1
     fi
 
@@ -66,6 +66,11 @@ fi
 
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying scenario resources..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
+if [ "$(detect_spoke_platform)" = "kind" ] && fleet_spoke_is_arm64; then
+    echo "ERROR: the dedicated demo etcd image is amd64-only and cannot run on this arm64 spoke." >&2
+    echo "  Re-run with ETCD_LIVE_CLUSTER=1 to fragment the kind control-plane etcd instead." >&2
+    exit 1
+fi
 fleet_deploy_workload "${MANIFEST_DIR}"
 fleet_bootstrap_monitoring "${MANIFEST_DIR}"
 

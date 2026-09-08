@@ -187,18 +187,32 @@ alert reaches the hub's Alertmanager, then (unless `--alert-only`) drives the sa
 `wait_for_rr`/`poll_pipeline` loop single-cluster mode uses -- just pointed at the hub's
 `kubernaut-system` namespace instead of the ambient cluster.
 
-#### Live-spoke mode (`ETCD_FLEET_LIVE=1`, kind spokes only)
+#### Live-cluster mode (`ETCD_LIVE_CLUSTER=1`, kind only)
 
 Validates against the **live kind control-plane etcd** instead of the disposable
 demo StatefulSet -- remediating a real cluster datastore, which is the
-production scenario (defragging a throwaway etcd proves little). OCP spokes
-always use the dedicated StatefulSet: the platform etcd is off-limits there.
+production scenario (defragging a throwaway etcd proves little). OCP
+always uses the dedicated StatefulSet: the platform etcd is off-limits there.
+
+Works identically in fleet and local mode (same `fleet/live/` assets; the
+local kube-prometheus-stack selects all monitoring CRDs, and the local
+gateway can drive the full `validate.sh` pipeline since defrag-etcd-v1
+sets no execution cluster):
 
 ```bash
 export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config
 export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
-ETCD_FLEET_LIVE=1 ./scenarios/etcd-defrag-forecast/run.sh --fleet --alert-only
+ETCD_LIVE_CLUSTER=1 ./scenarios/etcd-defrag-forecast/run.sh --fleet --alert-only
 ```
+
+Local kind equivalent (full pipeline available -- the local gateway is present):
+
+```bash
+ETCD_LIVE_CLUSTER=1 ./scenarios/etcd-defrag-forecast/run.sh --alert-only
+```
+
+On arm64 kind clusters the dedicated mode refuses to start (its etcd image is
+amd64-only); live mode is the way there.
 
 How it works (`fleet/live/`, applied by `fleet/spoke.sh` in sequence):
 
