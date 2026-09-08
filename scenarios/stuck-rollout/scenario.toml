@@ -1,0 +1,8 @@
+name = 'stuck-rollout'
+title = 'Non-existent image tag stalls the rollout -> kubectl rollout undo'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

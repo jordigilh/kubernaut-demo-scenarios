@@ -1,0 +1,7 @@
+name = 'route-misconfiguration'
+title = 'Route patched to the wrong Service -> fix spec.to.name'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'no'

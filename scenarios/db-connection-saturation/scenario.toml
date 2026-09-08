@@ -1,0 +1,7 @@
+name = 'db-connection-saturation'
+title = 'Connection leaker exhausts max_connections -> identify the leaker among multiple workloads, restart it'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'full'

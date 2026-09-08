@@ -1,0 +1,8 @@
+name = 'image-pull-failure'
+title = 'Deleted ImagePullSecret -> recreate from template + restart Deployment'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'no'

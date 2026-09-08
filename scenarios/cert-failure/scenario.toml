@@ -1,0 +1,8 @@
+name = 'cert-failure'
+title = 'cert-manager Certificate stuck NotReady -> fix the Certificate resource'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

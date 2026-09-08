@@ -1,0 +1,8 @@
+name = 'resource-quota-exhaustion'
+title = 'Namespace ResourceQuota exhausted -> pipeline handles the quota-blocked case'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

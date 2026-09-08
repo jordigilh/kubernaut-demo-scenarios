@@ -1,0 +1,9 @@
+name = 'slo-burn'
+id = 128
+title = 'Blackbox probe error rate >1.44% -> proactive rollback before SLO burns'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

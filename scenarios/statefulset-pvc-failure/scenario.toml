@@ -1,0 +1,8 @@
+name = 'statefulset-pvc-failure'
+title = 'PVC binding failure on a StatefulSet -> fix the PVC'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

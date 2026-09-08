@@ -415,10 +415,14 @@ export SPOKE_KUBECONFIG=~/tmp/spoke.yaml # cluster running the demo workload
 
 Most fleet-aware scenarios now run the **full remediation pipeline** on the hub, same as
 single-cluster mode -- `--auto-approve` (default) or `--interactive` drive it through to
-completion, `--alert-only` stops right after the alert reaches the hub's Alertmanager. Two
-scenarios (`resource-contention`, `gitops-drift`) remain alert-only only, for
-scenario-specific reasons documented in their own `fleet/hub.sh`. See the **Fleet** column
-in the [Scenario Catalog](docs/scenarios.md) for which of the 38 scenarios support it, and
+completion, `--alert-only` stops right after the alert reaches the hub's Alertmanager.
+`gitops-drift` runs a real GitOps-hub topology for this: its `git-revert-v2` workflow's
+Job executes **on the hub** via `RemediationWorkflow.spec.execution.clusterId`
+([kubernaut#2326](https://github.com/jordigilh/kubernaut/issues/2326)) -- the hub holds
+the repo credentials, so execution is decoupled from the spoke where the signal fired.
+Only `resource-contention` remains alert-only, for scenario-specific reasons documented
+in its own `fleet/hub.sh`. See the **Fleet** column in the
+[Scenario Catalog](docs/scenarios.md) for which of the 38 scenarios support it, and
 [`scripts/fleet-helper.sh`](scripts/fleet-helper.sh) for the shared plumbing
 (`fleet_dispatch_requested`, `fleet_deploy_workload`, `fleet_wait_for_alert`,
 `fleet_drive_pipeline`, `fleet_ensure_scrape_job`, etc.).

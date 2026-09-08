@@ -1,0 +1,8 @@
+name = 'pending-taint'
+title = 'NoSchedule taint blocks pods -> remove the taint'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'no'

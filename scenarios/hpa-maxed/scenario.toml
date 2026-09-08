@@ -1,0 +1,9 @@
+name = 'hpa-maxed'
+id = 123
+title = 'CPU load drives HPA to its ceiling -> patch maxReplicas +2'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

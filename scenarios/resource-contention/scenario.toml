@@ -1,0 +1,11 @@
+name = 'resource-contention'
+title = "External actor reverts Kubernaut's fix -> detect the ineffective-remediation chain via spec drift, escalate to human"
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'alert-only'
+
+[notes]
+fleet = "stays alert-only: defining narrative needs a real remediation loop fleet's model doesn't run (#423)"

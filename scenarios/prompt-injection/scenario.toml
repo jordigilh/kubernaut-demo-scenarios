@@ -1,0 +1,8 @@
+name = 'prompt-injection'
+title = 'Authority-impersonation payload in a ConfigMap -> shadow agent detects it and blocks execution'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

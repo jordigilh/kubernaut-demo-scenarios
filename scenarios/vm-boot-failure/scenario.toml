@@ -1,0 +1,10 @@
+name = 'vm-boot-failure'
+title = 'Bad DataVolume source URL -> VM stuck Provisioning -> fix the DV source (KubeVirtVMProvisioningStuck)'
+
+[platforms]
+kind  = 'no'
+ocp   = 'pending'
+fleet = 'no'
+
+[notes]
+ocp = 'Manifests/overlay exist but never actually run; pending real OCP+CNV validation'

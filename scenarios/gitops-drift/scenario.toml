@@ -1,0 +1,9 @@
+name = 'gitops-drift'
+id = 125
+title = 'Bad commit synced via ArgoCD -> git revert the offending commit'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

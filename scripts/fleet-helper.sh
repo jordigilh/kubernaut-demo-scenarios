@@ -60,9 +60,9 @@ fleet_dispatch_requested() {
     return 0
 }
 
-# A couple of scenarios' fleet/hub.sh stay alert-only for scenario-specific
-# reasons unrelated to fleet mode in general (see each call site) -- there's
-# no single-cluster AF/A2A pipeline to run against a remote spoke for them,
+# One scenario's fleet/hub.sh stays alert-only for scenario-specific
+# reasons unrelated to fleet mode in general (see its call site) -- there's
+# no single-cluster AF/A2A pipeline to run against a remote spoke for it,
 # so flags that steer it (--interactive/--auto-approve/--no-validate) have
 # nothing to attach to. Warn once so that's not surprising to someone
 # passing them out of habit; call from that scenario's top-level run.sh

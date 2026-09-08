@@ -1,0 +1,8 @@
+name = 'pdb-deadlock'
+title = 'PDB blocks all disruptions -> relax minAvailable'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'no'

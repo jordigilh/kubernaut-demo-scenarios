@@ -1,0 +1,9 @@
+name = 'crashloop'
+id = 120
+title = 'Bad config causes restarts >3 in 10m -> rollback to last working revision'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

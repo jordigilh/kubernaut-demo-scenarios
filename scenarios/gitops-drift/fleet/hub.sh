@@ -10,11 +10,14 @@
 # in order for the common single-spoke case) so kube-state-metrics and the
 # raw Prometheus rule are in place before pods land there.
 #
-# This mirrors the topology kubernaut#2326 (RemediationWorkflow.spec.
+# This exercises the topology kubernaut#2326 (RemediationWorkflow.spec.
 # execution.clusterId) exists for: target cluster (signal origin) = spoke,
-# GitOps-hub/execution cluster = hub. Fleet mode doesn't create a
-# WorkflowExecution in alert-only mode though, so that field itself isn't
-# exercised here -- this only proves the cross-cluster ArgoCD sync half.
+# GitOps-hub/execution cluster = hub. The git-revert-v2 workflow's
+# execution.clusterId is seeded to "hub" (see scripts/seed-workflows.sh),
+# so the git-revert Job holding the Gitea credentials runs on the hub, and
+# ArgoCD reconciles the reverted state back onto the spoke. Drives the
+# full remediation pipeline on the hub (--alert-only stops after the
+# alert instead).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -360,11 +363,22 @@ echo ""
 echo "==> [hub] Waiting for alert..."
 fleet_wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 300
 echo ""
-echo "==> Alert is firing. Fleet mode stops here (alert-only)."
-echo "    This topology (signal on spoke, GitOps-hub on hub) is exactly the"
-echo "    case kubernaut#2326's RemediationWorkflow.spec.execution.clusterId"
-echo "    was added for -- the git-revert-v2 workflow's Job should run here"
-echo "    on the hub (it holds the Gitea credentials), not the spoke. Fleet"
-echo "    mode doesn't create a WorkflowExecution in alert-only mode, so"
-echo "    that field itself isn't exercised by this script; this only"
-echo "    proves the cross-cluster ArgoCD sync half of the topology."
+
+APPROVE_MODE="--auto-approve"
+ALERT_ONLY=""
+for _arg in "$@"; do
+    case "$_arg" in
+        --auto-approve)  APPROVE_MODE="--auto-approve" ;;
+        --interactive)   APPROVE_MODE="--interactive" ;;
+        --alert-only)    ALERT_ONLY=true ;;
+    esac
+done
+
+if [ -n "$ALERT_ONLY" ]; then
+    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
+    echo "    Fleet mode: drive remediation from the Console/APIFrontend on the hub."
+else
+    echo "==> Alert is firing. Driving full remediation pipeline on the hub (${APPROVE_MODE})..."
+    echo "    Signal on spoke, git-revert-v2 Job on hub (execution.clusterId = hub)."
+    fleet_drive_pipeline "${NAMESPACE}" "${APPROVE_MODE}"
+fi

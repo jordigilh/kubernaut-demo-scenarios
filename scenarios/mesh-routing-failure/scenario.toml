@@ -1,0 +1,8 @@
+name = 'mesh-routing-failure'
+title = 'Restrictive Istio AuthorizationPolicy -> fix the policy'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

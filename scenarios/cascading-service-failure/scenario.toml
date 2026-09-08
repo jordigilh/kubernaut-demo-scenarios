@@ -1,0 +1,7 @@
+name = 'cascading-service-failure'
+title = 'One Postgres crash kills two dependent apps -> rollback postgres; RO dedup blocks the second RR'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'full'

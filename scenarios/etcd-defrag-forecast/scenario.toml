@@ -1,0 +1,7 @@
+name = 'etcd-defrag-forecast'
+title = 'Fragmentation ratio predicted to degrade -> rolling per-member defrag'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'full'

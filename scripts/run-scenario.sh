@@ -12,6 +12,7 @@
 #   --scenario NAME[,NAME]   One or more scenarios (comma-separated)
 #   --auto-approve           Auto-approve RemediationApprovalRequests (default)
 #   --interactive            Pause for manual RAR approval
+#   --alert-only             Deploy fault and stop once the alert fires (skip validation)
 #   --cleanup                Run cleanup.sh after each scenario
 #   --validate-only          Skip run.sh, only validate (scenario already deployed)
 #   --skip-run               Alias for --validate-only
@@ -37,6 +38,8 @@ export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
 # Defaults
 SCENARIO_LIST=""
 APPROVE_MODE="--auto-approve"
+RUN_MODE="--auto-approve"
+ALERT_ONLY=false
 DO_CLEANUP=false
 VALIDATE_ONLY=false
 PIPELINE_TIMEOUT=600
@@ -56,6 +59,27 @@ cleanup_port_forward() {
 }
 trap cleanup_port_forward EXIT
 
+# Read a scenario's scenario.toml (if any); prints "fleet kind ocp" values.
+read_scenario_meta() {
+    local dir="$1" toml="$1/scenario.toml" out
+    [ -f "$toml" ] || return 0
+    out=$(python3 - "$toml" <<'PYEOF'
+import sys, tomllib
+try:
+    d = tomllib.load(open(sys.argv[1], "rb"))
+except Exception as e:
+    sys.exit(1)
+p = d.get("platforms", {})
+kind = p.get("kind", "?")
+host = p.get("host", "all")
+if kind == "yes" and host not in ("all", "?"):
+    kind = f"{kind}({host})"
+print("%s %s %s" % (p.get("fleet", "?"), kind, p.get("ocp", "?")))
+PYEOF
+    ) || return 0
+    printf "%s" "$out"
+}
+
 list_scenarios() {
     echo "Available scenarios:"
     echo ""
@@ -66,7 +90,15 @@ list_scenarios() {
         [ -f "${dir}/run.sh" ] && has_run="run"
         [ -f "${dir}/validate.sh" ] && has_validate="validate"
         [ -f "${dir}/cleanup.sh" ] && has_cleanup="cleanup"
-        printf "  %-30s  [%s]\n" "$name" "${has_run:+run }${has_validate:+validate }${has_cleanup:+cleanup}"
+        local meta
+        meta=$(read_scenario_meta "${dir%/}")
+        if [ -n "$meta" ]; then
+            local fleet="" mkind="" mocp=""
+            read -r fleet mkind mocp <<< "$meta"
+            printf "  %-28s  [fleet=%-10s kind=%-10s ocp=%-7s]\n" "$name" "$fleet" "$mkind" "$mocp"
+        elif [ -n "$has_run$has_validate$has_cleanup" ]; then
+            printf "  %-28s  [%s]\n" "$name" "${has_run:+run }${has_validate:+validate }${has_cleanup:+cleanup}"
+        fi
     done
     echo ""
 }
@@ -81,10 +113,17 @@ while [[ $# -gt 0 ]]; do
             ;;
         --auto-approve)
             APPROVE_MODE="--auto-approve"
+            RUN_MODE="--auto-approve"
             shift
             ;;
         --interactive)
             APPROVE_MODE="--interactive"
+            RUN_MODE="--interactive"
+            shift
+            ;;
+        --alert-only)
+            ALERT_ONLY=true
+            RUN_MODE="--alert-only"
             shift
             ;;
         --cleanup)
@@ -120,6 +159,11 @@ done
 
 if [ -z "$SCENARIO_LIST" ]; then
     echo "ERROR: --scenario is required (or use --list to see available scenarios)"
+    exit 1
+fi
+
+if [ "$ALERT_ONLY" = true ] && [ "$VALIDATE_ONLY" = true ]; then
+    echo "ERROR: --alert-only and --validate-only are mutually exclusive"
     exit 1
 fi
 
@@ -215,7 +259,7 @@ for scenario in "${SCENARIOS[@]}"; do
     if [ "$VALIDATE_ONLY" = false ]; then
         if [ -f "${scenario_dir}/run.sh" ]; then
             log_phase "Running ${scenario}/run.sh..."
-            if ! bash "${scenario_dir}/run.sh" --no-validate; then
+            if ! bash "${scenario_dir}/run.sh" --no-validate "$RUN_MODE"; then
                 log_error "run.sh failed for ${scenario}"
                 scenario_result="FAIL"
             fi
@@ -228,7 +272,9 @@ for scenario in "${SCENARIOS[@]}"; do
     fi
 
     # Step 2: validate.sh
-    if [ "$scenario_result" != "FAIL" ]; then
+    if [ "$ALERT_ONLY" = true ]; then
+        log_warn "Skipping validate.sh (--alert-only: stopping once the alert fires)"
+    elif [ "$scenario_result" != "FAIL" ]; then
         if [ -f "${scenario_dir}/validate.sh" ]; then
             log_phase "Running ${scenario}/validate.sh..."
             reset_assertions

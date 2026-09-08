@@ -1,0 +1,8 @@
+name = 'duplicate-alert-suppression'
+title = 'Same bad config as crashloop -> tests RR deduplication, not a new fix'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

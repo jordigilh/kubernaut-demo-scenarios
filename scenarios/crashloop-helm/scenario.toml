@@ -1,0 +1,8 @@
+name = 'crashloop-helm'
+title = 'CrashLoop on a Helm-managed release -> helm rollback to previous revision'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'
