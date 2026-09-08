@@ -24,9 +24,7 @@ fleet_check_spoke_connectivity
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying scenario resources..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
 fleet_deploy_workload "${MANIFEST_DIR}"
-fleet_ensure_kube_state_metrics
-fleet_load_prometheus_rule "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-fleet_reload_spoke_prometheus
+fleet_bootstrap_monitoring "${MANIFEST_DIR}"
 
 echo "==> [spoke] analytics-worker deployed (polinux/stress, 64Mi limit, 64M requested -- OOMs immediately)."
 kubectl_workload get pods -n "${NAMESPACE}"

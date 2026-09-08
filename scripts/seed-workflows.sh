@@ -71,7 +71,10 @@ _apply_workflow_yaml() {
     local yaml_file="$1" ns="$2"
     local tmpdir
     tmpdir=$(mktemp -d)
-    trap 'rm -rf "${tmpdir}"' RETURN
+    # Double quotes: expand now so the trap holds the literal path (a
+    # single-quoted '${tmpdir}' evaluates at RETURN time, when the local is
+    # out of scope under `set -u`).
+    trap "rm -rf '${tmpdir}'" RETURN
 
     local rendered_yaml="${yaml_file}"
     if [ "$FLEET_MODE" = true ] && grep -q 'name: git-revert-v2' "$yaml_file"; then

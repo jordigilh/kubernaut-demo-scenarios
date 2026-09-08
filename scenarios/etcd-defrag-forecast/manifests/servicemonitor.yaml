@@ -10,6 +10,10 @@ spec:
   selector:
     matchLabels:
       app: etcd
+      # Headless Service only: one target per member with pod/instance
+      # identity (see etcd-headless). Scraping the ClusterIP Service too
+      # would add a duplicate VIP target and skew member aggregates.
+      etcd-discovery: headless
   endpoints:
   - port: metrics
     interval: 15s

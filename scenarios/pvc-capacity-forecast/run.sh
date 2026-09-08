@@ -14,8 +14,8 @@
 # (ExpandPersistentVolumeClaim), which fleet mode never runs -- skipped
 # entirely here, since Kind's default StorageClass doesn't set
 # allowVolumeExpansion anyway. kubelet_volume_stats_* isn't reported by
-# cAdvisor, so fleet mode adds a second kubelet scrape job (kubelet's main
-# /metrics, not /metrics/cadvisor) via fleet_ensure_kubelet_metrics_job.
+# cAdvisor, but the spoke's operator-managed kubelet scrape covers the
+# main /metrics endpoint, so fleet mode needs no extra scrape job.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

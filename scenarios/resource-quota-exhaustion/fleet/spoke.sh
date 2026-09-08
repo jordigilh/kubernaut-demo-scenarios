@@ -22,7 +22,7 @@ fleet_check_spoke_connectivity
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying scenario resources (3 replicas x 256Mi vs 512Mi quota)..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
 fleet_deploy_workload "${MANIFEST_DIR}"
-fleet_bootstrap_monitoring "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
+fleet_bootstrap_monitoring "${MANIFEST_DIR}"
 
 echo "==> [spoke] Waiting for partial deployment (2/3 pods will come up)..."
 sleep 15
