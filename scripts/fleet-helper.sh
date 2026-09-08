@@ -147,6 +147,16 @@ detect_spoke_platform() {
     fi
 }
 
+# True when any spoke node reports arm64. Used by scenarios whose demo
+# workload ships an amd64-only image (e.g. the etcd-defrag dedicated demo
+# etcd, which fatals under emulation) to fail loud with guidance instead
+# of timing out a rollout that can never go green.
+fleet_spoke_is_arm64() {
+    _fleet_require_mode "fleet_spoke_is_arm64" || return 1
+    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get nodes -o jsonpath='{range .items[*]}{.status.nodeInfo.architecture}{"\n"}{end}' \
+        2>/dev/null | grep -q '^arm64$'
+}
+
 # Returns the kustomize directory to deploy to the spoke: the OCP overlay
 # when the spoke is OpenShift and one exists, otherwise the base manifests.
 # Same selection rule as platform-helper.sh's get_manifest_dir(), but keyed

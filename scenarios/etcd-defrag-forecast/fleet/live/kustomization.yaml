@@ -1,14 +1,13 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-# Live-spoke variant (fleet + kind only, opt-in via ETCD_FLEET_LIVE=1):
-# monitors the kind control-plane etcd in place instead of deploying the
-# dedicated demo StatefulSet. Applied with fleet_deploy_workload /
-# fleet_deploy_monitoring like the base manifests (proxy + Service count
-# as workload, ServiceMonitor + PrometheusRule as monitoring). The loader
-# and defrag Jobs live one level up (fleet/loader-job.yaml,
-# fleet/defrag-job.yaml) and are applied imperatively in sequence by
-# fleet/spoke.sh -- they must run in order (defrag baseline, then
-# fragment), not all at once.
+# Live-cluster variant (kind only, opt-in via ETCD_LIVE_CLUSTER=1, shared
+# by fleet and local modes): monitors the kind control-plane etcd in place
+# instead of deploying the dedicated demo StatefulSet. Applied like the
+# base manifests (proxy + Service count as workload, ServiceMonitor +
+# PrometheusRule as monitoring). The loader and defrag Jobs live one level
+# up (fleet/loader-job.yaml, fleet/defrag-job.yaml) and are applied
+# imperatively in sequence -- they must run in order (defrag baseline,
+# then fragment), not all at once.
 resources:
   - namespace.yaml
   - proxy-config.yaml
