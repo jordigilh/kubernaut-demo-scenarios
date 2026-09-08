@@ -25,6 +25,11 @@ metadata:
   namespace: demo-datastore
   labels:
     app: etcd
+    # Marks the per-member discovery surface: the ServiceMonitor selects
+    # only this headless Service so all three members are scraped
+    # individually with endpoint identity (the ClusterIP etcd-client
+    # Service would collapse them to a single VIP target).
+    etcd-discovery: headless
     kubernaut.ai/managed: "true"
 spec:
   clusterIP: None
