@@ -6,14 +6,13 @@
 # Fleet mode: hub cluster runs the Kubernaut control plane (catalog CRs,
 # APIFrontend, Console, etc.); a separate spoke cluster runs the demo
 # workload and is investigated/remediated remotely via the fleet MCP
-# gateway. The spoke's Prometheus is a raw (hand-rolled, no
-# prometheus-operator) instance, so scenario PrometheusRule CRDs cannot be
-# applied there directly -- there is no monitoring.coreos.com CRD to accept
-# them. These helpers bridge that gap: they translate a scenario's
-# manifests/prometheus-rule.yaml into the raw rule_files format the spoke's
-# Prometheus actually consumes, and ensure kube-state-metrics exists (the
-# spoke only scrapes kubelet-cadvisor by default, so any rule keying off
-# kube_state_metrics_* / kube_pod_* series would otherwise never fire).
+# gateway. The spoke runs an operator-managed Prometheus instance
+# (Prometheus/fleet-spoke, all selectors open), so scenario monitoring
+# CRDs (ServiceMonitor/PodMonitor/Probe/PrometheusRule) are applied to the
+# spoke natively -- the same production-shaped resources used by OCP and
+# single-cluster mode. No raw prometheus-config surgery, no rule-file
+# translation, no Prometheus restarts: the operator picks up CRD changes
+# on its own.
 #
 # Fleet mode is opt-in: explicit at the CLI via --fleet (see
 # fleet_dispatch_requested below), validated against two env vars; every
@@ -60,6 +59,25 @@ fleet_dispatch_requested() {
     return 0
 }
 
+# Explicit-unsupported gate for scenarios WITHOUT fleet mode: call with the
+# scenario name and the script's "$@" right after SCRIPT_DIR is set. Fails
+# loud if --fleet was passed (fleet mode is never a silent no-op or a quiet
+# local fallback), returns 0 otherwise. Fleet-capable scenarios use
+# fleet_dispatch_requested instead, which dispatches to fleet/run.sh.
+#
+# Call as: fleet_fail_if_requested "<scenario-name>" "$@"
+fleet_fail_if_requested() {
+    local scenario="${1:?usage: fleet_fail_if_requested <scenario-name> -- <args...>}"
+    shift
+    local _arg
+    for _arg in "$@"; do
+        if [ "$_arg" = "--fleet" ]; then
+            echo "ERROR: scenario '${scenario}' does not support --fleet (no fleet mode; see the Fleet column in docs/scenarios.md)." >&2
+            exit 1
+        fi
+    done
+}
+
 # One scenario's fleet/hub.sh stays alert-only for scenario-specific
 # reasons unrelated to fleet mode in general (see its call site) -- there's
 # no single-cluster AF/A2A pipeline to run against a remote spoke for it,
@@ -90,13 +108,10 @@ _fleet_require_mode() {
 
 FLEET_MONITORING_NS="${FLEET_MONITORING_NS:-monitoring}"
 
-_fleet_sha256_stdin() {
-    if command -v shasum >/dev/null 2>&1; then
-        shasum -a 256 | cut -d' ' -f1
-    else
-        sha256sum | cut -d' ' -f1
-    fi
-}
+# Operator-managed monitoring kinds a scenario may ship. fleet_deploy_workload
+# skips these (they go through fleet_deploy_monitoring instead, keeping
+# workload deployment separate from monitoring resource deployment);
+# fleet_deploy_monitoring applies ONLY these.
 
 # Run a kubectl command against the workload cluster: the spoke in fleet
 # mode, the ambient KUBECONFIG otherwise. Scenario fleet/run.sh scripts use
@@ -179,20 +194,22 @@ fleet_check_connectivity() {
 
 # Deploy scenario workload resources (namespace/configmap/deployment) to the
 # spoke cluster. Deliberately skips any PrometheusRule/ServiceMonitor/Probe/
-# PodMonitor documents in the manifest dir -- the spoke has no
-# prometheus-operator CRDs to accept them (use fleet_load_prometheus_rule +
-# fleet_ensure_scrape_job/fleet_ensure_pod_scrape_job for the raw-Prometheus
-# equivalents instead).
+# PodMonitor/ScrapeConfig documents in the manifest dir -- those go through
+# fleet_deploy_monitoring instead, keeping workload deployment separate from
+# monitoring resource deployment.
 #
 # Args: $1 = manifest dir (e.g. scenarios/crashloop/manifests)
 fleet_deploy_workload() {
     _fleet_require_mode "fleet_deploy_workload" || return 1
     local manifest_dir="${1:?usage: fleet_deploy_workload <manifest-dir>}"
 
-    echo "==> [fleet] Deploying workload manifests to spoke (skipping PrometheusRule/ServiceMonitor/Probe/PodMonitor -- no operator on spoke)..."
+    echo "==> [fleet] Deploying workload manifests to spoke (skipping operator monitoring kinds -- see fleet_deploy_monitoring)..."
     local tmpdir
     tmpdir=$(mktemp -d)
-    trap 'rm -rf "${tmpdir}"' RETURN
+    # Double quotes: expand now so the trap holds the literal path -- a
+    # single-quoted '${tmpdir}' would evaluate at RETURN time, when the
+    # local is already out of scope under `set -u`.
+    trap "rm -rf '${tmpdir}'" RETURN
 
     kubectl --kubeconfig="${SPOKE_KUBECONFIG}" kustomize "${manifest_dir}" > "${tmpdir}/rendered.yaml"
 
@@ -209,18 +226,77 @@ for line in open(sys.argv[2]):
     local applied=0 skipped=0
     for doc in "${tmpdir}"/doc-*.yaml; do
         [ -f "$doc" ] || continue
-        if grep -qE 'kind: (PrometheusRule|ServiceMonitor|Probe|PodMonitor)' "$doc"; then
+        if grep -qE 'kind: (PrometheusRule|ServiceMonitor|Probe|PodMonitor|ScrapeConfig)' "$doc"; then
             skipped=$((skipped + 1))
             continue
         fi
         kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f "$doc" 2>&1 | sed 's/^/    /'
         applied=$((applied + 1))
     done
-    echo "  Applied ${applied} document(s) to spoke, skipped ${skipped} (operator-only kinds)."
+    echo "  Applied ${applied} document(s) to spoke, skipped ${skipped} (monitoring kinds)."
+}
+
+# Deploy a scenario's operator monitoring resources (ServiceMonitor,
+# PodMonitor, Probe, PrometheusRule, ScrapeConfig) to the spoke cluster.
+# Applies ONLY those kinds -- the workload half goes through
+# fleet_deploy_workload. Platform-aware: pass the fleet_get_manifest_dir
+# selection (Kind base vs OCP overlay) so overlays that swap monitoring
+# shapes (e.g. mesh-routing-failure's PodMonitor<->ServiceMonitor swap)
+# keep working. Never mutates prometheus-config and never restarts
+# Prometheus: the operator reconciles CRD changes on its own.
+#
+# Args: $1 = manifest dir (e.g. scenarios/crashloop/manifests)
+fleet_deploy_monitoring() {
+    _fleet_require_mode "fleet_deploy_monitoring" || return 1
+    local manifest_dir="${1:?usage: fleet_deploy_monitoring <manifest-dir>}"
+
+    echo "==> [fleet] Deploying monitoring CRDs to spoke (operator-native, no config surgery)..."
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    # Double quotes: expand now so the trap holds the literal path -- a
+    # single-quoted '${tmpdir}' would evaluate at RETURN time, when the
+    # local is already out of scope under `set -u`.
+    trap "rm -rf '${tmpdir}'" RETURN
+
+    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" kustomize "${manifest_dir}" > "${tmpdir}/rendered.yaml"
+
+    python3 -c "
+import sys, os
+d, n, f = sys.argv[1], 0, None
+for line in open(sys.argv[2]):
+    if line.strip() == '---':
+        n += 1; f = None; continue
+    if f is None: f = open(os.path.join(d, f'doc-{n}.yaml'), 'a')
+    f.write(line)
+" "${tmpdir}" "${tmpdir}/rendered.yaml"
+
+    local applied=0 skipped=0
+    for doc in "${tmpdir}"/doc-*.yaml; do
+        [ -f "$doc" ] || continue
+        if grep -qE 'kind: (PrometheusRule|ServiceMonitor|Probe|PodMonitor|ScrapeConfig)' "$doc"; then
+            kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f "$doc" 2>&1 | sed 's/^/    /'
+            applied=$((applied + 1))
+        else
+            skipped=$((skipped + 1))
+        fi
+    done
+    if [ "$applied" -eq 0 ]; then
+        echo "  WARNING: no monitoring CRDs found under ${manifest_dir}; nothing deployed." >&2
+    else
+        echo "  Applied ${applied} monitoring document(s) to spoke, skipped ${skipped} (workload kinds)."
+    fi
 }
 
 # Ensure kube-state-metrics is deployed on the spoke's monitoring namespace.
 # Idempotent: no-op if the Deployment already exists.
+#
+# NOTE: on current fleet spokes KSM is owned by the upstream fleet infra
+# (jordigilh/kubernaut#2380 tracks two requirements there: honorLabels=true
+# on its ServiceMonitor so kube_* series keep their native namespace/pod
+# labels, and --resources covering horizontalpodautoscalers,
+# persistentvolumeclaims and poddisruptionbudgets). This helper only fills
+# the gap when KSM is entirely absent; the RBAC/--resources below are kept
+# in parity with the upstream requirement.
 #
 # The RBAC rules and --resources flag below must cover every kube_*
 # resource kind any scenario's PrometheusRule keys off of, or that rule can
@@ -330,307 +406,13 @@ EOF
         -n "${FLEET_MONITORING_NS}" --timeout=60s | sed 's/^/    /'
 }
 
-# Translate a scenario's manifests/prometheus-rule.yaml (a PrometheusRule CRD)
-# into the spoke's raw Prometheus rule_files format and load it, adding a
-# kube-state-metrics scrape job to prometheus-config if not already present.
-# Idempotent: compares content hashes and skips the rollout when nothing
-# changed (the Deployment patch that mounts the rules volume only runs once).
-#
-# Args: $1 = path to the scenario's manifests/prometheus-rule.yaml
-fleet_load_prometheus_rule() {
-    _fleet_require_mode "fleet_load_prometheus_rule" || return 1
-    local rule_file="${1:?usage: fleet_load_prometheus_rule <prometheus-rule.yaml>}"
-
-    if [ ! -f "$rule_file" ]; then
-        echo "  [fleet] No PrometheusRule at ${rule_file}, skipping rule load."
-        return 0
-    fi
-
-    local rule_name rules_yaml spoke_cluster_label replace_default_rule
-    spoke_cluster_label="${SPOKE_CLUSTER_LABEL:-remote-cluster}"
-    # Every scenario's PrometheusRule is conventionally named "demo-app-alerts"
-    # (disambiguated by CRD namespace, like the OCP overlays' -monitoring/
-    # -analytics/etc. suffixes do). The spoke's raw rule_files ConfigMap has
-    # no such per-namespace isolation, so key by namespace+name to avoid one
-    # scenario's rule silently overwriting another's ConfigMap entry.
-    rule_name=$(python3 -c "
-import yaml, sys
-doc = yaml.safe_load(open(sys.argv[1]))
-print(f\"{doc['metadata']['namespace']}-{doc['metadata']['name']}\")
-" "$rule_file")
-    rules_yaml=$(python3 -c "
-import yaml, sys
-doc = yaml.safe_load(open(sys.argv[1]))
-cluster = sys.argv[2]
-for group in doc.get('spec', {}).get('groups', []):
-    for rule in group.get('rules', []):
-        if rule.get('alert'):
-            rule.setdefault('labels', {})['cluster'] = cluster
-print(yaml.dump({'groups': doc['spec']['groups']}, default_flow_style=False))
-" "$rule_file" "$spoke_cluster_label")
-
-    # The fleet infrastructure historically preloads a generic demo-app-alerts
-    # rule for demo-checkout. Replace it with the scenario rule rather than
-    # leaving two KubePodCrashLooping evaluations for the same pod.
-    replace_default_rule=0
-    if python3 -c "
-import sys, yaml
-doc = yaml.safe_load(open(sys.argv[1]))
-has_crashloop = any(
-    rule.get('alert') == 'KubePodCrashLooping'
-    for group in doc.get('spec', {}).get('groups', [])
-    for rule in group.get('rules', [])
-)
-sys.exit(0 if doc.get('metadata', {}).get('namespace') == 'demo-checkout' and has_crashloop else 1)
-" "$rule_file"; then
-        replace_default_rule=1
-    fi
-
-    local desired_hash current_hash default_rule_present
-    desired_hash=$(printf '%s' "$rules_yaml" | _fleet_sha256_stdin)
-    current_hash=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get configmap prometheus-rules \
-        -n "${FLEET_MONITORING_NS}" -o jsonpath="{.data.${rule_name}\.yml}" 2>/dev/null \
-        | _fleet_sha256_stdin || true)
-    default_rule_present=""
-    if [ "$replace_default_rule" = "1" ]; then
-        default_rule_present=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get configmap prometheus-rules \
-            -n "${FLEET_MONITORING_NS}" -o jsonpath='{.data.demo-app-alerts\.yml}' 2>/dev/null || true)
-    fi
-
-    if [ "$desired_hash" = "$current_hash" ] && [ -z "$default_rule_present" ]; then
-        echo "  [fleet] Prometheus rule '${rule_name}' already loaded on spoke."
-    else
-        echo "==> [fleet] Loading Prometheus rule '${rule_name}' onto spoke (raw rule_files, no operator)..."
-        # Merge into the existing ConfigMap's data rather than replacing it --
-        # kubectl apply's 3-way merge (vs. last-applied-configuration) would
-        # otherwise treat every *other* scenario's key as removed, since a
-        # bare `create --from-literal | apply` only ever declares one key.
-        kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get configmap prometheus-rules \
-            -n "${FLEET_MONITORING_NS}" -o json 2>/dev/null \
-            | python3 -c "
-import sys, json
-try:
-    cm = json.load(sys.stdin)
-except json.JSONDecodeError:
-    cm = {}
-if not cm:
-    cm = {'apiVersion': 'v1', 'kind': 'ConfigMap',
-          'metadata': {'name': 'prometheus-rules', 'namespace': '${FLEET_MONITORING_NS}'}}
-if sys.argv[2] == '1':
-    cm.setdefault('data', {}).pop('demo-app-alerts.yml', None)
-cm.setdefault('data', {})['${rule_name}.yml'] = sys.argv[1]
-json.dump(cm, sys.stdout)
-" "$rules_yaml" "$replace_default_rule" | kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - 2>&1 | sed 's/^/    /'
-        # Prometheus only globs /etc/prometheus/rules/*.yml at startup/reload,
-        # not continuously -- a new or changed rule file needs a restart to
-        # be picked up, same as the prometheus-config edits below.
-        _FLEET_PROM_CONFIG_CHANGED=1
-    fi
-
-    # Ensure the Deployment mounts the rules ConfigMap (one-time; idempotent
-    # via a JSON-pointer existence check rather than a second apply, since
-    # strategic-merge would otherwise duplicate the volume/mount on rerun).
-    if ! kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get deployment prometheus -n "${FLEET_MONITORING_NS}" \
-        -o jsonpath='{.spec.template.spec.volumes[?(@.name=="rules")]}' 2>/dev/null | grep -q rules; then
-        echo "  [fleet] Mounting rules ConfigMap onto spoke Prometheus..."
-        kubectl --kubeconfig="${SPOKE_KUBECONFIG}" patch deployment prometheus -n "${FLEET_MONITORING_NS}" --type=json -p='[
-          {"op":"add","path":"/spec/template/spec/volumes/-","value":{"name":"rules","configMap":{"name":"prometheus-rules"}}},
-          {"op":"add","path":"/spec/template/spec/containers/0/volumeMounts/-","value":{"name":"rules","mountPath":"/etc/prometheus/rules"}}
-        ]' 2>&1 | sed 's/^/    /'
-    fi
-
-    _fleet_ensure_prometheus_config_has "rule_files" "- /etc/prometheus/rules/*.yml"
-    _fleet_ensure_prometheus_config_has "kube-state-metrics scrape job" \
-        "- job_name: 'kube-state-metrics'
-  scrape_interval: 15s
-  static_configs:
-  - targets: ['kube-state-metrics.${FLEET_MONITORING_NS}.svc.cluster.local:8080']"
-}
-
-# Ensure a fragment of raw Prometheus YAML config is present in the spoke's
-# prometheus-config ConfigMap, appending it (and rolling out Prometheus) only
-# if missing. Uses substring matching, not YAML merge -- the spoke's
-# prometheus.yml is small and hand-maintained (test/infrastructure/fleet_e2e.go
-# generates it), so a full parse/merge would be more fragile than this for the
-# handful of fragments scenarios need to add.
-_fleet_ensure_prometheus_config_has() {
-    local description="$1" fragment="$2"
-    local current
-    current=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get configmap prometheus-config \
-        -n "${FLEET_MONITORING_NS}" -o jsonpath='{.data.prometheus\.yml}' 2>/dev/null || true)
-
-    if echo "$current" | grep -qF -- "$(echo "$fragment" | head -1)"; then
-        return 0
-    fi
-
-    echo "  [fleet] Adding ${description} to spoke prometheus-config..."
-    local updated
-    if [ "$description" = "rule_files" ]; then
-        updated="global:
-$(echo "$current" | sed -n '/^global:/,/^[a-z]/p' | sed '1d;$d')
-rule_files:
-${fragment}
-$(echo "$current" | sed -n '/^scrape_configs:/,$p')"
-    else
-        updated=$(python3 -c "
-import sys
-current = sys.argv[1]
-fragment = sys.argv[2]
-lines = current.split(chr(10))
-out = []
-i = 0
-while i < len(lines):
-    out.append(lines[i])
-    if lines[i].startswith('scrape_configs:'):
-        # insert after the whole scrape_configs block, i.e. before 'alerting:'
-        pass
-    i += 1
-text = chr(10).join(out)
-marker = chr(10) + 'alerting:'
-if marker in text:
-    text = text.replace(marker, chr(10) + fragment + marker, 1)
-else:
-    text = text + chr(10) + fragment + chr(10)
-print(text)
-" "$current" "$fragment")
-    fi
-
-    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" create configmap prometheus-config \
-        -n "${FLEET_MONITORING_NS}" --from-literal="prometheus.yml=${updated}" \
-        --dry-run=client -o yaml | kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - 2>&1 | sed 's/^/    /'
-
-    _FLEET_PROM_CONFIG_CHANGED=1
-}
-
-# Ensure an additional static-target scrape job exists on the spoke's raw
-# Prometheus, for scenarios whose alert depends on a metrics endpoint other
-# than kube-state-metrics/kubelet-cadvisor -- e.g. cert-manager, etcd, or a
-# scenario's own exporter Service. Verified live (kubernaut-demo-scenarios
-# spike, 2026-09-01): cert-manager's own metrics Service
-# (cert-manager.cert-manager.svc.cluster.local:9402) is a stable in-cluster
-# target, scraped the exact same way kube-state-metrics already is below --
-# no operator/ServiceMonitor required on the spoke. Not every custom metric
-# fits this shape (Istio's per-pod sidecar metrics and blackbox_exporter's
-# Probe-style /probe?target=... scraping need a different scrape_configs
-# shape entirely), but it covers any scenario whose custom metric comes from
-# a single well-known Service:port. No-op if a job with this name already
-# exists (matched by job_name, so keep job_name unique per scenario). Call
-# fleet_reload_spoke_prometheus afterward to pick up the change.
-#
-# Args: $1 = job_name, $2 = target (host:port), $3 = optional extra
-#       scrape_configs YAML lines (e.g. metrics_path/params), indented to
-#       match the job's top level. $4 = optional static labels to attach
-#       directly to this target (e.g. when the exporter itself has no
-#       concept of a k8s namespace, unlike cert-manager's own metrics --
-#       postgres_exporter's pg_stat_activity_count is one such case),
-#       indented to match under the static_configs target item.
-fleet_ensure_scrape_job() {
-    _fleet_require_mode "fleet_ensure_scrape_job" || return 1
-    local job_name="${1:?usage: fleet_ensure_scrape_job <job_name> <target> [extra_yaml] [target_labels_yaml]}"
-    local target="${2:?usage: fleet_ensure_scrape_job <job_name> <target> [extra_yaml] [target_labels_yaml]}"
-    local extra="${3:-}"
-    local target_labels="${4:-}"
-    local fragment="- job_name: '${job_name}'
-  scrape_interval: 15s"
-    if [ -n "$extra" ]; then
-        fragment="${fragment}
-${extra}"
-    fi
-    fragment="${fragment}
-  static_configs:
-  - targets: ['${target}']"
-    if [ -n "$target_labels" ]; then
-        fragment="${fragment}
-    labels:
-${target_labels}"
-    fi
-    _fleet_ensure_prometheus_config_has "'${job_name}' scrape job" "$fragment"
-}
-
-# Ensure a scrape job against kubelet's main /metrics endpoint (not the
-# /metrics/cadvisor sub-path the existing kubelet-cadvisor job uses)
-# exists, for scenarios keying off metrics kubelet exposes itself rather
-# than via cAdvisor -- e.g. kubelet_volume_stats_* (PVC capacity/usage),
-# which cAdvisor doesn't report. Same kubernetes_sd_configs shape as
-# kubelet-cadvisor (role: node, scrape the node's kubelet port directly),
-# just a different path and metric_relabel_configs keep filter, so this
-# doesn't fit fleet_ensure_scrape_job's single-static-target shape.
-#
-# Args: $1 = job_name (must be unique), $2 = regex of metric names to keep
-#       (passed through metric_relabel_configs, e.g.
-#       'kubelet_volume_stats_(used_bytes|capacity_bytes)').
-fleet_ensure_kubelet_metrics_job() {
-    _fleet_require_mode "fleet_ensure_kubelet_metrics_job" || return 1
-    local job_name="${1:?usage: fleet_ensure_kubelet_metrics_job <job_name> <keep_regex>}"
-    local keep_regex="${2:?usage: fleet_ensure_kubelet_metrics_job <job_name> <keep_regex>}"
-    local fragment="- job_name: '${job_name}'
-  scrape_interval: 15s
-  kubernetes_sd_configs:
-  - role: node
-  scheme: https
-  tls_config:
-    insecure_skip_verify: true
-  bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-  relabel_configs:
-  - source_labels: [__meta_kubernetes_node_address_InternalIP]
-    target_label: __address__
-    replacement: \${1}:10250
-  metric_relabel_configs:
-  - source_labels: [__name__]
-    regex: '${keep_regex}'
-    action: keep"
-    _fleet_ensure_prometheus_config_has "'${job_name}' scrape job" "$fragment"
-}
-
-# Ensure a per-pod scrape job (kubernetes_sd_configs role: pod, scoped to one
-# namespace) exists, for sidecar/per-pod metrics with no single stable
-# Service endpoint to hit statically -- e.g. istio-proxy's Envoy stats port,
-# which exists once per meshed pod, not behind one shared Service. Unlike
-# fleet_ensure_scrape_job (one static target) or fleet_ensure_kubelet_metrics_job
-# (role: node), this discovers pods dynamically so it keeps working as pods
-# are added/removed/rescheduled -- the same thing a PodMonitor would do via
-# prometheus-operator, reproduced by hand for the spoke's raw Prometheus.
-#
-# Args: $1 = job_name, $2 = namespace to discover pods in, $3 = metrics_path,
-#       $4 = full relabel_configs block (verbatim, caller's responsibility --
-#       typically a container-name/port-name "keep" filter first, since
-#       role: pod emits one target per exposed container port, then a
-#       namespace/pod label rewrite from __meta_kubernetes_namespace/
-#       __meta_kubernetes_pod_name -- prometheus-operator's PodMonitor
-#       controller adds this namespace relabeling automatically; there's no
-#       operator here to do it for us).
-fleet_ensure_pod_scrape_job() {
-    _fleet_require_mode "fleet_ensure_pod_scrape_job" || return 1
-    local job_name="${1:?usage: fleet_ensure_pod_scrape_job <job_name> <namespace> <metrics_path> <relabel_configs_yaml>}"
-    local target_ns="${2:?usage: fleet_ensure_pod_scrape_job <job_name> <namespace> <metrics_path> <relabel_configs_yaml>}"
-    local metrics_path="${3:?usage: fleet_ensure_pod_scrape_job <job_name> <namespace> <metrics_path> <relabel_configs_yaml>}"
-    local relabel="${4:?usage: fleet_ensure_pod_scrape_job <job_name> <namespace> <metrics_path> <relabel_configs_yaml>}"
-    local fragment="- job_name: '${job_name}'
-  scrape_interval: 15s
-  metrics_path: ${metrics_path}
-  kubernetes_sd_configs:
-  - role: pod
-    namespaces:
-      names: ['${target_ns}']
-  relabel_configs:
-${relabel}"
-    _fleet_ensure_prometheus_config_has "'${job_name}' pod-scrape job" "$fragment"
-}
-
-# Roll out the spoke Prometheus if fleet_load_prometheus_rule changed its
-# config or mounted a new volume. Call once after all fleet_load_prometheus_rule
-# calls for a scenario, not per-call, to avoid redundant restarts.
-fleet_reload_spoke_prometheus() {
-    _fleet_require_mode "fleet_reload_spoke_prometheus" || return 1
-    if [ "${_FLEET_PROM_CONFIG_CHANGED:-0}" != "1" ]; then
-        return 0
-    fi
-    echo "==> [fleet] Rolling out spoke Prometheus to pick up config changes..."
-    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" rollout restart deployment/prometheus -n "${FLEET_MONITORING_NS}"
-    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" rollout status deployment/prometheus \
-        -n "${FLEET_MONITORING_NS}" --timeout=90s | sed 's/^/    /'
-    _FLEET_PROM_CONFIG_CHANGED=0
-}
+# Raw-Prometheus helpers removed (issue #432): the spoke runs an
+# operator-managed Prometheus, so fleet_load_prometheus_rule,
+# _fleet_ensure_prometheus_config_has, fleet_ensure_scrape_job,
+# fleet_ensure_kubelet_metrics_job, fleet_ensure_pod_scrape_job and
+# fleet_reload_spoke_prometheus no longer exist. Use fleet_deploy_monitoring
+# to apply the scenario's ServiceMonitor/PodMonitor/Probe/PrometheusRule
+# CRDs natively -- no prometheus-config mutation, no restarts.
 
 # Poll the hub's Alertmanager for a firing alert, bypassing
 # validation-helper.sh's wait_for_alert (which assumes the kube-prometheus-stack
@@ -644,7 +426,8 @@ fleet_wait_for_alert() {
     local alertname="${1:?usage: fleet_wait_for_alert <alertname> <namespace> [timeout] [cluster]}"
     local namespace="${2:?usage: fleet_wait_for_alert <alertname> <namespace> [timeout] [cluster]}"
     local timeout="${3:-300}"
-    # Every fleet-loaded alert receives a static cluster rule label. Use it by
+    # The spoke's operator-managed Prometheus stamps every alert with the
+    # external cluster label (cluster=remote-cluster by default). Use it by
     # default so an unlabeled twin cannot satisfy the wait condition.
     # Override this for multi-spoke demos by passing the fourth argument or
     # setting SPOKE_CLUSTER_LABEL.
@@ -820,17 +603,22 @@ EOF
     echo "$server"
 }
 
-# One-call bootstrap for scenario run.sh scripts: deploys kube-state-metrics
-# and loads the scenario's PrometheusRule onto the spoke, then rolls out
-# Prometheus if anything changed. No-op in single-cluster mode.
+# One-call bootstrap for scenario run.sh scripts: ensures kube-state-metrics
+# exists on the spoke and applies the scenario's operator monitoring
+# resources (ServiceMonitor/PodMonitor/Probe/PrometheusRule) natively via
+# fleet_deploy_monitoring. The operator reconciles CRD changes on its own --
+# no config surgery, no restarts. No-op in single-cluster mode.
 #
-# Args: $1 = path to the scenario's manifests/prometheus-rule.yaml
+# Assumes the spoke's Prometheus accepts scenario monitoring CRDs
+# (Prometheus/fleet-spoke selects all namespaces) and stamps
+# cluster=remote-cluster via externalLabels.
+#
+# Args: $1 = manifest dir (e.g. the fleet_get_manifest_dir selection)
 fleet_bootstrap_monitoring() {
     if ! is_fleet_mode; then
         return 0
     fi
-    local rule_file="${1:?usage: fleet_bootstrap_monitoring <prometheus-rule.yaml>}"
+    local manifest_dir="${1:?usage: fleet_bootstrap_monitoring <manifest-dir>}"
     fleet_ensure_kube_state_metrics
-    fleet_load_prometheus_rule "$rule_file"
-    fleet_reload_spoke_prometheus
+    fleet_deploy_monitoring "$manifest_dir"
 }
