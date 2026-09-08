@@ -27,12 +27,8 @@ spec:
         node-role.kubernetes.io/control-plane: ""
       containers:
       - name: defrag
-        # Debian provides a multi-arch etcd-client (v3 API stable against
-        # the kind server). Rationale: registry.k8s.io/etcd is arch-correct
-        # but shell-less, quay.io/coreos/etcd is amd64-only (crashes on
-        # arm64 hosts), and bitnami/etcd publishes no resolvable pinned
-        # minor tag -- apt from frozen bookworm is reproducible enough here.
-        image: docker.io/library/debian:12-slim
+        # First-party multi-arch image with baked etcdctl (tools/etcd-tools).
+        image: quay.io/kubernaut-cicd/etcd-tools:1.0.0
         env:
         - name: ETCDCTL_API
           value: "3"
@@ -53,8 +49,6 @@ spec:
         - -c
         - |
           set -eu
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update -qq && apt-get install -y -qq etcd-client >/dev/null
           OPTS="--endpoints=${ENDPOINTS} --cacert=${CACERT} --cert=${CERT} --key=${KEY}"
           echo "==> DB status before defrag:"
           etcdctl $OPTS endpoint status --write-out=json
