@@ -35,7 +35,7 @@ if [ "${ETCD_FLEET_LIVE:-0}" = "1" ]; then
     fi
 
     echo "==> [spoke=${SPOKE_KUBECONFIG}] LIVE mode: fragmenting the kind control-plane etcd."
-    echo "    Writes ~64MB under /demo-frag/ (deleted afterwards); defrag reclaims the space."
+    echo "    Writes ~16MB under /demo-frag/ (deleted afterwards); defrag reclaims the space."
     LIVE_DIR="${SCRIPT_DIR}/fleet/live"
     fleet_deploy_workload "${LIVE_DIR}"
     fleet_bootstrap_monitoring "${LIVE_DIR}"
@@ -53,7 +53,7 @@ if [ "${ETCD_FLEET_LIVE:-0}" = "1" ]; then
         -n "${NAMESPACE}" --timeout=600s
     echo ""
 
-    echo "==> [spoke] Fragmenting live etcd (loader Job, several minutes)..."
+    echo "==> [spoke] Fragmenting live etcd (loader Job, ~1 min)..."
     kubectl_workload delete job etcd-frag-loader -n "${NAMESPACE}" --ignore-not-found
     kubectl_workload apply -f "${SCRIPT_DIR}/fleet/loader-job.yaml"
     kubectl_workload wait --for=condition=complete job/etcd-frag-loader \
