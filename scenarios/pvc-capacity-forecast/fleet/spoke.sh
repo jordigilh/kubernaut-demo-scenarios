@@ -2,12 +2,11 @@
 # PVC Capacity Forecast Demo -- Fleet Spoke Steps
 #
 # Deploys data-service (data-writer sidecar fills the PVC on its own -- no
-# separate inject script) against SPOKE_KUBECONFIG. Touches only the
-# spoke -- safe to invoke directly, multiple times, once per spoke cluster
-# if demoing across several spokes. Run ../fleet/hub.sh afterward (once
-# all spokes are done) to confirm the alert(s) reached the hub's
-# Alertmanager, or use ../run.sh which runs both in order for the common
-# single-spoke case.
+# separate inject script) against SPOKE_KUBECONFIG. Monitoring is
+# operator-native: the spoke's operator kubelet scrape already covers
+# kubelet_volume_stats_* (no ScrapeConfig needed -- volume series appear
+# once the PVC is bound and mounted), and the PrometheusRule is applied
+# as-is. Touches only the spoke -- safe to invoke
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -20,11 +19,7 @@ fleet_check_spoke_connectivity
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying scenario resources..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
 fleet_deploy_workload "${MANIFEST_DIR}"
-fleet_ensure_kube_state_metrics
-fleet_ensure_kubelet_metrics_job "kubelet-volume-stats" \
-  'kubelet_volume_stats_(used_bytes|capacity_bytes)'
-fleet_load_prometheus_rule "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-fleet_reload_spoke_prometheus
+fleet_bootstrap_monitoring "${MANIFEST_DIR}"
 
 echo "==> [spoke] Waiting for data-service to be ready..."
 kubectl_workload wait --for=condition=Available deployment/data-service \

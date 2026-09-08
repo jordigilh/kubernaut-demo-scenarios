@@ -20,7 +20,7 @@ fleet_check_spoke_connectivity
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying operator and RBAC..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
 fleet_deploy_workload "${MANIFEST_DIR}"
-fleet_bootstrap_monitoring "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
+fleet_bootstrap_monitoring "${MANIFEST_DIR}"
 
 echo "==> [spoke] Waiting for operator to be ready..."
 kubectl_workload wait --for=condition=Available deployment/demo-controllers-controller \
