@@ -14,7 +14,7 @@ NAMESPACE="demo-datastore"
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 fleet_check_hub_connectivity
 
-echo "==> [hub=${HUB_KUBECONFIG}] Waiting for alert (2m 'for' clause; expect ~3-4 min)..."
+echo "==> [hub=${HUB_KUBECONFIG}] Waiting for alert (30s 'for' clause; expect ~1 min)..."
 fleet_wait_for_alert "EtcdHighFragmentationRatio" "${NAMESPACE}" 600
 echo ""
 

@@ -186,3 +186,49 @@ Deploys and faults the workload on the spoke, confirms the `EtcdHighFragmentatio
 alert reaches the hub's Alertmanager, then (unless `--alert-only`) drives the same
 `wait_for_rr`/`poll_pipeline` loop single-cluster mode uses -- just pointed at the hub's
 `kubernaut-system` namespace instead of the ambient cluster.
+
+#### Live-cluster mode (`ETCD_LIVE_CLUSTER=1`, kind only)
+
+Validates against the **live kind control-plane etcd** instead of the disposable
+demo StatefulSet -- remediating a real cluster datastore, which is the
+production scenario (defragging a throwaway etcd proves little). OCP
+always uses the dedicated StatefulSet: the platform etcd is off-limits there.
+
+Works identically in fleet and local mode (same `fleet/live/` assets; the
+local kube-prometheus-stack selects all monitoring CRDs, and the local
+gateway can drive the full `validate.sh` pipeline since defrag-etcd-v1
+sets no execution cluster):
+
+```bash
+export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config
+export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
+ETCD_LIVE_CLUSTER=1 ./scenarios/etcd-defrag-forecast/run.sh --fleet --alert-only
+```
+
+Local kind equivalent (full pipeline available -- the local gateway is present):
+
+```bash
+ETCD_LIVE_CLUSTER=1 ./scenarios/etcd-defrag-forecast/run.sh --alert-only
+```
+
+On arm64 kind clusters the dedicated mode refuses to start (its etcd image is
+amd64-only); live mode is the way there.
+
+How it works (`fleet/live/`, applied by `fleet/spoke.sh` in sequence):
+
+1. A hostNetwork proxy exposes kind's loopback-only `:2381` metrics port to
+   the pod network; a ServiceMonitor scrapes it (per-member identity comes
+   from the single live member's endpoint).
+2. A defrag Job establishes the healthy baseline (kind etcds are typically
+   already fragmented -- ~70% observed on a fresh cluster).
+3. A loader Job writes ~16MB under `/demo-frag/`, deletes it, and compacts,
+   driving the fragmentation ratio toward ~75% within a minute.
+4. `fleet/hub.sh` waits for `EtcdHighFragmentationRatio` on the hub AM as usual.
+
+Remediate afterwards by re-applying `fleet/defrag-job.yaml` and watching the
+alert resolve. Loader and defrag Jobs authenticate with the node's
+healthcheck client cert via a read-only hostPath mount -- no credentials are
+written anywhere. Risks: the loader temporarily grows the live datastore
+(~20MB observed) and compacts to the current revision; both are routine
+etcd maintenance, fully reclaimed by the defrag. Do not use on shared
+production clusters -- this mode exists for throwaway kind spokes.

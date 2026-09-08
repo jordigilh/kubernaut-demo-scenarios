@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Live-cluster variant (kind only, opt-in via ETCD_LIVE_CLUSTER=1, shared
+# by fleet and local modes): monitors the kind control-plane etcd in place
+# instead of deploying the dedicated demo StatefulSet. Applied like the
+# base manifests (proxy + Service count as workload, ServiceMonitor +
+# PrometheusRule as monitoring). The loader and defrag Jobs live one level
+# up (fleet/loader-job.yaml, fleet/defrag-job.yaml) and are applied
+# imperatively in sequence -- they must run in order (defrag baseline,
+# then fragment), not all at once.
+resources:
+  - namespace.yaml
+  - proxy-config.yaml
+  - proxy.yaml
+  - servicemonitor.yaml
+  - prometheus-rule.yaml

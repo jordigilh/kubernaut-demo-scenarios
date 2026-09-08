@@ -1,0 +1,60 @@
+# TCP forwarder exposing the kind control-plane etcd metrics endpoint to
+# the pod network. Kind starts etcd with
+# --listen-metrics-urls=http://127.0.0.1:2381 (loopback only, plain HTTP,
+# no auth), so no in-cluster scraper can reach it directly -- not even the
+# infra's own kube-etcd scrape. The proxy Deployment below runs with
+# hostNetwork:true on the control-plane node and forwards to 127.0.0.1:2381.
+#
+# Binding subtlety: the proxy must bind the NODE address (NODE_IP env,
+# injected from status.podIP which equals the node IP for hostNetwork
+# pods) -- binding 0.0.0.0:2381 fails with EADDRINUSE because etcd already
+# holds 127.0.0.1:2381, and a declared containerPort would make the
+# scheduler refuse the pod outright (host-port claim against the node
+# itself).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etcd-metrics-proxy
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-proxy
+    kubernaut.ai/managed: "true"
+data:
+  forward.py: |
+    import os
+    import socket
+    import threading
+
+
+    def pipe(src, dst):
+        try:
+            while True:
+                chunk = src.recv(65536)
+                if not chunk:
+                    break
+                dst.sendall(chunk)
+        except OSError:
+            pass
+        finally:
+            for sock in (src, dst):
+                try:
+                    sock.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                sock.close()
+
+
+    def main():
+        bind_addr = os.environ.get("NODE_IP", "0.0.0.0")
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((bind_addr, 2381))
+        server.listen(128)
+        while True:
+            client, _ = server.accept()
+            upstream = socket.create_connection(("127.0.0.1", 2381))
+            threading.Thread(target=pipe, args=(client, upstream), daemon=True).start()
+            threading.Thread(target=pipe, args=(upstream, client), daemon=True).start()
+
+
+    main()

@@ -1,0 +1,102 @@
+# Fragments the LIVE kind control-plane etcd on the spoke (fleet live
+# mode only): writes ~16MB of throwaway keys under /demo-frag/, then
+# deletes them, leaving the backend fragmented so EtcdHighFragmentationRatio
+# fires. Applied imperatively by fleet/spoke.sh AFTER the baseline defrag
+# job completes -- never via kustomize (ordering matters).
+#
+# Kept small on purpose: the alert needs total > 1MB and a ratio > 0.15,
+# so ~16MB over a ~5MB baseline (≈75% fragmented) has ample margin while
+# keeping the load step around a minute. Shape is 128 x 128KB puts in
+# 8-wide parallel batches: values must stay under the kernel's 128KB
+# MAX_ARG_STRLEN per exec argument (1MB values fail with E2BIG), and one
+# etcdctl fork per put dominates latency, so parallelism -- not value
+# size -- is the speedup. Writes go to the real cluster datastore: the
+# keyspace is prefixed so cleanup is a single prefix delete (done here;
+# the keys are gone when this Job succeeds -- only the fragmentation
+# remains, until defrag reclaims it).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: etcd-frag-loader
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-loader
+    kubernaut.ai/managed: "true"
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app: etcd-live-loader
+    spec:
+      restartPolicy: Never
+      # The node PKI files are root-only (600); the image defaults to
+      # uid 65534, so the Jobs run as root to read them. Scoped to these
+      # short-lived Jobs only -- the proxy Deployment stays non-root.
+      # (Same trust level as the hostNetwork + hostPath access below.)
+      securityContext:
+        runAsUser: 0
+      # Same node network as the proxy: reach etcd on 127.0.0.1:2379.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      containers:
+      - name: loader
+        # First-party multi-arch image with baked etcdctl (tools/etcd-tools).
+        image: quay.io/kubernaut-cicd/etcd-tools:1.0.0
+        env:
+        - name: ETCDCTL_API
+          value: "3"
+        - name: ENDPOINTS
+          value: "https://127.0.0.1:2379"
+        - name: CACERT
+          value: "/pki/ca.crt"
+        - name: CERT
+          value: "/pki/healthcheck-client.crt"
+        - name: KEY
+          value: "/pki/healthcheck-client.key"
+        # The node PKI is mounted read-only: the Job authenticates as the
+        # healthcheck client (the least-privileged etcd client identity the
+        # node already trusts). Nothing is written back to the host.
+        volumeMounts:
+        - name: etcd-pki
+          mountPath: /pki
+          readOnly: true
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          OPTS="--endpoints=${ENDPOINTS} --cacert=${CACERT} --cert=${CERT} --key=${KEY}"
+          echo "==> baseline DB status:"
+          etcdctl $OPTS endpoint status --write-out=json
+          echo "==> writing 128 x 128KB keys under /demo-frag/ (8 parallel workers) ..."
+          i=1
+          while [ "$i" -le 128 ]; do
+            j=0
+            pids=""
+            while [ "$j" -lt 8 ] && [ "$i" -le 128 ]; do
+              ( VAL=$(head -c 131072 /dev/urandom | base64 | head -c 131000); etcdctl $OPTS put "/demo-frag/key-$i" "$VAL" >/dev/null ) &
+              pids="$pids $!"
+              i=$((i + 1)); j=$((j + 1))
+            done
+            # shellcheck disable=SC2086
+            for pid in $pids; do wait "$pid" || exit 1; done
+            echo "  wrote $((i - 1))/128"
+          done
+          echo "==> DB status after load:"
+          etcdctl $OPTS endpoint status --write-out=json
+          echo "==> deleting /demo-frag/ prefix (keys gone, space fragmented) ..."
+          etcdctl $OPTS del /demo-frag/ --prefix
+          echo "==> compacting to current revision (tombstones become reclaimable) ..."
+          REV=$(etcdctl $OPTS endpoint status --write-out=json | grep -o '"revision":[0-9]*' | head -n 1 | grep -o '[0-9]*')
+          etcdctl $OPTS compact "$REV"
+          echo "==> DB status fragmented (compare total vs in-use):"
+          etcdctl $OPTS endpoint status --write-out=json
+      volumes:
+      - name: etcd-pki
+        hostPath:
+          path: /etc/kubernetes/pki/etcd
+          type: Directory
