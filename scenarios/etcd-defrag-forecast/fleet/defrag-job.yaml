@@ -21,6 +21,9 @@ spec:
         app: etcd-live-loader
     spec:
       restartPolicy: Never
+      # Root-only node PKI (see loader-job.yaml); scoped to this Job.
+      securityContext:
+        runAsUser: 0
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       nodeSelector:

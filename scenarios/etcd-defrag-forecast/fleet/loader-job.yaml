@@ -25,6 +25,12 @@ spec:
         app: etcd-live-loader
     spec:
       restartPolicy: Never
+      # The node PKI files are root-only (600); the image defaults to
+      # uid 65534, so the Jobs run as root to read them. Scoped to these
+      # short-lived Jobs only -- the proxy Deployment stays non-root.
+      # (Same trust level as the hostNetwork + hostPath access below.)
+      securityContext:
+        runAsUser: 0
       # Same node network as the proxy: reach etcd on 127.0.0.1:2379.
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
