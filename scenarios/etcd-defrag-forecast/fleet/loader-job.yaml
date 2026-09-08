@@ -32,10 +32,8 @@ spec:
         node-role.kubernetes.io/control-plane: ""
       containers:
       - name: loader
-        # Debian provides a multi-arch etcd-client (v3 API stable against
-        # the kind server); see defrag-job.yaml for why the etcd images
-        # themselves are unsuitable here.
-        image: docker.io/library/debian:12-slim
+        # First-party multi-arch image with baked etcdctl (tools/etcd-tools).
+        image: quay.io/kubernaut-cicd/etcd-tools:1.0.0
         env:
         - name: ETCDCTL_API
           value: "3"
@@ -59,8 +57,6 @@ spec:
         - -c
         - |
           set -eu
-          export DEBIAN_FRONTEND=noninteractive
-          apt-get update -qq && apt-get install -y -qq etcd-client >/dev/null
           OPTS="--endpoints=${ENDPOINTS} --cacert=${CACERT} --cert=${CERT} --key=${KEY}"
           echo "==> baseline DB status:"
           etcdctl $OPTS endpoint status --write-out=json

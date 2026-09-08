@@ -25,10 +25,10 @@ spec:
         node-role.kubernetes.io/control-plane: ""
       containers:
       - name: proxy
-        # Multi-arch: kind spokes may be arm64 (amd64-only images crash
-        # there -- the same reason the dedicated demo etcd cannot run on
-        # Apple-Silicon hosts).
-        image: docker.io/library/python:3.12-alpine
+        # First-party multi-arch image (see tools/etcd-tools): python3 for
+        # the forwarder, etcdctl for the Jobs. UBI base runs everywhere the
+        # spoke does, unlike the amd64-only coreos etcd image.
+        image: quay.io/kubernaut-cicd/etcd-tools:1.0.0
         command: ["python3", "/etc/proxy/forward.py"]
         env:
         # Node address for the metrics bind (status.podIP == node IP for
