@@ -50,7 +50,7 @@ metadata:
   name: expand-pvc-v1
   namespace: kubernaut-system
 spec:
-  version: "1.6.1"
+  version: "1.6.2"
   description:
     what: "Expands a PersistentVolumeClaim to increase its storage capacity, preventing data loss from disk exhaustion"
     whenToUse: "When proactive analysis predicts PVC exhaustion based on storage growth trends, and the StorageClass supports volume expansion"
@@ -69,7 +69,7 @@ spec:
   execution:
     engine: job
     serviceAccountName: expand-pvc-v1-runner
-    bundle: quay.io/kubernaut-cicd/test-workflows/expand-pvc-job@sha256:2fc62ed7716e9fb4470916a9fe2efe2f91cf12a6611f9a4387b15cd395227a37
+    bundle: quay.io/kubernaut-cicd/test-workflows/expand-pvc-job@sha256:4378ef926a2562137feeed6b5e0d39a3b3e00e5284d241d5053cc72adb3fa5e8
   parameters:
     - name: TARGET_RESOURCE_NAMESPACE
       type: string
