@@ -8,6 +8,11 @@ metadata:
     kubernaut.ai/managed: "true"
 spec:
   replicas: 1
+  # Recreate, not RollingUpdate: with hostNetwork the old and new pods
+  # share the node's port space, so an overlapping rollout crashes the new
+  # pod on EADDRINUSE until the old one dies.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: etcd-live-proxy
