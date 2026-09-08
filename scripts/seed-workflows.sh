@@ -67,6 +67,53 @@ if kubectl get namespace gitea &>/dev/null; then
     fi
 fi
 
+# Fleet-only: apply a workflow file's RBAC documents (ServiceAccount, Role,
+# ClusterRole, RoleBinding, ClusterRoleBinding) to the spoke cluster, so
+# Jobs the hub schedules there find their runner identity.
+# Deliberately skips Secrets (repository credentials must never land on the
+# spoke -- setup-demo-cluster.sh validates their absence) and
+# RemediationWorkflow CRs (the catalog lives on the hub). Requires
+# SPOKE_KUBECONFIG (always set in fleet mode).
+_apply_workflow_rbac_to_spoke() {
+    local yaml_file="$1"
+    if [ -z "${SPOKE_KUBECONFIG:-}" ]; then
+        echo "WARNING: FLEET_MODE without SPOKE_KUBECONFIG; skipping spoke RBAC for ${yaml_file}." >&2
+        return 0
+    fi
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    # Double quotes: expand now so the trap holds the literal path (a
+    # single-quoted '${tmpdir}' evaluates at RETURN time, when the local is
+    # out of scope under `set -u`).
+    trap "rm -rf '${tmpdir}'" RETURN
+
+    python3 -c "
+import sys, os, re
+d = sys.argv[1]
+docs, cur = [], []
+for line in open(sys.argv[2]):
+    if line.strip() == '---':
+        if cur: docs.append(''.join(cur)); cur = []
+    else:
+        cur.append(line)
+if cur: docs.append(''.join(cur))
+n = 0
+for i, doc in enumerate(docs):
+    if re.search(r'^kind: (ServiceAccount|Role|ClusterRole|RoleBinding|ClusterRoleBinding)\s*$', doc, re.M):
+        open(os.path.join(d, f'rbac-{n}.yaml'), 'w').write(doc)
+        n += 1
+print(n)
+" "${tmpdir}" "${yaml_file}"
+
+    local rbac_applied=0
+    for doc in "${tmpdir}"/rbac-*.yaml; do
+        [ -f "$doc" ] || continue
+        kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f "$doc" 2>&1 | sed 's/^/    [spoke] /'
+        rbac_applied=$((rbac_applied + 1))
+    done
+    [ "$rbac_applied" -gt 0 ] || echo "    [spoke] no RBAC documents in ${yaml_file##*/}, nothing mirrored."
+}
+
 _apply_workflow_yaml() {
     local yaml_file="$1" ns="$2"
     local tmpdir
@@ -161,6 +208,14 @@ while IFS= read -r -d '' yaml_file; do
 
     if _apply_workflow_yaml "$yaml_file" "$NAMESPACE" 2>&1 | sed 's/^/  /'; then
         applied=$((applied + 1))
+        # Fleet: the hub owns the catalog, but remotely-executed Jobs run on
+        # the spoke under the workflow's runner identity -- mirror that
+        # file's RBAC there now, or the Job pods fail with
+        # 'serviceaccount "..." not found' (seen live with
+        # crashloop-rollback-v1-runner).
+        if [ "$FLEET_MODE" = true ]; then
+            _apply_workflow_rbac_to_spoke "$yaml_file" 2>&1 | sed 's/^/  /' || true
+        fi
     else
         fail_count=$((fail_count + 1))
         failed_names+=("${basename}")
