@@ -11,8 +11,9 @@
 # which deploys the workload on the spoke and always behaves as
 # --alert-only (see scripts/fleet-helper.sh). postgres_exporter's
 # pg_stat_activity_count doesn't carry a k8s namespace label on its own
-# (unlike cert-manager's own metrics), so fleet mode attaches it as a
-# static scrape-time label via fleet_ensure_scrape_job's target_labels arg.
+# (unlike cert-manager's own metrics), so the fleet ServiceMonitor path
+# relies on the operator-injected namespace label (the postgres Service
+# lives in the scenario namespace).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -7,12 +7,11 @@
 # does not install it. If missing:
 #   istioctl install --set profile=minimal -y --kubeconfig="$SPOKE_KUBECONFIG"
 #
-# The PodMonitor (prometheus-operator) is skipped on the spoke like every
-# other operator-only kind; instead this adds a raw role:pod scrape job
-# for the istio-proxy sidecar's Envoy stats port (same target selection as
-# the PodMonitor: container name istio-proxy, port name http-envoy-prom),
-# with a namespace/pod relabel step prometheus-operator's PodMonitor
-# controller would otherwise add automatically.
+# Monitoring is operator-native: the Kind PodMonitor
+# (manifests/istio-podmonitor.yaml) is applied as-is, preserving per-pod
+# istio-proxy discovery with the operator's automatic namespace/pod labels.
+# The OCP overlay swap (PodMonitor -> headless Service + ServiceMonitor) is
+# preserved via fleet_get_manifest_dir platform selection.
 #
 # Touches only the spoke -- safe to invoke directly, multiple times, once
 # per spoke cluster if demoing across several spokes. Run ../fleet/hub.sh
@@ -37,19 +36,7 @@ fi
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying scenario resources..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
 fleet_deploy_workload "${MANIFEST_DIR}"
-fleet_ensure_pod_scrape_job "istio-proxy" "${NAMESPACE}" "/stats/prometheus" \
-  "  - source_labels: [__meta_kubernetes_pod_container_name]
-    regex: istio-proxy
-    action: keep
-  - source_labels: [__meta_kubernetes_pod_container_port_name]
-    regex: http-envoy-prom
-    action: keep
-  - source_labels: [__meta_kubernetes_namespace]
-    target_label: namespace
-  - source_labels: [__meta_kubernetes_pod_name]
-    target_label: pod"
-fleet_load_prometheus_rule "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-fleet_reload_spoke_prometheus
+fleet_bootstrap_monitoring "${MANIFEST_DIR}"
 
 echo "==> [spoke] Waiting for deployments to be ready (sidecar injection takes a moment)..."
 kubectl_workload wait --for=condition=Available deployment/api-server \

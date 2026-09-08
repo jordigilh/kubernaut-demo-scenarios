@@ -21,14 +21,7 @@ fleet_check_spoke_connectivity
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying scenario resources..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
 fleet_deploy_workload "${MANIFEST_DIR}"
-fleet_ensure_kube_state_metrics
-# postgres_exporter's own metrics carry no k8s namespace label (unlike
-# cert-manager) -- attach it as a static scrape-time label to match the
-# PrometheusRule's namespace="demo-orders" filter.
-fleet_ensure_scrape_job "postgres-exporter" "postgres.${NAMESPACE}.svc.cluster.local:9187" "" \
-  "      namespace: ${NAMESPACE}"
-fleet_load_prometheus_rule "${SCRIPT_DIR}/manifests/prometheus-rule.yaml"
-fleet_reload_spoke_prometheus
+fleet_bootstrap_monitoring "${MANIFEST_DIR}"
 
 echo "==> [spoke] Waiting for postgres to be ready..."
 kubectl_workload wait --for=condition=Available deployment/postgres \
