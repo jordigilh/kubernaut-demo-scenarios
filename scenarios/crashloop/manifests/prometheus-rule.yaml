@@ -15,15 +15,15 @@ spec:
           kube_pod_container_status_waiting_reason{
             namespace="demo-checkout",
             reason="CrashLoopBackOff"
-          }[2m]
+          }[1m]
         ) > 0
-      for: 30s
+      for: 15s
       labels:
         severity: critical
       annotations:
         summary: >
           Container {{ $labels.container }} in pod {{ $labels.pod }}
-          is restarting repeatedly ({{ $value | humanize }} restarts in 5m).
+          is in CrashLoopBackOff.
         description: >
           A container in namespace {{ $labels.namespace }} is failing to
           reach a stable running state. Elevated restart rate may indicate

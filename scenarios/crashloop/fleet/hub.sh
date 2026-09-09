@@ -17,7 +17,7 @@ source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 fleet_check_hub_connectivity
 
 echo "==> [hub=${HUB_KUBECONFIG}] Waiting for alert..."
-fleet_wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 480
+fleet_wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 120
 echo ""
 
 APPROVE_MODE="--auto-approve"
