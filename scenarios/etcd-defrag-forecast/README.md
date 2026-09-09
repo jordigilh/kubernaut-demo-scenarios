@@ -194,10 +194,11 @@ demo StatefulSet -- remediating a real cluster datastore, which is the
 production scenario (defragging a throwaway etcd proves little). OCP
 always uses the dedicated StatefulSet: the platform etcd is off-limits there.
 
-Works identically in fleet and local mode (same `fleet/live/` assets; the
+Works identically in fleet and local mode. Each mode owns its live-etcd
+monitoring assets and Jobs, so local runs do not depend on fleet paths. The
 local kube-prometheus-stack selects all monitoring CRDs, and the local
 gateway can drive the full `validate.sh` pipeline since defrag-etcd-v1
-sets no execution cluster):
+sets no execution cluster:
 
 ```bash
 export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config
@@ -214,7 +215,8 @@ ETCD_LIVE_CLUSTER=1 ./scenarios/etcd-defrag-forecast/run.sh --alert-only
 On arm64 kind clusters the dedicated mode refuses to start (its etcd image is
 amd64-only); live mode is the way there.
 
-How it works (`fleet/live/`, applied by `fleet/spoke.sh` in sequence):
+How it works (`fleet/live/` for fleet mode and `local/live/` for local mode;
+the fleet assets are applied by `fleet/spoke.sh` in sequence):
 
 1. A hostNetwork proxy exposes kind's loopback-only `:2381` metrics port to
    the pod network; a ServiceMonitor scrapes it (per-member identity comes
@@ -223,10 +225,11 @@ How it works (`fleet/live/`, applied by `fleet/spoke.sh` in sequence):
    already fragmented -- ~70% observed on a fresh cluster).
 3. A loader Job writes ~16MB under `/demo-frag/`, deletes it, and compacts,
    driving the fragmentation ratio toward ~75% within a minute.
-4. `fleet/hub.sh` waits for `EtcdHighFragmentationRatio` on the hub AM as usual.
+4. Fleet `hub.sh` waits for `EtcdHighFragmentationRatio` on the hub AM as usual;
+   local mode waits on the local Alertmanager.
 
-Remediate afterwards by re-applying `fleet/defrag-job.yaml` and watching the
-alert resolve. Loader and defrag Jobs authenticate with the node's
+Remediate afterwards by re-applying the mode-specific `defrag-job.yaml` and
+watching the alert resolve. Loader and defrag Jobs authenticate with the node's
 healthcheck client cert via a read-only hostPath mount -- no credentials are
 written anywhere. Risks: the loader temporarily grows the live datastore
 (~20MB observed) and compacts to the current revision; both are routine

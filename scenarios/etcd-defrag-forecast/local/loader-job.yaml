@@ -1,0 +1,66 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: etcd-frag-loader
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-loader
+    kubernaut.ai/managed: "true"
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app: etcd-live-loader
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 0
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      containers:
+      - name: loader
+        image: quay.io/kubernaut-cicd/etcd-tools:1.0.0
+        env:
+        - name: ETCDCTL_API
+          value: "3"
+        - name: ENDPOINTS
+          value: "https://127.0.0.1:2379"
+        - name: CACERT
+          value: "/pki/ca.crt"
+        - name: CERT
+          value: "/pki/healthcheck-client.crt"
+        - name: KEY
+          value: "/pki/healthcheck-client.key"
+        volumeMounts:
+        - name: etcd-pki
+          mountPath: /pki
+          readOnly: true
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          OPTS="--endpoints=${ENDPOINTS} --cacert=${CACERT} --cert=${CERT} --key=${KEY}"
+          i=1
+          while [ "$i" -le 128 ]; do
+            j=0
+            pids=""
+            while [ "$j" -lt 8 ] && [ "$i" -le 128 ]; do
+              ( VAL=$(head -c 131072 /dev/urandom | base64 | head -c 131000); etcdctl $OPTS put "/demo-frag/key-$i" "$VAL" >/dev/null ) &
+              pids="$pids $!"
+              i=$((i + 1)); j=$((j + 1))
+            done
+            for pid in $pids; do wait "$pid" || exit 1; done
+          done
+          etcdctl $OPTS del /demo-frag/ --prefix
+          REV=$(etcdctl $OPTS endpoint status --write-out=json | grep -o '"revision":[0-9]*' | head -n 1 | grep -o '[0-9]*')
+          etcdctl $OPTS compact "$REV"
+      volumes:
+      - name: etcd-pki
+        hostPath:
+          path: /etc/kubernetes/pki/etcd
+          type: Directory

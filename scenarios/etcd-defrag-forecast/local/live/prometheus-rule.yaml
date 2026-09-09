@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-app-alerts
+  namespace: demo-datastore
+  labels:
+    release: prometheus
+spec:
+  groups:
+  - name: demo-app
+    rules:
+    - alert: EtcdHighFragmentationRatio
+      expr: |
+        (
+          etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"}
+          - etcd_mvcc_db_total_size_in_use_in_bytes{namespace="demo-datastore"}
+        )
+        / etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"}
+        > 0.15
+        and
+        etcd_mvcc_db_total_size_in_bytes{namespace="demo-datastore"} > 1048576
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: >
+          Live control-plane etcd shows on-disk storage far exceeding active data size.
+        description: >
+          Total allocated storage on the live kind control-plane etcd is significantly
+          larger than the storage currently holding live data. Defragment the member
+          to reclaim it.

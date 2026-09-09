@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etcd-metrics-proxy
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-proxy
+    kubernaut.ai/managed: "true"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: etcd-live-proxy
+  template:
+    metadata:
+      labels:
+        app: etcd-live-proxy
+        kubernaut.ai/managed: "true"
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      containers:
+      - name: proxy
+        image: quay.io/kubernaut-cicd/etcd-tools:1.0.0
+        command: ["python3", "/etc/proxy/forward.py"]
+        env:
+        - name: NODE_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        volumeMounts:
+        - name: script
+          mountPath: /etc/proxy
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+      volumes:
+      - name: script
+        configMap:
+          name: etcd-metrics-proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: etcd-live-metrics
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-proxy
+    kubernaut.ai/managed: "true"
+spec:
+  selector:
+    app: etcd-live-proxy
+  ports:
+  - name: metrics
+    port: 2381
+    targetPort: 2381
+  type: ClusterIP
