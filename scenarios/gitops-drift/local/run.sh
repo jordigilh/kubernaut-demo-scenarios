@@ -212,6 +212,39 @@ spec:
   type: ClusterIP
 SVC_EOF
 
+cat > manifests/prometheus-rule.yaml <<RULE_EOF
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-app-alerts
+  namespace: ${NAMESPACE}
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+  - name: demo-app
+    rules:
+    - alert: KubePodCrashLooping
+      expr: |
+        increase(
+          kube_pod_container_status_restarts_total{
+            namespace="${NAMESPACE}",
+            container="web-frontend"
+          }[2m]
+        ) > 0
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: >
+          Pod {{ \$labels.pod }} is crash looping in namespace {{ \$labels.namespace }}.
+        description: >
+          Pod {{ \$labels.pod }} in namespace {{ \$labels.namespace }} is restarting
+          repeatedly. Application availability may be degraded until the
+          workload stabilizes.
+        runbook_url: "https://kubernaut.ai/runbooks/crashloop-gitops"
+RULE_EOF
+
 git add .
 git commit -m "Initial deployment: web-frontend with healthy config"
 git remote add origin "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
