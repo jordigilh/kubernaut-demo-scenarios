@@ -52,6 +52,8 @@ spec:
     - group: '*'
       kind: '*'
 APPPROJ
+elif kubectl get deployment argocd-server -n "${ARGOCD_NAMESPACE}" &>/dev/null; then
+    echo "==> ArgoCD already installed in namespace ${ARGOCD_NAMESPACE}; skipping manifest installation."
 else
     echo "==> Installing ArgoCD (full) in namespace ${ARGOCD_NAMESPACE}..."
 

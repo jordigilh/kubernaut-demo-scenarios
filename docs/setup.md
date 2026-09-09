@@ -238,7 +238,7 @@ export FLEET_EXECUTION_CLUSTER_ID=hub
 The script performs the following steps on the existing environment:
 
 1. **Platform readiness** -- Validates or reuses the upstream Kubernaut installation.
-2. **Demo dependencies** -- Installs Gitea and ArgoCD when not skipped. In fleet mode these run on the hub.
+2. **Demo dependencies** -- Installs Gitea and ArgoCD when not skipped. Existing upstream/operator-managed monitoring and cert-manager installations are detected and reused. In fleet mode these run on the hub.
 3. **Policies** -- Applies the canonical SignalProcessing and AIAnalysis policy ConfigMaps.
 4. **Catalog content** -- Applies ActionType CRDs and RemediationWorkflow definitions from this repository.
 5. **GitOps security** -- Creates `gitea-repo-creds` only in the hub's `kubernaut-workflows` namespace and requires the Kind Gitea-to-ArgoCD push webhook.
@@ -250,6 +250,13 @@ Every step is idempotent -- you can safely re-run the script if it fails partway
 | Flag | Purpose |
 |------|---------|
 | `--skip-infra` | Skip optional demo dependencies (Gitea, ArgoCD, and local-only infrastructure) |
+| `--skip-monitoring` | Skip kube-prometheus-stack installation when monitoring is provided by OCP or another operator |
+| `--skip-cert-manager` | Skip cert-manager installation |
+| `--skip-metrics-server` | Skip metrics-server installation |
+| `--skip-istio` | Skip Istio installation |
+| `--skip-blackbox-exporter` | Skip blackbox-exporter installation |
+| `--skip-gitea` | Skip Gitea installation |
+| `--skip-argocd` | Skip ArgoCD/OpenShift GitOps setup |
 | `--with-awx` | Install AWX for Ansible-engine scenarios |
 | `--chart-version VER` | Retained for compatibility; core chart versioning belongs to upstream bootstrap |
 

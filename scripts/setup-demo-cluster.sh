@@ -23,6 +23,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCENARIOS_DIR="${SCRIPT_DIR}/../scenarios"
 
 SKIP_INFRA=false
+SKIP_MONITORING=false
+SKIP_CERT_MANAGER=false
+SKIP_METRICS_SERVER=false
+SKIP_ISTIO=false
+SKIP_BLACKBOX_EXPORTER=false
+SKIP_GITEA=false
+SKIP_ARGOCD=false
 WITH_AWX=false
 FLEET_MODE=false
 export CHART_VERSION="${CHART_VERSION:-}"
@@ -31,6 +38,34 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --skip-infra)
             SKIP_INFRA=true
+            shift
+            ;;
+        --skip-monitoring)
+            SKIP_MONITORING=true
+            shift
+            ;;
+        --skip-cert-manager)
+            SKIP_CERT_MANAGER=true
+            shift
+            ;;
+        --skip-metrics-server)
+            SKIP_METRICS_SERVER=true
+            shift
+            ;;
+        --skip-istio)
+            SKIP_ISTIO=true
+            shift
+            ;;
+        --skip-blackbox-exporter)
+            SKIP_BLACKBOX_EXPORTER=true
+            shift
+            ;;
+        --skip-gitea)
+            SKIP_GITEA=true
+            shift
+            ;;
+        --skip-argocd)
+            SKIP_ARGOCD=true
             shift
             ;;
         --with-awx)
@@ -43,13 +78,21 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --help|-h)
-            echo "Usage: $0 [--skip-infra] [--with-awx] [--chart-version VERSION]"
+            echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "The cluster must already be bootstrapped. Local mode uses KUBECONFIG;"
             echo "fleet mode requires HUB_KUBECONFIG and SPOKE_KUBECONFIG."
             echo ""
             echo "Options:"
             echo "  --skip-infra          Skip optional demo dependencies (Gitea, ArgoCD, etc.)"
+            echo "  --skip-monitoring     Skip kube-prometheus-stack installation (e.g. OCP/operator-managed monitoring)"
+            echo "  --skip-cert-manager   Skip cert-manager installation"
+            echo "  --skip-metrics-server Skip metrics-server installation"
+            echo "  --skip-istio          Skip Istio installation"
+            echo "  --skip-blackbox-exporter"
+            echo "                        Skip blackbox-exporter installation"
+            echo "  --skip-gitea          Skip Gitea installation"
+            echo "  --skip-argocd         Skip ArgoCD/OpenShift GitOps setup"
             echo "  --with-awx            Install AWX Operator for Ansible engine demos (#312)"
             echo "  --chart-version VER   Pin the Kubernaut chart version"
             exit 0
@@ -110,26 +153,63 @@ if [ "$FLEET_MODE" = false ]; then
         echo "==> Phase 2: Monitoring stack"
         # shellcheck source=monitoring-helper.sh
         source "${SCRIPT_DIR}/monitoring-helper.sh"
-        ensure_monitoring_stack
+        if [ "$SKIP_MONITORING" = true ]; then
+            echo "  Skipping kube-prometheus-stack (--skip-monitoring)."
+        else
+            ensure_monitoring_stack
+        fi
         echo ""
 
         echo "==> Phase 3: Infrastructure dependencies"
         echo "--- cert-manager ---"
-        ensure_cert_manager
+        if [ "$SKIP_CERT_MANAGER" = true ]; then
+            echo "  Skipping cert-manager (--skip-cert-manager)."
+        else
+            ensure_cert_manager
+        fi
         echo ""
         echo "--- metrics-server ---"
-        ensure_metrics_server
+        if [ "$SKIP_METRICS_SERVER" = true ]; then
+            echo "  Skipping metrics-server (--skip-metrics-server)."
+        else
+            ensure_metrics_server
+        fi
         echo ""
         echo "--- Istio ---"
-        ensure_istio
+        if [ "$SKIP_ISTIO" = true ]; then
+            echo "  Skipping Istio (--skip-istio)."
+        else
+            ensure_istio
+        fi
         echo ""
         echo "--- blackbox-exporter ---"
-        ensure_blackbox_exporter
+        if [ "$SKIP_BLACKBOX_EXPORTER" = true ]; then
+            echo "  Skipping blackbox-exporter (--skip-blackbox-exporter)."
+        else
+            ensure_blackbox_exporter
+        fi
         echo ""
     else
         echo "==> Phases 2-3: Skipping local infrastructure (--skip-infra)"
         echo ""
     fi
+else
+    # Fleet bootstrap owns monitoring on the hub and spoke. Still report an
+    # existing monitoring installation so the mode behaves consistently with
+    # local setup.
+    # shellcheck source=monitoring-helper.sh
+    source "${SCRIPT_DIR}/monitoring-helper.sh"
+    if [ "$SKIP_MONITORING" = true ]; then
+        echo "==> Monitoring stack: skipped (--skip-monitoring)"
+    elif monitoring_stack_installed; then
+        echo "==> Monitoring stack: already installed (Helm/operator-managed)."
+    else
+        echo "==> Monitoring stack: not detected on hub; assuming fleet/OCP-managed monitoring."
+    fi
+    if [ "$SKIP_MONITORING" = false ] && monitoring_stack_installed "${SPOKE_KUBECONFIG}"; then
+        echo "    Spoke monitoring stack: already installed (Helm/operator-managed)."
+    fi
+    echo ""
 fi
 
 # ── 2/4. GitOps infrastructure ─────────────────────────────────────────────
@@ -140,7 +220,9 @@ if [ "$SKIP_INFRA" = false ]; then
     echo "==> GitOps infrastructure (hub/control-plane context)"
 
     echo "--- Gitea ---"
-    if kubectl get namespace gitea &>/dev/null; then
+    if [ "$SKIP_GITEA" = true ]; then
+        echo "  Skipping Gitea (--skip-gitea)."
+    elif kubectl get namespace gitea &>/dev/null; then
         echo "  Gitea already installed."
     else
         bash "${SCENARIOS_DIR}/gitops/scripts/setup-gitea.sh"
@@ -148,7 +230,11 @@ if [ "$SKIP_INFRA" = false ]; then
     echo ""
 
     echo "--- ArgoCD ---"
-    bash "${SCENARIOS_DIR}/gitops/scripts/setup-argocd.sh"
+    if [ "$SKIP_ARGOCD" = true ]; then
+        echo "  Skipping ArgoCD (--skip-argocd)."
+    else
+        bash "${SCENARIOS_DIR}/gitops/scripts/setup-argocd.sh"
+    fi
     echo ""
 fi
 
@@ -185,9 +271,22 @@ echo ""
 
 NAMESPACES=("kubernaut-system" "kubernaut-workflows")
 if [ "$SKIP_INFRA" = false ]; then
-    NAMESPACES+=("gitea" "$(get_argocd_namespace)")
+    if [ "$SKIP_GITEA" = false ]; then
+        NAMESPACES+=("gitea")
+    fi
+    if [ "$SKIP_ARGOCD" = false ]; then
+        NAMESPACES+=("$(get_argocd_namespace)")
+    fi
     if [ "$FLEET_MODE" = false ]; then
-        NAMESPACES+=("monitoring" "cert-manager" "istio-system")
+        if [ "$SKIP_MONITORING" = false ]; then
+            if [ "${PLATFORM:-kind}" = "ocp" ]; then
+                NAMESPACES+=("openshift-monitoring")
+            else
+                NAMESPACES+=("monitoring")
+            fi
+        fi
+        [ "$SKIP_CERT_MANAGER" = false ] && NAMESPACES+=("cert-manager")
+        [ "$SKIP_ISTIO" = false ] && NAMESPACES+=("istio-system")
     fi
 fi
 
