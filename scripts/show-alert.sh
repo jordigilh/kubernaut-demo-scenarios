@@ -16,8 +16,11 @@ if [ "${PLATFORM:-}" = "ocp" ]; then
   AM_POD="alertmanager-main-0"
   AM_NS="openshift-monitoring"
 else
-  AM_POD="alertmanager-kube-prometheus-stack-alertmanager-0"
   AM_NS="monitoring"
+  AM_POD=$(kubectl get pods -n "$AM_NS" -l app=alertmanager \
+    --field-selector=status.phase=Running \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+  AM_POD="${AM_POD:-alertmanager-kube-prometheus-stack-alertmanager-0}"
 fi
 
 if [ -n "${ALERT_CACHE:-}" ] && [ -f "$ALERT_CACHE" ]; then

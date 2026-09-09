@@ -443,8 +443,33 @@ _check_rule_loaded() {
 
 _query_rules_for_alert() {
     local ns="$1" pod="$2" alert_name="$3"
-    kubectl exec -n "$ns" "$pod" -- \
-        curl -sf --connect-timeout 5 'http://localhost:9090/api/v1/rules?type=alert' 2>/dev/null \
+    # Prometheus operator images do not consistently include curl or Python.
+    # Query the API from the host instead of depending on container utilities.
+    local local_port=$((18000 + (${BASHPID:-$$} % 1000)))
+    local port_forward_log
+    port_forward_log=$(mktemp)
+    kubectl port-forward -n "$ns" "$pod" "${local_port}:9090" \
+        >"$port_forward_log" 2>&1 &
+    local port_forward_pid=$!
+    local ready=false
+    for _ in $(seq 1 10); do
+        if curl -sf --connect-timeout 1 \
+            "http://127.0.0.1:${local_port}/-/ready" >/dev/null 2>&1; then
+            ready=true
+            break
+        fi
+        sleep 1
+    done
+    if [ "$ready" != true ]; then
+        kill "$port_forward_pid" 2>/dev/null || true
+        wait "$port_forward_pid" 2>/dev/null || true
+        rm -f "$port_forward_log"
+        echo "error"
+        return 0
+    fi
+
+    curl -sf --connect-timeout 5 \
+        "http://127.0.0.1:${local_port}/api/v1/rules?type=alert" 2>/dev/null \
         | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
@@ -455,6 +480,10 @@ for g in data.get('data',{}).get('groups',[]):
             sys.exit(0)
 print('missing')
 " 2>/dev/null || echo "error"
+
+    kill "$port_forward_pid" 2>/dev/null || true
+    wait "$port_forward_pid" 2>/dev/null || true
+    rm -f "$port_forward_log"
 }
 
 # ── preflight_check: run pre-deploy capability checks ──

@@ -164,7 +164,11 @@ ensure_prometheus_port_forward() {
     fi
 
     log_phase "Starting Prometheus port-forward (localhost:9090)..."
-    kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090 >/dev/null 2>&1 &
+    local prometheus_target
+    prometheus_target=$(kubectl get svc -n monitoring -l operated-prometheus=true \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    prometheus_target="${prometheus_target:-kube-prometheus-stack-prometheus}"
+    kubectl port-forward -n monitoring "svc/${prometheus_target}" 9090:9090 >/dev/null 2>&1 &
 
     local retries=0
     while [ "$retries" -lt 10 ]; do
