@@ -907,6 +907,23 @@ _apply_sdk_config_to_cluster() {
     kubectl rollout status deployment/kubernaut-agent -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
 }
 
+_agent_prometheus_integration_configured() {
+    local agent_config
+    agent_config=$(kubectl get configmap kubernaut-agent-config -n "${PLATFORM_NS}" \
+        -o jsonpath='{.data.config\.yaml}' 2>/dev/null || true)
+    [ -n "$agent_config" ] || return 1
+
+    python3 -c '
+import sys, yaml
+try:
+    config = yaml.safe_load(sys.stdin.read()) or {}
+    prometheus = config.get("integrations", {}).get("tools", {}).get("prometheus", {})
+    raise SystemExit(0 if prometheus.get("url") else 1)
+except Exception:
+    raise SystemExit(1)
+' <<< "$agent_config"
+}
+
 enable_prometheus_toolset() {
     if [ "${KUBERNAUT_BATCH_SETUP_DONE:-}" = "1" ]; then
         return 0
@@ -951,6 +968,13 @@ json.dump(role, sys.stdout)
                 echo "  AlertManager RBAC: patched kubernaut-alertmanager-view with monitoring.coreos.com/alertmanagers/api."
             fi
         fi
+    fi
+
+    # Current chart/operator installations configure the built-in Prometheus
+    # integration in kubernaut-agent-config instead of the legacy SDK config.
+    if _agent_prometheus_integration_configured; then
+        echo "  Prometheus integration already configured in kubernaut-agent-config."
+        return 0
     fi
 
     if [ -f "${SDK_CONFIG}" ]; then
