@@ -25,8 +25,7 @@ require_infra() {
     local component="$1"
     case "$component" in
         cert-manager)
-            helm status cert-manager -n cert-manager &>/dev/null && return 0
-            kubectl get deployment -n cert-manager -l app.kubernetes.io/name=cert-manager --no-headers 2>/dev/null | grep -q . && return 0
+            cert_manager_installed && return 0
             echo "ERROR: cert-manager is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
         metrics-server)
@@ -182,6 +181,15 @@ _prom_pod_and_ns() {
     if [ "${PLATFORM:-kind}" = "ocp" ]; then
         echo "openshift-monitoring prometheus-k8s-0"
     else
+        local prom_pod
+        prom_pod=$(kubectl get pods -n monitoring -l app=prometheus \
+            --field-selector=status.phase=Running \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+        if [ -n "$prom_pod" ]; then
+            echo "monitoring ${prom_pod}"
+            return 0
+        fi
+        # Legacy kube-prometheus-stack naming, retained for older clusters.
         echo "monitoring prometheus-kube-prometheus-stack-prometheus-0"
     fi
 }
@@ -191,6 +199,15 @@ _am_pod_and_ns() {
     if [ "${PLATFORM:-kind}" = "ocp" ]; then
         echo "openshift-monitoring alertmanager-main-0"
     else
+        local am_pod
+        am_pod=$(kubectl get pods -n monitoring -l app=alertmanager \
+            --field-selector=status.phase=Running \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+        if [ -n "$am_pod" ]; then
+            echo "monitoring ${am_pod}"
+            return 0
+        fi
+        # Legacy kube-prometheus-stack naming, retained for older clusters.
         echo "monitoring alertmanager-kube-prometheus-stack-alertmanager-0"
     fi
 }
@@ -482,9 +499,37 @@ postdeploy_check() {
 # Installs kube-prometheus-stack via Helm (idempotent).
 # Provides: Prometheus Operator, Prometheus, AlertManager, Grafana,
 #           kube-state-metrics, node-exporter.
+monitoring_stack_helm_installed() {
+    local kubeconfig="${1:-}"
+    local helm_args=()
+    if [ -n "$kubeconfig" ]; then
+        helm_args+=(--kubeconfig "$kubeconfig")
+    fi
+    helm "${helm_args[@]}" status kube-prometheus-stack -n "${MONITORING_NS}" &>/dev/null
+}
+
+monitoring_stack_installed() {
+    local kubeconfig="${1:-}"
+    local kubectl_args=()
+    if [ -n "$kubeconfig" ]; then
+        kubectl_args+=(--kubeconfig "$kubeconfig")
+    fi
+
+    # The upstream demo bootstrap installs the operator under its own Helm
+    # release and creates the Prometheus CR separately. Do not install a
+    # second kube-prometheus-stack when that layout is already present.
+    if monitoring_stack_helm_installed "$kubeconfig"; then
+        return 0
+    fi
+    kubectl "${kubectl_args[@]}" get deployment prometheus-operator \
+        -n prometheus-operator &>/dev/null || return 1
+    kubectl "${kubectl_args[@]}" get prometheus -n "${MONITORING_NS}" \
+        --no-headers 2>/dev/null | grep -q .
+}
+
 ensure_monitoring_stack() {
-    if helm status kube-prometheus-stack -n "${MONITORING_NS}" &>/dev/null; then
-        echo "  kube-prometheus-stack already installed."
+    if monitoring_stack_installed; then
+        echo "  Monitoring stack already installed."
         return 0
     fi
 
@@ -526,8 +571,19 @@ ensure_grafana_dashboard() {
 
 # ── cert-manager ─────────────────────────────────────────────────────────────
 # Used by: cert-failure
-ensure_cert_manager() {
+cert_manager_installed() {
     if helm status cert-manager -n cert-manager &>/dev/null; then
+        return 0
+    fi
+
+    # OCP's cert-manager operator and manually-applied manifests do not leave
+    # Helm release metadata, but they do run the cert-manager controller.
+    kubectl get deployment -n cert-manager \
+        -l app.kubernetes.io/name=cert-manager --no-headers 2>/dev/null | grep -q .
+}
+
+ensure_cert_manager() {
+    if cert_manager_installed; then
         echo "  cert-manager already installed."
         return 0
     fi
