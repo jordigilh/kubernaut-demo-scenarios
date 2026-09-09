@@ -74,7 +74,7 @@ bash "${SCRIPT_DIR}/inject-bad-release.sh"
 echo ""
 
 # Step 5: Wait for pods to start crashing and alert to fire
-echo "==> Step 5: Waiting for CrashLoop alert to fire (~2-3 min)..."
+echo "==> Step 5: Waiting for CrashLoop alert to fire (~1 min)..."
 echo "  Pods exit immediately with code 1 (simulated broken binary)."
 echo ""
 echo "  Waiting for new rollout to begin..."
@@ -82,10 +82,10 @@ sleep 10
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 echo "  Waiting for restarts to accumulate..."
-sleep 30
+sleep 15
 kubectl get pods -n "${NAMESPACE}"
 echo ""
-echo "  The KubePodCrashLooping alert fires after >3 restarts in 10 min."
+echo "  The KubePodCrashLooping alert fires after CrashLoopBackOff is observed."
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 
@@ -93,7 +93,7 @@ echo ""
 if [ "${ALERT_ONLY}" = "true" ]; then
     echo ""
     echo "==> Waiting for alert (--alert-only mode)..."
-    wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 480
+    wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 120
     show_alert "KubePodCrashLooping" "${NAMESPACE}"
     echo ""
     echo "==> Alert is firing. Scenario ready for AF/A2A remediation."

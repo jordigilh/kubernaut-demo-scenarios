@@ -176,12 +176,12 @@ worker-7f4a8b3c1-q9m2p   0/1     CrashLoopBackOff   3 (30s ago)   2m
 
 #### 5. Wait for alert and pipeline
 
-The alert fires after >3 restarts in 10 min (~2-3 min).
+The alert fires after Prometheus observes the pod in `CrashLoopBackOff` for 15s
+(typically ~1 min on Kind; up to ~2 min on OCP with a 30s scrape interval).
 
 > [!NOTE]
-> **OCP timing**: Alerts may take 3-5 minutes to fire on OCP (vs ~2 min on Kind)
-> due to the default 30s kube-state-metrics scrape interval and Alertmanager
-> group_wait settings.
+> **OCP timing**: Alerts can take up to ~2 minutes on OCP due to the default
+> 30s kube-state-metrics scrape interval.
 
 Query Alertmanager for active alerts:
 
@@ -358,7 +358,7 @@ Given a Kind cluster with Kubernaut services and a real LLM backend
 
 When the deployment is patched with a crashing command override (bad release)
   And pods enter CrashLoopBackOff with rapidly increasing restart counts
-  And the KubePodCrashLooping alert fires (>3 restarts in 10 min)
+  And the KubePodCrashLooping alert fires after CrashLoopBackOff is observed
 
 Then Kubernaut Gateway receives the alert via Alertmanager webhook
   And Signal Processing enriches the signal with business labels
@@ -374,7 +374,7 @@ Then Kubernaut Gateway receives the alert via Alertmanager webhook
 
 - [ ] Worker deployment starts healthy and serves traffic
 - [ ] Command-override injection causes immediate CrashLoopBackOff
-- [ ] Alert fires within 2-3 minutes of first crash
+- [ ] Alert fires within approximately 1 minute of first crash
 - [ ] LLM correctly diagnoses bad release (command override) as root cause
 - [ ] Rollback restores the original healthy Deployment spec
 - [ ] All pods become Running/Ready after rollback
