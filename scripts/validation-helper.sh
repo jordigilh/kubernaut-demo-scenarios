@@ -90,6 +90,11 @@ if [ "${PLATFORM:-}" = "ocp" ]; then
     ALERTMANAGER_POD="${ALERTMANAGER_POD:-alertmanager-main-0}"
 else
     MONITORING_NS="${MONITORING_NS:-monitoring}"
+    if [ -z "${ALERTMANAGER_POD:-}" ]; then
+        ALERTMANAGER_POD=$(kubectl get pods -n "${MONITORING_NS}" \
+            -l app=alertmanager --field-selector=status.phase=Running \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    fi
     ALERTMANAGER_POD="${ALERTMANAGER_POD:-alertmanager-kube-prometheus-stack-alertmanager-0}"
 fi
 

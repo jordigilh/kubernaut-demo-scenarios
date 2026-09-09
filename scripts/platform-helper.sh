@@ -246,8 +246,25 @@ restart_alertmanager() {
         return 0
     fi
     echo "==> Restarting AlertManager to clear stale notification state..."
-    kubectl rollout restart statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring
-    kubectl rollout status statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring --timeout=60s
+    local am_deployment
+    am_deployment=$(kubectl get deployment -n monitoring -l app=alertmanager \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    if [ -n "$am_deployment" ]; then
+        kubectl rollout restart "deployment/${am_deployment}" -n monitoring
+        kubectl rollout status "deployment/${am_deployment}" -n monitoring --timeout=60s
+        return 0
+    fi
+
+    local am_statefulset
+    am_statefulset=$(kubectl get statefulset -n monitoring -l app=alertmanager \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    if [ -n "$am_statefulset" ]; then
+        kubectl rollout restart "statefulset/${am_statefulset}" -n monitoring
+        kubectl rollout status "statefulset/${am_statefulset}" -n monitoring --timeout=60s
+        return 0
+    fi
+
+    echo "  WARNING: no AlertManager Deployment or StatefulSet found in monitoring."
 }
 
 # Delete all pipeline CRDs (RR, SP, AIA, WFE, EA, RAR, Notif) from kubernaut-system.
@@ -274,7 +291,12 @@ silence_alert() {
         echo "  (OCP: skipping alert silence -- alerts auto-resolve)"
         return 0
     fi
-    kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+    local am_pod
+    am_pod=$(kubectl get pods -n monitoring -l app=alertmanager \
+        --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    [ -n "$am_pod" ] || return 0
+    kubectl exec -n monitoring "$am_pod" -- \
       amtool silence add "alertname=${alert_name}" "namespace=${namespace}" \
       --alertmanager.url=http://localhost:9093 "--duration=${duration}" \
       --comment="Cleanup silence" 2>/dev/null || true
