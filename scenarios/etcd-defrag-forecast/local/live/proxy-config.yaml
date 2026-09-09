@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: etcd-metrics-proxy
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-proxy
+    kubernaut.ai/managed: "true"
+data:
+  forward.py: |
+    import os
+    import socket
+    import threading
+
+    def pipe(src, dst):
+        try:
+            while True:
+                chunk = src.recv(65536)
+                if not chunk:
+                    break
+                dst.sendall(chunk)
+        except OSError:
+            pass
+        finally:
+            for sock in (src, dst):
+                try:
+                    sock.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+                sock.close()
+
+    def main():
+        bind_addr = os.environ.get("NODE_IP", "0.0.0.0")
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((bind_addr, 2381))
+        server.listen(128)
+        while True:
+            client, _ = server.accept()
+            upstream = socket.create_connection(("127.0.0.1", 2381))
+            threading.Thread(target=pipe, args=(client, upstream), daemon=True).start()
+            threading.Thread(target=pipe, args=(upstream, client), daemon=True).start()
+
+    main()

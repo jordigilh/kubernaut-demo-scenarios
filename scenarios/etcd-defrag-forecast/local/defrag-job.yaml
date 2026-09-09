@@ -1,0 +1,55 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: etcd-live-defrag
+  namespace: demo-datastore
+  labels:
+    app: etcd-live-loader
+    kubernaut.ai/managed: "true"
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: etcd-live-loader
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsUser: 0
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      containers:
+      - name: defrag
+        image: quay.io/kubernaut-cicd/etcd-tools:1.0.0
+        env:
+        - name: ETCDCTL_API
+          value: "3"
+        - name: ENDPOINTS
+          value: "https://127.0.0.1:2379"
+        - name: CACERT
+          value: "/pki/ca.crt"
+        - name: CERT
+          value: "/pki/healthcheck-client.crt"
+        - name: KEY
+          value: "/pki/healthcheck-client.key"
+        volumeMounts:
+        - name: etcd-pki
+          mountPath: /pki
+          readOnly: true
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          OPTS="--endpoints=${ENDPOINTS} --cacert=${CACERT} --cert=${CERT} --key=${KEY}"
+          etcdctl $OPTS endpoint status --write-out=json
+          etcdctl $OPTS defrag
+          etcdctl $OPTS endpoint status --write-out=json
+      volumes:
+      - name: etcd-pki
+        hostPath:
+          path: /etc/kubernetes/pki/etcd
+          type: Directory
