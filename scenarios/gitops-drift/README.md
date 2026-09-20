@@ -60,7 +60,6 @@ scoped permissions (created automatically when workflows are seeded via
 | API group | Resources | Verbs |
 |-----------|-----------|-------|
 | argoproj.io | applications | get, list |
-| core | pods | get, list |
 
 ## BDD Specification
 
@@ -121,6 +120,11 @@ The default mode is `--interactive`, which pauses at the approval step for manua
 intervention (ideal for demos and video recording). Pass `--auto-approve` to skip
 the approval gate (CI/batch runs).
 
+The local runner temporarily sets the Remediation Orchestrator's
+`asyncPropagation.gitOpsSyncDelay` to `10s`. Gitea's webhook triggers ArgoCD
+reconciliation immediately, so the default polling-oriented delay is unnecessary
+for this scenario. `cleanup.sh` restores the original RO configuration.
+
 ```bash
 # Interactive (default) — pauses for manual approval
 ./scenarios/gitops-drift/run.sh
@@ -161,6 +165,10 @@ kubectl patch rar "rar-${RR}" -n kubernaut-system --type=merge \
 
 ### Fleet Mode
 
+The scenario namespace can be overridden with `GITOPS_NAMESPACE`; the default is
+`demo-webui`. This is useful for repeatable acceptance fixtures, where each run
+needs a fresh target identity to avoid remediation safety-circuit history.
+
 Runs the workload on a separate **spoke** cluster while Gitea + ArgoCD (and the rest of
 the Kubernaut control plane) run on a **hub** cluster. Requires the `--fleet` flag plus
 both kubeconfig env vars (passing `--fleet` without either is a hard error):
@@ -172,16 +180,20 @@ export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
 ./scenarios/gitops-drift/run.sh --fleet
 ```
 
-Unlike every other fleet-verified scenario, fleet mode here stops after confirming the
-`KubePodCrashLooping` alert reaches the hub's Alertmanager -- `--interactive`/
-`--auto-approve` have no effect. This topology (signal on the spoke, GitOps/Gitea/ArgoCD
-on the hub) is exactly the case `RemediationWorkflow.spec.execution.clusterId`
+For cleanup, use the fleet-specific script when the workload was deployed on a
+separate spoke:
+
+```bash
+GITOPS_NAMESPACE=demo-webui ./scenarios/gitops-drift/fleet/cleanup.sh
+```
+
+Fleet mode then drives the full remediation pipeline on the hub. The topology (signal on
+the spoke, GitOps/Gitea/ArgoCD on the hub) is exactly the case
+`RemediationWorkflow.spec.execution.clusterId`
 ([kubernaut#2326](https://github.com/jordigilh/kubernaut/issues/2326)) was added for --
-the `git-revert-v2` workflow declares `execution.clusterId: hub` so its Job can run on
-the hub (it holds the Gitea credentials), not the spoke. Fleet mode doesn't create a
-WorkflowExecution in alert-only mode though, so that field itself isn't exercised here;
-this only proves the cross-cluster ArgoCD sync half of the topology. See `fleet/hub.sh`
-for details.
+the `git-revert-v2` workflow declares `execution.clusterId: hub` so its Job runs on the
+hub (it holds the Gitea credentials), not the spoke. Use `--alert-only` to stop after
+the alert reaches the hub's Alertmanager.
 
 #### Overriding the execution cluster (`FLEET_EXECUTION_CLUSTER_ID`)
 
