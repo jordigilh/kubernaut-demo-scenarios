@@ -8,9 +8,9 @@
 #
 # Usage: ./scenarios/crashloop/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
 #
-# Single-cluster (local) path. For fleet mode (HUB_KUBECONFIG +
-# SPOKE_KUBECONFIG set), the top-level run.sh dispatches to ../fleet/run.sh
-# instead -- see scripts/fleet-helper.sh.
+# Single-cluster (local) path. For fleet mode, pass --fleet and set
+# HUB_KUBECONFIG + SPOKE_KUBECONFIG; the top-level run.sh then dispatches to
+# ../fleet/run.sh -- see scripts/fleet-helper.sh.
 set -euo pipefail
 
 # SCRIPT_DIR resolves to the scenario directory (one level up from this
@@ -40,6 +40,17 @@ source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 enable_prometheus_toolset
 force_production_approval
+
+# Tighten the EffectivenessMonitor windows so EA completes quickly once the
+# alert clears (same values as the sibling scenarios). Skipped in
+# --alert-only mode: no pipeline/EA runs there. Restored on exit via trap.
+_rc=0
+if [ "${ALERT_ONLY}" != "true" ]; then
+    trap 'echo "==> Restoring EM configuration..."; restore_em || true; exit "${_rc}"' EXIT
+    echo "==> Configuring EM for fast EA convergence..."
+    configure_em "30s" "120s"
+    echo ""
+fi
 
 echo "============================================="
 echo " CrashLoopBackOff Remediation Demo (#120)"
@@ -93,7 +104,7 @@ echo ""
 if [ "${ALERT_ONLY}" = "true" ]; then
     echo ""
     echo "==> Waiting for alert (--alert-only mode)..."
-    wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 120
+    wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 480
     show_alert "KubePodCrashLooping" "${NAMESPACE}"
     echo ""
     echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
@@ -101,5 +112,5 @@ if [ "${ALERT_ONLY}" = "true" ]; then
 elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
-    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
+    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}" || _rc=$?
 fi
