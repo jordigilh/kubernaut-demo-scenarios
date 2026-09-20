@@ -432,7 +432,11 @@ require_demo_ready() {
 
     if ! kubectl cluster-info &>/dev/null; then
         echo "ERROR: Cannot connect to Kubernetes cluster."
-        echo "  Kubeconfig: ${KUBECONFIG}"
+        echo "  Kubeconfig: ${KUBECONFIG:-<unset>}"
+        if [ -z "${KUBECONFIG:-}" ]; then
+            echo "  Set KUBECONFIG for single-cluster mode."
+            echo "  For fleet mode, pass --fleet and set HUB_KUBECONFIG and SPOKE_KUBECONFIG."
+        fi
         if [ "$PLATFORM" = "ocp" ]; then
             echo "  Token may have expired. Re-authenticate with: oc login"
             echo "  Check: oc whoami --show-server"
@@ -467,7 +471,13 @@ require_demo_ready() {
                 fail=true
             fi
         else
-            if ! helm status kube-prometheus-stack -n monitoring &>/dev/null; then
+            if helm status kube-prometheus-stack -n monitoring &>/dev/null; then
+                :
+            elif kubectl get prometheus -A --no-headers 2>/dev/null | grep -q . \
+                && kubectl get pods -n monitoring -l app=prometheus \
+                    --field-selector=status.phase=Running --no-headers 2>/dev/null | grep -q .; then
+                echo "  Operator-managed Prometheus is installed."
+            else
                 echo "ERROR: Monitoring stack is not installed."
                 fail=true
             fi
@@ -1247,4 +1257,61 @@ restore_em() {
     kubectl rollout restart deployment/effectivenessmonitor-controller -n "${ns}" 2>/dev/null || true
     kubectl rollout status deployment/effectivenessmonitor-controller -n "${ns}" --timeout=60s 2>/dev/null || true
     echo "  EM configuration restored to original."
+}
+
+# Temporarily tune the RemediationOrchestrator GitOps propagation delay for a
+# scenario that uses a webhook-backed GitOps controller. The complete original
+# ConfigMap is saved so cleanup restores any cluster-specific configuration.
+configure_ro_gitops_sync_delay() {
+    local delay="${1:?usage: configure_ro_gitops_sync_delay <duration>}"
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="remediationorchestrator-config"
+
+    local existing_b64
+    existing_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-ro-config}' 2>/dev/null || echo "")
+
+    local current_yaml
+    current_yaml=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.data.remediationorchestrator\.yaml}')
+
+    if [ -z "${existing_b64}" ]; then
+        kubectl annotate configmap "${cm}" -n "${ns}" \
+          "kubernaut.ai/original-ro-config=$(echo "${current_yaml}" | base64 | tr -d '\n')" --overwrite
+    fi
+
+    local patched
+    patched=$(python3 -c '
+import sys, yaml
+data = yaml.safe_load(sys.stdin.read()) or {}
+data.setdefault("asyncPropagation", {})["gitOpsSyncDelay"] = sys.argv[1]
+print(yaml.dump(data, default_flow_style=False), end="")
+' "${delay}" <<< "${current_yaml}")
+
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"remediationorchestrator.yaml\":$(echo "${patched}" | jq -Rs .)}}"
+    kubectl rollout restart deployment/remediationorchestrator-controller -n "${ns}"
+    kubectl rollout status deployment/remediationorchestrator-controller -n "${ns}" --timeout=60s
+    echo "  RO configured: gitOpsSyncDelay=${delay}"
+}
+
+restore_ro_gitops_sync_delay() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="remediationorchestrator-config"
+    local saved_b64
+    saved_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-ro-config}' 2>/dev/null || echo "")
+    if [ -z "${saved_b64}" ]; then
+        return 0
+    fi
+
+    local original
+    original=$(echo "${saved_b64}" | base64 -d)
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"remediationorchestrator.yaml\":$(echo "${original}" | jq -Rs .)}}"
+    kubectl annotate configmap "${cm}" -n "${ns}" \
+      "kubernaut.ai/original-ro-config-" 2>/dev/null || true
+    kubectl rollout restart deployment/remediationorchestrator-controller -n "${ns}"
+    kubectl rollout status deployment/remediationorchestrator-controller -n "${ns}" --timeout=60s
+    echo "  RO configuration restored to original."
 }

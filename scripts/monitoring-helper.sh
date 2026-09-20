@@ -635,12 +635,20 @@ ensure_cert_manager() {
 # ── metrics-server ───────────────────────────────────────────────────────────
 # Used by: hpa-maxed, autoscale (HPA requires real CPU/memory metrics)
 ensure_metrics_server() {
-    if kubectl get deployment metrics-server -n kube-system &>/dev/null; then
+    if kubectl get deployment metrics-server -n kube-system &>/dev/null || \
+       kubectl get deployment -n kube-system \
+           -l app.kubernetes.io/name=metrics-server --no-headers 2>/dev/null | grep -q .; then
         echo "  metrics-server already installed."
         return 0
     fi
-    if kubectl get apiservice v1beta1.metrics.k8s.io &>/dev/null; then
-        echo "  metrics-server provided by platform (OCP)."
+    if helm status metrics-server -n kube-system &>/dev/null; then
+        echo "  metrics-server Helm release already installed."
+        return 0
+    fi
+    if kubectl get apiservice v1beta1.metrics.k8s.io \
+        -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' \
+        2>/dev/null | grep -q True; then
+        echo "  metrics-server provided by platform."
         return 0
     fi
 

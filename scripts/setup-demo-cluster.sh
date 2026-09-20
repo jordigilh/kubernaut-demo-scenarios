@@ -122,6 +122,42 @@ elif [ -z "${KUBECONFIG:-}" ]; then
     exit 1
 fi
 
+# The upstream fleet bootstrap deploys the hub Alertmanager in the dedicated
+# monitoring namespace, while the Kubernaut chart creates its shared CA in
+# PLATFORM_NS. Replicate that CA before the Alertmanager pod tries to mount it.
+# No-op when the custom fleet Alertmanager is not present (for example, OCP's
+# platform-managed monitoring).
+ensure_fleet_alertmanager_ca() {
+    [ "$FLEET_MODE" = true ] || return 0
+    [ "$SKIP_MONITORING" = false ] || return 0
+
+    local monitoring_ns="${FLEET_MONITORING_NS:-monitoring}"
+    if ! kubectl get deployment alertmanager -n "$monitoring_ns" &>/dev/null; then
+        return 0
+    fi
+
+    local ca
+    ca=$(kubectl get configmap inter-service-ca -n "${PLATFORM_NS:-kubernaut-system}" \
+        -o jsonpath='{.data.ca\.crt}' 2>/dev/null || true)
+    if [ -z "$ca" ]; then
+        echo "ERROR: Hub Alertmanager needs inter-service-ca in ${monitoring_ns}, but the source CA was not found in ${PLATFORM_NS:-kubernaut-system}."
+        return 1
+    fi
+
+    kubectl create configmap inter-service-ca -n "$monitoring_ns" \
+        --from-literal=ca.crt="$ca" --dry-run=client -o yaml \
+        | kubectl apply -f - >/dev/null
+    echo "  Replicated inter-service-ca into hub namespace ${monitoring_ns}."
+
+    local am_ready
+    am_ready=$(kubectl get pods -n "$monitoring_ns" -l app=alertmanager \
+        -o jsonpath='{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || true)
+    if [ "$am_ready" != "true" ]; then
+        kubectl rollout restart deployment/alertmanager -n "$monitoring_ns" >/dev/null
+        echo "  Restarted non-ready hub Alertmanager after CA repair."
+    fi
+}
+
 TOTAL_START=$(date +%s)
 
 echo "============================================="
@@ -143,6 +179,7 @@ echo "==> Phase 1: Kubernaut platform"
 # shellcheck source=platform-helper.sh
 source "${SCRIPT_DIR}/platform-helper.sh"
 ensure_platform
+ensure_fleet_alertmanager_ca
 echo ""
 
 # Upstream's fleet bootstrap owns the hub/spoke monitoring and fleet services.
