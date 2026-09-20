@@ -11,7 +11,7 @@ This scenario reproduces the vulnerability documented in
 Red Hat Developer blog post
 [Protect your Kubernetes Operator from OOMKill](https://developers.redhat.com/articles/2026/06/01/protect-your-kubernetes-operator-oomkill).
 
-**OCP-only scenario.**
+Supports Kind and OpenShift clusters.
 
 | | |
 |---|---|
@@ -68,7 +68,7 @@ inject-configmap-flood.sh creates 100 x 1MB ConfigMaps
 
 | Component | Requirement |
 |-----------|-------------|
-| Cluster | OCP with Kubernaut services deployed |
+| Cluster | Kind or OCP with Kubernaut services deployed |
 | LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics scraping |
 | Workflow catalog | `increase-memory-limits-v1` registered in DataStorage |
@@ -76,8 +76,11 @@ inject-configmap-flood.sh creates 100 x 1MB ConfigMaps
 ## Running the Scenario
 
 ```bash
-export PLATFORM=ocp
+# Kind (default; platform is auto-detected)
 ./scenarios/operator-oomkill-informer/run.sh
+
+# OpenShift
+PLATFORM=ocp ./scenarios/operator-oomkill-informer/run.sh
 ```
 
 ### `run.sh` flags

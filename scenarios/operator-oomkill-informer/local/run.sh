@@ -3,10 +3,10 @@
 # Based on kubeflow/spark-operator#2878: unfiltered ConfigMap informer
 # cache allows any user with "edit" ClusterRole to OOMKill the operator.
 #
-# OCP-only scenario.
+# Supports Kind and OpenShift clusters.
 #
 # Prerequisites:
-#   - OCP cluster with Kubernaut services
+#   - Kind or OCP cluster with Kubernaut services
 #   - Prometheus with kube-state-metrics scraping
 #
 # Usage: ./scenarios/operator-oomkill-informer/run.sh [--auto-approve|--interactive]
@@ -51,7 +51,8 @@ ensure_clean_slate "${NAMESPACE}"
 
 # Step 1: Deploy scenario resources
 echo "==> Step 1: Deploying operator and RBAC..."
-kubectl apply -k "${SCRIPT_DIR}/manifests"
+MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
+kubectl apply -k "${MANIFEST_DIR}"
 
 # Step 2: Wait for operator to be healthy
 echo "==> Step 2: Waiting for operator to be ready..."

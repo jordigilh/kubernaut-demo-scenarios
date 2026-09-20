@@ -7,4 +7,3 @@ metadata:
     kubernaut.ai/environment: "production"
     kubernaut.ai/criticality: "high"
     kubernaut.ai/business-unit: "engineering"
-    openshift.io/cluster-monitoring: "true"
