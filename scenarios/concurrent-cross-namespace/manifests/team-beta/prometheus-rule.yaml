@@ -11,11 +11,12 @@ spec:
     rules:
     - alert: KubePodCrashLooping
       expr: |
-        increase(
-          kube_pod_container_status_restarts_total{
+        max_over_time(
+          kube_pod_container_status_waiting_reason{
             namespace="demo-team-beta",
-            container="worker"
-          }[1m]
+            container="worker",
+            reason="CrashLoopBackOff"
+          }[2m]
         ) > 0
       for: 30s
       labels:
