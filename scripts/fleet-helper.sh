@@ -445,9 +445,23 @@ fleet_wait_for_alert() {
 
     local ham_pod
     ham_pod=$(kubectl --kubeconfig="${HUB_KUBECONFIG}" get pods -n "${FLEET_MONITORING_NS}" \
-        -l app=alertmanager -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+        -l app=alertmanager --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
     if [ -z "$ham_pod" ]; then
-        echo "  WARNING: no alertmanager pod found on hub (namespace ${FLEET_MONITORING_NS})."
+        local am_phase am_reason
+        am_phase=$(kubectl --kubeconfig="${HUB_KUBECONFIG}" get pods -n "${FLEET_MONITORING_NS}" \
+            -l app=alertmanager -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "Unknown")
+        am_reason=$(kubectl --kubeconfig="${HUB_KUBECONFIG}" get pods -n "${FLEET_MONITORING_NS}" \
+            -l app=alertmanager -o jsonpath='{.items[0].status.containerStatuses[0].state.waiting.reason}' \
+            2>/dev/null || true)
+        echo "  WARNING: hub Alertmanager is not running (namespace ${FLEET_MONITORING_NS}, phase=${am_phase:-Unknown}${am_reason:+, reason=${am_reason}})."
+        echo "  Check: kubectl --kubeconfig=\"${HUB_KUBECONFIG}\" describe pod -n ${FLEET_MONITORING_NS} -l app=alertmanager"
+        return 1
+    fi
+    if ! kubectl --kubeconfig="${HUB_KUBECONFIG}" wait --for=condition=Ready \
+        "pod/${ham_pod}" -n "${FLEET_MONITORING_NS}" --timeout=90s >/dev/null 2>&1; then
+        echo "  WARNING: hub Alertmanager pod ${ham_pod} is not Ready."
+        echo "  Check: kubectl --kubeconfig=\"${HUB_KUBECONFIG}\" describe pod -n ${FLEET_MONITORING_NS} ${ham_pod}"
         return 1
     fi
 
