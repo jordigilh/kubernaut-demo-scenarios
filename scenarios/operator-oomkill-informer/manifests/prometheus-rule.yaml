@@ -2,7 +2,9 @@ apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: demo-controllers-rules
-  namespace: openshift-monitoring
+  namespace: demo-controllers
+  labels:
+    release: prometheus
 spec:
   groups:
   - name: demo-controllers

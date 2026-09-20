@@ -8,7 +8,12 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 echo "==> Cleaning up Operator OOMKill Informer demo..."
 
-kubectl delete prometheusrule demo-controllers-rules -n openshift-monitoring --ignore-not-found
+if [ "${PLATFORM:-kind}" = "ocp" ]; then
+    kubectl delete prometheusrule demo-controllers-rules-operator -n openshift-monitoring --ignore-not-found
+    kubectl delete prometheusrule demo-controllers-rules -n openshift-monitoring --ignore-not-found
+else
+    kubectl delete prometheusrule demo-controllers-rules -n demo-controllers --ignore-not-found
+fi
 kubectl delete namespace demo-controllers --ignore-not-found --wait=true
 
 echo "==> Waiting for namespace deletion to complete..."
