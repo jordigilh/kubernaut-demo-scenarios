@@ -8,6 +8,7 @@ source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 disable_prometheus_toolset || true
 restore_production_approval || true
+restore_em || true
 
 echo "==> Cleaning up CrashLoopBackOff demo..."
 

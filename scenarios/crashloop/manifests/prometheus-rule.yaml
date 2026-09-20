@@ -9,15 +9,19 @@ spec:
   groups:
   - name: demo-app
     rules:
+    # Tuned for fast demos: for: 0s fires on the first positive evaluation,
+    # and the wide [3m] lookback keeps the alert firing ~3m after recovery
+    # so the pipeline never races a flapping alert. Keep the window <=3m so
+    # ensure_clean_slate's 180s alert-drain budget still covers repeat runs.
     - alert: KubePodCrashLooping
       expr: |
         max_over_time(
           kube_pod_container_status_waiting_reason{
             namespace="demo-checkout",
             reason="CrashLoopBackOff"
-          }[1m]
+          }[3m]
         ) > 0
-      for: 15s
+      for: 0s
       labels:
         severity: critical
       annotations:
