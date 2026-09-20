@@ -22,15 +22,9 @@ patches:
       - op: replace
         path: /metadata/namespace
         value: openshift-monitoring
-      # OCP kube-state-metrics scrape interval is 1m (vs 30s on Kind).
-      # CrashLoopBackOff exponential backoff slows restarts to ~1/5min after
-      # several cycles. Use [15m] to capture enough restarts, and lower the
-      # threshold to > 2 so the alert fires reliably despite backoff.
-      # The wider window means the alert takes longer to resolve after
-      # remediation; the EA stabilization window may need to accommodate this.
       - op: replace
         path: /spec/groups/0/rules/0/expr
-        value: "increase(\n  kube_pod_container_status_restarts_total{\n    namespace=\"demo-ingress\",\n    container=\"api-gateway\"\n  }[15m]\n) > 2\n"
+        value: "max_over_time(\n  kube_pod_container_status_waiting_reason{\n    namespace=\"demo-ingress\",\n    container=\"api-gateway\",\n    reason=\"CrashLoopBackOff\"\n  }[2m]\n) > 0\n"
   - target:
       kind: ServiceMonitor
       name: demo-app-metrics
