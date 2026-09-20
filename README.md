@@ -415,9 +415,8 @@ export SPOKE_KUBECONFIG=~/tmp/spoke.yaml # cluster running the demo workload
 
 Most fleet-aware scenarios now run the **full remediation pipeline** on the hub, same as
 single-cluster mode -- `--auto-approve` (default) or `--interactive` drive it through to
-completion, `--alert-only` stops right after the alert reaches the hub's Alertmanager. Two
-scenarios (`resource-contention`, `gitops-drift`) remain alert-only only, for
-scenario-specific reasons documented in their own `fleet/hub.sh`. See the **Fleet** column
+completion, `--alert-only` stops right after the alert reaches the hub's Alertmanager. One
+scenario (`resource-contention`) remains alert-only for a scenario-specific reason. See the **Fleet** column
 in the [Scenario Catalog](docs/scenarios.md) for which of the 38 scenarios support it, and
 [`scripts/fleet-helper.sh`](scripts/fleet-helper.sh) for the shared plumbing
 (`fleet_dispatch_requested`, `fleet_deploy_workload`, `fleet_deploy_monitoring`,
