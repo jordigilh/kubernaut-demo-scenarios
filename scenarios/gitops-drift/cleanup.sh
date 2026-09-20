@@ -8,8 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
 disable_prometheus_toolset || true
+restore_ro_gitops_sync_delay || true
 
-NAMESPACE="demo-webui"
+NAMESPACE="${GITOPS_NAMESPACE:-demo-webui}"
 GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
 GITEA_ADMIN_PASS="kubernaut123"
@@ -65,7 +66,7 @@ kubectl delete application web-frontend -n "$argocd_ns" --ignore-not-found
 if [ "${PLATFORM:-kind}" = "ocp" ]; then
     kubectl delete prometheusrule demo-app-alerts-webui -n openshift-monitoring --ignore-not-found
 else
-    kubectl delete -f "${SCRIPT_DIR}/manifests/prometheus-rule.yaml" --ignore-not-found
+    kubectl delete prometheusrule demo-app-alerts -n "${NAMESPACE}" --ignore-not-found
 fi
 kubectl delete namespace "${NAMESPACE}" --ignore-not-found
 
