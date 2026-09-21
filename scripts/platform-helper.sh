@@ -246,8 +246,25 @@ restart_alertmanager() {
         return 0
     fi
     echo "==> Restarting AlertManager to clear stale notification state..."
-    kubectl rollout restart statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring
-    kubectl rollout status statefulset/alertmanager-kube-prometheus-stack-alertmanager -n monitoring --timeout=60s
+    local am_deployment
+    am_deployment=$(kubectl get deployment -n monitoring -l app=alertmanager \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    if [ -n "$am_deployment" ]; then
+        kubectl rollout restart "deployment/${am_deployment}" -n monitoring
+        kubectl rollout status "deployment/${am_deployment}" -n monitoring --timeout=60s
+        return 0
+    fi
+
+    local am_statefulset
+    am_statefulset=$(kubectl get statefulset -n monitoring -l app=alertmanager \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    if [ -n "$am_statefulset" ]; then
+        kubectl rollout restart "statefulset/${am_statefulset}" -n monitoring
+        kubectl rollout status "statefulset/${am_statefulset}" -n monitoring --timeout=60s
+        return 0
+    fi
+
+    echo "  WARNING: no AlertManager Deployment or StatefulSet found in monitoring."
 }
 
 # Delete all pipeline CRDs (RR, SP, AIA, WFE, EA, RAR, Notif) from kubernaut-system.
@@ -274,7 +291,12 @@ silence_alert() {
         echo "  (OCP: skipping alert silence -- alerts auto-resolve)"
         return 0
     fi
-    kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 -- \
+    local am_pod
+    am_pod=$(kubectl get pods -n monitoring -l app=alertmanager \
+        --field-selector=status.phase=Running \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    [ -n "$am_pod" ] || return 0
+    kubectl exec -n monitoring "$am_pod" -- \
       amtool silence add "alertname=${alert_name}" "namespace=${namespace}" \
       --alertmanager.url=http://localhost:9093 "--duration=${duration}" \
       --comment="Cleanup silence" 2>/dev/null || true
@@ -410,7 +432,11 @@ require_demo_ready() {
 
     if ! kubectl cluster-info &>/dev/null; then
         echo "ERROR: Cannot connect to Kubernetes cluster."
-        echo "  Kubeconfig: ${KUBECONFIG}"
+        echo "  Kubeconfig: ${KUBECONFIG:-<unset>}"
+        if [ -z "${KUBECONFIG:-}" ]; then
+            echo "  Set KUBECONFIG for single-cluster mode."
+            echo "  For fleet mode, pass --fleet and set HUB_KUBECONFIG and SPOKE_KUBECONFIG."
+        fi
         if [ "$PLATFORM" = "ocp" ]; then
             echo "  Token may have expired. Re-authenticate with: oc login"
             echo "  Check: oc whoami --show-server"
@@ -445,7 +471,13 @@ require_demo_ready() {
                 fail=true
             fi
         else
-            if ! helm status kube-prometheus-stack -n monitoring &>/dev/null; then
+            if helm status kube-prometheus-stack -n monitoring &>/dev/null; then
+                :
+            elif kubectl get prometheus -A --no-headers 2>/dev/null | grep -q . \
+                && kubectl get pods -n monitoring -l app=prometheus \
+                    --field-selector=status.phase=Running --no-headers 2>/dev/null | grep -q .; then
+                echo "  Operator-managed Prometheus is installed."
+            else
                 echo "ERROR: Monitoring stack is not installed."
                 fail=true
             fi
@@ -907,6 +939,23 @@ _apply_sdk_config_to_cluster() {
     kubectl rollout status deployment/kubernaut-agent -n "${PLATFORM_NS}" --timeout=120s >/dev/null 2>&1
 }
 
+_agent_prometheus_integration_configured() {
+    local agent_config
+    agent_config=$(kubectl get configmap kubernaut-agent-config -n "${PLATFORM_NS}" \
+        -o jsonpath='{.data.config\.yaml}' 2>/dev/null || true)
+    [ -n "$agent_config" ] || return 1
+
+    python3 -c '
+import sys, yaml
+try:
+    config = yaml.safe_load(sys.stdin.read()) or {}
+    prometheus = config.get("integrations", {}).get("tools", {}).get("prometheus", {})
+    raise SystemExit(0 if prometheus.get("url") else 1)
+except Exception:
+    raise SystemExit(1)
+' <<< "$agent_config"
+}
+
 enable_prometheus_toolset() {
     if [ "${KUBERNAUT_BATCH_SETUP_DONE:-}" = "1" ]; then
         return 0
@@ -951,6 +1000,13 @@ json.dump(role, sys.stdout)
                 echo "  AlertManager RBAC: patched kubernaut-alertmanager-view with monitoring.coreos.com/alertmanagers/api."
             fi
         fi
+    fi
+
+    # Current chart/operator installations configure the built-in Prometheus
+    # integration in kubernaut-agent-config instead of the legacy SDK config.
+    if _agent_prometheus_integration_configured; then
+        echo "  Prometheus integration already configured in kubernaut-agent-config."
+        return 0
     fi
 
     if [ -f "${SDK_CONFIG}" ]; then
@@ -1201,4 +1257,61 @@ restore_em() {
     kubectl rollout restart deployment/effectivenessmonitor-controller -n "${ns}" 2>/dev/null || true
     kubectl rollout status deployment/effectivenessmonitor-controller -n "${ns}" --timeout=60s 2>/dev/null || true
     echo "  EM configuration restored to original."
+}
+
+# Temporarily tune the RemediationOrchestrator GitOps propagation delay for a
+# scenario that uses a webhook-backed GitOps controller. The complete original
+# ConfigMap is saved so cleanup restores any cluster-specific configuration.
+configure_ro_gitops_sync_delay() {
+    local delay="${1:?usage: configure_ro_gitops_sync_delay <duration>}"
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="remediationorchestrator-config"
+
+    local existing_b64
+    existing_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-ro-config}' 2>/dev/null || echo "")
+
+    local current_yaml
+    current_yaml=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.data.remediationorchestrator\.yaml}')
+
+    if [ -z "${existing_b64}" ]; then
+        kubectl annotate configmap "${cm}" -n "${ns}" \
+          "kubernaut.ai/original-ro-config=$(echo "${current_yaml}" | base64 | tr -d '\n')" --overwrite
+    fi
+
+    local patched
+    patched=$(python3 -c '
+import sys, yaml
+data = yaml.safe_load(sys.stdin.read()) or {}
+data.setdefault("asyncPropagation", {})["gitOpsSyncDelay"] = sys.argv[1]
+print(yaml.dump(data, default_flow_style=False), end="")
+' "${delay}" <<< "${current_yaml}")
+
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"remediationorchestrator.yaml\":$(echo "${patched}" | jq -Rs .)}}"
+    kubectl rollout restart deployment/remediationorchestrator-controller -n "${ns}"
+    kubectl rollout status deployment/remediationorchestrator-controller -n "${ns}" --timeout=60s
+    echo "  RO configured: gitOpsSyncDelay=${delay}"
+}
+
+restore_ro_gitops_sync_delay() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="remediationorchestrator-config"
+    local saved_b64
+    saved_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-ro-config}' 2>/dev/null || echo "")
+    if [ -z "${saved_b64}" ]; then
+        return 0
+    fi
+
+    local original
+    original=$(echo "${saved_b64}" | base64 -d)
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"remediationorchestrator.yaml\":$(echo "${original}" | jq -Rs .)}}"
+    kubectl annotate configmap "${cm}" -n "${ns}" \
+      "kubernaut.ai/original-ro-config-" 2>/dev/null || true
+    kubectl rollout restart deployment/remediationorchestrator-controller -n "${ns}"
+    kubectl rollout status deployment/remediationorchestrator-controller -n "${ns}" --timeout=60s
+    echo "  RO configuration restored to original."
 }

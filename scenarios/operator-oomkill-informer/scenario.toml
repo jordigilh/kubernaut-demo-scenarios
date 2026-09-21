@@ -1,0 +1,7 @@
+name = 'operator-oomkill-informer'
+title = 'Unfiltered controller-runtime informer cache lets any edit-role user OOMKill the operator -> IncreaseMemoryLimits'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'full'

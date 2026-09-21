@@ -7,10 +7,10 @@
 # Single cluster (default): runs local/run.sh -- full pipeline against one
 # Kubernaut cluster, as documented above.
 #
-# Fleet mode: set HUB_KUBECONFIG (Kubernaut control plane) and
-# SPOKE_KUBECONFIG (demo workload cluster) to run fleet/run.sh instead,
-# which deploys the workload on the spoke and always behaves as
-# --alert-only (see scripts/fleet-helper.sh).
+# Fleet mode: pass --fleet and set HUB_KUBECONFIG (Kubernaut control plane)
+# and SPOKE_KUBECONFIG (demo workload cluster) to run fleet/run.sh instead,
+# which deploys the workload on the spoke and drives the full pipeline from
+# the hub (see scripts/fleet-helper.sh).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

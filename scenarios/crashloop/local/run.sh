@@ -8,9 +8,9 @@
 #
 # Usage: ./scenarios/crashloop/run.sh [--auto-approve|--interactive|--alert-only|--no-validate]
 #
-# Single-cluster (local) path. For fleet mode (HUB_KUBECONFIG +
-# SPOKE_KUBECONFIG set), the top-level run.sh dispatches to ../fleet/run.sh
-# instead -- see scripts/fleet-helper.sh.
+# Single-cluster (local) path. For fleet mode, pass --fleet and set
+# HUB_KUBECONFIG + SPOKE_KUBECONFIG; the top-level run.sh then dispatches to
+# ../fleet/run.sh -- see scripts/fleet-helper.sh.
 set -euo pipefail
 
 # SCRIPT_DIR resolves to the scenario directory (one level up from this
@@ -40,6 +40,17 @@ source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 enable_prometheus_toolset
 force_production_approval
+
+# Tighten the EffectivenessMonitor windows so EA completes quickly once the
+# alert clears (same values as the sibling scenarios). Skipped in
+# --alert-only mode: no pipeline/EA runs there. Restored on exit via trap.
+_rc=0
+if [ "${ALERT_ONLY}" != "true" ]; then
+    trap 'echo "==> Restoring EM configuration..."; restore_em || true; exit "${_rc}"' EXIT
+    echo "==> Configuring EM for fast EA convergence..."
+    configure_em "30s" "120s"
+    echo ""
+fi
 
 echo "============================================="
 echo " CrashLoopBackOff Remediation Demo (#120)"
@@ -74,7 +85,7 @@ bash "${SCRIPT_DIR}/inject-bad-release.sh"
 echo ""
 
 # Step 5: Wait for pods to start crashing and alert to fire
-echo "==> Step 5: Waiting for CrashLoop alert to fire (~2-3 min)..."
+echo "==> Step 5: Waiting for CrashLoop alert to fire (~1 min)..."
 echo "  Pods exit immediately with code 1 (simulated broken binary)."
 echo ""
 echo "  Waiting for new rollout to begin..."
@@ -82,10 +93,10 @@ sleep 10
 kubectl get pods -n "${NAMESPACE}"
 echo ""
 echo "  Waiting for restarts to accumulate..."
-sleep 30
+sleep 15
 kubectl get pods -n "${NAMESPACE}"
 echo ""
-echo "  The KubePodCrashLooping alert fires after >3 restarts in 10 min."
+echo "  The KubePodCrashLooping alert fires after CrashLoopBackOff is observed."
 echo "  Check Prometheus: kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090"
 echo ""
 
@@ -101,5 +112,5 @@ if [ "${ALERT_ONLY}" = "true" ]; then
 elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
-    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
+    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}" || _rc=$?
 fi

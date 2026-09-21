@@ -11,11 +11,12 @@ spec:
     rules:
     - alert: KubePodCrashLooping
       expr: |
-        increase(
-          kube_pod_container_status_restarts_total{
+        max_over_time(
+          kube_pod_container_status_waiting_reason{
             namespace="demo-ingress",
-            container="api-gateway"
-          }[1m]
+            container="api-gateway",
+            reason="CrashLoopBackOff"
+          }[2m]
         ) > 0
       for: 30s
       labels:
@@ -23,6 +24,6 @@ spec:
       annotations:
         summary: >
           Container {{ $labels.container }} in pod {{ $labels.pod }} is in
-          CrashLoopBackOff with {{ $value | humanize }} restarts in the last 10 minutes.
+          CrashLoopBackOff.
         description: >
           Multiple pods in the api-gateway deployment are crashing simultaneously.

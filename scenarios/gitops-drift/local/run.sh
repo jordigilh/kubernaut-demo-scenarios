@@ -42,6 +42,11 @@ preflight_check metrics-pipeline
 
 enable_prometheus_toolset
 
+# Gitea's webhook triggers ArgoCD immediately, so the default RO GitOps
+# propagation delay is unnecessarily conservative for this scenario. The
+# original RO config is restored by cleanup.sh.
+configure_ro_gitops_sync_delay "10s"
+
 # Ensure the git-revert-v2 workflow is seeded. It depends on gitea-repo-creds,
 # which only exists after Gitea is installed. If the initial seed ran before
 # Gitea was available, the workflow was skipped (#237).
@@ -55,7 +60,7 @@ GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
 GITEA_ADMIN_PASS="kubernaut123"
 REPO_NAME="demo-gitops-repo"
-NAMESPACE="demo-webui"
+NAMESPACE="${GITOPS_NAMESPACE:-demo-webui}"
 
 run_setup() {
 echo "============================================="
@@ -212,6 +217,40 @@ spec:
   type: ClusterIP
 SVC_EOF
 
+cat > manifests/prometheus-rule.yaml <<RULE_EOF
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-app-alerts
+  namespace: ${NAMESPACE}
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+  - name: demo-app
+    rules:
+    - alert: KubePodCrashLooping
+      expr: |
+        max_over_time(
+          kube_pod_container_status_waiting_reason{
+            namespace="${NAMESPACE}",
+            container="web-frontend",
+            reason="CrashLoopBackOff"
+          }[2m]
+        ) > 0
+      for: 30s
+      labels:
+        severity: critical
+      annotations:
+        summary: >
+          Pod {{ \$labels.pod }} is crash looping in namespace {{ \$labels.namespace }}.
+        description: >
+          Pod {{ \$labels.pod }} in namespace {{ \$labels.namespace }} is restarting
+          repeatedly. Application availability may be degraded until the
+          workload stabilizes.
+        runbook_url: "https://kubernaut.ai/runbooks/crashloop-gitops"
+RULE_EOF
+
 git add .
 git commit -m "Initial deployment: web-frontend with healthy config"
 git remote add origin "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
@@ -275,7 +314,16 @@ kubectl patch configmap argocd-cm -n "$argocd_ns" --type merge \
 # Step 1: Apply all manifests (namespace, ArgoCD Application, deployment, PrometheusRule)
 echo "==> Step 1: Applying manifests (namespace, ArgoCD Application, deployment, PrometheusRule)..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
-kubectl apply -k "${MANIFEST_DIR}" --server-side --force-conflicts
+if [ "${NAMESPACE}" = "demo-webui" ]; then
+  kubectl apply -k "${MANIFEST_DIR}" --server-side --force-conflicts
+else
+  # The checked-in kustomization is intentionally kept runnable as the
+  # documented demo-webui example. Retarget its rendered resources for an
+  # acceptance fixture without mutating the source manifests or repo content.
+  kubectl kustomize "${MANIFEST_DIR}" \
+    | sed "s/demo-webui/${NAMESPACE}/g" \
+    | kubectl apply -f - --server-side --force-conflicts
+fi
 
 echo "==> Step 2: Waiting for ArgoCD to sync and pods to be ready..."
 echo "  Waiting for namespace to be created by ArgoCD..."

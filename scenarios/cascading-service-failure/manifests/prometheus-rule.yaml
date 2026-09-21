@@ -11,19 +11,20 @@ spec:
     rules:
     - alert: KubePodCrashLooping
       expr: |
-        rate(
-          kube_pod_container_status_restarts_total{
+        max_over_time(
+          kube_pod_container_status_waiting_reason{
             namespace="demo-order-fulfillment",
-            container="app"
-          }[5m]
-        ) * 300 > 3
+            container="app",
+            reason="CrashLoopBackOff"
+          }[2m]
+        ) > 0
       for: 1m
       labels:
         severity: critical
       annotations:
         summary: >
           Pod {{ $labels.pod }} in namespace {{ $labels.namespace }}
-          is crash-looping ({{ $value | printf "%.0f" }} restarts in 5 minutes).
+          is in CrashLoopBackOff.
         description: >
           Container {{ $labels.container }} in pod {{ $labels.pod }}
           is restarting repeatedly. The container is exiting with a

@@ -10,7 +10,7 @@
 # - Live (ETCD_LIVE_CLUSTER=1, kind spokes only): uses the kind
 #   control-plane etcd in place -- no demo StatefulSet. A hostNetwork
 #   proxy exposes its loopback-only :2381 metrics port, the loader Job
-#   fragments it with ~64MB of throwaway keys (deleted afterwards), and
+#   fragments it with ~16MB of throwaway keys (deleted afterwards), and
 #   remediation is a real defrag of the cluster datastore. See
 #   fleet/live/ and the scenario README. Touches only the spoke -- safe
 #   to invoke directly, multiple times, once per spoke cluster if demoing
@@ -26,9 +26,9 @@ NAMESPACE="demo-datastore"
 # shellcheck source=../../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 fleet_check_spoke_connectivity
+platform=$(detect_spoke_platform)
 
 if [ "${ETCD_LIVE_CLUSTER:-0}" = "1" ]; then
-    platform=$(detect_spoke_platform)
     if [ "$platform" != "kind" ]; then
         echo "ERROR: ETCD_LIVE_CLUSTER=1 requires a kind spoke (got: ${platform}) -- the live control-plane etcd is only reachable there. Use the dedicated mode on OCP." >&2
         exit 1
@@ -66,7 +66,7 @@ fi
 
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying scenario resources..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
-if [ "$(detect_spoke_platform)" = "kind" ] && fleet_spoke_is_arm64; then
+if [ "$platform" = "kind" ] && fleet_spoke_is_arm64; then
     echo "ERROR: the dedicated demo etcd image is amd64-only and cannot run on this arm64 spoke." >&2
     echo "  Re-run with ETCD_LIVE_CLUSTER=1 to fragment the kind control-plane etcd instead." >&2
     exit 1

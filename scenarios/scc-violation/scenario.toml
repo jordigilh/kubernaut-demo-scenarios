@@ -1,0 +1,7 @@
+name = 'scc-violation'
+title = 'Privileged SecurityContext under restricted-v2 -> revert to SCC-compliant config'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'full'

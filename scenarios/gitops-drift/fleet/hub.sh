@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # GitOps Drift Remediation Demo -- Fleet Hub Steps
 #
-# Unlike every other scenario's hub.sh (which only confirms an alert),
-# this one does most of the scenario's work: Gitea + ArgoCD both run on
+# This one does most of the scenario's work: Gitea + ArgoCD both run on
 # the hub (a real GitOps-hub cluster holds the repo credentials), and
 # ArgoCD syncs the web-frontend Application onto the SPOKE as a registered
 # remote cluster -- real cross-cluster sync over the wire, not a
@@ -12,21 +11,31 @@
 # ServiceMonitor) are part of the Application payload below, so they stay
 # ArgoCD-managed.
 #
-# This mirrors the topology kubernaut#2326 (RemediationWorkflow.spec.
+# This exercises the topology kubernaut#2326 (RemediationWorkflow.spec.
 # execution.clusterId) exists for: target cluster (signal origin) = spoke,
-# GitOps-hub/execution cluster = hub. Fleet mode doesn't create a
-# WorkflowExecution in alert-only mode though, so that field itself isn't
-# exercised here -- this only proves the cross-cluster ArgoCD sync half. The
-# git-revert-v2 workflow declares execution.clusterId: hub; seed-workflows.sh
-# supports an explicit FLEET_EXECUTION_CLUSTER_ID override.
+# GitOps-hub/execution cluster = hub. The git-revert-v2 workflow declares
+# execution.clusterId: hub; seed-workflows.sh supports an explicit
+# FLEET_EXECUTION_CLUSTER_ID override.
+# The git-revert Job holding the Gitea credentials runs on the hub, and
+# ArgoCD reconciles the reverted state back onto the spoke.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-NAMESPACE="demo-webui"
+NAMESPACE="${GITOPS_NAMESPACE:-demo-webui}"
 GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
 GITEA_ADMIN_PASS="kubernaut123"
 REPO_NAME="demo-gitops-repo"
+FLEET_CLUSTER_ID="${FLEET_CLUSTER_ID:-remote-cluster}"
+APPROVE_MODE="--interactive"
+ALERT_ONLY=""
+for _arg in "$@"; do
+    case "$_arg" in
+        --auto-approve) APPROVE_MODE="--auto-approve" ;;
+        --interactive)  APPROVE_MODE="--interactive" ;;
+        --alert-only)   ALERT_ONLY=true ;;
+    esac
+done
 
 # shellcheck source=../../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
@@ -51,11 +60,20 @@ fi
 echo ""
 echo "==> [hub] Registering spoke as a remote ArgoCD cluster..."
 SPOKE_SERVER=$(fleet_register_argocd_spoke_cluster "spoke" "${ARGOCD_NS}")
+HUB_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+if [ -z "${SPOKE_SERVER}" ] || [ "${SPOKE_SERVER}" = "${HUB_SERVER}" ] || \
+   [ "${SPOKE_SERVER}" = "https://kubernetes.default.svc" ]; then
+    echo "ERROR: ArgoCD spoke registration resolved to the hub (${SPOKE_SERVER:-empty})." >&2
+    echo "  HUB_KUBECONFIG and SPOKE_KUBECONFIG must refer to different clusters." >&2
+    exit 1
+fi
 echo "  Spoke registered at ${SPOKE_SERVER}"
 
 echo ""
 echo "==> [hub] Deleting any stale Application from a previous run..."
 kubectl delete application web-frontend -n "${ARGOCD_NS}" --ignore-not-found
+echo "==> [hub] Removing any stale local namespace ${NAMESPACE}..."
+kubectl delete namespace "${NAMESPACE}" --ignore-not-found --wait=true
 
 echo ""
 echo "==> [hub] Pushing healthy manifests to Gitea repo..."
@@ -208,15 +226,17 @@ spec:
     rules:
     - alert: KubePodCrashLooping
       expr: |
-        increase(
-          kube_pod_container_status_restarts_total{
+        max_over_time(
+          kube_pod_container_status_waiting_reason{
             namespace="${NAMESPACE}",
-            container="web-frontend"
+            container="web-frontend",
+            reason="CrashLoopBackOff"
           }[2m]
         ) > 0
       for: 30s
       labels:
         severity: critical
+        cluster: ${FLEET_CLUSTER_ID}
       annotations:
         summary: >
           Pod {{ \$labels.pod }} is crash looping in namespace {{ \$labels.namespace }}.
@@ -279,6 +299,13 @@ spec:
     syncOptions:
     - CreateNamespace=true
 EOF
+
+APP_DESTINATION=$(kubectl get application web-frontend -n "${ARGOCD_NS}" \
+  -o jsonpath='{.spec.destination.server}')
+if [ "${APP_DESTINATION}" != "${SPOKE_SERVER}" ]; then
+    echo "ERROR: ArgoCD Application destination is ${APP_DESTINATION}, expected ${SPOKE_SERVER}." >&2
+    exit 1
+fi
 
 echo ""
 echo "==> [hub] Waiting for ArgoCD to sync and pods to be ready on the spoke..."
@@ -422,11 +449,10 @@ echo ""
 echo "==> [hub] Waiting for alert..."
 fleet_wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 300
 echo ""
-echo "==> Alert is firing. Fleet mode stops here (alert-only)."
-echo "    This topology (signal on spoke, GitOps-hub on hub) is exactly the"
-echo "    case kubernaut#2326's RemediationWorkflow.spec.execution.clusterId"
-echo "    was added for -- the git-revert-v2 workflow's Job should run here"
-echo "    on the hub (it holds the Gitea credentials), not the spoke. Fleet"
-echo "    mode doesn't create a WorkflowExecution in alert-only mode, so"
-echo "    that field itself isn't exercised by this script; this only"
-echo "    proves the cross-cluster ArgoCD sync half of the topology."
+if [ -n "${ALERT_ONLY}" ]; then
+    echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
+else
+    echo "==> Alert is firing. Driving full remediation pipeline on the hub (${APPROVE_MODE})..."
+    echo "    Signal on spoke, git-revert-v2 Job on hub (execution.clusterId = hub)."
+    fleet_drive_pipeline "${NAMESPACE}" "${APPROVE_MODE}"
+fi

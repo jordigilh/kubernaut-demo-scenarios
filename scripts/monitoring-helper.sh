@@ -25,8 +25,7 @@ require_infra() {
     local component="$1"
     case "$component" in
         cert-manager)
-            helm status cert-manager -n cert-manager &>/dev/null && return 0
-            kubectl get deployment -n cert-manager -l app.kubernetes.io/name=cert-manager --no-headers 2>/dev/null | grep -q . && return 0
+            cert_manager_installed && return 0
             echo "ERROR: cert-manager is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
         metrics-server)
@@ -182,6 +181,15 @@ _prom_pod_and_ns() {
     if [ "${PLATFORM:-kind}" = "ocp" ]; then
         echo "openshift-monitoring prometheus-k8s-0"
     else
+        local prom_pod
+        prom_pod=$(kubectl get pods -n monitoring -l app=prometheus \
+            --field-selector=status.phase=Running \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+        if [ -n "$prom_pod" ]; then
+            echo "monitoring ${prom_pod}"
+            return 0
+        fi
+        # Legacy kube-prometheus-stack naming, retained for older clusters.
         echo "monitoring prometheus-kube-prometheus-stack-prometheus-0"
     fi
 }
@@ -191,6 +199,15 @@ _am_pod_and_ns() {
     if [ "${PLATFORM:-kind}" = "ocp" ]; then
         echo "openshift-monitoring alertmanager-main-0"
     else
+        local am_pod
+        am_pod=$(kubectl get pods -n monitoring -l app=alertmanager \
+            --field-selector=status.phase=Running \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+        if [ -n "$am_pod" ]; then
+            echo "monitoring ${am_pod}"
+            return 0
+        fi
+        # Legacy kube-prometheus-stack naming, retained for older clusters.
         echo "monitoring alertmanager-kube-prometheus-stack-alertmanager-0"
     fi
 }
@@ -426,8 +443,33 @@ _check_rule_loaded() {
 
 _query_rules_for_alert() {
     local ns="$1" pod="$2" alert_name="$3"
-    kubectl exec -n "$ns" "$pod" -- \
-        curl -sf --connect-timeout 5 'http://localhost:9090/api/v1/rules?type=alert' 2>/dev/null \
+    # Prometheus operator images do not consistently include curl or Python.
+    # Query the API from the host instead of depending on container utilities.
+    local local_port=$((18000 + (${BASHPID:-$$} % 1000)))
+    local port_forward_log
+    port_forward_log=$(mktemp)
+    kubectl port-forward -n "$ns" "$pod" "${local_port}:9090" \
+        >"$port_forward_log" 2>&1 &
+    local port_forward_pid=$!
+    local ready=false
+    for _ in $(seq 1 10); do
+        if curl -sf --connect-timeout 1 \
+            "http://127.0.0.1:${local_port}/-/ready" >/dev/null 2>&1; then
+            ready=true
+            break
+        fi
+        sleep 1
+    done
+    if [ "$ready" != true ]; then
+        kill "$port_forward_pid" 2>/dev/null || true
+        wait "$port_forward_pid" 2>/dev/null || true
+        rm -f "$port_forward_log"
+        echo "error"
+        return 0
+    fi
+
+    curl -sf --connect-timeout 5 \
+        "http://127.0.0.1:${local_port}/api/v1/rules?type=alert" 2>/dev/null \
         | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
@@ -438,6 +480,10 @@ for g in data.get('data',{}).get('groups',[]):
             sys.exit(0)
 print('missing')
 " 2>/dev/null || echo "error"
+
+    kill "$port_forward_pid" 2>/dev/null || true
+    wait "$port_forward_pid" 2>/dev/null || true
+    rm -f "$port_forward_log"
 }
 
 # ── preflight_check: run pre-deploy capability checks ──
@@ -482,9 +528,37 @@ postdeploy_check() {
 # Installs kube-prometheus-stack via Helm (idempotent).
 # Provides: Prometheus Operator, Prometheus, AlertManager, Grafana,
 #           kube-state-metrics, node-exporter.
+monitoring_stack_helm_installed() {
+    local kubeconfig="${1:-}"
+    local helm_args=()
+    if [ -n "$kubeconfig" ]; then
+        helm_args+=(--kubeconfig "$kubeconfig")
+    fi
+    helm "${helm_args[@]}" status kube-prometheus-stack -n "${MONITORING_NS}" &>/dev/null
+}
+
+monitoring_stack_installed() {
+    local kubeconfig="${1:-}"
+    local kubectl_args=()
+    if [ -n "$kubeconfig" ]; then
+        kubectl_args+=(--kubeconfig "$kubeconfig")
+    fi
+
+    # The upstream demo bootstrap installs the operator under its own Helm
+    # release and creates the Prometheus CR separately. Do not install a
+    # second kube-prometheus-stack when that layout is already present.
+    if monitoring_stack_helm_installed "$kubeconfig"; then
+        return 0
+    fi
+    kubectl "${kubectl_args[@]}" get deployment prometheus-operator \
+        -n prometheus-operator &>/dev/null || return 1
+    kubectl "${kubectl_args[@]}" get prometheus -n "${MONITORING_NS}" \
+        --no-headers 2>/dev/null | grep -q .
+}
+
 ensure_monitoring_stack() {
-    if helm status kube-prometheus-stack -n "${MONITORING_NS}" &>/dev/null; then
-        echo "  kube-prometheus-stack already installed."
+    if monitoring_stack_installed; then
+        echo "  Monitoring stack already installed."
         return 0
     fi
 
@@ -526,8 +600,19 @@ ensure_grafana_dashboard() {
 
 # ── cert-manager ─────────────────────────────────────────────────────────────
 # Used by: cert-failure
-ensure_cert_manager() {
+cert_manager_installed() {
     if helm status cert-manager -n cert-manager &>/dev/null; then
+        return 0
+    fi
+
+    # OCP's cert-manager operator and manually-applied manifests do not leave
+    # Helm release metadata, but they do run the cert-manager controller.
+    kubectl get deployment -n cert-manager \
+        -l app.kubernetes.io/name=cert-manager --no-headers 2>/dev/null | grep -q .
+}
+
+ensure_cert_manager() {
+    if cert_manager_installed; then
         echo "  cert-manager already installed."
         return 0
     fi
@@ -550,12 +635,20 @@ ensure_cert_manager() {
 # ── metrics-server ───────────────────────────────────────────────────────────
 # Used by: hpa-maxed, autoscale (HPA requires real CPU/memory metrics)
 ensure_metrics_server() {
-    if kubectl get deployment metrics-server -n kube-system &>/dev/null; then
+    if kubectl get deployment metrics-server -n kube-system &>/dev/null || \
+       kubectl get deployment -n kube-system \
+           -l app.kubernetes.io/name=metrics-server --no-headers 2>/dev/null | grep -q .; then
         echo "  metrics-server already installed."
         return 0
     fi
-    if kubectl get apiservice v1beta1.metrics.k8s.io &>/dev/null; then
-        echo "  metrics-server provided by platform (OCP)."
+    if helm status metrics-server -n kube-system &>/dev/null; then
+        echo "  metrics-server Helm release already installed."
+        return 0
+    fi
+    if kubectl get apiservice v1beta1.metrics.k8s.io \
+        -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' \
+        2>/dev/null | grep -q True; then
+        echo "  metrics-server provided by platform."
         return 0
     fi
 

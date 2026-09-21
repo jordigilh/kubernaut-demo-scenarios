@@ -11,19 +11,20 @@ spec:
     rules:
     - alert: KubePodCrashLooping
       expr: |
-        increase(
-          kube_pod_container_status_restarts_total{
+        max_over_time(
+          kube_pod_container_status_waiting_reason{
             namespace="demo-backend",
-            container="worker"
-          }[1m]
+            container="worker",
+            reason="CrashLoopBackOff"
+          }[2m]
         ) > 0
       for: 30s
       labels:
         severity: critical
       annotations:
         summary: >
-          Container {{ $labels.container }} in pod {{ $labels.pod }} is being
-          OOMKilled repeatedly in namespace {{ $labels.namespace }}.
+          Container {{ $labels.container }} in pod {{ $labels.pod }} is in
+          CrashLoopBackOff in namespace {{ $labels.namespace }}.
         description: >
           The worker container in namespace {{ $labels.namespace }} is being
           terminated by the kernel OOM killer during startup initialization.

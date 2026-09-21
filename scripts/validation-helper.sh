@@ -90,6 +90,11 @@ if [ "${PLATFORM:-}" = "ocp" ]; then
     ALERTMANAGER_POD="${ALERTMANAGER_POD:-alertmanager-main-0}"
 else
     MONITORING_NS="${MONITORING_NS:-monitoring}"
+    if [ -z "${ALERTMANAGER_POD:-}" ]; then
+        ALERTMANAGER_POD=$(kubectl get pods -n "${MONITORING_NS}" \
+            -l app=alertmanager --field-selector=status.phase=Running \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    fi
     ALERTMANAGER_POD="${ALERTMANAGER_POD:-alertmanager-kube-prometheus-stack-alertmanager-0}"
 fi
 
@@ -228,14 +233,30 @@ wait_for_alert() {
         ns_filter=("namespace=${namespace}")
     fi
 
+    # Fail loudly (instead of burning the full timeout on silent zeros) when
+    # AlertManager itself is not queryable. Seen when the AM pod is stuck
+    # ContainerCreating on a missing inter-service-ca ConfigMap: every
+    # kubectl exec below fails and each poll counts 0.
+    if ! kubectl wait --for=condition=Ready "pod/${am_pod}" \
+        -n "${MONITORING_NS}" --timeout=90s >/dev/null 2>&1; then
+        local am_phase
+        am_phase=$(kubectl get pod -n "${MONITORING_NS}" "$am_pod" \
+            -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+        log_error "AlertManager pod ${MONITORING_NS}/${am_pod} is '${am_phase}' (not Ready) -- cannot query alerts. Check: kubectl describe pod -n ${MONITORING_NS} ${am_pod}"
+        return 1
+    fi
+
     while [ "$elapsed" -lt "$timeout" ]; do
         local count
-        count=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
+        if ! count=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
             amtool alert query "alertname=${alert_name}" "${ns_filter[@]}" \
             --alertmanager.url=http://localhost:9093 \
-            --output=json 2>/dev/null \
+            --output=json \
             | tr '\n' ' ' \
-            | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+            | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null); then
+            log_error "Failed to query AlertManager pod ${MONITORING_NS}/${am_pod}; inspect: kubectl describe pod -n ${MONITORING_NS} ${am_pod}"
+            return 1
+        fi
 
         if [ "$count" != "0" ] && [ "$count" != "" ]; then
             log_success "Alert ${alert_name} fired in AlertManager"

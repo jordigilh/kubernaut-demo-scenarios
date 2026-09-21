@@ -1,0 +1,7 @@
+name = 'red-herring-noise'
+title = 'Postgres crash + an unrelated canary with a bad image tag -> separate independent failures'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'full'
