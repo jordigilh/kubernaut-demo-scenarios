@@ -2,7 +2,7 @@
 # Inject ConfigMap flood to trigger operator OOMKill.
 # Uses 100 ConfigMaps at ~1MB each (the Kubernetes maximum).
 # The informer deserializes these into typed Go structs with 3-5x overhead,
-# exceeding the 512Mi memory limit.
+# exceeding the 128Mi memory limit.
 #
 # Reference: kubeflow/spark-operator#2878
 set -euo pipefail

@@ -11,11 +11,13 @@
 # ServiceMonitor) are part of the Application payload below, so they stay
 # ArgoCD-managed.
 #
-# This mirrors the topology kubernaut#2326 (RemediationWorkflow.spec.
+# This exercises the topology kubernaut#2326 (RemediationWorkflow.spec.
 # execution.clusterId) exists for: target cluster (signal origin) = spoke,
 # GitOps-hub/execution cluster = hub. The git-revert-v2 workflow declares
 # execution.clusterId: hub; seed-workflows.sh supports an explicit
 # FLEET_EXECUTION_CLUSTER_ID override.
+# The git-revert Job holding the Gitea credentials runs on the hub, and
+# ArgoCD reconciles the reverted state back onto the spoke.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -451,5 +453,6 @@ if [ -n "${ALERT_ONLY}" ]; then
     echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
 else
     echo "==> Alert is firing. Driving full remediation pipeline on the hub (${APPROVE_MODE})..."
+    echo "    Signal on spoke, git-revert-v2 Job on hub (execution.clusterId = hub)."
     fleet_drive_pipeline "${NAMESPACE}" "${APPROVE_MODE}"
 fi

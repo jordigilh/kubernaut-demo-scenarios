@@ -1,0 +1,8 @@
+name = 'memory-leak'
+title = 'Linear memory growth predicted to OOM -> graceful rolling restart'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

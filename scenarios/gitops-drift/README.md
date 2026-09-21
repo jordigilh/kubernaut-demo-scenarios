@@ -177,7 +177,9 @@ both kubeconfig env vars (passing `--fleet` without either is a hard error):
 export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config       # e.g. from `make setup-fleet-demo-infra`
 export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
 
-./scenarios/gitops-drift/run.sh --fleet
+./scenarios/gitops-drift/run.sh --fleet                # full pipeline, auto-approve (default)
+./scenarios/gitops-drift/run.sh --fleet --interactive  # full pipeline, manual RAR approval
+./scenarios/gitops-drift/run.sh --fleet --alert-only    # stop once the alert reaches the hub
 ```
 
 For cleanup, use the fleet-specific script when the workload was deployed on a

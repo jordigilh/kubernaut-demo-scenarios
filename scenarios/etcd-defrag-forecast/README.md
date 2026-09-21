@@ -1,8 +1,10 @@
 # Scenario: etcd Defrag Forecast -- Predictive Defragmentation
 
-> **Environment: OCP only.** Demonstrates Kubernaut's reasoning capabilities
-> for etcd maintenance -- a use case where intelligent triage outperforms
-> the operator's fixed-policy automation.
+> **Environment:** OCP and Kind use a dedicated demo etcd by default. Kind has
+> an opt-in live control-plane path tracked separately as an enhancement. This
+> demonstrates Kubernaut's reasoning capabilities for etcd maintenance -- a
+> use case where intelligent triage outperforms the operator's fixed-policy
+> automation.
 
 ## Overview
 
@@ -187,18 +189,16 @@ alert reaches the hub's Alertmanager, then (unless `--alert-only`) drives the sa
 `wait_for_rr`/`poll_pipeline` loop single-cluster mode uses -- just pointed at the hub's
 `kubernaut-system` namespace instead of the ambient cluster.
 
-#### Live-cluster mode (`ETCD_LIVE_CLUSTER=1`, kind only)
+#### Experimental live Kind mode (`ETCD_LIVE_CLUSTER=1`)
 
 Validates against the **live kind control-plane etcd** instead of the disposable
 demo StatefulSet -- remediating a real cluster datastore, which is the
 production scenario (defragging a throwaway etcd proves little). OCP
 always uses the dedicated StatefulSet: the platform etcd is off-limits there.
 
-Works identically in fleet and local mode. Each mode owns its live-etcd
-monitoring assets and Jobs, so local runs do not depend on fleet paths. The
-local kube-prometheus-stack selects all monitoring CRDs, and the local
-gateway can drive the full `validate.sh` pipeline since defrag-etcd-v1
-sets no execution cluster:
+This is an opt-in experimental path. The default remediation demo continues to
+use the dedicated etcd StatefulSet. The live path is retained for follow-up
+work tracked in issue #442.
 
 ```bash
 export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config
@@ -206,7 +206,7 @@ export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
 ETCD_LIVE_CLUSTER=1 ./scenarios/etcd-defrag-forecast/run.sh --fleet --alert-only
 ```
 
-Local kind equivalent (full pipeline available -- the local gateway is present):
+Local Kind equivalent:
 
 ```bash
 ETCD_LIVE_CLUSTER=1 ./scenarios/etcd-defrag-forecast/run.sh --alert-only
@@ -215,8 +215,8 @@ ETCD_LIVE_CLUSTER=1 ./scenarios/etcd-defrag-forecast/run.sh --alert-only
 On arm64 kind clusters the dedicated mode refuses to start (its etcd image is
 amd64-only); live mode is the way there.
 
-How it works (`fleet/live/` for fleet mode and `local/live/` for local mode;
-the fleet assets are applied by `fleet/spoke.sh` in sequence):
+How it works (`fleet/live/`, applied by `fleet/spoke.sh` in live opt-in mode
+and by the local runner in local opt-in mode):
 
 1. A hostNetwork proxy exposes kind's loopback-only `:2381` metrics port to
    the pod network; a ServiceMonitor scrapes it (per-member identity comes
@@ -225,11 +225,13 @@ the fleet assets are applied by `fleet/spoke.sh` in sequence):
    already fragmented -- ~70% observed on a fresh cluster).
 3. A loader Job writes ~16MB under `/demo-frag/`, deletes it, and compacts,
    driving the fragmentation ratio toward ~75% within a minute.
-4. Fleet `hub.sh` waits for `EtcdHighFragmentationRatio` on the hub AM as usual;
+4. `fleet/hub.sh` waits for `EtcdHighFragmentationRatio` on the hub AM as usual;
    local mode waits on the local Alertmanager.
 
-Remediate afterwards by re-applying the mode-specific `defrag-job.yaml` and
-watching the alert resolve. Loader and defrag Jobs authenticate with the node's
+The live defrag Job is currently the setup/manual-remediation path. The
+`defrag-etcd-v1` workflow must be updated to target Kind's static etcd pods
+before this mode can claim end-to-end workflow remediation. Loader and defrag
+Jobs authenticate with the node's
 healthcheck client cert via a read-only hostPath mount -- no credentials are
 written anywhere. Risks: the loader temporarily grows the live datastore
 (~20MB observed) and compacts to the current revision; both are routine

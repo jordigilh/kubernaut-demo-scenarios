@@ -1,0 +1,7 @@
+name = 'build-failure'
+title = 'BuildConfig patched with a bad Git URI -> restore source + trigger rebuild'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'no'

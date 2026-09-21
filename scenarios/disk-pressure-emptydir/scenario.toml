@@ -1,0 +1,7 @@
+name = 'disk-pressure-emptydir'
+title = 'PostgreSQL on emptyDir fills disk -> Ansible/AWX: pg_dump, PVC migration commit to Git, ArgoCD sync, pg_restore'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'no'

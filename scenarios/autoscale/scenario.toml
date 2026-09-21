@@ -1,0 +1,12 @@
+name = 'autoscale'
+id = 126
+title = 'Pods Pending on resource exhaustion -> provision an additional node'
+
+[platforms]
+kind  = 'yes'
+host  = 'macos'
+ocp   = 'no'
+fleet = 'no'
+
+[notes]
+kind = 'Kind on Linux bare-metal inherits full host memory -> alert payload exceeds gateway limit; works on macOS (capped Podman/Docker VM)'

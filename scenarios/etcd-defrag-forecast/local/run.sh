@@ -42,17 +42,17 @@ ensure_clean_slate "${NAMESPACE}"
 
 # Live-cluster mode (ETCD_LIVE_CLUSTER=1, kind only): fragment the kind
 # control-plane etcd in place instead of deploying the demo StatefulSet.
-# Uses the local/live assets (proxy + ServiceMonitor + Rule + Jobs) --
+# Reuses the fleet/live assets (proxy + ServiceMonitor + Rule + Jobs) --
 # the local kube-prometheus-stack selects all monitoring CRDs, so no
-# overlay is needed. With the gateway present locally, the full validate.sh
-# pipeline below can drive defrag-etcd-v1 end to end (its execution
-# clusterId is empty, so the Job runs where the signal fired).
+# overlay is needed. The live defrag Job is available for setup/manual
+# remediation; the workflow bundle still needs static-pod target support
+# before this path can claim end-to-end workflow remediation.
 if [ "${ETCD_LIVE_CLUSTER:-0}" = "1" ]; then
     if [ "$(detect_platform)" != "kind" ]; then
         echo "ERROR: ETCD_LIVE_CLUSTER=1 requires a kind cluster (got: $(detect_platform)) -- the live control-plane etcd is only reachable there. Use the dedicated mode on OCP." >&2
         exit 1
     fi
-    LIVE_DIR="${SCRIPT_DIR}/local/live"
+    LIVE_DIR="${SCRIPT_DIR}/fleet/live"
     echo "==> Step 1 (live): Applying live-etcd monitoring (proxy + ServiceMonitor + Rule)..."
     kubectl apply -k "${LIVE_DIR}"
     echo ""
@@ -62,17 +62,17 @@ if [ "${ETCD_LIVE_CLUSTER:-0}" = "1" ]; then
     echo ""
     echo "==> Step 3 (live): Establishing healthy baseline (defrag)..."
     kubectl delete job etcd-live-defrag -n "${NAMESPACE}" --ignore-not-found
-    kubectl apply -f "${SCRIPT_DIR}/local/defrag-job.yaml"
+    kubectl apply -f "${SCRIPT_DIR}/fleet/defrag-job.yaml"
     kubectl wait --for=condition=complete job/etcd-live-defrag \
         -n "${NAMESPACE}" --timeout=600s
     echo ""
     echo "==> Step 4 (live): Fragmenting live etcd (loader Job, ~1 min)..."
     kubectl delete job etcd-frag-loader -n "${NAMESPACE}" --ignore-not-found
-    kubectl apply -f "${SCRIPT_DIR}/local/loader-job.yaml"
+    kubectl apply -f "${SCRIPT_DIR}/fleet/loader-job.yaml"
     kubectl wait --for=condition=complete job/etcd-frag-loader \
         -n "${NAMESPACE}" --timeout=900s
     echo ""
-    echo "==> Live etcd fragmented. Remediate afterwards by re-applying local/defrag-job.yaml."
+    echo "==> Live etcd fragmented. Remediate afterwards by re-applying fleet/defrag-job.yaml."
 else
 # Step 1: Deploy etcd cluster
 echo "==> Step 1: Deploying 3-member etcd cluster..."

@@ -1,0 +1,7 @@
+name = 'cross-namespace-dependency'
+title = 'Postgres crash in one namespace kills dependents in another -> RCA must trace across the boundary'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'full'

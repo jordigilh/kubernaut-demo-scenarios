@@ -1,0 +1,8 @@
+name = 'orphaned-pvc-no-action'
+title = 'Orphaned PVCs accumulate -> deliberately no workflow seeded (tests non-action)'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'yes'
+fleet = 'full'

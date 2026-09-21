@@ -1,0 +1,9 @@
+name = 'etcd-defrag-forecast'
+title = 'Fragmentation ratio predicted to degrade -> rolling per-member defrag'
+
+[platforms]
+# Kind uses the dedicated demo etcd by default; ETCD_LIVE_CLUSTER=1 opts into
+# the experimental live-cluster path. OCP always uses the dedicated fixture.
+kind  = 'yes'
+ocp   = 'yes'
+fleet = 'full'

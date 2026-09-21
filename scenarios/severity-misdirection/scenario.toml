@@ -1,0 +1,7 @@
+name = 'severity-misdirection'
+title = 'OOM-killed Postgres (P3) causes api-gateway crash-loop (P1) -> prioritize temporal causation over severity ranking'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'full'

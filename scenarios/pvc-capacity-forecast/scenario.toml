@@ -1,0 +1,10 @@
+name = 'pvc-capacity-forecast'
+title = 'predict_linear PVC runway -> expand PVC before it fills'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'full'
+
+[notes]
+fleet = 'fleet drive wired; live verification blocked on upstream Kind kubelet regression (kubernaut#2338)'

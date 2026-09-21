@@ -1,0 +1,8 @@
+name = 'node-notready'
+title = 'Simulated node failure -> cordon + drain'
+
+[platforms]
+kind  = 'yes'
+host  = 'all'
+ocp   = 'no'
+fleet = 'no'

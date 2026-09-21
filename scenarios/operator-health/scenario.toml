@@ -1,0 +1,7 @@
+name = 'operator-health'
+title = 'Deleted operator CSV -> recreate Subscription to trigger OLM re-install'
+
+[platforms]
+kind  = 'no'
+ocp   = 'yes'
+fleet = 'no'
