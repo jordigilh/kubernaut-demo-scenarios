@@ -1,92 +1,1232 @@
 {
+  "schema_version": 1,
+  "_metadata": {
+    "captured_at": "2026-10-02T00:57:51.736144Z",
+    "ka_image": "quay.io/kubernaut-ai/aianalysis:1.6.0-rc20",
+    "model": "gpt-5.6-luna",
+    "cluster": "kind-kubernaut-hub",
+    "chart_version": "1.6.0",
+    "phaseModels": {
+      "rootCauseAnalysis": "gpt-5.6-luna",
+      "workflowDiscovery": "gpt-5.6-luna",
+      "source": "audit_events model fields"
+    },
+    "fleetMode": true,
+    "hubCluster": "kind-kubernaut-hub",
+    "spokeCluster": "kind-kubernaut-remote-cluster"
+  },
   "scenario": "network-policy-block",
-  "incidentId": "rr-908ccd4f643c-4cfdf7d5",
-  "signal": {
-    "signalName": "KubeDeploymentReplicasMismatch",
-    "namespace": "demo-netpol-2",
-    "resourceKind": "Deployment",
-    "resourceName": "traffic-gen",
-    "severity": "critical"
+  "signalName": "KubeDeploymentReplicasMismatch",
+  "remediationRequest": {
+    "name": "rr-9d7638a122e2-11c3684d",
+    "phase": "Completed",
+    "outcome": "Remediated"
   },
   "analysis": {
-    "phase": "Completed",
-    "selectedWorkflow": {
-      "confidence": 0.97,
-      "parameters": {
-        "POLICY_NAME": "deny-all-ingress",
-        "TARGET_RESOURCE_KIND": "NetworkPolicy",
-        "TARGET_RESOURCE_NAME": "deny-all-ingress",
-        "TARGET_RESOURCE_NAMESPACE": "demo-netpol-2"
-      },
-      "workflowId": "a07aaa5f-a631-511e-bca0-b46250df494c",
-      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:ee7fbb4de3107201158d870e736a759192cc67530b660cc780c84060fda774f3",
-      "workflowName": "fix-network-policy-v1"
-    },
-    "approvalRequired": false,
-    "needsHumanReview": false,
-    "humanReviewReason": null,
-    "rootCauseAnalysis": {
-      "summary": "A 'deny-all-ingress' NetworkPolicy (injected by kubernaut-demo at 16:55:32) blocks all ingress traffic in namespace demo-netpol-2 via an empty podSelector with policyTypes=[Ingress] and no allow rules. This causes the traffic-gen readiness probe (curl to web-frontend:8080/healthz) to time out, leaving the traffic-gen pod stuck in NotReady state and the deployment reporting 0 available replicas despite 1 running.",
+    "remediationId": "rr-9d7638a122e2-11c3684d",
+    "signal": {
+      "signalName": "KubeDeploymentReplicasMismatch",
       "severity": "critical",
+      "environment": "Staging",
+      "targetResource": {
+        "kind": "Deployment",
+        "name": "traffic-gen",
+        "namespace": "demo-frontend"
+      },
+      "businessPriority": "P1"
+    },
+    "investigation": {
+      "sessionId": "359ed40e-bb94-4ec0-841c-50fcbfdfef59"
+    },
+    "rootCauseAnalysis": {
+      "summary": "The traffic-gen replica is unavailable because its readiness probe and application loop repeatedly fail against web-frontend:8080/healthz. The namespace deny-all ingress NetworkPolicy selects all pods and is consistent with blocking the required traffic path, while the backend service and application are healthy.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: `KubeDeploymentReplicasMismatch` reports `demo-frontend/Deployment/traffic-gen` with `unavailableReplicas: 1` of 1.",
+        "Why? The sole Pod `traffic-gen-6fbdd9f844-c7cqm` is Running but readiness is False, and its readiness probe targets `web-frontend.demo-frontend:8080/healthz`.",
+        "Why? The traffic generator's own logs show `probe=success` initially, then repeated `probe=failure`, while the web Deployment remains 2/2 Ready with ready Service endpoints.",
+        "Why? Namespace NetworkPolicy `default-network-policy` selects every pod and enables ingress policy without any ingress allow rules, blocking ingress to selected pods; this is consistent with the probe failure.",
+        "Root cause: `demo-frontend/default-network-policy` has an ingress-isolation configuration with no allowed ingress sources, preventing the traffic-gen readiness path from succeeding. Direct packet-level confirmation was unavailable because pod exec and Prometheus access were blocked."
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "The target is the NetworkPolicy whose ingress configuration must be changed to allow the required traffic, rather than the Deployment that only reports the symptom. A workflow can add a narrowly scoped ingress allowance.",
+        "proportionality": "The issue is isolated to the readiness path and has a specific policy configuration fix. The NetworkPolicy is more precise than changing replica counts, probe timing, or the healthy web Deployment. Any required ingress exception should be narrowly scoped to the relevant traffic.",
+        "scopeCompleteness": "Inspected the incident Deployment, owning ReplicaSet and Pod, its events/logs/current and previous-log path, downstream Service, EndpointSlice, web Deployment and two representative web Pod logs, ConfigMap, NetworkPolicy, node usage, and owner/remediation context. Prometheus was attempted but inaccessible; packet-level tests were blocked.",
+        "causalCompleteness": "Traced Deployment -> ReplicaSet -> Pod -> readiness probe -> downstream Service/Endpoints -> NetworkPolicy. The deepest verified configuration cause is the empty ingress allow-list in `default-network-policy`; exact CNI enforcement and packet direction could not be verified.",
+        "evidenceSufficiency": "Deployment, ReplicaSet, Pod, Service, EndpointSlice, downstream Deployment, ConfigMap, events, node metrics, and NetworkPolicy were inspected. Evidence supports readiness failure and healthy backend. Assumptions: the observed NetworkPolicy is enforced by the active network plugin and is the specific blocker. Pod exec was forbidden (`create pods/exec`); Prometheus discovery/series timed out; node stats-summary was forbidden (`get nodes/proxy`).",
+        "regressionAwareness": "No prior remediation history is available for `demo-frontend/NetworkPolicy/default-network-policy`; the target context showed no tier-1 or tier-2 remediations and no regression detected.",
+        "alternativeHypotheses": "Considered unhealthy web backend and missing Service endpoints; contradicted by `web-frontend` 2/2 Ready, two ready EndpointSlice entries, HTTP-200 `/healthz` ConfigMap, and clean startup logs. Considered scheduling, image pull, crash, node CPU/memory pressure, and OOM; contradicted by normal events, Running state, zero restarts, 7% CPU and 16% memory node usage. DNS/connectivity could not be directly tested because exec was forbidden.",
+        "confidenceCalibration": "0.82: start 1.0; -0.10 because pod exec was RBAC-forbidden and direct connectivity was not verified; -0.05 because Prometheus timed out; -0.03 because NetworkPolicy enforcement by the active CNI was not directly observable. Backend, workload, event, and node evidence substantially supports the diagnosis."
+      },
       "remediationTarget": {
         "kind": "NetworkPolicy",
-        "name": "deny-all-ingress",
-        "namespace": "demo-netpol-2"
+        "name": "default-network-policy",
+        "namespace": "demo-frontend"
       },
       "contributingFactors": [
-        "NetworkPolicy 'deny-all-ingress' applied with empty podSelector (affects ALL pods in namespace) and policyTypes=[Ingress] with no allow rules \u2014 blocks all inbound traffic",
-        "traffic-gen readiness probe 'curl -sf -o /dev/null -m 3 http://web-frontend.demo-netpol-2:8080/healthz' times out because ingress to web-frontend on port 8080 is denied by the policy",
-        "22 consecutive probe failures confirmed in pod events ('command timed out after 1s') between 16:55:33 and 16:57:12",
-        "Pod logs show clear transition: probe=success before NetworkPolicy injection at 16:55:32, then persistent probe=failure immediately after",
-        "NetworkPolicy was injected by 'kubernaut-demo' (label: injected-by=kubernaut-demo) exactly ~16s after pod start, matching the onset of failures",
-        "Deployment status: replicas=1, unavailableReplicas=1, Available=False with reason MinimumReplicasUnavailable"
+        "traffic-gen readiness probe and loop changed from successful to repeated failed health-check requests",
+        "NetworkPolicy default-network-policy selects all pods and enables ingress policy with no allowed ingress sources",
+        "web-frontend has healthy replicas, ready endpoints, and returns HTTP 200 for /healthz",
+        "Packet-level enforcement could not be directly verified because connectivity and Prometheus checks were unavailable"
+      ]
+    },
+    "rootCauseSummary": "The traffic-gen replica is unavailable because its readiness probe and application loop repeatedly fail against web-frontend:8080/healthz. The namespace deny-all ingress NetworkPolicy selects all pods and is consistent with blocking the required traffic path, while the backend service and application are healthy.",
+    "selectedWorkflow": {
+      "confidence": 0.82,
+      "parameters": {
+        "POLICY_NAME": "default-network-policy",
+        "TARGET_RESOURCE_KIND": "NetworkPolicy",
+        "TARGET_RESOURCE_NAME": "default-network-policy",
+        "TARGET_RESOURCE_NAMESPACE": "demo-frontend",
+        "TARGET_RESOURCE_API_VERSION": "networking.k8s.io/v1"
+      },
+      "workflowId": "929f4c44-33ab-58fa-849b-df6938aa0b7f",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:b74f1c96d5db04cc6273b486bc9efcd241618e75e695bc297a64f58081e8a2e2",
+      "workflowName": "fix-network-policy-v1"
+    },
+    "alternativeWorkflows": [],
+    "actionability": true,
+    "approvalRequired": false,
+    "approvalReason": "Policy evaluation does not require manual approval",
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "phase": "Completed"
+  },
+  "llmTrace": [
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T00:43:01+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "0933a38f-f79f-43ea-b2f9-212c6a5969e2",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "prompt_length": 14655,
+      "prompt_preview": "Investigate: critical KubeDeploymentReplicasMismatch in demo-frontend \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T00:43:05+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "e21e6ab3-0d07-45d6-b350-36a750d8416f",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "prompt_length": 30871,
+      "prompt_preview": "Investigate: critical KubeDeploymentReplicasMismatch in demo-frontend \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:05+00:00",
+      "event_id": "6acfd947-3316-4007-8050-2e9c9c78978c",
+      "tool_name": "resources_list",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "- apiVersion: apps/v1\n  kind: ReplicaSet\n  metadata:\n    annotations:\n      deployment.kubernetes.io/desired-replicas: \"1\"\n      deployment.kubernetes.io/max-replicas: \"2\"\n      deployment.kubernetes.io/revision: \"1\"\n    creationTimestamp: \"2026-10-02T00:41:30Z\"\n    generation: 1\n    labels:\n      app: traffic-gen\n      pod-template-hash: 6fbdd9f844\n    name: traffic-gen-6fbdd9f844\n    namespace: demo-frontend\n    ownerReferences:\n    - apiVersion: apps/v1\n      blockOwnerDeletion: true\n      controller: true\n      kind: Deployment\n      name: traffic-gen\n      uid: c0a9a0c5-125b-4296-8bbb-0d47651d48f7\n    resourceVersion: \"41948\"\n    uid: f016813f-f33e-4c21-9eb6-253728b84fc3\n  spec:\n    replicas: 1\n    selector:\n      matchLabels:\n        app: traffic-gen\n        pod-template-hash: 6fbdd9f844\n    template:\n      metadata:\n        labels:\n          app: traffic-gen\n          pod-template-hash: 6fbdd9f844\n      spec:\n        containers:\n        - args:\n          - |\n            while true; do\n              if curl -sf -o /dev/null -m 2 http://web-frontend.demo-frontend:8080/healthz; then\n                echo \"probe=success\"\n              else\n                echo \"probe=failure\"\n              fi\n              sleep 5\n            done\n          command:\n          - /bin/sh\n          - -c\n          image: curlimages/curl:8.12.1\n          imagePullPolicy: IfNotPresent\n          name: curl\n          readinessProbe:\n            exec:\n              command:\n              - curl\n              - -sf\n              - -o\n              - /dev/null\n              - -m\n              - \"3\"\n              - http://web-frontend.demo-frontend:8080/healthz\n            failureThreshold: 3\n            initialDelaySeconds: 5\n            periodSeconds: 5\n            successThreshold: 1\n            timeoutSeconds: 5\n          resources:\n            limits:\n              cpu: 20m\n              memory: 32Mi\n            requests:\n              cpu: 5m\n              memory: 16Mi\n          terminationMessagePath: /dev/termination-log\n          terminationMessagePolicy: File\n        dnsPolicy: ClusterFirst\n        restartPolicy: Always\n        schedulerName: default-scheduler\n        securityContext: {}\n        terminationGracePeriodSeconds: 30\n  status:\n    fullyLabeledReplicas: 1\n    observedGeneration: 1\n    replicas: 1\n    terminatingReplicas: 0",
+      "tool_arguments": {
+        "kind": "ReplicaSet",
+        "namespace": "demo-frontend",
+        "apiVersion": "apps/v1",
+        "labelSelector": "app=traffic-gen"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "- apiVersion: apps/v1\n  kind: ReplicaSet\n  metadata:\n    annotations:\n      deployment.kubernetes.io/desired-replicas: \"1\"\n      deployment.kubernetes.io/max-replicas: \"2\"\n      deployment.kubernetes.io/revision: \"1\"\n    creationTimestamp: \"2026-10-02T00:41:30Z\"\n    generation: 1\n    labels:\n      app: traffic-gen\n      pod-template-hash: 6fbdd9f844\n    name: traffic-gen-6fbdd9f844\n    namespace: demo-frontend\n    ownerReferences:\n    - apiVersion: apps/v1\n      blockOwnerDeletion: true\n      co"
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T00:43:05+00:00",
+      "event_id": "8f11587b-47a0-456d-97bc-ed98ed7bcc13",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tokens_used": 8212,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 5,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:05+00:00",
+      "event_id": "7fb45ae2-6e53-451c-b5c7-1d19336c599c",
+      "tool_name": "resources_get",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"1\"\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"traffic-gen\"},\"name\":\"traffic-gen\",\"namespace\":\"demo-frontend\"},\"spec\":{\"replicas\":1,\"selector\":{\"matchLabels\":{\"app\":\"traffic-gen\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"traffic-gen\"}},\"spec\":{\"containers\":[{\"args\":[\"while true; do\\n  if curl -sf -o /dev/null -m 2 http://web-frontend.demo-frontend:8080/healthz; then\\n    echo \\\"probe=success\\\"\\n  else\\n    echo \\\"probe=failure\\\"\\n  fi\\n  sleep 5\\ndone\\n\"],\"command\":[\"/bin/sh\",\"-c\"],\"image\":\"curlimages/curl:8.12.1\",\"name\":\"curl\",\"readinessProbe\":{\"exec\":{\"command\":[\"curl\",\"-sf\",\"-o\",\"/dev/null\",\"-m\",\"3\",\"http://web-frontend.demo-frontend:8080/healthz\"]},\"initialDelaySeconds\":5,\"periodSeconds\":5,\"timeoutSeconds\":5},\"resources\":{\"limits\":{\"cpu\":\"20m\",\"memory\":\"32Mi\"},\"requests\":{\"cpu\":\"5m\",\"memory\":\"16Mi\"}}}]}}}}\n  creationTimestamp: \"2026-10-02T00:41:30Z\"\n  generation: 1\n  labels:\n    app: traffic-gen\n  name: traffic-gen\n  namespace: demo-frontend\n  resourceVersion: \"41949\"\n  uid: c0a9a0c5-125b-4296-8bbb-0d47651d48f7\nspec:\n  progressDeadlineSeconds: 600\n  replicas: 1\n  revisionHistoryLimit: 10\n  selector:\n    matchLabels:\n      app: traffic-gen\n  strategy:\n    rollingUpdate:\n      maxSurge: 25%\n      maxUnavailable: 25%\n    type: RollingUpdate\n  template:\n    metadata:\n      labels:\n        app: traffic-gen\n    spec:\n      containers:\n      - args:\n        - |\n          while true; do\n            if curl -sf -o /dev/null -m 2 http://web-frontend.demo-frontend:8080/healthz; then\n              echo \"probe=success\"\n            else\n              echo \"probe=failure\"\n            fi\n            sleep 5\n          done\n        command:\n        - /bin/sh\n        - -c\n        image: curlimages/curl:8.12.1\n        imagePullPolicy: IfNotPresent\n        name: curl\n        readinessProbe:\n          exec:\n            command:\n            - curl\n            - -sf\n            - -o\n            - /dev/null\n            - -m\n            - \"3\"\n            - http://web-frontend.demo-frontend:8080/healthz\n          failureThreshold: 3\n          initialDelaySeconds: 5\n          periodSeconds: 5\n          successThreshold: 1\n          timeoutSeconds: 5\n        resources:\n          limits:\n            cpu: 20m\n            memory: 32Mi\n          requests:\n            cpu: 5m\n            memory: 16Mi\n        terminationMessagePath: /dev/termination-log\n        terminationMessagePolicy: File\n      dnsPolicy: ClusterFirst\n      restartPolicy: Always\n      schedulerName: default-scheduler\n      securityContext: {}\n      terminationGracePeriodSeconds: 30\nstatus:\n  conditions:\n  - lastTransitionTime: \"2026-10-02T00:41:30Z\"\n    lastUpdateTime: \"2026-10-02T00:41:47Z\"\n    message: ReplicaSet \"traffic-gen-6fbdd9f844\" has successfully progressed.\n    reason: NewReplicaSetAvailable\n    status: \"True\"\n    type: Progressing\n  - lastTransitionTime: \"2026-10-02T00:42:14Z\"\n    lastUpdateTime: \"2026-10-02T00:42:14Z\"\n    message: Deployment does not have minimum availability.\n    reason: MinimumReplicasUnavailable\n    status: \"False\"\n    type: Available\n  observedGeneration: 1\n  replicas: 1\n  terminatingReplicas: 0\n  unavailableReplicas: 1\n  updatedReplicas: 1",
+      "tool_arguments": {
+        "kind": "Deployment",
+        "name": "traffic-gen",
+        "namespace": "demo-frontend",
+        "apiVersion": "apps/v1"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"1\"\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"traffic-gen\"},\"name\":\"traffic-gen\",\"namespace\":\"demo-frontend\"},\"spec\":{\"replicas\":1,\"selector\":{\"matchLabels\":{\"app\":\"traffic-gen\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"traffic-gen\"}},\"spec\":{\"containers\":[{\"args\":[\"while true; d"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:05+00:00",
+      "event_id": "4fc17acd-180d-440d-9849-910b5aa2e03e",
+      "tool_name": "get_namespaced_resource_context",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "root_owner": {
+          "kind": "Deployment",
+          "name": "traffic-gen",
+          "namespace": "demo-frontend"
+        },
+        "remediation_history": {
+          "tier1": [],
+          "tier2": [],
+          "tier1_window": "24h0m0s",
+          "tier2_window": "2160h0m0s",
+          "target_resource": "demo-frontend/Deployment/traffic-gen",
+          "regression_detected": false
+        }
+      },
+      "tool_arguments": {
+        "kind": "Deployment",
+        "name": "traffic-gen",
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 4,
+      "tool_result_preview": "{\"root_owner\":{\"kind\":\"Deployment\",\"name\":\"traffic-gen\",\"namespace\":\"demo-frontend\"},\"remediation_history\":{\"target_resource\":\"demo-frontend/Deployment/traffic-gen\",\"regression_detected\":false,\"tier1\":[],\"tier1_window\":\"24h0m0s\",\"tier2\":[],\"tier2_window\":\"2160h0m0s\"}}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:05+00:00",
+      "event_id": "e9e9e24e-3088-4931-bf1c-47cb25a02b87",
+      "tool_name": "events_list",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Successfully assigned demo-frontend/traffic-gen-6fbdd9f844-c7cqm to kubernaut-remote-cluster-control-plane\n  Namespace: demo-frontend\n  Reason: Scheduled\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Pulling image \"curlimages/curl:8.12.1\"\n  Namespace: demo-frontend\n  Reason: Pulling\n  Timestamp: 2026-10-02 00:41:32 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: 'Successfully pulled image \"curlimages/curl:8.12.1\" in 3.847s (3.847s including\n    waiting). Image size: 13087038 bytes.'\n  Namespace: demo-frontend\n  Reason: Pulled\n  Timestamp: 2026-10-02 00:41:36 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-frontend\n  Reason: Created\n  Timestamp: 2026-10-02 00:41:36 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-frontend\n  Reason: Started\n  Timestamp: 2026-10-02 00:41:40 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: 'Readiness probe failed:'\n  Namespace: demo-frontend\n  Reason: Unhealthy\n  Timestamp: 2026-10-02 00:42:58 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: traffic-gen-6fbdd9f844\n    apiVersion: apps/v1\n  Message: 'Created pod: traffic-gen-6fbdd9f844-c7cqm'\n  Namespace: demo-frontend\n  Reason: SuccessfulCreate\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Deployment\n    Name: traffic-gen\n    apiVersion: apps/v1\n  Message: Scaled up replica set traffic-gen-6fbdd9f844 from 0 to 1\n  Namespace: demo-frontend\n  Reason: ScalingReplicaSet\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: web-frontend-85bdd97987-58f5s\n    apiVersion: v1\n  Message: Successfully assigned demo-frontend/web-frontend-85bdd97987-58f5s to kubernaut-remote-cluster-control-plane\n  Namespace: demo-frontend\n  Reason: Scheduled\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: web-frontend-85bdd97987-58f5s\n    apiVersion: v1\n  Message: Container image \"quay.io/kubernaut-cicd/demo-http-server:1.0.0\" already\n    present on machine and can be accessed by the pod\n  Namespace: demo-frontend\n  Reason: Pulled\n  Timestamp: 2026-10-02 00:41:31 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: web-frontend-85bdd97987-58f5s\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-frontend\n  Reason: Created\n  Timestamp: 2026-10-02 00:41:31 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: web-frontend-85bdd97987-58f5s\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-frontend\n  Reason: Started\n  Timestamp: 2026-10-02 00:41:32 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: web-frontend-85bdd97987-j6cwj\n    apiVersion: v1\n  Message: Successfully assigned demo-frontend/web-frontend-85bdd97987-j6cwj to kubernaut-remote-cluster-control-plane\n  Namespace: demo-frontend\n  Reason: Scheduled\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: web-frontend-85bdd97987-j6cwj\n    apiVersion: v1\n  Message: Container image \"quay.io/kubernaut-cicd/demo-http-server:1.0.0\" already\n    present on machine and can be accessed by the pod\n  Namespace: demo-frontend\n  Reason: Pulled\n  Timestamp: 2026-10-02 00:41:31 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: web-frontend-85bdd97987-j6cwj\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-frontend\n  Reason: Created\n  Timestamp: 2026-10-02 00:41:31 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: web-frontend-85bdd97987-j6cwj\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-frontend\n  Reason: Started\n  Timestamp: 2026-10-02 00:41:32 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: web-frontend-85bdd97987\n    apiVersion: apps/v1\n  Message: 'Created pod: web-frontend-85bdd97987-j6cwj'\n  Namespace: demo-frontend\n  Reason: SuccessfulCreate\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: web-frontend-85bdd97987\n    apiVersion: apps/v1\n  Message: 'Created pod: web-frontend-85bdd97987-58f5s'\n  Namespace: demo-frontend\n  Reason: SuccessfulCreate\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Deployment\n    Name: web-frontend\n    apiVersion: apps/v1\n  Message: Scaled up replica set web-frontend-85bdd97987 from 0 to 2\n  Namespace: demo-frontend\n  Reason: ScalingReplicaSet\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal",
+      "tool_arguments": {
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 3,
+      "tool_result_preview": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Successfully assigned demo-frontend/traffic-gen-6fbdd9f844-c7cqm to kubernaut-remote-cluster-control-plane\n  Namespace: demo-frontend\n  Reason: Scheduled\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Pulling image \"curlimages/curl:8.12.1"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:05+00:00",
+      "event_id": "5385ac4e-7e49-4aa9-b0f9-ee28b1cf866d",
+      "tool_name": "pods_list_in_namespace",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "- apiVersion: v1\n  kind: Pod\n  metadata:\n    creationTimestamp: \"2026-10-02T00:41:30Z\"\n    generateName: traffic-gen-6fbdd9f844-\n    generation: 1\n    labels:\n      app: traffic-gen\n      pod-template-hash: 6fbdd9f844\n    name: traffic-gen-6fbdd9f844-c7cqm\n    namespace: demo-frontend\n    ownerReferences:\n    - apiVersion: apps/v1\n      blockOwnerDeletion: true\n      controller: true\n      kind: ReplicaSet\n      name: traffic-gen-6fbdd9f844\n      uid: f016813f-f33e-4c21-9eb6-253728b84fc3\n    resourceVersion: \"41946\"\n    uid: 16a7a106-9f9a-4d4f-bae5-b8e95bb2e053\n  spec:\n    containers:\n    - args:\n      - |\n        while true; do\n          if curl -sf -o /dev/null -m 2 http://web-frontend.demo-frontend:8080/healthz; then\n            echo \"probe=success\"\n          else\n            echo \"probe=failure\"\n          fi\n          sleep 5\n        done\n      command:\n      - /bin/sh\n      - -c\n      image: curlimages/curl:8.12.1\n      imagePullPolicy: IfNotPresent\n      name: curl\n      readinessProbe:\n        exec:\n          command:\n          - curl\n          - -sf\n          - -o\n          - /dev/null\n          - -m\n          - \"3\"\n          - http://web-frontend.demo-frontend:8080/healthz\n        failureThreshold: 3\n        initialDelaySeconds: 5\n        periodSeconds: 5\n        successThreshold: 1\n        timeoutSeconds: 5\n      resources:\n        limits:\n          cpu: 20m\n          memory: 32Mi\n        requests:\n          cpu: 5m\n          memory: 16Mi\n      terminationMessagePath: /dev/termination-log\n      terminationMessagePolicy: File\n      volumeMounts:\n      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount\n        name: kube-api-access-bd85v\n        readOnly: true\n    dnsPolicy: ClusterFirst\n    enableServiceLinks: true\n    nodeName: kubernaut-remote-cluster-control-plane\n    preemptionPolicy: PreemptLowerPriority\n    priority: 0\n    restartPolicy: Always\n    schedulerName: default-scheduler\n    securityContext: {}\n    serviceAccount: default\n    serviceAccountName: default\n    terminationGracePeriodSeconds: 30\n    tolerations:\n    - effect: NoExecute\n      key: node.kubernetes.io/not-ready\n      operator: Exists\n      tolerationSeconds: 300\n    - effect: NoExecute\n      key: node.kubernetes.io/unreachable\n      operator: Exists\n      tolerationSeconds: 300\n    volumes:\n    - name: kube-api-access-bd85v\n      projected:\n        defaultMode: 420\n        sources:\n        - serviceAccountToken:\n            expirationSeconds: 3607\n            path: token\n        - configMap:\n            items:\n            - key: ca.crt\n              path: ca.crt\n            name: kube-root-ca.crt\n        - downwardAPI:\n            items:\n            - fieldRef:\n                apiVersion: v1\n                fieldPath: metadata.namespace\n              path: namespace\n  status:\n    allocatedResources:\n      cpu: 5m\n      memory: 16Mi\n    conditions:\n    - lastProbeTime: null\n      lastTransitionTime: \"2026-10-02T00:41:32Z\"\n      observedGeneration: 1\n      status: \"True\"\n      type: PodReadyToStartContainers\n    - lastProbeTime: null\n      lastTransitionTime: \"2026-10-02T00:41:30Z\"\n      observedGeneration: 1\n      status: \"True\"\n      type: Initialized\n    - lastProbeTime: null\n      lastTransitionTime: \"2026-10-02T00:42:14Z\"\n      message: 'containers with unready status: [curl]'\n      observedGeneration: 1\n      reason: ContainersNotReady\n      status: \"False\"\n      type: Ready\n    - lastProbeTime: null\n      lastTransitionTime: \"2026-10-02T00:42:14Z\"\n      message: 'containers with unready status: [curl]'\n      observedGeneration: 1\n      reason: ContainersNotReady\n      status: \"False\"\n      type: ContainersReady\n    - lastProbeTime: null\n      lastTransitionTime: \"2026-10-02T00:41:30Z\"\n      observedGeneration: 1\n      status: \"True\"\n      type: PodScheduled\n    containerStatuses:\n    - allocatedResources:\n        cpu: 5m\n        memory: 16Mi\n      containerID: containerd://0e660394bb257358eaa0634add72c302be4ac501e8ffb6a98662ab3f77cc1a85\n      image: docker.io/curlimages/curl:8.12.1\n      imageID: docker.io/curlimages/curl@sha256:94e9e444bcba979c2ea12e27ae39bee4cd10bc7041a472c4727a558e213744e6\n      lastState: {}\n      name: curl\n      ready: false\n      resources:\n        limits:\n          cpu: 20m\n          memory: 32Mi\n        requests:\n          cpu: 5m\n          memory: 16Mi\n      restartCount: 0\n      started: true\n      state:\n        running:\n          startedAt: \"2026-10-02T00:41:40Z\"\n      user:\n        linux:\n          gid: 102\n          supplementalGroups:\n          - 102\n          uid: 101\n      volumeMounts:\n      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount\n        name: kube-api-access-bd85v\n        readOnly: true\n        recursiveReadOnly: Disabled\n    hostIP: [REDACTED]\n    hostIPs:\n    - ip: [REDACTED]\n    observedGeneration: 1\n    phase: Running\n    podIP: [REDACTED]\n    podIPs:\n    - ip: [REDACTED]\n    qosClass: Burstable\n    resources:\n      limits:\n        cpu: 20m\n        memory: 32Mi\n      requests:\n        memory: 16Mi\n    startTime: \"2026-10-02T00:41:30Z\"",
+      "tool_arguments": {
+        "namespace": "demo-frontend",
+        "labelSelector": "app=traffic-gen"
+      },
+      "tool_call_index": 2,
+      "tool_result_preview": "- apiVersion: v1\n  kind: Pod\n  metadata:\n    creationTimestamp: \"2026-10-02T00:41:30Z\"\n    generateName: traffic-gen-6fbdd9f844-\n    generation: 1\n    labels:\n      app: traffic-gen\n      pod-template-hash: 6fbdd9f844\n    name: traffic-gen-6fbdd9f844-c7cqm\n    namespace: demo-frontend\n    ownerReferences:\n    - apiVersion: apps/v1\n      blockOwnerDeletion: true\n      controller: true\n      kind: ReplicaSet\n      name: traffic-gen-6fbdd9f844\n      uid: f016813f-f33e-4c21-9eb6-253728b84fc3\n    res"
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T00:43:08+00:00",
+      "event_id": "fb1c3ffb-de89-4030-ada2-5ef92ac74669",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tokens_used": 13595,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 7,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T00:43:14+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "efc9e5e9-f49c-4a8b-954f-46350ab2acef",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "prompt_length": 39960,
+      "prompt_preview": "Investigate: critical KubeDeploymentReplicasMismatch in demo-frontend \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:14+00:00",
+      "event_id": "053445e5-1698-42e5-bc6e-4146b8e1353b",
+      "tool_name": "pods_get",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "apiVersion: v1\nkind: Pod\nmetadata:\n  creationTimestamp: \"2026-10-02T00:41:30Z\"\n  generateName: traffic-gen-6fbdd9f844-\n  generation: 1\n  labels:\n    app: traffic-gen\n    pod-template-hash: 6fbdd9f844\n  name: traffic-gen-6fbdd9f844-c7cqm\n  namespace: demo-frontend\n  ownerReferences:\n  - apiVersion: apps/v1\n    blockOwnerDeletion: true\n    controller: true\n    kind: ReplicaSet\n    name: traffic-gen-6fbdd9f844\n    uid: f016813f-f33e-4c21-9eb6-253728b84fc3\n  resourceVersion: \"41946\"\n  uid: 16a7a106-9f9a-4d4f-bae5-b8e95bb2e053\nspec:\n  containers:\n  - args:\n    - |\n      while true; do\n        if curl -sf -o /dev/null -m 2 http://web-frontend.demo-frontend:8080/healthz; then\n          echo \"probe=success\"\n        else\n          echo \"probe=failure\"\n        fi\n        sleep 5\n      done\n    command:\n    - /bin/sh\n    - -c\n    image: curlimages/curl:8.12.1\n    imagePullPolicy: IfNotPresent\n    name: curl\n    readinessProbe:\n      exec:\n        command:\n        - curl\n        - -sf\n        - -o\n        - /dev/null\n        - -m\n        - \"3\"\n        - http://web-frontend.demo-frontend:8080/healthz\n      failureThreshold: 3\n      initialDelaySeconds: 5\n      periodSeconds: 5\n      successThreshold: 1\n      timeoutSeconds: 5\n    resources:\n      limits:\n        cpu: 20m\n        memory: 32Mi\n      requests:\n        cpu: 5m\n        memory: 16Mi\n    terminationMessagePath: /dev/termination-log\n    terminationMessagePolicy: File\n    volumeMounts:\n    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount\n      name: kube-api-access-bd85v\n      readOnly: true\n  dnsPolicy: ClusterFirst\n  enableServiceLinks: true\n  nodeName: kubernaut-remote-cluster-control-plane\n  preemptionPolicy: PreemptLowerPriority\n  priority: 0\n  restartPolicy: Always\n  schedulerName: default-scheduler\n  securityContext: {}\n  serviceAccount: default\n  serviceAccountName: default\n  terminationGracePeriodSeconds: 30\n  tolerations:\n  - effect: NoExecute\n    key: node.kubernetes.io/not-ready\n    operator: Exists\n    tolerationSeconds: 300\n  - effect: NoExecute\n    key: node.kubernetes.io/unreachable\n    operator: Exists\n    tolerationSeconds: 300\n  volumes:\n  - name: kube-api-access-bd85v\n    projected:\n      defaultMode: 420\n      sources:\n      - serviceAccountToken:\n          expirationSeconds: 3607\n          path: token\n      - configMap:\n          items:\n          - key: ca.crt\n            path: ca.crt\n          name: kube-root-ca.crt\n      - downwardAPI:\n          items:\n          - fieldRef:\n              apiVersion: v1\n              fieldPath: metadata.namespace\n            path: namespace\nstatus:\n  allocatedResources:\n    cpu: 5m\n    memory: 16Mi\n  conditions:\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-10-02T00:41:32Z\"\n    observedGeneration: 1\n    status: \"True\"\n    type: PodReadyToStartContainers\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-10-02T00:41:30Z\"\n    observedGeneration: 1\n    status: \"True\"\n    type: Initialized\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-10-02T00:42:14Z\"\n    message: 'containers with unready status: [curl]'\n    observedGeneration: 1\n    reason: ContainersNotReady\n    status: \"False\"\n    type: Ready\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-10-02T00:42:14Z\"\n    message: 'containers with unready status: [curl]'\n    observedGeneration: 1\n    reason: ContainersNotReady\n    status: \"False\"\n    type: ContainersReady\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-10-02T00:41:30Z\"\n    observedGeneration: 1\n    status: \"True\"\n    type: PodScheduled\n  containerStatuses:\n  - allocatedResources:\n      cpu: 5m\n      memory: 16Mi\n    containerID: containerd://0e660394bb257358eaa0634add72c302be4ac501e8ffb6a98662ab3f77cc1a85\n    image: docker.io/curlimages/curl:8.12.1\n    imageID: docker.io/curlimages/curl@sha256:94e9e444bcba979c2ea12e27ae39bee4cd10bc7041a472c4727a558e213744e6\n    lastState: {}\n    name: curl\n    ready: false\n    resources:\n      limits:\n        cpu: 20m\n        memory: 32Mi\n      requests:\n        cpu: 5m\n        memory: 16Mi\n    restartCount: 0\n    started: true\n    state:\n      running:\n        startedAt: \"2026-10-02T00:41:40Z\"\n    user:\n      linux:\n        gid: 102\n        supplementalGroups:\n        - 102\n        uid: 101\n    volumeMounts:\n    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount\n      name: kube-api-access-bd85v\n      readOnly: true\n      recursiveReadOnly: Disabled\n  hostIP: [REDACTED]\n  hostIPs:\n  - ip: [REDACTED]\n  observedGeneration: 1\n  phase: Running\n  podIP: [REDACTED]\n  podIPs:\n  - ip: [REDACTED]\n  qosClass: Burstable\n  resources:\n    limits:\n      cpu: 20m\n      memory: 32Mi\n    requests:\n      memory: 16Mi\n  startTime: \"2026-10-02T00:41:30Z\"",
+      "tool_arguments": {
+        "name": "traffic-gen-6fbdd9f844-c7cqm",
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "apiVersion: v1\nkind: Pod\nmetadata:\n  creationTimestamp: \"2026-10-02T00:41:30Z\"\n  generateName: traffic-gen-6fbdd9f844-\n  generation: 1\n  labels:\n    app: traffic-gen\n    pod-template-hash: 6fbdd9f844\n  name: traffic-gen-6fbdd9f844-c7cqm\n  namespace: demo-frontend\n  ownerReferences:\n  - apiVersion: apps/v1\n    blockOwnerDeletion: true\n    controller: true\n    kind: ReplicaSet\n    name: traffic-gen-6fbdd9f844\n    uid: f016813f-f33e-4c21-9eb6-253728b84fc3\n  resourceVersion: \"41946\"\n  uid: 16a7a106-"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:14+00:00",
+      "event_id": "6d1d9dd3-fd42-4886-a644-6b72659b74fd",
+      "tool_name": "nodes_top",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "NAME                                     CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   SWAP(bytes)   SWAP(%)   \nkubernaut-remote-cluster-control-plane   451m         7%       2321Mi          16%         0Mi           ",
+      "tool_arguments": {
+        "name": "kubernaut-remote-cluster-control-plane"
+      },
+      "tool_call_index": 5,
+      "tool_result_preview": "NAME                                     CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   SWAP(bytes)   SWAP(%)   \nkubernaut-remote-cluster-control-plane   451m         7%       2321Mi          16%         0Mi           "
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:14+00:00",
+      "event_id": "dd7c35a8-ccf2-4dcd-a774-80572a696768",
+      "tool_name": "pods_log",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "probe=success\nprobe=success\nprobe=success\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure",
+      "tool_arguments": {
+        "name": "traffic-gen-6fbdd9f844-c7cqm",
+        "tail": 100,
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "probe=success\nprobe=success\nprobe=success\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure\nprobe=failure"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:14+00:00",
+      "event_id": "98e1df00-bbb8-4432-9dd9-4fd78fc5aef9",
+      "tool_name": "resources_list",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "## Incident-investigation summary\n\n- **Workload:** `web-frontend` Pods in namespace `demo-frontend`\n- **ReplicaSet:** `web-frontend-85bdd97987`\n  - Owner UID: `69f3dda4-2b68-4a85-91b6-22611f4c0ee4`\n  - Pod template hash: `85bdd97987`\n- **Pod count shown:** 2\n- **Creation/start time:** Both created at `2026-10-02T00:41:30Z`; containers started at `00:41:32Z`.\n- **Node:** Both scheduled on `kubernaut-remote-cluster-control-plane`\n- **Current status:** Both `Running`, `Ready`, and `ContainersReady`\n  - First Pod became ready at `00:41:35Z`\n  - Second Pod became ready at `00:41:36Z`\n- **Restarts/failures:** Both containers have `restartCount: 0`; no previous container state or reported failure conditions.\n- **Container:**\n  - Name: `web`\n  - Image: `quay.io/kubernaut-cicd/demo-http-server:1.0.0`\n  - Digest: `sha256:bfb8c9879b679bd436e1a940864ad318c0bea0d9bb8fc14d35652cab49020b53`\n  - Container port: TCP `8080`\n  - Runs as non-root UID/GID `65534`\n- **Health checks:**\n  - Liveness and readiness probe `GET /healthz` on port `8080`\n  - Readiness: initial delay 2s, period 3s, timeout 1s, failure threshold 3\n  - Liveness: initial delay 3s, period 5s, timeout 1s, failure threshold 3\n  - Both Pods passed readiness and are currently healthy.\n- **Configuration:**\n  - `CONFIG_PATH=/etc/demo-http-server/config.yaml`\n  - Config mounted from ConfigMap `web-frontend-config` using the `config.yaml` subPath.\n- **Resources per Pod:**\n  - Requests: `10m` CPU, `32Mi` memory\n  - Limits: `50m` CPU, `64Mi` memory\n  - QoS class: `Burstable`\n- **Service account/security:**\n  - Uses the `default` service account.\n  - Projected Kubernetes API access volume is mounted read-only.\n  - No explicit Pod security context.\n- **Networking:** Host and Pod IPs are redacted in the source output.\n- **Pod identities:**\n  - `web-frontend-85bdd97987-58f5s`, UID `d1f08f35-d045-4aff-89b7-6f47eb96b9d4`, resource version `41830`\n  - `web-frontend-85bdd97987-j6cwj`, UID `ab106372-2079-41b7-9775-58268689bbe5`, resource version `41839`\n\n**Assessment:** The supplied snapshot shows two newly created, identical frontend Pods operating normally. There is no evidence in this output of crashes, restarts, failed probes, scheduling problems, or resource exhaustion.",
+      "tool_arguments": {
+        "kind": "Pod",
+        "namespace": "demo-frontend",
+        "apiVersion": "v1",
+        "labelSelector": "app=web-frontend"
+      },
+      "tool_call_index": 4,
+      "tool_result_preview": "## Incident-investigation summary\n\n- **Workload:** `web-frontend` Pods in namespace `demo-frontend`\n- **ReplicaSet:** `web-frontend-85bdd97987`\n  - Owner UID: `69f3dda4-2b68-4a85-91b6-22611f4c0ee4`\n  - Pod template hash: `85bdd97987`\n- **Pod count shown:** 2\n- **Creation/start time:** Both created at `2026-10-02T00:41:30Z`; containers started at `00:41:32Z`.\n- **Node:** Both scheduled on `kubernaut-remote-cluster-control-plane`\n- **Current status:** Both `Running`, `Ready`, and `ContainersReady`"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:14+00:00",
+      "event_id": "e072ce61-30ad-4ea2-9012-a0a75f0233b5",
+      "tool_name": "pods_log",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_log\" (cluster \"remote-cluster\") returned error: failed to get pod traffic-gen-6fbdd9f844-c7cqm log in namespace demo-frontend: previous terminated container \"curl\" in pod \"traffic-gen-6fbdd9f844-c7cqm\" not found",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "traffic-gen-6fbdd9f844-c7cqm",
+        "tail": 100,
+        "previous": true,
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 2,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_log\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get pod traffic-gen-6fbdd9f844-c7cqm log in namespace demo-frontend: previous terminated container \\\"curl\\\" in pod \\\"traffic-gen-6fbdd9f844-c7cqm\\\" not found\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:14+00:00",
+      "event_id": "51fd76db-3ebd-4553-a759-83c80911b082",
+      "tool_name": "nodes_stats_summary",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__nodes_stats_summary\" (cluster \"remote-cluster\") returned error: failed to get node stats summary for kubernaut-remote-cluster-control-plane: failed to get node stats summary: nodes \"kubernaut-remote-cluster-control-plane\" is forbidden: User \"keycloak:service-account-kubernaut-fleet-read\" cannot get resource \"nodes/proxy\" in API group \"\" at the cluster scope",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "kubernaut-remote-cluster-control-plane"
+      },
+      "tool_call_index": 6,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__nodes_stats_summary\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get node stats summary for kubernaut-remote-cluster-control-plane: failed to get node stats summary: nodes \\\"kubernaut-remote-cluster-control-plane\\\" is forbidden: User \\\"keycloak:service-account-kubernaut-fleet-read\\\" cannot get resource \\\"nodes/proxy\\\" in API group \\\"\\\" at the cluster scope\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:14+00:00",
+      "event_id": "a5c68160-607e-4a10-98f2-ed1b27cf3801",
+      "tool_name": "resources_get",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "apiVersion: v1\nkind: Service\nmetadata:\n  annotations:\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"web-frontend\",\"kubernaut.ai/managed\":\"true\",\"kubernaut.ai/metrics\":\"true\"},\"name\":\"web-frontend\",\"namespace\":\"demo-frontend\"},\"spec\":{\"ports\":[{\"name\":\"http\",\"port\":8080,\"targetPort\":8080}],\"selector\":{\"app\":\"web-frontend\"},\"type\":\"ClusterIP\"}}\n  creationTimestamp: \"2026-10-02T00:41:30Z\"\n  labels:\n    app: web-frontend\n    kubernaut.ai/managed: \"true\"\n    kubernaut.ai/metrics: \"true\"\n  name: web-frontend\n  namespace: demo-frontend\n  resourceVersion: \"41755\"\n  uid: d0bda80a-a139-4cef-88cb-61c6969bae67\nspec:\n  clusterIP: [REDACTED]\n  clusterIPs:\n  - [REDACTED]\n  internalTrafficPolicy: Cluster\n  ipFamilies:\n  - IPv4\n  ipFamilyPolicy: SingleStack\n  ports:\n  - name: http\n    port: 8080\n    protocol: TCP\n    targetPort: 8080\n  selector:\n    app: web-frontend\n  sessionAffinity: None\n  type: ClusterIP\nstatus:\n  loadBalancer: {}",
+      "tool_arguments": {
+        "kind": "Service",
+        "name": "web-frontend",
+        "namespace": "demo-frontend",
+        "apiVersion": "v1"
+      },
+      "tool_call_index": 3,
+      "tool_result_preview": "apiVersion: v1\nkind: Service\nmetadata:\n  annotations:\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"web-frontend\",\"kubernaut.ai/managed\":\"true\",\"kubernaut.ai/metrics\":\"true\"},\"name\":\"web-frontend\",\"namespace\":\"demo-frontend\"},\"spec\":{\"ports\":[{\"name\":\"http\",\"port\":8080,\"targetPort\":8080}],\"selector\":{\"app\":\"web-frontend\"},\"type\":\"ClusterIP\"}}\n  creationTimestamp: \"2026-10-02T00:41:30Z\"\n  lab"
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T00:43:17+00:00",
+      "event_id": "1d231abf-87a9-4824-a55a-cda15a14eafc",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tokens_used": 16869,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 8,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:18+00:00",
+      "event_id": "f6f9a8ce-24f0-4e50-8c2f-1af440fe368d",
+      "tool_name": "resources_list",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "- addressType: IPv4\n  apiVersion: discovery.k8s.io/v1\n  endpoints:\n  - addresses:\n    - [REDACTED]\n    conditions:\n      ready: true\n      serving: true\n      terminating: false\n    nodeName: kubernaut-remote-cluster-control-plane\n    targetRef:\n      kind: Pod\n      name: web-frontend-85bdd97987-58f5s\n      namespace: demo-frontend\n      uid: d1f08f35-d045-4aff-89b7-6f47eb96b9d4\n  - addresses:\n    - [REDACTED]\n    conditions:\n      ready: true\n      serving: true\n      terminating: false\n    nodeName: kubernaut-remote-cluster-control-plane\n    targetRef:\n      kind: Pod\n      name: web-frontend-85bdd97987-j6cwj\n      namespace: demo-frontend\n      uid: ab106372-2079-41b7-9775-58268689bbe5\n  kind: EndpointSlice\n  metadata:\n    annotations:\n      endpoints.kubernetes.io/last-change-trigger-time: \"2026-10-02T00:41:36Z\"\n    creationTimestamp: \"2026-10-02T00:41:30Z\"\n    generateName: web-frontend-\n    generation: 5\n    labels:\n      app: web-frontend\n      endpointslice.kubernetes.io/managed-by: endpointslice-controller.k8s.io\n      kubernaut.ai/managed: \"true\"\n      kubernaut.ai/metrics: \"true\"\n      kubernetes.io/service-name: web-frontend\n    name: web-frontend-mflkr\n    namespace: demo-frontend\n    ownerReferences:\n    - apiVersion: v1\n      blockOwnerDeletion: true\n      controller: true\n      kind: Service\n      name: web-frontend\n      uid: d0bda80a-a139-4cef-88cb-61c6969bae67\n    resourceVersion: \"41840\"\n    uid: 96a24bb1-b094-4563-a683-72518a1b9bf5\n  ports:\n  - name: http\n    port: 8080\n    protocol: TCP",
+      "tool_arguments": {
+        "kind": "EndpointSlice",
+        "namespace": "demo-frontend",
+        "apiVersion": "discovery.k8s.io/v1",
+        "labelSelector": "kubernetes.io/service-name=web-frontend"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "- addressType: IPv4\n  apiVersion: discovery.k8s.io/v1\n  endpoints:\n  - addresses:\n    - [REDACTED]\n    conditions:\n      ready: true\n      serving: true\n      terminating: false\n    nodeName: kubernaut-remote-cluster-control-plane\n    targetRef:\n      kind: Pod\n      name: web-frontend-85bdd97987-58f5s\n      namespace: demo-frontend\n      uid: d1f08f35-d045-4aff-89b7-6f47eb96b9d4\n  - addresses:\n    - [REDACTED]\n    conditions:\n      ready: true\n      serving: true\n      terminating: false\n    no"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:18+00:00",
+      "event_id": "a1399e59-f93c-41f8-8fad-366144ea4719",
+      "tool_name": "pods_log",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "2026/10/02 00:41:32 demo-http-server starting on :8080 (config=/etc/demo-http-server/config.yaml, tls=false)",
+      "tool_arguments": {
+        "name": "web-frontend-85bdd97987-58f5s",
+        "tail": 100,
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 2,
+      "tool_result_preview": "2026/10/02 00:41:32 demo-http-server starting on :8080 (config=/etc/demo-http-server/config.yaml, tls=false)"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:18+00:00",
+      "event_id": "7ece10ea-40ce-4f14-ad26-8ff3d0b32253",
+      "tool_name": "pods_log",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "2026/10/02 00:41:32 demo-http-server starting on :8080 (config=/etc/demo-http-server/config.yaml, tls=false)",
+      "tool_arguments": {
+        "name": "web-frontend-85bdd97987-j6cwj",
+        "tail": 100,
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 4,
+      "tool_result_preview": "2026/10/02 00:41:32 demo-http-server starting on :8080 (config=/etc/demo-http-server/config.yaml, tls=false)"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:18+00:00",
+      "event_id": "4bf6f7d6-dc71-487c-953d-82ae62bc9da0",
+      "tool_name": "get_namespaced_resource_context",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "root_owner": {
+          "kind": "Deployment",
+          "name": "web-frontend",
+          "namespace": "demo-frontend"
+        },
+        "remediation_history": {
+          "tier1": [],
+          "tier2": [],
+          "tier1_window": "24h0m0s",
+          "tier2_window": "2160h0m0s",
+          "target_resource": "demo-frontend/Deployment/web-frontend",
+          "regression_detected": false
+        }
+      },
+      "tool_arguments": {
+        "kind": "Deployment",
+        "name": "web-frontend",
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 7,
+      "tool_result_preview": "{\"root_owner\":{\"kind\":\"Deployment\",\"name\":\"web-frontend\",\"namespace\":\"demo-frontend\"},\"remediation_history\":{\"target_resource\":\"demo-frontend/Deployment/web-frontend\",\"regression_detected\":false,\"tier1\":[],\"tier1_window\":\"24h0m0s\",\"tier2\":[],\"tier2_window\":\"2160h0m0s\"}}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:18+00:00",
+      "event_id": "075fd20c-890f-4924-83b0-bce41063f1df",
+      "tool_name": "resources_get",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"1\"\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"web-frontend\",\"kubernaut.ai/managed\":\"true\"},\"name\":\"web-frontend\",\"namespace\":\"demo-frontend\"},\"spec\":{\"replicas\":2,\"selector\":{\"matchLabels\":{\"app\":\"web-frontend\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"web-frontend\"}},\"spec\":{\"containers\":[{\"env\":[{\"name\":\"CONFIG_PATH\",\"value\":\"/etc/demo-http-server/config.yaml\"}],\"image\":\"quay.io/kubernaut-cicd/demo-http-server:1.0.0\",\"livenessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":8080},\"initialDelaySeconds\":3,\"periodSeconds\":5},\"name\":\"web\",\"ports\":[{\"containerPort\":8080,\"name\":\"http\"}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":8080},\"initialDelaySeconds\":2,\"periodSeconds\":3},\"resources\":{\"limits\":{\"cpu\":\"50m\",\"memory\":\"64Mi\"},\"requests\":{\"cpu\":\"10m\",\"memory\":\"32Mi\"}},\"volumeMounts\":[{\"mountPath\":\"/etc/demo-http-server/config.yaml\",\"name\":\"config\",\"subPath\":\"config.yaml\"}]}],\"volumes\":[{\"configMap\":{\"name\":\"web-frontend-config\"},\"name\":\"config\"}]}}}}\n  creationTimestamp: \"2026-10-02T00:41:30Z\"\n  generation: 1\n  labels:\n    app: web-frontend\n    kubernaut.ai/managed: \"true\"\n  name: web-frontend\n  namespace: demo-frontend\n  resourceVersion: \"41843\"\n  uid: 2a17f49c-3a45-4ef8-bb98-fae6316c5467\nspec:\n  progressDeadlineSeconds: 600\n  replicas: 2\n  revisionHistoryLimit: 10\n  selector:\n    matchLabels:\n      app: web-frontend\n  strategy:\n    rollingUpdate:\n      maxSurge: 25%\n      maxUnavailable: 25%\n    type: RollingUpdate\n  template:\n    metadata:\n      labels:\n        app: web-frontend\n    spec:\n      containers:\n      - env:\n        - name: CONFIG_PATH\n          value: /etc/demo-http-server/config.yaml\n        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0\n        imagePullPolicy: IfNotPresent\n        livenessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 3\n          periodSeconds: 5\n          successThreshold: 1\n          timeoutSeconds: 1\n        name: web\n        ports:\n        - containerPort: 8080\n          name: http\n          protocol: TCP\n        readinessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 2\n          periodSeconds: 3\n          successThreshold: 1\n          timeoutSeconds: 1\n        resources:\n          limits:\n            cpu: 50m\n            memory: 64Mi\n          requests:\n            cpu: 10m\n            memory: 32Mi\n        terminationMessagePath: /dev/termination-log\n        terminationMessagePolicy: File\n        volumeMounts:\n        - mountPath: /etc/demo-http-server/config.yaml\n          name: config\n          subPath: config.yaml\n      dnsPolicy: ClusterFirst\n      restartPolicy: Always\n      schedulerName: default-scheduler\n      securityContext: {}\n      terminationGracePeriodSeconds: 30\n      volumes:\n      - configMap:\n          defaultMode: 420\n          name: web-frontend-config\n        name: config\nstatus:\n  availableReplicas: 2\n  conditions:\n  - lastTransitionTime: \"2026-10-02T00:41:36Z\"\n    lastUpdateTime: \"2026-10-02T00:41:36Z\"\n    message: Deployment has minimum availability.\n    reason: MinimumReplicasAvailable\n    status: \"True\"\n    type: Available\n  - lastTransitionTime: \"2026-10-02T00:41:30Z\"\n    lastUpdateTime: \"2026-10-02T00:41:36Z\"\n    message: ReplicaSet \"web-frontend-85bdd97987\" has successfully progressed.\n    reason: NewReplicaSetAvailable\n    status: \"True\"\n    type: Progressing\n  observedGeneration: 1\n  readyReplicas: 2\n  replicas: 2\n  terminatingReplicas: 0\n  updatedReplicas: 2",
+      "tool_arguments": {
+        "kind": "Deployment",
+        "name": "web-frontend",
+        "namespace": "demo-frontend",
+        "apiVersion": "apps/v1"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"1\"\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"web-frontend\",\"kubernaut.ai/managed\":\"true\"},\"name\":\"web-frontend\",\"namespace\":\"demo-frontend\"},\"spec\":{\"replicas\":2,\"selector\":{\"matchLabels\":{\"app\":\"web-frontend\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"web-frontend\"}},\"spec\":{\"co"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:18+00:00",
+      "event_id": "7e805e5b-8a32-4f74-beb9-f8cb39b28083",
+      "tool_name": "pods_log",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_log\" (cluster \"remote-cluster\") returned error: failed to get pod web-frontend-85bdd97987-j6cwj log in namespace demo-frontend: previous terminated container \"web\" in pod \"web-frontend-85bdd97987-j6cwj\" not found",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "web-frontend-85bdd97987-j6cwj",
+        "tail": 100,
+        "previous": true,
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 5,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_log\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get pod web-frontend-85bdd97987-j6cwj log in namespace demo-frontend: previous terminated container \\\"web\\\" in pod \\\"web-frontend-85bdd97987-j6cwj\\\" not found\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:18+00:00",
+      "event_id": "a22057fd-247e-4071-a4a3-def43f54fada",
+      "tool_name": "events_list",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Successfully assigned demo-frontend/traffic-gen-6fbdd9f844-c7cqm to kubernaut-remote-cluster-control-plane\n  Namespace: demo-frontend\n  Reason: Scheduled\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Pulling image \"curlimages/curl:8.12.1\"\n  Namespace: demo-frontend\n  Reason: Pulling\n  Timestamp: 2026-10-02 00:41:32 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: 'Successfully pulled image \"curlimages/curl:8.12.1\" in 3.847s (3.847s including\n    waiting). Image size: 13087038 bytes.'\n  Namespace: demo-frontend\n  Reason: Pulled\n  Timestamp: 2026-10-02 00:41:36 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-frontend\n  Reason: Created\n  Timestamp: 2026-10-02 00:41:36 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-frontend\n  Reason: Started\n  Timestamp: 2026-10-02 00:41:40 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: 'Readiness probe failed:'\n  Namespace: demo-frontend\n  Reason: Unhealthy\n  Timestamp: 2026-10-02 00:43:17 +0000 UTC\n  Type: Warning",
+      "tool_arguments": {
+        "namespace": "demo-frontend",
+        "fieldSelector": "involvedObject.name=traffic-gen-6fbdd9f844-c7cqm"
+      },
+      "tool_call_index": 6,
+      "tool_result_preview": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Successfully assigned demo-frontend/traffic-gen-6fbdd9f844-c7cqm to kubernaut-remote-cluster-control-plane\n  Namespace: demo-frontend\n  Reason: Scheduled\n  Timestamp: 2026-10-02 00:41:30 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: traffic-gen-6fbdd9f844-c7cqm\n    apiVersion: v1\n  Message: Pulling image \"curlimages/curl:8.12.1"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:18+00:00",
+      "event_id": "32423012-e4cb-49a7-84d1-775c9d59b12e",
+      "tool_name": "pods_log",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_log\" (cluster \"remote-cluster\") returned error: failed to get pod web-frontend-85bdd97987-58f5s log in namespace demo-frontend: previous terminated container \"web\" in pod \"web-frontend-85bdd97987-58f5s\" not found",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "web-frontend-85bdd97987-58f5s",
+        "tail": 100,
+        "previous": true,
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 3,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_log\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get pod web-frontend-85bdd97987-58f5s log in namespace demo-frontend: previous terminated container \\\"web\\\" in pod \\\"web-frontend-85bdd97987-58f5s\\\" not found\"}"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T00:43:18+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "1921fa9d-ca2b-472e-8717-294b3450cb93",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "prompt_length": 48002,
+      "prompt_preview": "Investigate: critical KubeDeploymentReplicasMismatch in demo-frontend \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T00:43:20+00:00",
+      "event_id": "e482a6a2-aa8c-41c0-a5fd-6103e27ddbb3",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tokens_used": 19699,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 6,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:50+00:00",
+      "event_id": "fa0daf8f-0e00-4f61-ba28-f633918456d7",
+      "tool_name": "pods_exec",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_exec\" (cluster \"remote-cluster\") returned error: failed to exec in pod traffic-gen-6fbdd9f844-c7cqm in namespace demo-frontend: unable to upgrade connection: pods \"traffic-gen-6fbdd9f844-c7cqm\" is forbidden: User \"keycloak:service-account-kubernaut-fleet-read\" cannot create resource \"pods/exec\" in API group \"\" in the namespace \"demo-frontend\"",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "traffic-gen-6fbdd9f844-c7cqm",
+        "command": [
+          "curl",
+          "-sv",
+          "-o",
+          "/dev/null",
+          "-m",
+          "3",
+          "http://web-frontend.demo-frontend:8080/healthz"
+        ],
+        "container": "curl",
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_exec\\\" (cluster \\\"remote-cluster\\\") returned error: failed to exec in pod traffic-gen-6fbdd9f844-c7cqm in namespace demo-frontend: unable to upgrade connection: pods \\\"traffic-gen-6fbdd9f844-c7cqm\\\" is forbidden: User \\\"keycloak:service-account-kubernaut-fleet-read\\\" cannot create resource \\\"pods/exec\\\" in API group \\\"\\\" in the namespace \\\"demo-frontend\\\"\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:51+00:00",
+      "event_id": "19fdb63d-184d-4510-a6e5-dbf70a1e5044",
+      "tool_name": "pods_exec",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_exec\" (cluster \"remote-cluster\") returned error: failed to exec in pod traffic-gen-6fbdd9f844-c7cqm in namespace demo-frontend: unable to upgrade connection: pods \"traffic-gen-6fbdd9f844-c7cqm\" is forbidden: User \"keycloak:service-account-kubernaut-fleet-read\" cannot create resource \"pods/exec\" in API group \"\" in the namespace \"demo-frontend\"",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "traffic-gen-6fbdd9f844-c7cqm",
+        "command": [
+          "nslookup",
+          "web-frontend.demo-frontend"
+        ],
+        "container": "curl",
+        "namespace": "demo-frontend"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_exec\\\" (cluster \\\"remote-cluster\\\") returned error: failed to exec in pod traffic-gen-6fbdd9f844-c7cqm in namespace demo-frontend: unable to upgrade connection: pods \\\"traffic-gen-6fbdd9f844-c7cqm\\\" is forbidden: User \\\"keycloak:service-account-kubernaut-fleet-read\\\" cannot create resource \\\"pods/exec\\\" in API group \\\"\\\" in the namespace \\\"demo-frontend\\\"\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:51+00:00",
+      "event_id": "f940867c-edb5-4f27-8cc9-471f132d855c",
+      "tool_name": "get_metric_names",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "error": "prometheus request: Get \"http://thanos-querier-svc.monitoring.svc.cluster.local:9090/api/v1/label/__name__/values?match%5B%5D=%7B__name__%3D~%22.%2Aprobe.%2A%7C.%2Ahttp.%2A%7C.%2Acontainer.%2A%22%7D\": dial tcp 10.96.172.45:9090: i/o timeout (Client.Timeout exceeded while awaiting headers)",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "match": "{__name__=~\".*probe.*|.*http.*|.*container.*\"}"
+      },
+      "tool_call_index": 4,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"prometheus request: Get \\\"http://thanos-querier-svc.monitoring.svc.cluster.local:9090/api/v1/label/__name__/values?match%5B%5D=%7B__name__%3D~%22.%2Aprobe.%2A%7C.%2Ahttp.%2A%7C.%2Acontainer.%2A%22%7D\\\": dial tcp 10.96.172.45:9090: i/o timeout (Client.Timeout exceeded while awaiting headers)\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:51+00:00",
+      "event_id": "ca1bfd37-c456-42fe-8390-a27ceb2f63e7",
+      "tool_name": "resources_list",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "- apiVersion: networking.k8s.io/v1\n  kind: NetworkPolicy\n  metadata:\n    annotations:\n      kubectl.kubernetes.io/last-applied-configuration: |\n        {\"apiVersion\":\"networking.k8s.io/v1\",\"kind\":\"NetworkPolicy\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"injected-by\":\"kubernaut-demo\"},\"name\":\"default-network-policy\",\"namespace\":\"demo-frontend\"},\"spec\":{\"podSelector\":{},\"policyTypes\":[\"Ingress\"]}}\n    creationTimestamp: \"2026-10-02T00:41:57Z\"\n    generation: 1\n    labels:\n      injected-by: kubernaut-demo\n    name: default-network-policy\n    namespace: demo-frontend\n    resourceVersion: \"41903\"\n    uid: 10675d99-9def-4a30-881a-43406d2b02b5\n  spec:\n    podSelector: {}\n    policyTypes:\n    - Ingress",
+      "tool_arguments": {
+        "kind": "NetworkPolicy",
+        "namespace": "demo-frontend",
+        "apiVersion": "networking.k8s.io/v1"
+      },
+      "tool_call_index": 3,
+      "tool_result_preview": "- apiVersion: networking.k8s.io/v1\n  kind: NetworkPolicy\n  metadata:\n    annotations:\n      kubectl.kubernetes.io/last-applied-configuration: |\n        {\"apiVersion\":\"networking.k8s.io/v1\",\"kind\":\"NetworkPolicy\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"injected-by\":\"kubernaut-demo\"},\"name\":\"default-network-policy\",\"namespace\":\"demo-frontend\"},\"spec\":{\"podSelector\":{},\"policyTypes\":[\"Ingress\"]}}\n    creationTimestamp: \"2026-10-02T00:41:57Z\"\n    generation: 1\n    labels:\n      injected-by: "
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T00:43:51+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "bcf700ca-dbcb-4d2c-b0fa-dbb7d03c0dd3",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "prompt_length": 50994,
+      "prompt_preview": "Investigate: critical KubeDeploymentReplicasMismatch in demo-frontend \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:51+00:00",
+      "event_id": "72532951-e572-4c42-b20f-aa1a2a6242d9",
+      "tool_name": "resources_get",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": "apiVersion: v1\ndata:\n  config.yaml: |\n    port: 8080\n    routes:\n      - path: /\n        status: 200\n        body: 'ok'\n      - path: /healthz\n        status: 200\n        body: 'ok'\nkind: ConfigMap\nmetadata:\n  annotations:\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"v1\",\"data\":{\"config.yaml\":\"port: 8080\\nroutes:\\n  - path: /\\n    status: 200\\n    body: 'ok'\\n  - path: /healthz\\n    status: 200\\n    body: 'ok'\\n\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":[REDACTED],\"name\":\"web-frontend-config\",\"namespace\":\"demo-frontend\"}}\n  creationTimestamp: \"2026-10-02T00:41:30Z\"\n  name: web-frontend-config\n  namespace: demo-frontend\n  resourceVersion: \"41753\"\n  uid: 272ed433-f136-4811-8787-4bbfd65e6e02",
+      "tool_arguments": {
+        "kind": "ConfigMap",
+        "name": "web-frontend-config",
+        "namespace": "demo-frontend",
+        "apiVersion": "v1"
+      },
+      "tool_call_index": 2,
+      "tool_result_preview": "apiVersion: v1\ndata:\n  config.yaml: |\n    port: 8080\n    routes:\n      - path: /\n        status: 200\n        body: 'ok'\n      - path: /healthz\n        status: 200\n        body: 'ok'\nkind: ConfigMap\nmetadata:\n  annotations:\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"v1\",\"data\":{\"config.yaml\":\"port: 8080\\nroutes:\\n  - path: /\\n    status: 200\\n    body: 'ok'\\n  - path: /healthz\\n    status: 200\\n    body: 'ok'\\n\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":[REDA"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:43:51+00:00",
+      "event_id": "6e3adb30-f244-4b78-b29b-c1879aca7d39",
+      "tool_name": "get_series",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "error": "prometheus request: Get \"http://thanos-querier-svc.monitoring.svc.cluster.local:9090/api/v1/series?end=1790901800&limit=100&match%5B%5D=%7Bnamespace%3D%22demo-frontend%22%2Cpod%3D%22traffic-gen-6fbdd9f844-c7cqm%22%7D&start=1790898200\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "match": "{namespace=\"demo-frontend\",pod=\"traffic-gen-6fbdd9f844-c7cqm\"}"
+      },
+      "tool_call_index": 5,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"prometheus request: Get \\\"http://thanos-querier-svc.monitoring.svc.cluster.local:9090/api/v1/series?end=1790901800\\u0026limit=100\\u0026match%5B%5D=%7Bnamespace%3D%22demo-frontend%22%2Cpod%3D%22traffic-gen-6fbdd9f844-c7cqm%22%7D\\u0026start=1790898200\\\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)\"}"
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T00:44:02+00:00",
+      "event_id": "5375edcf-7b96-4344-80ff-92816b25fde0",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tokens_used": 22011,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T00:44:03+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "137b6e5c-f836-40d1-90b5-7128518fff48",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "prompt_length": 9813,
+      "prompt_preview": "RCA findings: `traffic-gen` has one unavailable replica because its readiness probe and loop repeatedly fail against `web-frontend.demo-frontend:8080/healthz`; the direct downstream cause is an ingress-only NetworkPolicy that denies traffic-gen ingress, although the exact enforcement path is not directly verified.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "networkIsolated": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T00:44:04+00:00",
+      "event_id": "356936f9-a783-4b4d-a03c-238e1a48f937",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tokens_used": 3272,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T00:44:04+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "8414f964-deaa-49b4-98c4-fcb7a6af71a4",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "prompt_length": 10652,
+      "prompt_preview": "RCA findings: `traffic-gen` has one unavailable replica because its readiness probe and loop repeatedly fail against `web-frontend.demo-frontend:8080/healthz`; the direct downstream cause is an ingress-only NetworkPolicy that denies traffic-gen ingress, although the exact enforcement path is not directly verified.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "networkIsolated": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:44:04+00:00",
+      "event_id": "07ff5346-8a9f-42dc-860f-8a02ee46bfa6",
+      "tool_name": "list_available_actions",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "actionTypes": [
+          {
+            "rank": 1,
+            "preferred": true,
+            "actionType": "FixNetworkPolicy",
+            "description": {
+              "what": "Remove a deny-all NetworkPolicy that is blocking legitimate ingress traffic and causing health check failures.",
+              "whenToUse": "A NetworkPolicy is blocking all ingress traffic to a workload, causing liveness and readiness probe failures that lead to pod restarts or unavailability.",
+              "whenNotToUse": "When the NetworkPolicy is intentionally restrictive for security purposes and the outage has a different root cause.",
+              "preconditions": "A deny-all NetworkPolicy exists in the namespace, and the workload health checks are confirmed to be failing due to blocked network traffic rather than application errors."
+            },
+            "workflowCount": 1,
+            "preferenceReason": "detected-label match for networkIsolated=true",
+            "matchedDetectedLabels": {
+              "networkIsolated": true
+            }
+          }
+        ]
+      },
+      "tool_arguments": {},
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"actionTypes\":[{\"actionType\":\"FixNetworkPolicy\",\"description\":{\"what\":\"Remove a deny-all NetworkPolicy that is blocking legitimate ingress traffic and causing health check failures.\",\"whenToUse\":\"A NetworkPolicy is blocking all ingress traffic to a workload, causing liveness and readiness probe failures that lead to pod restarts or unavailability.\",\"whenNotToUse\":\"When the NetworkPolicy is intentionally restrictive for security purposes and the outage has a different root cause.\",\"preconditions"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T00:44:05+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "3a3428e5-1405-4733-82d2-54a313db078a",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "prompt_length": 11370,
+      "prompt_preview": "RCA findings: `traffic-gen` has one unavailable replica because its readiness probe and loop repeatedly fail against `web-frontend.demo-frontend:8080/healthz`; the direct downstream cause is an ingress-only NetworkPolicy that denies traffic-gen ingress, although the exact enforcement path is not directly verified.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "networkIsolated": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:44:05+00:00",
+      "event_id": "1ac8d87e-b4a5-46f0-9f78-c3547eb60885",
+      "tool_name": "list_workflows",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "workflows": [
+          {
+            "name": "fix-network-policy-v1",
+            "version": "1.6.3",
+            "workflowId": "929f4c44-33ab-58fa-849b-df6938aa0b7f",
+            "description": {
+              "what": "Removes a deny-all NetworkPolicy that is blocking legitimate ingress traffic and causing health check failures",
+              "whenToUse": "When a NetworkPolicy is blocking all ingress traffic to a workload, causing liveness/readiness probe failures",
+              "whenNotToUse": "When the NetworkPolicy is intentionally restrictive for security purposes and the outage has a different root cause",
+              "preconditions": "A deny-all NetworkPolicy exists in the namespace, and the workload's health checks are failing due to blocked traffic"
+            },
+            "workflowName": "fix-network-policy-v1"
+          }
+        ],
+        "actionType": "FixNetworkPolicy"
+      },
+      "tool_arguments": {
+        "action_type": "FixNetworkPolicy"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"actionType\":\"FixNetworkPolicy\",\"workflows\":[{\"workflowId\":\"929f4c44-33ab-58fa-849b-df6938aa0b7f\",\"workflowName\":\"fix-network-policy-v1\",\"name\":\"fix-network-policy-v1\",\"description\":{\"what\":\"Removes a deny-all NetworkPolicy that is blocking legitimate ingress traffic and causing health check failures\",\"whenToUse\":\"When a NetworkPolicy is blocking all ingress traffic to a workload, causing liveness/readiness probe failures\",\"whenNotToUse\":\"When the NetworkPolicy is intentionally restrictive for "
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T00:44:05+00:00",
+      "event_id": "e10a18dc-b4b1-4c14-9328-99e046b30128",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tokens_used": 3468,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T00:44:06+00:00",
+      "event_id": "578b5fae-3bee-42a0-9181-77e98d33ced3",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tokens_used": 3685,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T00:44:06+00:00",
+      "event_id": "4aa19f8d-b5aa-49c8-ae4c-28870bc074ec",
+      "tool_name": "get_workflow",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tool_result": {
+        "reason": "workflow_schema_not_persisted",
+        "result_omitted": true
+      },
+      "tool_arguments": {
+        "workflow_id": "929f4c44-33ab-58fa-849b-df6938aa0b7f"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"result_omitted\":true,\"reason\":\"workflow_schema_not_persisted\"}"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T00:44:06+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "f1ce4f6a-f596-4d0c-87af-4d196cb1bba0",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "prompt_length": 12101,
+      "prompt_preview": "RCA findings: `traffic-gen` has one unavailable replica because its readiness probe and loop repeatedly fail against `web-frontend.demo-frontend:8080/healthz`; the direct downstream cause is an ingress-only NetworkPolicy that denies traffic-gen ingress, although the exact enforcement path is not directly verified.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "networkIsolated": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T00:44:09+00:00",
+      "event_id": "31a0a69c-188d-4b77-b7c5-f592a3941147",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "tokens_used": 4202,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T00:44:09+00:00",
+      "model": "",
+      "event_id": "ef7a0425-a245-406b-b69f-6550a10c59ef",
+      "incident_id": "rr-9d7638a122e2-11c3684d",
+      "prompt_length": 0,
+      "prompt_preview": ""
+    }
+  ],
+  "traceStats": {
+    "totalTokens": 95013,
+    "llmTurns": 9,
+    "totalToolCalls": 29,
+    "k8sToolCalls": 29,
+    "model": "gpt-5.6-luna"
+  },
+  "kaResponse": {
+    "analysis": "The traffic-gen replica is unavailable because its readiness probe and application loop repeatedly fail against web-frontend:8080/healthz. The namespace deny-all ingress NetworkPolicy selects all pods and is consistent with blocking the required traffic path, while the backend service and application are healthy.",
+    "warnings": [],
+    "timestamp": "2026-10-02T00:44:09Z",
+    "confidence": 0.82,
+    "incidentId": "rr-9d7638a122e2-11c3684d",
+    "isActionable": true,
+    "needsHumanReview": false,
+    "selectedWorkflow": {
+      "confidence": 0.82,
+      "parameters": {
+        "POLICY_NAME": "default-network-policy",
+        "TARGET_RESOURCE_KIND": "NetworkPolicy",
+        "TARGET_RESOURCE_NAME": "default-network-policy",
+        "TARGET_RESOURCE_NAMESPACE": "demo-frontend",
+        "TARGET_RESOURCE_API_VERSION": "networking.k8s.io/v1"
+      },
+      "workflowId": "929f4c44-33ab-58fa-849b-df6938aa0b7f",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:b74f1c96d5db04cc6273b486bc9efcd241618e75e695bc297a64f58081e8a2e2"
+    },
+    "rootCauseAnalysis": {
+      "summary": "The traffic-gen replica is unavailable because its readiness probe and application loop repeatedly fail against web-frontend:8080/healthz. The namespace deny-all ingress NetworkPolicy selects all pods and is consistent with blocking the required traffic path, while the backend service and application are healthy.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: `KubeDeploymentReplicasMismatch` reports `demo-frontend/Deployment/traffic-gen` with `unavailableReplicas: 1` of 1.",
+        "Why? The sole Pod `traffic-gen-6fbdd9f844-c7cqm` is Running but readiness is False, and its readiness probe targets `web-frontend.demo-frontend:8080/healthz`.",
+        "Why? The traffic generator's own logs show `probe=success` initially, then repeated `probe=failure`, while the web Deployment remains 2/2 Ready with ready Service endpoints.",
+        "Why? Namespace NetworkPolicy `default-network-policy` selects every pod and enables ingress policy without any ingress allow rules, blocking ingress to selected pods; this is consistent with the probe failure.",
+        "Root cause: `demo-frontend/default-network-policy` has an ingress-isolation configuration with no allowed ingress sources, preventing the traffic-gen readiness path from succeeding. Direct packet-level confirmation was unavailable because pod exec and Prometheus access were blocked."
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "The target is the NetworkPolicy whose ingress configuration must be changed to allow the required traffic, rather than the Deployment that only reports the symptom. A workflow can add a narrowly scoped ingress allowance.",
+        "proportionality": "The issue is isolated to the readiness path and has a specific policy configuration fix. The NetworkPolicy is more precise than changing replica counts, probe timing, or the healthy web Deployment. Any required ingress exception should be narrowly scoped to the relevant traffic.",
+        "scopeCompleteness": "Inspected the incident Deployment, owning ReplicaSet and Pod, its events/logs/current and previous-log path, downstream Service, EndpointSlice, web Deployment and two representative web Pod logs, ConfigMap, NetworkPolicy, node usage, and owner/remediation context. Prometheus was attempted but inaccessible; packet-level tests were blocked.",
+        "causalCompleteness": "Traced Deployment -> ReplicaSet -> Pod -> readiness probe -> downstream Service/Endpoints -> NetworkPolicy. The deepest verified configuration cause is the empty ingress allow-list in `default-network-policy`; exact CNI enforcement and packet direction could not be verified.",
+        "evidenceSufficiency": "Deployment, ReplicaSet, Pod, Service, EndpointSlice, downstream Deployment, ConfigMap, events, node metrics, and NetworkPolicy were inspected. Evidence supports readiness failure and healthy backend. Assumptions: the observed NetworkPolicy is enforced by the active network plugin and is the specific blocker. Pod exec was forbidden (`create pods/exec`); Prometheus discovery/series timed out; node stats-summary was forbidden (`get nodes/proxy`).",
+        "regressionAwareness": "No prior remediation history is available for `demo-frontend/NetworkPolicy/default-network-policy`; the target context showed no tier-1 or tier-2 remediations and no regression detected.",
+        "alternativeHypotheses": "Considered unhealthy web backend and missing Service endpoints; contradicted by `web-frontend` 2/2 Ready, two ready EndpointSlice entries, HTTP-200 `/healthz` ConfigMap, and clean startup logs. Considered scheduling, image pull, crash, node CPU/memory pressure, and OOM; contradicted by normal events, Running state, zero restarts, 7% CPU and 16% memory node usage. DNS/connectivity could not be directly tested because exec was forbidden.",
+        "confidenceCalibration": "0.82: start 1.0; -0.10 because pod exec was RBAC-forbidden and direct connectivity was not verified; -0.05 because Prometheus timed out; -0.03 because NetworkPolicy enforcement by the active CNI was not directly observable. Backend, workload, event, and node evidence substantially supports the diagnosis."
+      },
+      "remediationTarget": {
+        "kind": "NetworkPolicy",
+        "name": "default-network-policy",
+        "namespace": "demo-frontend"
+      },
+      "contributingFactors": [
+        "traffic-gen readiness probe and loop changed from successful to repeated failed health-check requests",
+        "NetworkPolicy default-network-policy selects all pods and enables ingress policy with no allowed ingress sources",
+        "web-frontend has healthy replicas, ready endpoints, and returns HTTP 200 for /healthz",
+        "Packet-level enforcement could not be directly verified because connectivity and Prometheus checks were unavailable"
       ]
     }
   },
-  "remediationRequest": {
-    "outcome": "Remediated"
-  },
-  "kaResponse": {
-    "confidence": 0.97,
-    "analysis": "A 'deny-all-ingress' NetworkPolicy (injected by kubernaut-demo at 16:55:32) blocks all ingress traffic in namespace demo-netpol-2 via an empty podSelector with policyTypes=[Ingress] and no allow rules. This causes the traffic-gen readiness probe (curl to web-frontend:8080/healthz) to time out, leaving the traffic-gen pod stuck in NotReady state and the deployment reporting 0 available replicas despite 1 running."
-  },
-  "traceStats": {
-    "totalTokens": 110095,
-    "llmTurns": 14,
-    "totalToolCalls": 11
-  },
   "toolCalls": [
     {
-      "tool": "kubectl_get_by_name",
-      "index": 0
-    },
-    {
-      "tool": "kubectl_get_by_kind_in_namespace",
+      "tool": "resources_list",
       "index": 1
     },
     {
-      "tool": "kubectl_events",
-      "index": 2
-    },
-    {
-      "tool": "kubectl_logs",
-      "index": 2
-    },
-    {
-      "tool": "kubectl_events",
-      "index": 3
-    },
-    {
-      "tool": "kubectl_get_by_kind_in_namespace",
+      "tool": "resources_get",
       "index": 0
-    },
-    {
-      "tool": "kubectl_get_by_kind_in_namespace",
-      "index": 1
     },
     {
       "tool": "get_namespaced_resource_context",
+      "index": 4
+    },
+    {
+      "tool": "events_list",
+      "index": 3
+    },
+    {
+      "tool": "pods_list_in_namespace",
+      "index": 2
+    },
+    {
+      "tool": "pods_get",
       "index": 0
+    },
+    {
+      "tool": "nodes_top",
+      "index": 5
+    },
+    {
+      "tool": "pods_log",
+      "index": 1
+    },
+    {
+      "tool": "resources_list",
+      "index": 4
+    },
+    {
+      "tool": "pods_log",
+      "index": 2
+    },
+    {
+      "tool": "nodes_stats_summary",
+      "index": 6
+    },
+    {
+      "tool": "resources_get",
+      "index": 3
+    },
+    {
+      "tool": "resources_list",
+      "index": 1
+    },
+    {
+      "tool": "pods_log",
+      "index": 2
+    },
+    {
+      "tool": "pods_log",
+      "index": 4
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 7
+    },
+    {
+      "tool": "resources_get",
+      "index": 0
+    },
+    {
+      "tool": "pods_log",
+      "index": 5
+    },
+    {
+      "tool": "events_list",
+      "index": 6
+    },
+    {
+      "tool": "pods_log",
+      "index": 3
+    },
+    {
+      "tool": "pods_exec",
+      "index": 0
+    },
+    {
+      "tool": "pods_exec",
+      "index": 1
+    },
+    {
+      "tool": "get_metric_names",
+      "index": 4
+    },
+    {
+      "tool": "resources_list",
+      "index": 3
+    },
+    {
+      "tool": "resources_get",
+      "index": 2
+    },
+    {
+      "tool": "get_series",
+      "index": 5
     },
     {
       "tool": "list_available_actions",
@@ -100,5 +1240,21 @@
       "tool": "get_workflow",
       "index": 0
     }
-  ]
+  ],
+  "workflowExecution": {
+    "phase": "Completed",
+    "workflowName": "fix-network-policy-v1",
+    "workflowId": "929f4c44-33ab-58fa-849b-df6938aa0b7f",
+    "actionType": "FixNetworkPolicy",
+    "duration": "34s",
+    "targetResource": "demo-frontend/NetworkPolicy/default-network-policy"
+  },
+  "effectivenessAssessment": {
+    "phase": "Completed",
+    "reason": "Full",
+    "details": "Assessment completed: Full",
+    "alertScore": 1,
+    "healthScore": 1,
+    "metricsScore": 0.25
+  }
 }
