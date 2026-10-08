@@ -46,6 +46,20 @@ KIND_VALUES="${REPO_ROOT}/helm/kubernaut-kind-values.yaml"
 OCP_VALUES="${REPO_ROOT}/helm/kubernaut-ocp-values.yaml"
 SDK_CONFIG="${HOME}/.kubernaut/sdk-config.yaml"
 
+# Return a SHA-256 digest using the platform's available utility. macOS ships
+# `shasum`, while Fedora/RHEL and most Linux distributions provide
+# `sha256sum`; both commands accept a file argument or read stdin.
+_sha256() {
+    if command -v sha256sum &>/dev/null; then
+        sha256sum "$@"
+    elif command -v shasum &>/dev/null; then
+        shasum -a 256 "$@"
+    else
+        echo "ERROR: neither sha256sum nor shasum is available." >&2
+        return 1
+    fi
+}
+
 # KUBECONFIG is managed by kind-helper.sh (for Kind clusters) or by the
 # user's environment (for OCP / BYO clusters). We do NOT override it here
 # to avoid masking an OCP context with a stale Kind kubeconfig (#44).
@@ -211,8 +225,8 @@ _ensure_rego_policies() {
     if [ -f "$sp_policy" ]; then
         local current_hash desired_hash
         current_hash=$(kubectl get configmap signalprocessing-policy -n "${PLATFORM_NS}" \
-            -o jsonpath='{.data.policy\.rego}' 2>/dev/null | shasum -a 256 | cut -d' ' -f1 || true)
-        desired_hash=$(shasum -a 256 < "$sp_policy" | cut -d' ' -f1)
+            -o jsonpath='{.data.policy\.rego}' 2>/dev/null | _sha256 | cut -d' ' -f1 || true)
+        desired_hash=$(_sha256 < "$sp_policy" | cut -d' ' -f1)
         if [ "$current_hash" != "$desired_hash" ]; then
             echo "==> Applying signalprocessing-policy from deploy/defaults..."
             kubectl create configmap signalprocessing-policy -n "${PLATFORM_NS}" \
@@ -225,8 +239,8 @@ _ensure_rego_policies() {
     if [ -f "$aa_policy" ]; then
         local current_hash desired_hash
         current_hash=$(kubectl get configmap "${aa_configmap}" -n "${PLATFORM_NS}" \
-            -o jsonpath='{.data.approval\.rego}' 2>/dev/null | shasum -a 256 | cut -d' ' -f1 || true)
-        desired_hash=$(shasum -a 256 < "$aa_policy" | cut -d' ' -f1)
+            -o jsonpath='{.data.approval\.rego}' 2>/dev/null | _sha256 | cut -d' ' -f1 || true)
+        desired_hash=$(_sha256 < "$aa_policy" | cut -d' ' -f1)
         if [ "$current_hash" != "$desired_hash" ]; then
             echo "==> Applying ${aa_configmap} from deploy/defaults..."
             kubectl create configmap "${aa_configmap}" -n "${PLATFORM_NS}" \
@@ -1198,9 +1212,9 @@ json.dump(role, sys.stdout)
 
     if [ -f "${SDK_CONFIG}" ]; then
         local before_hash after_hash
-        before_hash=$(shasum "${SDK_CONFIG}" 2>/dev/null | awk '{print $1}' || echo "")
+        before_hash=$(_sha256 "${SDK_CONFIG}" 2>/dev/null | awk '{print $1}' || echo "")
         _update_sdk_config_toolset "${SDK_CONFIG}" "true" "$prom_url"
-        after_hash=$(shasum "${SDK_CONFIG}" 2>/dev/null | awk '{print $1}' || echo "")
+        after_hash=$(_sha256 "${SDK_CONFIG}" 2>/dev/null | awk '{print $1}' || echo "")
 
         if [ "$before_hash" = "$after_hash" ]; then
             echo "  Prometheus toolset already enabled."
