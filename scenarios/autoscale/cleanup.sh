@@ -4,6 +4,26 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    disable_prometheus_toolset || true
+    fleet_target_kubectl delete cm scale-request -n "${PLATFORM_NS}" --ignore-not-found 2>/dev/null || true
+    for node in $(fleet_target_kubectl get nodes -o name 2>/dev/null | grep 'worker-[0-9]' || true); do
+        node_name="${node#node/}"
+        fleet_target_kubectl drain "${node_name}" --ignore-daemonsets --delete-emptydir-data --force 2>/dev/null || true
+        fleet_target_kubectl delete node "${node_name}" --ignore-not-found 2>/dev/null || true
+        podman rm -f "${node_name}" 2>/dev/null || true
+    done
+    kubectl --kubeconfig="${HUB_KUBECONFIG}" delete cm scale-request -n "${PLATFORM_NS}" --ignore-not-found 2>/dev/null || true
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-loadtest
+    purge_pipeline_crds
+    restart_alertmanager
+    exit 0
+fi
+
 echo "==> Cleaning up Cluster Autoscaling demo..."
 
 # shellcheck source=../../scripts/platform-helper.sh

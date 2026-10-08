@@ -11,15 +11,16 @@ This scenario reproduces the vulnerability documented in
 Red Hat Developer blog post
 [Protect your Kubernetes Operator from OOMKill](https://developers.redhat.com/articles/2026/06/01/protect-your-kubernetes-operator-oomkill).
 
-Supports OpenShift clusters. Fleet mode runs the workload on the configured
-spoke while the Kubernaut control plane remains on the hub.
+Supports Kind and OpenShift clusters. Fleet mode runs the workload on the
+configured spoke while the Kubernaut control plane remains on the hub.
 
 | | |
 |---|---|
 | **Signal** | `KubePodCrashLooping` -- operator pod OOMKilled by informer cache overflow |
 | **Root cause** | Unfiltered `ByObject` ConfigMap cache in `controller-runtime` (CVE: kubeflow/spark-operator#2878) |
 | **Attack vector** | 100 ConfigMaps at ~1MB each (~100MB raw, 300-500MB after Go struct deserialization overhead, exceeds 128Mi limit) |
-| **Remediation** | `IncreaseMemoryLimits` -- doubles memory limit as emergency triage |
+| **Fleet remediation** | `increase-memory-limits-gitops-v1` -- opens a reviewed forward-change PR on the hub, adds a fixed 128Mi to the limit, and waits for a human merge |
+| **Local remediation** | Generic `increase-memory-limits-v1` direct Job workflow (the local path has no Argo CD Application) |
 
 ## The Vulnerability
 
@@ -60,9 +61,16 @@ inject-configmap-flood.sh creates 100 x 1MB ConfigMaps
        -> kubectl describe: lastState.terminated.reason=OOMKilled
        -> kubectl top: memory at limit before crash
        -> identifies operator memory exhaustion from ConfigMap volume
-     -> Selects IncreaseMemoryLimits workflow (confidence ~0.85)
-      WFE: patches the memory limit above 128Mi
-     EM: verifies operator is running (healthScore=1)
+  -> selects increase-memory-limits-gitops-v1 (fleet; confidence varies)
+       RAR: human authorizes the remediation
+       WFE Job on hub: creates a forward branch + PR; it never patches the spoke
+       human reviewer approves and merges the protected-main PR
+       Argo CD applies the merged revision to the spoke
+       EM: independently verifies operator health, alerts, metrics, and spec hash
+   -> retained flood is expanded for a bounded observation window so the
+      platform can evaluate recurrence and remediation durability
+      -> the workflow itself remains RR-agnostic and performs the same fixed
+         +128Mi forward change whenever platform routing invokes it
 ```
 
 ## Prerequisites
@@ -71,13 +79,26 @@ inject-configmap-flood.sh creates 100 x 1MB ConfigMaps
 |-----------|-------------|
 | Cluster | Kind or OCP with Kubernaut services deployed |
 | LLM backend | Real LLM (not mock) via Kubernaut Agent |
-| Prometheus | With kube-state-metrics scraping |
-| Workflow catalog | `increase-memory-limits-v1` registered in DataStorage |
+| Prometheus | With kube-state-metrics and kubelet/cAdvisor scraping |
+| Metrics API | metrics-server (or a platform-provided equivalent), so `kubectl top` can report workload CPU and memory |
+| Workflow catalog | `increase-memory-limits-gitops-v1` plus the generic `increase-memory-limits-v1` registered in DataStorage |
+
+The demo operator exposes controller-runtime metrics on port `8080`; the scenario
+deploys a Service and ServiceMonitor for that endpoint. Pod CPU and memory usage
+come from kubelet/cAdvisor (Prometheus) and the Kubernetes Metrics API (`kubectl top`),
+not from the operator's own `/metrics` endpoint. In fleet mode, metrics-server must
+be available on the spoke where the workload runs. During recurrence, the flood
+script reads the live Deployment memory limit and automatically adds enough retained
+ConfigMaps to target approximately 75% of that limit in raw payload using the conservative
+3x informer overhead estimate, leaving room for the next fixed `+128Mi` increment to
+recover. Set `RECURRENCE_FLOOD_COUNT` to a positive integer to override the automatic
+sizing. `RECURRENCE_OBSERVATION_CYCLES` only bounds how long the rehearsal observes
+recurrence; it is not a remediation retry or handoff threshold.
 
 ## Running the Scenario
 
 ```bash
-# Kind (default; platform is auto-detected)
+# Kind local path (direct workflow; platform is auto-detected)
 ./scenarios/operator-oomkill-informer/run.sh
 
 # OpenShift
@@ -88,7 +109,7 @@ PLATFORM=ocp ./scenarios/operator-oomkill-informer/run.sh
 
 | Flag | Behavior | When to use |
 |------|----------|-------------|
-| *(no flag)* | Runs the full pipeline with auto-approval (default) | Automated regression testing |
+| *(no flag)* | Runs the full local pipeline with auto-approval; fleet defaults to the interactive PR/RAR path | Local smoke test |
 | `--no-validate` | Injects fault only, skips pipeline polling | **Always use with kagenti** |
 | `--interactive` | Runs the pipeline, pauses at AwaitingApproval for manual approval | Gateway flow with human-in-the-loop |
 | `--auto-approve` | Runs the full pipeline, auto-approves remediation | Automated regression testing (explicit) |
@@ -104,20 +125,70 @@ on a **hub** cluster. Requires the `--fleet` flag plus both kubeconfig env vars 
 export HUB_KUBECONFIG=~/.kube/kubernaut-hub-config       # e.g. from `make setup-fleet-demo-infra`
 export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
 
-./scenarios/operator-oomkill-informer/run.sh --fleet                # full pipeline, auto-approve (default)
-./scenarios/operator-oomkill-informer/run.sh --fleet --interactive  # full pipeline, manual RAR approval
+./scenarios/operator-oomkill-informer/run.sh --fleet --interactive  # full pipeline, manual RAR approval + PR merge
+./scenarios/operator-oomkill-informer/run.sh --fleet --auto-approve # only when rehearsing non-presentation automation
 ./scenarios/operator-oomkill-informer/run.sh --fleet --alert-only    # stop once the alert reaches the hub
 ```
 
-Deploys and faults the workload on the spoke, confirms the `KubePodCrashLooping` alert
-reaches the hub's Alertmanager, then (unless `--alert-only`) drives the same
-`wait_for_rr`/`poll_pipeline` loop single-cluster mode uses -- just pointed at the hub's
-`kubernaut-system` namespace instead of the ambient cluster.
+Fleet mode seeds a scenario-owned Gitea repository and protected `main` branch on the
+hub, registers the spoke as an Argo CD destination, and creates the Application that
+owns the operator namespace. It then injects the flood on the spoke and confirms the
+`KubePodCrashLooping` alert reaches the hub. The workflow runs on the hub with the
+repository credential; the spoke never receives that Secret. `--interactive` requires
+both an explicit RAR approval and a separate human PR review/merge. The Job remains
+Running until it observes the merge; it does not approve, merge, push `main`, or patch
+the live Deployment. Validation waits for the merged Argo revision, independent
+effectiveness assessment, retained stimulus evidence, and recurrence history. A
+recurrence or human-handoff decision belongs to platform routing/history, not to
+the workflow Job.
+
+Fleet mode temporarily sets the Remediation Orchestrator's
+`asyncPropagation.gitOpsSyncDelay` to `10s` and
+`effectivenessAssessment.stabilizationWindow` to `1m`. The Gitea push webhook triggers
+Argo CD reconciliation immediately, so a longer polling-oriented delay is unnecessary;
+the shorter stabilization window keeps this demo verification quick while retaining
+independent health, alert, metrics, and spec-hash assessment. `cleanup.sh` restores the
+original RO configuration. Set `GITOPS_SYNC_DELAY` or
+`EFFECTIVENESS_STABILIZATION_WINDOW` only when the environment needs different
+run-scoped values.
+
+### Reviewing the GitOps PR
+
+The workflow prints the exact link as `FORWARD_CHANGE_PR_URL`. With the default
+repository name, the in-cluster URL is:
+
+```text
+http://gitea-http.gitea:3000/kubernaut/demo-operator-oomkill-repo/pulls/<PR_NUMBER>
+```
+
+To make Gitea reachable from a browser on the host:
+
+1. In a separate terminal, start the port-forward and leave it running while
+   reviewing and merging the PR:
+
+```bash
+GITEA_LOCAL_PORT=3031  # use 3032 for OpenShift, or another free local port
+kubectl --kubeconfig="$HOME/.kube/kubernaut-hub-config" \
+  port-forward -n gitea svc/gitea-http "${GITEA_LOCAL_PORT}:3000"
+```
+
+2. Replace `<PR_NUMBER>` with the number printed in `FORWARD_CHANGE_PR_URL` and
+   open the corresponding host URL:
+
+```text
+http://localhost:3031/kubernaut/demo-operator-oomkill-repo/pulls/<PR_NUMBER>
+```
+
+3. Approve the PR with the configured reviewer account, then merge it as the
+   reviewer; the workflow waits for that human merge.
+
+Stop the port-forward with `Ctrl-C` after the review is complete. Kind uses port
+`3031` by default; OpenShift uses `3032`.
 
 ## Cleanup
 
 ```bash
-./scenarios/operator-oomkill-informer/cleanup.sh
+./scenarios/operator-oomkill-informer/cleanup.sh [--fleet]
 ```
 
 ## Expected LLM Reasoning
@@ -127,7 +198,7 @@ reaches the hub's Alertmanager, then (unless `--alert-only`) drives the same
 | **Root Cause** | Operator pod OOMKilled -- memory usage exceeded the 128Mi limit due to a large number of ConfigMaps in the namespace being cached by the informer |
 | **Severity** | critical |
 | **Target Resource** | Deployment/demo-controllers-controller (ns: demo-controllers) |
-| **Workflow Selected** | increase-memory-limits-v1 |
+| **Workflow Selected** | Fleet: `increase-memory-limits-gitops-v1`; local/non-GitOps: `increase-memory-limits-v1` |
 | **Confidence** | ~0.85 (increasing limits is emergency triage; the real fix is adding label selectors to the informer cache) |
 | **Approval** | Required (production environment, critical severity) |
 
@@ -137,10 +208,16 @@ reaches the hub's Alertmanager, then (unless `--alert-only`) drives the same
 - [ ] `KubePodCrashLooping` alert fires in AlertManager
 - [ ] LLM correctly identifies OOMKill as the termination reason
 - [ ] LLM identifies ConfigMap volume in the namespace as a contributing factor
-- [ ] `IncreaseMemoryLimits` workflow is selected
+- [ ] Fleet selects `increase-memory-limits-gitops-v1`; local mode retains generic `increase-memory-limits-v1`
+- [ ] Each fleet remediation adds exactly `128Mi` to the current limit; the increment is not a workflow parameter
 - [ ] Confidence >= 0.7
-- [ ] Memory limit is patched from 128Mi to a higher value
-- [ ] Operator stabilizes after limit increase (EM healthScore=1)
+- [ ] Fleet RAR approval is recorded before the Job starts
+- [ ] The Job opens a forward-change PR and waits; it never merges, pushes protected `main`, or patches the live Deployment
+- [ ] A human reviewer approves and manually merges the PR
+- [ ] Argo CD applies the merged revision and the spoke Deployment memory limit increases while requests remain unchanged
+- [ ] Effectiveness assessment completes with independent health, alert, metric, and hash evidence while the flood remains
+- [ ] Remediation history exposes every prior remediation linked through the target's chained pre/post spec hashes, not only the latest direct hash match
+- [ ] Controlled recurrence scales the retained object population from the live memory limit without a workflow-side recurrence ceiling or scripted model outcome
 
 ## BDD Specification
 
@@ -162,9 +239,12 @@ Feature: Operator OOMKill remediation from informer cache flooding
       And Signal Processing enriches with severity=critical
       And KA diagnoses OOMKill from memory limit exhaustion
       And the LLM selects IncreaseMemoryLimits workflow
-      And WorkflowExecution patches the memory limit
+      And fleet mode selects the GitOps forward-change workflow
+      And the workflow opens a pull request without patching the live Deployment
+      And a human reviewer approves and merges the protected-main pull request
+      And Argo CD applies the merged desired-state revision to the spoke
       And the operator recovers and stabilizes
-      And Effectiveness Monitor confirms healthScore=1
+      And Effectiveness Monitor confirms healthScore=1 while the stimulus remains
 ```
 
 ## References

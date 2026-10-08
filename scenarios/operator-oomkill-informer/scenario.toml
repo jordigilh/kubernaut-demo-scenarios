@@ -1,7 +1,7 @@
 name = 'operator-oomkill-informer'
-title = 'Unfiltered controller-runtime informer cache lets any edit-role user OOMKill the operator -> IncreaseMemoryLimits'
+title = 'Unfiltered controller-runtime informer cache lets any edit-role user OOMKill the operator -> local direct remediation or reviewed GitOps remediation with a fixed +128Mi per fleet run'
 
 [platforms]
-kind  = 'no'
+kind  = 'yes'
 ocp   = 'yes'
 fleet = 'full'

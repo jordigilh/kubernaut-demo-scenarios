@@ -41,11 +41,11 @@ aa_name="ai-${rr_name}"
 
 # Verify LLM identified defrag as the action
 workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 assert_neq "$workflow_id" "" "AA selected a workflow"
 
 bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
 assert_contains "$bundle" "defrag-etcd" "AA selected defrag-etcd workflow"
 
 # Verify manual approval was required (production + critical component)
@@ -55,7 +55,7 @@ assert_eq "$approval" "true" "Manual approval was required"
 
 # Verify RCA mentions fragmentation
 rca_summary=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.summary}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.summary}' 2>/dev/null || echo "")
 if echo "$rca_summary" | grep -iq "frag\|defrag\|compact\|database size"; then
     _ASSERT_TOTAL=$((_ASSERT_TOTAL + 1)); _ASSERT_PASS=$((_ASSERT_PASS + 1))
     log_success "[PASS] RCA mentions fragmentation/defrag"
@@ -66,9 +66,9 @@ fi
 
 # Verify RCA target is the etcd StatefulSet
 rem_target_kind=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
 rem_target_name=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
 assert_in "$rem_target_kind" "RCA target kind" "StatefulSet" "Pod"
 assert_eq "$rem_target_name" "etcd" "RCA target name is etcd"
 

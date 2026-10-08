@@ -1,88 +1,913 @@
 {
+  "schema_version": 1,
+  "_metadata": {
+    "captured_at": "2026-10-01T23:10:01.507193Z",
+    "ka_image": "quay.io/kubernaut-ai/aianalysis:1.6.0-rc20",
+    "model": "gpt-5.6-luna",
+    "cluster": "kind-kubernaut-hub",
+    "chart_version": "1.6.0",
+    "phaseModels": {
+      "rootCauseAnalysis": "gpt-5.6-luna",
+      "workflowDiscovery": "gpt-5.6-luna",
+      "source": "audit_events model fields"
+    },
+    "fleetMode": true,
+    "hubCluster": "kind-kubernaut-hub",
+    "spokeCluster": "kind-kubernaut-remote-cluster"
+  },
   "scenario": "memory-leak",
-  "incidentId": "rr-cab245311260-6d1d6b1d",
-  "signal": {
-    "signalName": "ContainerMemoryExhaustionPredicted",
-    "namespace": "demo-memory-leak",
-    "resourceKind": "Pod",
-    "resourceName": "leaky-app-544b75986-n677l",
-    "severity": "warning"
+  "signalName": "ContainerMemoryExhaustionPredicted",
+  "remediationRequest": {
+    "name": "rr-d6544d3f583b-7d3041dd",
+    "phase": "Completed",
+    "outcome": "Inconclusive"
   },
   "analysis": {
-    "phase": "Completed",
-    "selectedWorkflow": {
-      "confidence": 0.88,
-      "parameters": {
-        "TARGET_RESOURCE_KIND": "Deployment",
-        "TARGET_RESOURCE_NAME": "leaky-app",
-        "TARGET_RESOURCE_NAMESPACE": "demo-memory-leak"
-      },
-      "workflowId": "547b1310-16b1-58a2-a899-3d5a3aa811e9",
-      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:ad48f2bfc989598d49b846a58a9e18dd11693f32a92cdd7f0f240872553d5018",
-      "workflowName": "graceful-restart-v1"
-    },
-    "approvalRequired": false,
-    "needsHumanReview": false,
-    "humanReviewReason": null,
-    "rootCauseAnalysis": {
-      "summary": "Intentional memory leak via a 'leaker' sidecar container writing 1MiB/5s to a RAM-backed emptyDir volume (medium:Memory, sizeLimit 256Mi), causing progressive memory exhaustion predicted to hit the pod's 192Mi leaker container limit. Both replicas (on separate nodes) are accumulating leaked memory at ~12MiB/min with no restarts yet, making OOM kill or node memory pressure inevitable without intervention.",
+    "remediationId": "rr-d6544d3f583b-7d3041dd",
+    "signal": {
+      "signalName": "ContainerMemoryExhaustionPredicted",
       "severity": "warning",
+      "environment": "Staging",
+      "targetResource": {
+        "kind": "Deployment",
+        "name": "data-service",
+        "namespace": "demo-telemetry"
+      },
+      "businessPriority": "P2"
+    },
+    "investigation": {
+      "sessionId": "80eaccee-0851-4733-addc-f9f1b57b7818"
+    },
+    "rootCauseAnalysis": {
+      "summary": "The data-processor sidecar continuously writes 1 MiB files every 5 seconds to a memory-backed emptyDir, causing unbounded memory-backed volume growth toward exhaustion. Deployment/data-service owns the pod-template configuration.",
+      "severity": "warning",
+      "causalChain": [
+        "Signal: `ContainerMemoryExhaustionPredicted` identifies `data-processor` in pod `data-service-6464fb6799-pczq5` as projected to exceed its memory limit.",
+        "Why? The sidecar has a 192Mi memory limit and continuously accumulates data in `/data`; the current pod usage is already 10Mi and growth is ongoing.",
+        "Why? The command writes one 1MiB file every 5 seconds, approximately 12MiB/minute, without cleanup.",
+        "Why? `/data` is backed by `emptyDir.medium: Memory` with a 256Mi size limit, so generated files consume memory-backed storage and can exhaust the finite volume in about 21\u201322 minutes.",
+        "Root cause: Deployment `data-service` contains an intentionally unbounded `data-processor` file-generation loop mounted onto a memory-backed, finite `emptyDir`; its pod template must be changed."
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "Re-evaluated and confirmed `Deployment/data-service` is the correct target, not a node or derived Pod/ReplicaSet. The signal is generated from a child container, but the remediation must change the Deployment pod template that defines the sidecar command, its resources, and the memory-backed volume. The ReplicaSet and Pods are generated artifacts and are not durable remediation targets.",
+        "proportionality": "The issue affects both replicas but has one common, specific configuration source: the Deployment template. Modifying the Deployment is more precise and durable than changing individual Pods or the node. Node-wide remediation would be disproportionate because current node usage is low and no node-pressure evidence exists.",
+        "scopeCompleteness": "Checked the named Deployment, owning ReplicaSet, both replicas/pods, all relevant container configurations, current resource usage, namespace events, application and sidecar logs including previous-log attempts, node usage, and remediation context. No downstream Service or external dependency was named in the signal, and no evidence indicates they contribute. Previous-log calls correctly found no terminated containers.",
+        "causalCompleteness": "The chain was traced from the prediction to the exact container command, volume medium, volume limit, and Deployment-owned pod template. No deeper application source cause is available; the sidecar command itself is the deepest verified cause.",
+        "evidenceSufficiency": "Deployment and ReplicaSet manifests provide exact command, images, limits, requests, volume type, and size. Pod listing/top provides both affected pod names, readiness, zero restarts, and current usage. Events show successful scheduling/startup without OOM or eviction. App logs show normal startup. Prometheus discovery timed out, and node stats summary was forbidden on `nodes/proxy`; node top was available. The exact growth projection is calculated from the verified 1Mi/5-second loop, not from Prometheus.",
+        "regressionAwareness": "Remediation context reports no prior Tier 1 or Tier 2 remediation history and `regression_detected: false`; there is no failed remediation to work around.",
+        "alternativeHypotheses": "Node-wide memory pressure was considered and contradicted by node top showing 17% memory utilization and no pressure events. Existing OOM/restart was considered and contradicted by both pods having zero restarts and current Running/Ready status. Application-container failure was considered; its log only shows normal startup. Prometheus confirmation could not be obtained due to timeout, so a transient metric-specific alternative cannot be completely eliminated.",
+        "confidenceCalibration": "0.93. Starting from 1.0, reduced by 0.04 because Prometheus metrics were inaccessible due to a request timeout, and by 0.03 because node stats summary was forbidden. The remaining evidence directly verifies the unbounded writer, memory-backed volume, limits, both affected replicas, and absence of current restarts/pressure."
+      },
       "remediationTarget": {
         "kind": "Deployment",
-        "name": "leaky-app",
-        "namespace": "demo-memory-leak"
+        "name": "data-service",
+        "namespace": "demo-telemetry"
       },
       "contributingFactors": [
-        "The 'leaker' container runs an infinite loop using 'dd' to write 1MiB random data every 5 seconds to /data (mounted as a RAM-backed emptyDir volume with medium:Memory)",
-        "The emptyDir volume is backed by host RAM (medium:Memory) with a sizeLimit of 256Mi \u2014 every byte written consumes node memory, not disk",
-        "The leaker container has a memory limit of 192Mi vs a request of 32Mi (Burstable QoS), making it a candidate for OOM kill once memory climbs",
-        "The emptyDir sizeLimit of 256Mi exceeds the leaker container's own memory limit (192Mi), so the volume could grow until the container itself is OOM-killed",
-        "Two replicas are running on separate nodes (kubernaut-demo-worker and kubernaut-demo-worker2), multiplying memory pressure across nodes",
-        "Pod QoS class is Burstable, making it an eviction candidate under node memory pressure before Guaranteed pods",
-        "No remediation history exists for this deployment \u2014 this is the first incident for this workload"
+        "The data-processor writes approximately 12 MiB per minute indefinitely and never deletes files.",
+        "The /data emptyDir uses medium: Memory with a 256Mi size limit, while the sidecar has a 192Mi memory limit.",
+        "The Deployment has two replicas, so the behavior occurs in both pods."
+      ]
+    },
+    "rootCauseSummary": "The data-processor sidecar continuously writes 1 MiB files every 5 seconds to a memory-backed emptyDir, causing unbounded memory-backed volume growth toward exhaustion. Deployment/data-service owns the pod-template configuration.",
+    "selectedWorkflow": {
+      "confidence": 0.86,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "data-service",
+        "TARGET_RESOURCE_NAMESPACE": "demo-telemetry",
+        "TARGET_RESOURCE_API_VERSION": "apps/v1"
+      },
+      "workflowId": "6ad7c705-7177-55cd-8c19-f687c26befea",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:bf7799f359d9321f84199124ecaf363834d548c4cd8315499baa69520a53a9a9",
+      "workflowName": "graceful-restart-v1"
+    },
+    "alternativeWorkflows": [],
+    "actionability": true,
+    "approvalRequired": false,
+    "approvalReason": "Policy evaluation does not require manual approval",
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "phase": "Completed"
+  },
+  "llmTrace": [
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T22:42:51+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "629e8120-ccef-4d64-9a1d-68178518b0bf",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "prompt_length": 14757,
+      "prompt_preview": "Investigate: warning ContainerMemoryExhaustionPredicted in demo-telemetry \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T22:42:53+00:00",
+      "event_id": "ffff31a5-b44b-44ad-a763-44bfb736c538",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tokens_used": 8283,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 6,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T22:43:23+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "44d35842-f4e3-4692-a0f2-0f8897dc6fae",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "prompt_length": 31195,
+      "prompt_preview": "Investigate: warning ContainerMemoryExhaustionPredicted in demo-telemetry \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:23+00:00",
+      "event_id": "c83b371e-3c98-48f4-b855-e8b640265960",
+      "tool_name": "resources_list",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": "- apiVersion: apps/v1\n  kind: ReplicaSet\n  metadata:\n    annotations:\n      deployment.kubernetes.io/desired-replicas: \"2\"\n      deployment.kubernetes.io/max-replicas: \"3\"\n      deployment.kubernetes.io/revision: \"1\"\n    creationTimestamp: \"2026-10-01T22:41:46Z\"\n    generation: 1\n    labels:\n      app: data-service\n      pod-template-hash: 6464fb6799\n    name: data-service-6464fb6799\n    namespace: demo-telemetry\n    ownerReferences:\n    - apiVersion: apps/v1\n      blockOwnerDeletion: true\n      controller: true\n      kind: Deployment\n      name: data-service\n      uid: 91f23f29-18b1-4f32-9b8f-c3b9017b2341\n    resourceVersion: \"26159\"\n    uid: 53e5d287-b8ee-4329-8208-892462633b58\n  spec:\n    replicas: 2\n    selector:\n      matchLabels:\n        app: data-service\n        pod-template-hash: 6464fb6799\n    template:\n      metadata:\n        labels:\n          app: data-service\n          pod-template-hash: 6464fb6799\n      spec:\n        containers:\n        - image: quay.io/kubernaut-cicd/demo-http-server:1.0.0\n          imagePullPolicy: IfNotPresent\n          livenessProbe:\n            failureThreshold: 3\n            httpGet:\n              path: /healthz\n              port: 8080\n              scheme: HTTP\n            initialDelaySeconds: 5\n            periodSeconds: 10\n            successThreshold: 1\n            timeoutSeconds: 1\n          name: app\n          ports:\n          - containerPort: 8080\n            protocol: TCP\n          readinessProbe:\n            failureThreshold: 3\n            httpGet:\n              path: /healthz\n              port: 8080\n              scheme: HTTP\n            initialDelaySeconds: 3\n            periodSeconds: 5\n            successThreshold: 1\n            timeoutSeconds: 1\n          resources:\n            limits:\n              cpu: 50m\n              memory: 64Mi\n            requests:\n              cpu: 10m\n              memory: 64Mi\n          terminationMessagePath: /dev/termination-log\n          terminationMessagePolicy: File\n        - args:\n          - |\n            i=0\n            while true; do\n              dd if=/dev/urandom of=/data/leak_$i bs=1M count=1 2>/dev/null\n              i=$((i + 1))\n              sleep 5\n            done\n          command:\n          - sh\n          - -c\n          image: registry.k8s.io/e2e-test-images/busybox:1.29-2\n          imagePullPolicy: IfNotPresent\n          name: data-processor\n          resources:\n            limits:\n              cpu: 20m\n              memory: 192Mi\n            requests:\n              cpu: 5m\n              memory: 32Mi\n          terminationMessagePath: /dev/termination-log\n          terminationMessagePolicy: File\n          volumeMounts:\n          - mountPath: /data\n            name: data-cache\n        dnsPolicy: ClusterFirst\n        restartPolicy: Always\n        schedulerName: default-scheduler\n        securityContext: {}\n        terminationGracePeriodSeconds: 30\n        volumes:\n        - emptyDir:\n            medium: Memory\n            sizeLimit: 256Mi\n          name: data-cache\n  status:\n    availableReplicas: 2\n    fullyLabeledReplicas: 2\n    observedGeneration: 1\n    readyReplicas: 2\n    replicas: 2\n    terminatingReplicas: 0",
+      "tool_arguments": {
+        "kind": "ReplicaSet",
+        "namespace": "demo-telemetry",
+        "apiVersion": "apps/v1",
+        "labelSelector": "app=data-service"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "- apiVersion: apps/v1\n  kind: ReplicaSet\n  metadata:\n    annotations:\n      deployment.kubernetes.io/desired-replicas: \"2\"\n      deployment.kubernetes.io/max-replicas: \"3\"\n      deployment.kubernetes.io/revision: \"1\"\n    creationTimestamp: \"2026-10-01T22:41:46Z\"\n    generation: 1\n    labels:\n      app: data-service\n      pod-template-hash: 6464fb6799\n    name: data-service-6464fb6799\n    namespace: demo-telemetry\n    ownerReferences:\n    - apiVersion: apps/v1\n      blockOwnerDeletion: true\n     "
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:23+00:00",
+      "event_id": "20f64f1e-437f-4f13-8e88-bc0b6d53c286",
+      "tool_name": "resources_get",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"1\"\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"data-service\",\"kubernaut.ai/managed\":\"true\"},\"name\":\"data-service\",\"namespace\":\"demo-telemetry\"},\"spec\":{\"replicas\":2,\"selector\":{\"matchLabels\":{\"app\":\"data-service\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"data-service\"}},\"spec\":{\"containers\":[{\"image\":\"quay.io/kubernaut-cicd/demo-http-server:1.0.0\",\"livenessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":8080},\"initialDelaySeconds\":5,\"periodSeconds\":10},\"name\":\"app\",\"ports\":[{\"containerPort\":8080}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":8080},\"initialDelaySeconds\":3,\"periodSeconds\":5},\"resources\":{\"limits\":{\"cpu\":\"50m\",\"memory\":\"64Mi\"},\"requests\":{\"cpu\":\"10m\",\"memory\":\"64Mi\"}}},{\"args\":[\"i=0\\nwhile true; do\\n  dd if=/dev/urandom of=/data/leak_$i bs=1M count=1 2\\u003e/dev/null\\n  i=$((i + 1))\\n  sleep 5\\ndone\\n\"],\"command\":[\"sh\",\"-c\"],\"image\":\"registry.k8s.io/e2e-test-images/busybox:1.29-2\",\"name\":\"data-processor\",\"resources\":{\"limits\":{\"cpu\":\"20m\",\"memory\":\"192Mi\"},\"requests\":{\"cpu\":\"5m\",\"memory\":\"32Mi\"}},\"volumeMounts\":[{\"mountPath\":\"/data\",\"name\":\"data-cache\"}]}],\"volumes\":[{\"emptyDir\":{\"medium\":\"Memory\",\"sizeLimit\":\"256Mi\"},\"name\":\"data-cache\"}]}}}}\n  creationTimestamp: \"2026-10-01T22:41:46Z\"\n  generation: 1\n  labels:\n    app: data-service\n    kubernaut.ai/managed: \"true\"\n  name: data-service\n  namespace: demo-telemetry\n  resourceVersion: \"26161\"\n  uid: 91f23f29-18b1-4f32-9b8f-c3b9017b2341\nspec:\n  progressDeadlineSeconds: 600\n  replicas: 2\n  revisionHistoryLimit: 10\n  selector:\n    matchLabels:\n      app: data-service\n  strategy:\n    rollingUpdate:\n      maxSurge: 25%\n      maxUnavailable: 25%\n    type: RollingUpdate\n  template:\n    metadata:\n      labels:\n        app: data-service\n    spec:\n      containers:\n      - image: quay.io/kubernaut-cicd/demo-http-server:1.0.0\n        imagePullPolicy: IfNotPresent\n        livenessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 5\n          periodSeconds: 10\n          successThreshold: 1\n          timeoutSeconds: 1\n        name: app\n        ports:\n        - containerPort: 8080\n          protocol: TCP\n        readinessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 3\n          periodSeconds: 5\n          successThreshold: 1\n          timeoutSeconds: 1\n        resources:\n          limits:\n            cpu: 50m\n            memory: 64Mi\n          requests:\n            cpu: 10m\n            memory: 64Mi\n        terminationMessagePath: /dev/termination-log\n        terminationMessagePolicy: File\n      - args:\n        - |\n          i=0\n          while true; do\n            dd if=/dev/urandom of=/data/leak_$i bs=1M count=1 2>/dev/null\n            i=$((i + 1))\n            sleep 5\n          done\n        command:\n        - sh\n        - -c\n        image: registry.k8s.io/e2e-test-images/busybox:1.29-2\n        imagePullPolicy: IfNotPresent\n        name: data-processor\n        resources:\n          limits:\n            cpu: 20m\n            memory: 192Mi\n          requests:\n            cpu: 5m\n            memory: 32Mi\n        terminationMessagePath: /dev/termination-log\n        terminationMessagePolicy: File\n        volumeMounts:\n        - mountPath: /data\n          name: data-cache\n      dnsPolicy: ClusterFirst\n      restartPolicy: Always\n      schedulerName: default-scheduler\n      securityContext: {}\n      terminationGracePeriodSeconds: 30\n      volumes:\n      - emptyDir:\n          medium: Memory\n          sizeLimit: 256Mi\n        name: data-cache\nstatus:\n  availableReplicas: 2\n  conditions:\n  - lastTransitionTime: \"2026-10-01T22:41:51Z\"\n    lastUpdateTime: \"2026-10-01T22:41:51Z\"\n    message: Deployment has minimum availability.\n    reason: MinimumReplicasAvailable\n    status: \"True\"\n    type: Available\n  - lastTransitionTime: \"2026-10-01T22:41:46Z\"\n    lastUpdateTime: \"2026-10-01T22:41:51Z\"\n    message: ReplicaSet \"data-service-6464fb6799\" has successfully progressed.\n    reason: NewReplicaSetAvailable\n    status: \"True\"\n    type: Progressing\n  observedGeneration: 1\n  readyReplicas: 2\n  replicas: 2\n  terminatingReplicas: 0\n  updatedReplicas: 2",
+      "tool_arguments": {
+        "kind": "Deployment",
+        "name": "data-service",
+        "namespace": "demo-telemetry",
+        "apiVersion": "apps/v1"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"1\"\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"data-service\",\"kubernaut.ai/managed\":\"true\"},\"name\":\"data-service\",\"namespace\":\"demo-telemetry\"},\"spec\":{\"replicas\":2,\"selector\":{\"matchLabels\":{\"app\":\"data-service\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"data-service\"}},\"spec\":{\"c"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:23+00:00",
+      "event_id": "87852342-ea4d-4065-9b4c-d35ababd8f5c",
+      "tool_name": "pods_top",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": "NAMESPACE        POD                             NAME             CPU(cores)   MEMORY(bytes)   SWAP(bytes)   \ndemo-telemetry   data-service-6464fb6799-pczq5   app              1m           2Mi             0Mi           \ndemo-telemetry   data-service-6464fb6799-pczq5   data-processor   2m           10Mi            0Mi           \ndemo-telemetry   data-service-6464fb6799-wsbxv   app              1m           2Mi             0Mi           \ndemo-telemetry   data-service-6464fb6799-wsbxv   data-processor   2m           10Mi            0Mi           \n                                                                               ________        ________      \n                                                                               4m              24Mi          0Mi   ",
+      "tool_arguments": {
+        "namespace": "demo-telemetry",
+        "all_namespaces": false,
+        "label_selector": "app=data-service"
+      },
+      "tool_call_index": 4,
+      "tool_result_preview": "NAMESPACE        POD                             NAME             CPU(cores)   MEMORY(bytes)   SWAP(bytes)   \ndemo-telemetry   data-service-6464fb6799-pczq5   app              1m           2Mi             0Mi           \ndemo-telemetry   data-service-6464fb6799-pczq5   data-processor   2m           10Mi            0Mi           \ndemo-telemetry   data-service-6464fb6799-wsbxv   app              1m           2Mi             0Mi           \ndemo-telemetry   data-service-6464fb6799-wsbxv   data-proces"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:23+00:00",
+      "event_id": "f829c92d-3fb2-42b6-ad9f-4e2b4760a289",
+      "tool_name": "events_list",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-pczq5\n    apiVersion: v1\n  Message: Successfully assigned demo-telemetry/data-service-6464fb6799-pczq5 to kubernaut-remote-cluster-control-plane\n  Namespace: demo-telemetry\n  Reason: Scheduled\n  Timestamp: 2026-10-01 22:41:46 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-pczq5\n    apiVersion: v1\n  Message: Container image \"quay.io/kubernaut-cicd/demo-http-server:1.0.0\" already\n    present on machine and can be accessed by the pod\n  Namespace: demo-telemetry\n  Reason: Pulled\n  Timestamp: 2026-10-01 22:41:47 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-pczq5\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-telemetry\n  Reason: Created\n  Timestamp: 2026-10-01 22:41:47 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-pczq5\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-telemetry\n  Reason: Started\n  Timestamp: 2026-10-01 22:41:48 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-pczq5\n    apiVersion: v1\n  Message: Pulling image \"registry.k8s.io/e2e-test-images/busybox:1.29-2\"\n  Namespace: demo-telemetry\n  Reason: Pulling\n  Timestamp: 2026-10-01 22:41:48 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-pczq5\n    apiVersion: v1\n  Message: 'Successfully pulled image \"registry.k8s.io/e2e-test-images/busybox:1.29-2\"\n    in 1.481s (1.481s including waiting). Image size: 773367 bytes.'\n  Namespace: demo-telemetry\n  Reason: Pulled\n  Timestamp: 2026-10-01 22:41:49 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-pczq5\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-telemetry\n  Reason: Created\n  Timestamp: 2026-10-01 22:41:49 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-pczq5\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-telemetry\n  Reason: Started\n  Timestamp: 2026-10-01 22:41:50 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-wsbxv\n    apiVersion: v1\n  Message: Successfully assigned demo-telemetry/data-service-6464fb6799-wsbxv to kubernaut-remote-cluster-control-plane\n  Namespace: demo-telemetry\n  Reason: Scheduled\n  Timestamp: 2026-10-01 22:41:46 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-wsbxv\n    apiVersion: v1\n  Message: Container image \"quay.io/kubernaut-cicd/demo-http-server:1.0.0\" already\n    present on machine and can be accessed by the pod\n  Namespace: demo-telemetry\n  Reason: Pulled\n  Timestamp: 2026-10-01 22:41:47 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-wsbxv\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-telemetry\n  Reason: Created\n  Timestamp: 2026-10-01 22:41:47 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-wsbxv\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-telemetry\n  Reason: Started\n  Timestamp: 2026-10-01 22:41:48 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-wsbxv\n    apiVersion: v1\n  Message: Pulling image \"registry.k8s.io/e2e-test-images/busybox:1.29-2\"\n  Namespace: demo-telemetry\n  Reason: Pulling\n  Timestamp: 2026-10-01 22:41:48 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-wsbxv\n    apiVersion: v1\n  Message: 'Successfully pulled image \"registry.k8s.io/e2e-test-images/busybox:1.29-2\"\n    in 296ms (1.701s including waiting). Image size: 773367 bytes.'\n  Namespace: demo-telemetry\n  Reason: Pulled\n  Timestamp: 2026-10-01 22:41:49 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-wsbxv\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-telemetry\n  Reason: Created\n  Timestamp: 2026-10-01 22:41:49 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-wsbxv\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-telemetry\n  Reason: Started\n  Timestamp: 2026-10-01 22:41:50 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: data-service-6464fb6799\n    apiVersion: apps/v1\n  Message: 'Created pod: data-service-6464fb6799-pczq5'\n  Namespace: demo-telemetry\n  Reason: SuccessfulCreate\n  Timestamp: 2026-10-01 22:41:46 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: data-service-6464fb6799\n    apiVersion: apps/v1\n  Message: 'Created pod: data-service-6464fb6799-wsbxv'\n  Namespace: demo-telemetry\n  Reason: SuccessfulCreate\n  Timestamp: 2026-10-01 22:41:46 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Deployment\n    Name: data-service\n    apiVersion: apps/v1\n  Message: Scaled up replica set data-service-6464fb6799 from 0 to 2\n  Namespace: demo-telemetry\n  Reason: ScalingReplicaSet\n  Timestamp: 2026-10-01 22:41:46 +0000 UTC\n  Type: Normal",
+      "tool_arguments": {
+        "namespace": "demo-telemetry"
+      },
+      "tool_call_index": 3,
+      "tool_result_preview": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-pczq5\n    apiVersion: v1\n  Message: Successfully assigned demo-telemetry/data-service-6464fb6799-pczq5 to kubernaut-remote-cluster-control-plane\n  Namespace: demo-telemetry\n  Reason: Scheduled\n  Timestamp: 2026-10-01 22:41:46 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: data-service-6464fb6799-pczq5\n    apiVersion: v1\n  Message: Container image \"quay.io/kuberna"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:23+00:00",
+      "event_id": "1ba093b4-aa98-4501-b410-015bedef9b9d",
+      "tool_name": "pods_list_in_namespace",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": "## Summary\n\n- **Namespace:** `demo-telemetry`\n- **Workload:** Two `data-service` pods owned by ReplicaSet `data-service-6464fb6799` (hash `6464fb6799`)\n- **Created/started:** Both created and scheduled at `2026-10-01T22:41:46Z`; all containers started by `22:41:50Z`\n- **Node:** `kubernaut-remote-cluster-control-plane`\n- **Phase/health:** Both pods are `Running`, `Ready`, and `ContainersReady`; all pod conditions are `True`\n- **Restarts:** None (`restartCount: 0` for every container)\n- **Networking:** Host and pod IPs are redacted\n\n### Pods\n\n1. **`data-service-6464fb6799-pczq5`**\n   - UID: `bb82268e-8f13-4da6-894b-30aeebc8701e`\n   - Container IDs:\n     - `app`: `containerd://8ee2b760...`\n     - `data-processor`: `containerd://b8477211...`\n   - Resource allocation: `15m` CPU, `96Mi` memory\n\n2. **`data-service-6464fb6799-wsbxv`**\n   - UID: `df5e6067-524f-41d2-b4be-a12e7ccce206`\n   - Container IDs:\n     - `app`: `containerd://908ad09d...`\n     - `data-processor`: `containerd://1ed89235...`\n   - Resource allocation: `15m` CPU, `96Mi` memory\n\n### Container configuration\n\n- **`app`**\n  - Image: `quay.io/kubernaut-cicd/demo-http-server:1.0.0`\n  - Digest: `sha256:bfb8c987...`\n  - Serves TCP port `8080`\n  - Readiness probe: HTTP `/healthz`, initial delay `3s`, period `5s`, timeout `1s`\n  - Liveness probe: HTTP `/healthz`, initial delay `5s`, period `10s`, timeout `1s`\n  - Requests/limits: `10m/50m` CPU, `64Mi/64Mi` memory\n  - Runs as non-root UID/GID `65534`\n\n- **`data-processor`**\n  - Image: `registry.k8s.io/e2e-test-images/busybox:1.29-2`\n  - Digest: `sha256:c3182427...`\n  - Runs an infinite loop writing a 1 MiB random file to `/data/leak_<i>` every 5 seconds\n  - Requests/limits: `5m/20m` CPU, `32Mi/192Mi` memory\n  - Runs as root UID/GID `0`\n  - Uses `/data` backed by an in-memory `emptyDir` with a **256Mi size limit**\n\n### Resource and incident-relevant observations\n\n- Each pod has total limits of **70m CPU and 256Mi memory**, with **Burstable** QoS.\n- The `data-processor` workload continuously writes approximately **12 MiB per minute** of random data to the memory-backed volume. This can consume the full **256Mi `emptyDir` capacity in roughly 21\u201322 minutes** if files remain present.\n- Both pods are currently healthy, but the continuous in-memory file generation is a likely source of future `emptyDir` exhaustion, write failures, and related application impact.\n- Both pods use the `default` service account and mount projected Kubernetes API credentials.",
+      "tool_arguments": {
+        "namespace": "demo-telemetry",
+        "labelSelector": "app=data-service"
+      },
+      "tool_call_index": 2,
+      "tool_result_preview": "## Summary\n\n- **Namespace:** `demo-telemetry`\n- **Workload:** Two `data-service` pods owned by ReplicaSet `data-service-6464fb6799` (hash `6464fb6799`)\n- **Created/started:** Both created and scheduled at `2026-10-01T22:41:46Z`; all containers started by `22:41:50Z`\n- **Node:** `kubernaut-remote-cluster-control-plane`\n- **Phase/health:** Both pods are `Running`, `Ready`, and `ContainersReady`; all pod conditions are `True`\n- **Restarts:** None (`restartCount: 0` for every container)\n- **Networki"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:23+00:00",
+      "event_id": "ca5e9606-2ac9-4d0f-a01d-b37e788afe24",
+      "tool_name": "get_metric_names",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": {
+        "error": "prometheus request: Get \"http://thanos-querier-svc.monitoring.svc.cluster.local:9090/api/v1/label/__name__/values?match%5B%5D=%7B__name__%3D~%22.%2Amemory.%2A%7C.%2Acontainer.%2Aoom.%2A%22%7D\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "match": "{__name__=~\".*memory.*|.*container.*oom.*\"}"
+      },
+      "tool_call_index": 5,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"prometheus request: Get \\\"http://thanos-querier-svc.monitoring.svc.cluster.local:9090/api/v1/label/__name__/values?match%5B%5D=%7B__name__%3D~%22.%2Amemory.%2A%7C.%2Acontainer.%2Aoom.%2A%22%7D\\\": net/http: request canceled while waiting for connection (Client.Timeout exceeded while awaiting headers)\"}"
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T22:43:26+00:00",
+      "event_id": "73278158-8eae-421d-9f97-d5051c97e15e",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tokens_used": 13840,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 9,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:27+00:00",
+      "event_id": "e64e5139-b6df-4fd5-80c1-fe64f3136372",
+      "tool_name": "pods_log",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_log\" (cluster \"remote-cluster\") returned error: failed to get pod data-service-6464fb6799-pczq5 log in namespace demo-telemetry: previous terminated container \"data-processor\" in pod \"data-service-6464fb6799-pczq5\" not found",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "data-service-6464fb6799-pczq5",
+        "tail": 100,
+        "previous": true,
+        "container": "data-processor",
+        "namespace": "demo-telemetry"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_log\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get pod data-service-6464fb6799-pczq5 log in namespace demo-telemetry: previous terminated container \\\"data-processor\\\" in pod \\\"data-service-6464fb6799-pczq5\\\" not found\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:27+00:00",
+      "event_id": "68e37c25-53d7-475a-9f29-e712af6310a9",
+      "tool_name": "pods_log",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": "The pod data-service-6464fb6799-wsbxv in namespace demo-telemetry has not logged any message yet",
+      "tool_arguments": {
+        "name": "data-service-6464fb6799-wsbxv",
+        "tail": 100,
+        "container": "data-processor",
+        "namespace": "demo-telemetry"
+      },
+      "tool_call_index": 4,
+      "tool_result_preview": "The pod data-service-6464fb6799-wsbxv in namespace demo-telemetry has not logged any message yet"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:27+00:00",
+      "event_id": "e9fc9b1f-df81-4fe0-92f1-5e5a53135097",
+      "tool_name": "pods_log",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_log\" (cluster \"remote-cluster\") returned error: failed to get pod data-service-6464fb6799-pczq5 log in namespace demo-telemetry: previous terminated container \"app\" in pod \"data-service-6464fb6799-pczq5\" not found",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "data-service-6464fb6799-pczq5",
+        "tail": 100,
+        "previous": true,
+        "container": "app",
+        "namespace": "demo-telemetry"
+      },
+      "tool_call_index": 3,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_log\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get pod data-service-6464fb6799-pczq5 log in namespace demo-telemetry: previous terminated container \\\"app\\\" in pod \\\"data-service-6464fb6799-pczq5\\\" not found\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:27+00:00",
+      "event_id": "a4b89699-a4b4-4f88-871d-f8aa09070253",
+      "tool_name": "pods_log",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": "2026/10/01 22:41:48 demo-http-server starting on :8080 (config=/etc/demo-http-server/config.yaml, tls=false)",
+      "tool_arguments": {
+        "name": "data-service-6464fb6799-pczq5",
+        "tail": 100,
+        "container": "app",
+        "namespace": "demo-telemetry"
+      },
+      "tool_call_index": 2,
+      "tool_result_preview": "2026/10/01 22:41:48 demo-http-server starting on :8080 (config=/etc/demo-http-server/config.yaml, tls=false)"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:27+00:00",
+      "event_id": "60dc4ccb-e734-41fd-9e26-93b627450f39",
+      "tool_name": "nodes_stats_summary",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__nodes_stats_summary\" (cluster \"remote-cluster\") returned error: failed to get node stats summary for kubernaut-remote-cluster-control-plane: failed to get node stats summary: nodes \"kubernaut-remote-cluster-control-plane\" is forbidden: User \"keycloak:service-account-kubernaut-fleet-read\" cannot get resource \"nodes/proxy\" in API group \"\" at the cluster scope",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "kubernaut-remote-cluster-control-plane"
+      },
+      "tool_call_index": 7,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__nodes_stats_summary\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get node stats summary for kubernaut-remote-cluster-control-plane: failed to get node stats summary: nodes \\\"kubernaut-remote-cluster-control-plane\\\" is forbidden: User \\\"keycloak:service-account-kubernaut-fleet-read\\\" cannot get resource \\\"nodes/proxy\\\" in API group \\\"\\\" at the cluster scope\"}"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T22:43:27+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "44842555-6911-45d3-bbd1-1c519b4ff1db",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "prompt_length": 33291,
+      "prompt_preview": "Investigate: warning ContainerMemoryExhaustionPredicted in demo-telemetry \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:27+00:00",
+      "event_id": "f5912d9f-24db-471d-a6be-817cd2f34cd2",
+      "tool_name": "pods_log",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": "The pod data-service-6464fb6799-pczq5 in namespace demo-telemetry has not logged any message yet",
+      "tool_arguments": {
+        "name": "data-service-6464fb6799-pczq5",
+        "tail": 100,
+        "container": "data-processor",
+        "namespace": "demo-telemetry"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "The pod data-service-6464fb6799-pczq5 in namespace demo-telemetry has not logged any message yet"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:27+00:00",
+      "event_id": "3b30277a-53f8-4ace-accd-4b8e4cc9ef69",
+      "tool_name": "pods_log",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_log\" (cluster \"remote-cluster\") returned error: failed to get pod data-service-6464fb6799-wsbxv log in namespace demo-telemetry: previous terminated container \"data-processor\" in pod \"data-service-6464fb6799-wsbxv\" not found",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "data-service-6464fb6799-wsbxv",
+        "tail": 100,
+        "previous": true,
+        "container": "data-processor",
+        "namespace": "demo-telemetry"
+      },
+      "tool_call_index": 5,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_log\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get pod data-service-6464fb6799-wsbxv log in namespace demo-telemetry: previous terminated container \\\"data-processor\\\" in pod \\\"data-service-6464fb6799-wsbxv\\\" not found\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:27+00:00",
+      "event_id": "86080536-ff37-4c3d-b605-4a15273f7662",
+      "tool_name": "nodes_top",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": "NAME                                     CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   SWAP(bytes)   SWAP(%)   \nkubernaut-remote-cluster-control-plane   320m         5%       2404Mi          17%         0Mi           ",
+      "tool_arguments": {
+        "name": "kubernaut-remote-cluster-control-plane"
+      },
+      "tool_call_index": 6,
+      "tool_result_preview": "NAME                                     CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   SWAP(bytes)   SWAP(%)   \nkubernaut-remote-cluster-control-plane   320m         5%       2404Mi          17%         0Mi           "
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:27+00:00",
+      "event_id": "4d7ddf2a-482c-4f0a-87f4-a70d31865000",
+      "tool_name": "get_namespaced_resource_context",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": {
+        "root_owner": {
+          "kind": "Deployment",
+          "name": "data-service",
+          "namespace": "demo-telemetry"
+        },
+        "remediation_history": {
+          "tier1": [],
+          "tier2": [],
+          "tier1_window": "24h0m0s",
+          "tier2_window": "2160h0m0s",
+          "target_resource": "demo-telemetry/Deployment/data-service",
+          "regression_detected": false
+        }
+      },
+      "tool_arguments": {
+        "kind": "Deployment",
+        "name": "data-service",
+        "namespace": "demo-telemetry"
+      },
+      "tool_call_index": 8,
+      "tool_result_preview": "{\"root_owner\":{\"kind\":\"Deployment\",\"name\":\"data-service\",\"namespace\":\"demo-telemetry\"},\"remediation_history\":{\"target_resource\":\"demo-telemetry/Deployment/data-service\",\"regression_detected\":false,\"tier1\":[],\"tier1_window\":\"24h0m0s\",\"tier2\":[],\"tier2_window\":\"2160h0m0s\"}}"
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T22:43:37+00:00",
+      "event_id": "094a3dc7-7aa8-4f59-9909-d0b4ee6056d6",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tokens_used": 15649,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T22:43:53+00:00",
+      "model": "gpt-5.6-luna",
+      "event_id": "3ed0f9ec-9d30-417c-9fe9-52ed335782bb",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "prompt_length": 34361,
+      "retry_outcome": "resolved",
+      "prompt_preview": "Your remediation_target.kind is \"Deployment\", which is the same resource kind as the input signal. Signals often propagate upward: workload-level issues manifest as conditions on parent resources (e.g., pod memory leaks cause node DiskPressure, deployment misconfigurations appear as node conditions). Please re-evaluate: is a child resource (Deployment, StatefulSet, DaemonSet, Pod) the actual root cause whose configuration should be modified? If after re-evaluation you are confident the Deploymen"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:53+00:00",
+      "event_id": "101d0b8f-951c-4cbe-bccc-53100fb8b419",
+      "tool_name": "list_available_actions",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": {
+        "actionTypes": [
+          {
+            "rank": 1,
+            "preferred": true,
+            "actionType": "ExpandPersistentVolumeClaim",
+            "description": {
+              "what": "Expand a PersistentVolumeClaim by patching its storage request to a larger size, leveraging the CSI driver's online volume expansion capability.",
+              "whenToUse": "When a PVC is projected to exhaust capacity based on storage growth trends (predict_linear), and the underlying StorageClass supports allowVolumeExpansion. The workload must be using a CSI-backed PVC with a filesystem that supports online resize (ext4, xfs).",
+              "whenNotToUse": "When disk growth is caused by stale data that should be cleaned up rather than accommodated. When the StorageClass does not support volume expansion. When the PVC is backed by a non-CSI provisioner.",
+              "preconditions": "The PVC's StorageClass has allowVolumeExpansion: true. The CSI driver supports ControllerExpandVolume and NodeExpandVolume RPCs. Sufficient storage capacity exists in the underlying storage pool."
+            },
+            "workflowCount": 1,
+            "preferenceReason": "highest-scoring matching workflow",
+            "matchedDetectedLabels": null
+          },
+          {
+            "rank": 2,
+            "preferred": false,
+            "actionType": "GracefulRestart",
+            "description": {
+              "what": "Perform a graceful rolling restart of a workload to reset its runtime state.",
+              "whenToUse": "Predictive analysis indicates an impending failure (memory leak, resource exhaustion) that can be prevented by proactively restarting before the crash occurs.",
+              "whenNotToUse": "When the issue is caused by a code bug or misconfiguration that will recur after restart.",
+              "preconditions": "Evidence of gradual resource degradation (trending metrics) and the workload supports rolling restarts without data loss."
+            },
+            "workflowCount": 1,
+            "preferenceReason": "highest-scoring matching workflow",
+            "matchedDetectedLabels": null
+          },
+          {
+            "rank": 3,
+            "preferred": false,
+            "actionType": "RelaxPDB",
+            "description": {
+              "what": "Temporarily relax a PodDisruptionBudget to unblock a pending node drain, then restore it.",
+              "whenToUse": "A node drain is blocked because a PDB prevents evicting the required number of pods.",
+              "whenNotToUse": "When the PDB is correctly preventing unsafe evictions and the drain should be postponed.",
+              "preconditions": "Confirmed that the drain is intentional and the PDB is the sole blocker. The workload can tolerate temporary reduced availability."
+            },
+            "workflowCount": 1,
+            "preferenceReason": "highest-scoring matching workflow",
+            "matchedDetectedLabels": null
+          },
+          {
+            "rank": 4,
+            "preferred": false,
+            "actionType": "RemoveTaint",
+            "description": {
+              "what": "Remove a taint from a Kubernetes node to allow pod scheduling.",
+              "whenToUse": "Pods are Pending because the target node has a taint that prevents scheduling, and the taint is no longer necessary.",
+              "whenNotToUse": "When the taint was applied intentionally for maintenance or isolation purposes.",
+              "preconditions": "The taint condition has been resolved and the node is healthy for general workload scheduling."
+            },
+            "workflowCount": 1,
+            "preferenceReason": "highest-scoring matching workflow",
+            "matchedDetectedLabels": null
+          }
+        ]
+      },
+      "tool_arguments": {},
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"actionTypes\":[{\"actionType\":\"ExpandPersistentVolumeClaim\",\"description\":{\"what\":\"Expand a PersistentVolumeClaim by patching its storage request to a larger size, leveraging the CSI driver's online volume expansion capability.\",\"whenToUse\":\"When a PVC is projected to exhaust capacity based on storage growth trends (predict_linear), and the underlying StorageClass supports allowVolumeExpansion. The workload must be using a CSI-backed PVC with a filesystem that supports online resize (ext4, xfs)."
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T22:43:53+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "7e062d38-d0d1-4e04-963f-d514153f3cfb",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "prompt_length": 9515,
+      "prompt_preview": "RCA findings: The predicted memory exhaustion is caused by the `data-processor` sidecar in Deployment `data-service` continuously writing 1 MiB files every 5 seconds to a memory-backed `emptyDir`; the Deployment is the correct remediation target because it owns that pod-template configuration.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "prompt_labels_present": false,
+        "signal_labels_present": true,
+        "enrichment_labels_present": false
+      }
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T22:43:53+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "8e5b2684-a904-4cf1-b38e-dae144218f40",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "prompt_length": 12473,
+      "prompt_preview": "RCA findings: The predicted memory exhaustion is caused by the `data-processor` sidecar in Deployment `data-service` continuously writing 1 MiB files every 5 seconds to a memory-backed `emptyDir`; the Deployment is the correct remediation target because it owns that pod-template configuration.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "prompt_labels_present": false,
+        "signal_labels_present": true,
+        "enrichment_labels_present": false
+      }
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T22:43:53+00:00",
+      "event_id": "36537721-055d-48e7-8c97-e24252b02438",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tokens_used": 3237,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T22:43:54+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "588574ba-ac7f-4f74-ad0b-00da200544e7",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "prompt_length": 13731,
+      "prompt_preview": "RCA findings: The predicted memory exhaustion is caused by the `data-processor` sidecar in Deployment `data-service` continuously writing 1 MiB files every 5 seconds to a memory-backed `emptyDir`; the Deployment is the correct remediation target because it owns that pod-template configuration.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "prompt_labels_present": false,
+        "signal_labels_present": true,
+        "enrichment_labels_present": false
+      }
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:54+00:00",
+      "event_id": "c3e5cbab-30c2-43cf-a11b-8042b4f987f0",
+      "tool_name": "list_workflows",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": {
+        "workflows": [
+          {
+            "name": "graceful-restart-v1",
+            "version": "1.6.3",
+            "workflowId": "6ad7c705-7177-55cd-8c19-f687c26befea",
+            "description": {
+              "what": "Performs a zero-downtime rolling restart of a deployment to reset container runtime state, reclaiming memory consumed by leaks or unbounded allocations before the kubelet OOMKills the container",
+              "whenToUse": "When a container's memory usage is growing monotonically toward its limit \u2014 indicating a memory leak, unbounded cache, or resource accumulation \u2014 and a pod restart will reset the process memory without data loss. This is the standard production first-response for predicted OOM: preserve service availability now while the development team addresses the underlying defect in the next release cycle",
+              "whenNotToUse": "When memory growth is from legitimate workload activity (cache warming, batch data loading, JVM heap expansion) that will plateau below the limit, or when the process holds critical in-memory state that cannot be recovered after restart",
+              "preconditions": "The deployment uses a rolling update strategy, the PodDisruptionBudget (if any) permits pod cycling, and the application is stateless or persists its state externally"
+            },
+            "workflowName": "graceful-restart-v1"
+          }
+        ],
+        "actionType": "GracefulRestart"
+      },
+      "tool_arguments": {
+        "action_type": "GracefulRestart"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"actionType\":\"GracefulRestart\",\"workflows\":[{\"workflowId\":\"6ad7c705-7177-55cd-8c19-f687c26befea\",\"workflowName\":\"graceful-restart-v1\",\"name\":\"graceful-restart-v1\",\"description\":{\"what\":\"Performs a zero-downtime rolling restart of a deployment to reset container runtime state, reclaiming memory consumed by leaks or unbounded allocations before the kubelet OOMKills the container\",\"whenToUse\":\"When a container's memory usage is growing monotonically toward its limit \u2014 indicating a memory leak, u"
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T22:43:54+00:00",
+      "event_id": "575338cd-f205-40bc-8017-bf925373ed50",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tokens_used": 3867,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T22:43:55+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "b59ac3f4-5bd6-483a-927a-96d5060cfaef",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "prompt_length": 14848,
+      "prompt_preview": "RCA findings: The predicted memory exhaustion is caused by the `data-processor` sidecar in Deployment `data-service` continuously writing 1 MiB files every 5 seconds to a memory-backed `emptyDir`; the Deployment is the correct remediation target because it owns that pod-template configuration.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "prompt_labels_present": false,
+        "signal_labels_present": true,
+        "enrichment_labels_present": false
+      }
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T22:43:55+00:00",
+      "event_id": "bbeb3b7a-b85b-4354-809f-f0ba25751ae2",
+      "tool_name": "get_workflow",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tool_result": {
+        "reason": "workflow_schema_not_persisted",
+        "result_omitted": true
+      },
+      "tool_arguments": {
+        "workflow_id": "6ad7c705-7177-55cd-8c19-f687c26befea"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"result_omitted\":true,\"reason\":\"workflow_schema_not_persisted\"}"
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T22:43:55+00:00",
+      "event_id": "85753932-25e3-486b-b4da-ada24940d481",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tokens_used": 4186,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T22:43:59+00:00",
+      "model": "",
+      "event_id": "44f4912a-d8dc-4491-8f83-b337b0956e6f",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "prompt_length": 0,
+      "prompt_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T22:43:59+00:00",
+      "event_id": "134541db-508d-4f5d-98ac-0db03398ae72",
+      "incident_id": "rr-d6544d3f583b-7d3041dd",
+      "tokens_used": 4733,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    }
+  ],
+  "traceStats": {
+    "totalTokens": 53795,
+    "llmTurns": 7,
+    "totalToolCalls": 18,
+    "k8sToolCalls": 18,
+    "model": "gpt-5.6-luna"
+  },
+  "kaResponse": {
+    "analysis": "The data-processor sidecar continuously writes 1 MiB files every 5 seconds to a memory-backed emptyDir, causing unbounded memory-backed volume growth toward exhaustion. Deployment/data-service owns the pod-template configuration.",
+    "warnings": [],
+    "timestamp": "2026-10-01T22:43:59Z",
+    "confidence": 0.86,
+    "incidentId": "rr-d6544d3f583b-7d3041dd",
+    "isActionable": true,
+    "needsHumanReview": false,
+    "selectedWorkflow": {
+      "confidence": 0.86,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "Deployment",
+        "TARGET_RESOURCE_NAME": "data-service",
+        "TARGET_RESOURCE_NAMESPACE": "demo-telemetry",
+        "TARGET_RESOURCE_API_VERSION": "apps/v1"
+      },
+      "workflowId": "6ad7c705-7177-55cd-8c19-f687c26befea",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/graceful-restart-job@sha256:bf7799f359d9321f84199124ecaf363834d548c4cd8315499baa69520a53a9a9",
+      "workflowName": "graceful-restart-v1"
+    },
+    "rootCauseAnalysis": {
+      "summary": "The data-processor sidecar continuously writes 1 MiB files every 5 seconds to a memory-backed emptyDir, causing unbounded memory-backed volume growth toward exhaustion. Deployment/data-service owns the pod-template configuration.",
+      "severity": "warning",
+      "causalChain": [
+        "Signal: `ContainerMemoryExhaustionPredicted` identifies `data-processor` in pod `data-service-6464fb6799-pczq5` as projected to exceed its memory limit.",
+        "Why? The sidecar has a 192Mi memory limit and continuously accumulates data in `/data`; the current pod usage is already 10Mi and growth is ongoing.",
+        "Why? The command writes one 1MiB file every 5 seconds, approximately 12MiB/minute, without cleanup.",
+        "Why? `/data` is backed by `emptyDir.medium: Memory` with a 256Mi size limit, so generated files consume memory-backed storage and can exhaust the finite volume in about 21\u201322 minutes.",
+        "Root cause: Deployment `data-service` contains an intentionally unbounded `data-processor` file-generation loop mounted onto a memory-backed, finite `emptyDir`; its pod template must be changed."
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "Re-evaluated and confirmed `Deployment/data-service` is the correct target, not a node or derived Pod/ReplicaSet. The signal is generated from a child container, but the remediation must change the Deployment pod template that defines the sidecar command, its resources, and the memory-backed volume. The ReplicaSet and Pods are generated artifacts and are not durable remediation targets.",
+        "proportionality": "The issue affects both replicas but has one common, specific configuration source: the Deployment template. Modifying the Deployment is more precise and durable than changing individual Pods or the node. Node-wide remediation would be disproportionate because current node usage is low and no node-pressure evidence exists.",
+        "scopeCompleteness": "Checked the named Deployment, owning ReplicaSet, both replicas/pods, all relevant container configurations, current resource usage, namespace events, application and sidecar logs including previous-log attempts, node usage, and remediation context. No downstream Service or external dependency was named in the signal, and no evidence indicates they contribute. Previous-log calls correctly found no terminated containers.",
+        "causalCompleteness": "The chain was traced from the prediction to the exact container command, volume medium, volume limit, and Deployment-owned pod template. No deeper application source cause is available; the sidecar command itself is the deepest verified cause.",
+        "evidenceSufficiency": "Deployment and ReplicaSet manifests provide exact command, images, limits, requests, volume type, and size. Pod listing/top provides both affected pod names, readiness, zero restarts, and current usage. Events show successful scheduling/startup without OOM or eviction. App logs show normal startup. Prometheus discovery timed out, and node stats summary was forbidden on `nodes/proxy`; node top was available. The exact growth projection is calculated from the verified 1Mi/5-second loop, not from Prometheus.",
+        "regressionAwareness": "Remediation context reports no prior Tier 1 or Tier 2 remediation history and `regression_detected: false`; there is no failed remediation to work around.",
+        "alternativeHypotheses": "Node-wide memory pressure was considered and contradicted by node top showing 17% memory utilization and no pressure events. Existing OOM/restart was considered and contradicted by both pods having zero restarts and current Running/Ready status. Application-container failure was considered; its log only shows normal startup. Prometheus confirmation could not be obtained due to timeout, so a transient metric-specific alternative cannot be completely eliminated.",
+        "confidenceCalibration": "0.93. Starting from 1.0, reduced by 0.04 because Prometheus metrics were inaccessible due to a request timeout, and by 0.03 because node stats summary was forbidden. The remaining evidence directly verifies the unbounded writer, memory-backed volume, limits, both affected replicas, and absence of current restarts/pressure."
+      },
+      "remediationTarget": {
+        "kind": "Deployment",
+        "name": "data-service",
+        "namespace": "demo-telemetry"
+      },
+      "contributingFactors": [
+        "The data-processor writes approximately 12 MiB per minute indefinitely and never deletes files.",
+        "The /data emptyDir uses medium: Memory with a 256Mi size limit, while the sidecar has a 192Mi memory limit.",
+        "The Deployment has two replicas, so the behavior occurs in both pods."
       ]
     }
   },
-  "remediationRequest": {
-    "outcome": "Remediated"
-  },
-  "kaResponse": {
-    "confidence": 0.88,
-    "analysis": "Intentional memory leak via a 'leaker' sidecar container writing 1MiB/5s to a RAM-backed emptyDir volume (medium:Memory, sizeLimit 256Mi), causing progressive memory exhaustion predicted to hit the pod's 192Mi leaker container limit. Both replicas (on separate nodes) are accumulating leaked memory at ~12MiB/min with no restarts yet, making OOM kill or node memory pressure inevitable without intervention."
-  },
-  "traceStats": {
-    "totalTokens": 113333,
-    "llmTurns": 14,
-    "totalToolCalls": 10
-  },
   "toolCalls": [
     {
-      "tool": "kubectl_describe",
+      "tool": "resources_list",
+      "index": 1
+    },
+    {
+      "tool": "resources_get",
       "index": 0
     },
     {
-      "tool": "kubectl_events",
-      "index": 1
+      "tool": "pods_top",
+      "index": 4
     },
     {
-      "tool": "kubectl_top_pods",
+      "tool": "events_list",
+      "index": 3
+    },
+    {
+      "tool": "pods_list_in_namespace",
       "index": 2
     },
     {
-      "tool": "kubectl_get_by_name",
+      "tool": "get_metric_names",
+      "index": 5
+    },
+    {
+      "tool": "pods_log",
       "index": 1
     },
     {
-      "tool": "kubectl_describe",
+      "tool": "pods_log",
+      "index": 4
+    },
+    {
+      "tool": "pods_log",
+      "index": 3
+    },
+    {
+      "tool": "pods_log",
       "index": 2
+    },
+    {
+      "tool": "nodes_stats_summary",
+      "index": 7
+    },
+    {
+      "tool": "pods_log",
+      "index": 0
+    },
+    {
+      "tool": "pods_log",
+      "index": 5
+    },
+    {
+      "tool": "nodes_top",
+      "index": 6
     },
     {
       "tool": "get_namespaced_resource_context",
-      "index": 0
-    },
-    {
-      "tool": "kubectl_top_nodes",
-      "index": 1
+      "index": 8
     },
     {
       "tool": "list_available_actions",
@@ -96,5 +921,21 @@
       "tool": "get_workflow",
       "index": 0
     }
-  ]
+  ],
+  "workflowExecution": {
+    "phase": "Completed",
+    "workflowName": "graceful-restart-v1",
+    "workflowId": "6ad7c705-7177-55cd-8c19-f687c26befea",
+    "actionType": "GracefulRestart",
+    "duration": "31s",
+    "targetResource": "demo-telemetry/Deployment/data-service"
+  },
+  "effectivenessAssessment": {
+    "phase": "Completed",
+    "reason": "Full",
+    "details": "Assessment completed: Full",
+    "alertScore": 0,
+    "healthScore": 1,
+    "metricsScore": 0
+  }
 }

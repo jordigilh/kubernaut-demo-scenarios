@@ -1,90 +1,734 @@
 {
+  "schema_version": 1,
+  "_metadata": {
+    "captured_at": "2026-10-02T01:29:12.210549Z",
+    "ka_image": "quay.io/kubernaut-ai/aianalysis:1.6.0-rc20",
+    "model": "gpt-5.6-luna",
+    "cluster": "kind-kubernaut-hub",
+    "chart_version": "1.6.0",
+    "phaseModels": {
+      "rootCauseAnalysis": "gpt-5.6-luna",
+      "workflowDiscovery": "gpt-5.6-luna",
+      "source": "audit_events model fields"
+    },
+    "fleetMode": true,
+    "hubCluster": "kind-kubernaut-hub",
+    "spokeCluster": "kind-kubernaut-remote-cluster"
+  },
   "scenario": "resource-quota-exhaustion",
-  "incidentId": "rr-4045c6c5fbaa-df0bf651",
-  "signal": {
-    "signalName": "KubeResourceQuotaExhausted",
-    "namespace": "demo-quota",
-    "resourceKind": "ReplicaSet",
-    "resourceName": "api-server-964647df6",
-    "severity": "warning"
+  "signalName": "KubeResourceQuotaExhausted",
+  "remediationRequest": {
+    "name": "rr-9a200a4bc21c-aee5cbe9",
+    "phase": "Completed",
+    "outcome": "ManualReviewRequired"
   },
   "analysis": {
-    "phase": "Completed",
+    "remediationId": "rr-9a200a4bc21c-aee5cbe9",
+    "signal": {
+      "signalName": "KubeResourceQuotaExhausted",
+      "severity": "warning",
+      "environment": "Production",
+      "targetResource": {
+        "kind": "Deployment",
+        "name": "api-server",
+        "namespace": "demo-platform"
+      },
+      "businessPriority": "P3"
+    },
+    "investigation": {
+      "sessionId": "4a033bfd-8790-4fc5-a06c-1ab596fb3040"
+    },
+    "rootCauseAnalysis": {
+      "summary": "The `api-server` Deployment cannot reach its desired 3 replicas because each pod requests and limits 256Mi memory while `demo-platform/namespace-quota` permits only 512Mi total, already fully consumed by the two existing pods.",
+      "severity": "warning",
+      "causalChain": [
+        "Signal: `KubeResourceQuotaExhausted` reports ReplicaSet `api-server-67969b4d54` has one fewer ready pod than desired.",
+        "Why? The Deployment desires 3 replicas, but the ReplicaSet has only 2 ready replicas and repeated `FailedCreate` events for the third pod.",
+        "Why? The API server rejects each additional pod because `namespace-quota` is exceeded: the pod requests and limits 256Mi memory, while 512Mi is already used against a 512Mi quota.",
+        "Why? Two existing `api-server` pods each reserve 256Mi memory, consuming the entire namespace quota; the quota was sized for only two such replicas, while the Deployment is configured for three.",
+        "Root cause: `demo-platform/ResourceQuota/namespace-quota` has insufficient `requests.memory` and `limits.memory` capacity for the declared 3-replica `api-server` workload."
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "The primary target is `ResourceQuota/namespace-quota`, because increasing its memory capacity directly permits the missing pod to be created. The Deployment is the signal reporter and could alternatively be changed to two replicas or lower requests, but quota is the direct admission blocker and most specific target for restoring the declared replica count.",
+        "proportionality": "The incident is specifically a namespace admission-capacity mismatch affecting one Deployment. Targeting the quota is proportional and directly remediable for the declared 3 replicas. The Deployment's 256Mi-per-pod specification and 3-replica desired state are contributing configuration factors, not the primary target because changing quota removes the observed admission failure without altering workload sizing.",
+        "scopeCompleteness": "Inspected the named Deployment, ReplicaSet, representative pods (both available pods; within the three-pod sampling limit), namespace ResourceQuota, events, ConfigMap dependency, node conditions, pod usage, logs/current and previous-log paths, and ownership context. Prometheus metrics were not needed because direct quota status/events were conclusive. Node Summary API was attempted but blocked by RBAC.",
+        "causalCompleteness": "Traced the complete evidence-backed chain from reduced ready replicas through ReplicaSet admission failures to the exact quota and memory arithmetic. No deeper Kubernetes cause was identified; quota sizing/configuration is the deepest reachable cause. Application source and organizational quota policy were not available.",
+        "evidenceSufficiency": "Deployment and ReplicaSet status, ResourceQuota status, namespace events, pod status summary, pod metrics, node conditions, logs, and ConfigMap were inspected. Exact evidence includes 3 desired replicas, 2 ready replicas, 256Mi per pod, 512Mi used, and 512Mi hard quota. Assumptions are limited to whether increasing quota is acceptable under capacity/policy; node stats were inaccessible due to a `nodes/proxy` RBAC denial.",
+        "regressionAwareness": "No prior remediation history is available for `ResourceQuota/namespace-quota`; the Deployment context reports no prior remediation or regression. This proposed quota-capacity correction therefore does not repeat a recorded failed remediation.",
+        "alternativeHypotheses": "Checked for application crash/readiness failure, restart history, invalid configuration, node pressure, and live resource overload. These were contradicted by both pods Running/Ready with zero restarts, normal startup logs, valid `/healthz` configuration, node Ready with all pressure conditions false, and low observed pod usage. The remaining policy/capacity approval question is not an alternative technical cause.",
+        "confidenceCalibration": "0.98: started at 1.0; reduced 0.01 because node Summary API was blocked by missing `nodes/proxy` permission, although node conditions independently showed no pressure; reduced 0.01 because quota policy and whether additional capacity is approved were not verifiable. The direct cause is explicitly confirmed by ResourceQuota status and ReplicaSet/events."
+      },
+      "remediationTarget": {
+        "kind": "ResourceQuota",
+        "name": "namespace-quota",
+        "namespace": "demo-platform"
+      },
+      "contributingFactors": [
+        "ResourceQuota `namespace-quota` has hard limits.memory and requests.memory of 512Mi; current usage is 512Mi for both.",
+        "Deployment `api-server` requests and limits 256Mi memory per replica, so two running replicas consume the entire quota and a third requires an additional 256Mi.",
+        "The Deployment specifies 3 replicas, but status shows only 2 ready/available and repeated ReplicaSet `FailedCreate` events for quota rejection."
+      ]
+    },
+    "rootCauseSummary": "The `api-server` Deployment cannot reach its desired 3 replicas because each pod requests and limits 256Mi memory while `demo-platform/namespace-quota` permits only 512Mi total, already fully consumed by the two existing pods.",
     "selectedWorkflow": null,
+    "alternativeWorkflows": [],
+    "actionability": true,
     "approvalRequired": false,
+    "approvalReason": null,
+    "needsHumanReview": true,
+    "humanReviewReason": "no_matching_workflows",
+    "phase": "Completed"
+  },
+  "llmTrace": [
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T01:10:44+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "37170b9c-85e1-4f60-89d3-e4b746d69c4a",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "prompt_length": 14705,
+      "prompt_preview": "Investigate: warning KubeResourceQuotaExhausted in demo-platform \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T01:10:47+00:00",
+      "event_id": "bc847fde-e988-412f-b5cc-59051e32783b",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tokens_used": 8311,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 8,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:10:56+00:00",
+      "event_id": "0121eec5-bc46-4071-a4a9-c6af7460f140",
+      "tool_name": "resources_list",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": "- apiVersion: v1\n  kind: ResourceQuota\n  metadata:\n    annotations:\n      kubectl.kubernetes.io/last-applied-configuration: |\n        {\"apiVersion\":\"v1\",\"kind\":\"ResourceQuota\",\"metadata\":{\"annotations\":[REDACTED],\"name\":\"namespace-quota\",\"namespace\":\"demo-platform\"},\"spec\":{\"hard\":{\"limits.cpu\":\"1\",\"limits.memory\":\"512Mi\",\"requests.cpu\":\"500m\",\"requests.memory\":\"512Mi\"}}}\n    creationTimestamp: \"2026-10-02T01:09:19Z\"\n    name: namespace-quota\n    namespace: demo-platform\n    resourceVersion: \"46034\"\n    uid: 9c6deb8b-4431-4239-8752-dda7063a40cd\n  spec:\n    hard:\n      limits.cpu: \"1\"\n      limits.memory: 512Mi\n      requests.cpu: 500m\n      requests.memory: 512Mi\n  status:\n    hard:\n      limits.cpu: \"1\"\n      limits.memory: 512Mi\n      requests.cpu: 500m\n      requests.memory: 512Mi\n    used:\n      limits.cpu: 200m\n      limits.memory: 512Mi\n      requests.cpu: 100m\n      requests.memory: 512Mi",
+      "tool_arguments": {
+        "kind": "ResourceQuota",
+        "namespace": "demo-platform",
+        "apiVersion": "v1"
+      },
+      "tool_call_index": 3,
+      "tool_result_preview": "- apiVersion: v1\n  kind: ResourceQuota\n  metadata:\n    annotations:\n      kubectl.kubernetes.io/last-applied-configuration: |\n        {\"apiVersion\":\"v1\",\"kind\":\"ResourceQuota\",\"metadata\":{\"annotations\":[REDACTED],\"name\":\"namespace-quota\",\"namespace\":\"demo-platform\"},\"spec\":{\"hard\":{\"limits.cpu\":\"1\",\"limits.memory\":\"512Mi\",\"requests.cpu\":\"500m\",\"requests.memory\":\"512Mi\"}}}\n    creationTimestamp: \"2026-10-02T01:09:19Z\"\n    name: namespace-quota\n    namespace: demo-platform\n    resourceVersion: \"46"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:10:56+00:00",
+      "event_id": "8e9f3187-f08d-4aed-8a91-55f8810e40cc",
+      "tool_name": "resources_list",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": "### Node summary\n\n- **Node:** `kubernaut-remote-cluster-control-plane`\n- **Role/cluster:** Kubernetes control-plane node in the `kind` cluster `kubernaut-remote-cluster`, running under Podman.\n- **Created:** `2026-10-01T19:30:19Z`\n- **UID:** `03a870ef-4558-4f92-b405-2d3d4bf39e4a`\n- **Resource version:** `46130`\n- **Architecture/OS:** `arm64`, Linux\n- **Hostname/Internal IP:** Hostname is the node name; InternalIP is redacted.\n- **Pod network:** Pod CIDR is redacted `/24`.\n\n### Health and status\n\n- **Ready:** `True`\n  - Last heartbeat: `2026-10-02T01:09:36Z`\n  - Ready since `2026-10-01T19:30:35Z`\n- **Memory pressure:** `False` \u2014 sufficient memory available.\n- **Disk pressure:** `False` \u2014 no disk pressure.\n- **PID pressure:** `False` \u2014 sufficient PIDs available.\n- All condition heartbeats were current at the recorded time, with no reported node-level resource pressure.\n\n### Capacity and allocation\n\n- **CPU:** 6\n- **Memory:** `14,233,708 Ki` (~13.6 GiB)\n- **Ephemeral storage:** `99,252,940,800` bytes (~92.4 GiB)\n- **Pod capacity:** 110\n- No hugepage capacity is configured.\n- Allocatable resources equal capacity, indicating no reported system-reserved deductions in this output.\n\n### Kubernetes/runtime details\n\n- **Kubelet:** `v1.37.0`\n- **Container runtime:** `containerd 2.3.4`\n- **Kernel:** `7.1.10-200.fc44.aarch64`\n- **OS image:** Debian GNU/Linux 13 (trixie)\n- **Running in user namespace:** `true`\n- **Kubelet endpoint:** port `10250`\n- **Boot ID:** `108ae7a5-cd34-42ab-89ce-cd2357f6943e`\n- **Machine ID:** `237cf8c0ba724530a0a87a0e1a314d6d`\n- **System UUID:** `361bf74a-0813-4f53-8238-261d170a7b93`\n- **Provider ID:** `kind://podman/kubernaut-remote-cluster/kubernaut-remote-cluster-control-plane`\n- **Kube-proxy version:** blank/not reported.\n\n### Enabled features\n\nDeclared node features include:\n\n- `ExtendWebSocketsToKubelet`\n- `InPlacePodLevelResourcesVerticalScaling`\n- `InPlacePodVerticalScalingInitContainers`\n- `RestartAllContainersOnContainerExits`\n- Supplemental groups policy enabled.\n\nRuntime handlers include the default handler, `runc`, and `test-handler`; all report support for recursive read-only mounts and user namespaces.\n\n### Images present\n\nThe node contains control-plane and platform images including:\n\n- Kubernetes `v1.37.0` components: API server, controller manager, scheduler, and kube-proxy.\n- `etcd:3.7.0-0`, CoreDNS `v1.14.6`, kindnetd, local-path-provisioner, and `pause:3.10`.\n- Monitoring stack: Prometheus `latest`, Thanos `v0.37.2`, Prometheus Operator/config reloader `v0.93.0`, kube-state-metrics `v2.13.0`, and metrics-server `v0.9.0`.\n- Istio pilot `1.24.3`.\n- Cert-manager components `v1.21.2`.\n- NGINX `1.27-alpine`, demo HTTP server `1.0.0`, curl `8.12.1`, stress, and BusyBox test images.\n- Multiple Kubernaut CI/CD remediation workflow images, including jobs for Helm rollback, configuration patching, image-reference fixes, StatefulSet PVC fixes, network-policy fixes, graceful restart, and HPA patching.\n- Image digests are recorded in the source output and should be used for exact artifact identification during investigation.\n\n### Incident-relevant observations\n\n- The node was healthy and ready at the last reported heartbeat, with no memory, disk, or PID pressure.\n- It is an ARM64 node running inside a user namespace and a Podman-backed kind environment; these virtualization/runtime characteristics may affect networking, storage, permissions, and workload behavior.\n- The node hosts a broad mix of control-plane, observability, service-mesh, certificate-management, and remediation-test images.\n- The output does not include pod-level failures, events, taints, or resource utilization, so further investigation would require correlating node events, kubelet/containerd logs, pod status, and workload timelines.",
+      "tool_arguments": {
+        "kind": "Node",
+        "apiVersion": "v1"
+      },
+      "tool_call_index": 6,
+      "tool_result_preview": "### Node summary\n\n- **Node:** `kubernaut-remote-cluster-control-plane`\n- **Role/cluster:** Kubernetes control-plane node in the `kind` cluster `kubernaut-remote-cluster`, running under Podman.\n- **Created:** `2026-10-01T19:30:19Z`\n- **UID:** `03a870ef-4558-4f92-b405-2d3d4bf39e4a`\n- **Resource version:** `46130`\n- **Architecture/OS:** `arm64`, Linux\n- **Hostname/Internal IP:** Hostname is the node name; InternalIP is redacted.\n- **Pod network:** Pod CIDR is redacted `/24`.\n\n### Health and status\n"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T01:10:56+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "461ba0bb-9a4a-4b29-af3e-6293afc01d42",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "prompt_length": 37084,
+      "prompt_preview": "Investigate: warning KubeResourceQuotaExhausted in demo-platform \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:10:56+00:00",
+      "event_id": "dd812581-194b-404c-b9ac-b95aeaa97c47",
+      "tool_name": "get_namespaced_resource_context",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": {
+        "root_owner": {
+          "kind": "Deployment",
+          "name": "api-server",
+          "namespace": "demo-platform"
+        },
+        "remediation_history": {
+          "tier1": [],
+          "tier2": [],
+          "tier1_window": "24h0m0s",
+          "tier2_window": "2160h0m0s",
+          "target_resource": "demo-platform/Deployment/api-server",
+          "regression_detected": false
+        }
+      },
+      "tool_arguments": {
+        "kind": "Deployment",
+        "name": "api-server",
+        "namespace": "demo-platform"
+      },
+      "tool_call_index": 7,
+      "tool_result_preview": "{\"root_owner\":{\"kind\":\"Deployment\",\"name\":\"api-server\",\"namespace\":\"demo-platform\"},\"remediation_history\":{\"target_resource\":\"demo-platform/Deployment/api-server\",\"regression_detected\":false,\"tier1\":[],\"tier1_window\":\"24h0m0s\",\"tier2\":[],\"tier2_window\":\"2160h0m0s\"}}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:10:56+00:00",
+      "event_id": "bf640829-6fe4-4d75-ad95-05d50ea47d2f",
+      "tool_name": "resources_list",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": "### Incident-relevant summary\n\n- **Workload:** `api-server`, namespace `demo-platform`\n- **Pods:** 2 replicas, both owned by ReplicaSet `api-server-67969b4d54` (UID `d5d4bd3d-4763-4af2-9fab-0b0ac776b545`)\n  - `api-server-67969b4d54-pbwhr` (UID `9e9f57b1-8057-41bb-9be2-3e41a6f8638b`)\n  - `api-server-67969b4d54-sf8ms` (UID `d0e1bb52-69e3-4eb6-a6fa-607cfa4210df`)\n- **Creation/start time:** Both created at `2026-10-02T01:09:19Z`; containers started at `01:09:20Z`.\n- **Node:** Both scheduled on `kubernaut-remote-cluster-control-plane`.\n- **Current health:** Both pods are `Running`, `Ready`, and `ContainersReady`; readiness was achieved at `01:09:24Z`. No initialization or scheduling issues are reported.\n- **Restarts/failures:** Both containers have `restartCount: 0`, empty `lastState`, and are currently running.\n- **Container image:** `quay.io/kubernaut-cicd/demo-http-server:1.0.0`\n  - Image digest: `sha256:bfb8c9879b679bd436e1a940864ad318c0bea0d9bb8fc14d35652cab49020b53`\n- **Application configuration:** `CONFIG_PATH=/etc/demo-http-server/config.yaml`, sourced from ConfigMap `api-server-config` and mounted at `/etc/demo-http-server/config.yaml`.\n- **Networking/probes:** HTTP service on port `8080`; liveness and readiness probes both use `GET /healthz`.\n  - Readiness: initial delay 2s, period 3s, timeout 1s, failure threshold 3.\n  - Liveness: initial delay 3s, period 5s, timeout 1s, failure threshold 3.\n- **Resources:** Requests `50m CPU / 256Mi memory`; limits `100m CPU / 256Mi memory`. QoS class: `Burstable`.\n- **Security/runtime:** Runs as non-root UID/GID `65534`; uses the `default` service account. Restart policy is `Always`.\n- **IPs:** Host and pod IPs are present but redacted.\n- **Incident assessment:** The supplied state shows no active pod-level fault: both replicas are healthy, running the same image digest, on the same node, with no restarts or probe failures indicated.",
+      "tool_arguments": {
+        "kind": "Pod",
+        "namespace": "demo-platform",
+        "apiVersion": "v1",
+        "labelSelector": "app=api-server"
+      },
+      "tool_call_index": 2,
+      "tool_result_preview": "### Incident-relevant summary\n\n- **Workload:** `api-server`, namespace `demo-platform`\n- **Pods:** 2 replicas, both owned by ReplicaSet `api-server-67969b4d54` (UID `d5d4bd3d-4763-4af2-9fab-0b0ac776b545`)\n  - `api-server-67969b4d54-pbwhr` (UID `9e9f57b1-8057-41bb-9be2-3e41a6f8638b`)\n  - `api-server-67969b4d54-sf8ms` (UID `d0e1bb52-69e3-4eb6-a6fa-607cfa4210df`)\n- **Creation/start time:** Both created at `2026-10-02T01:09:19Z`; containers started at `01:09:20Z`.\n- **Node:** Both scheduled on `kube"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:10:56+00:00",
+      "event_id": "9fab0638-c446-48c6-934e-c108b88f2121",
+      "tool_name": "events_list",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: api-server-67969b4d54-pbwhr\n    apiVersion: v1\n  Message: Successfully assigned demo-platform/api-server-67969b4d54-pbwhr to kubernaut-remote-cluster-control-plane\n  Namespace: demo-platform\n  Reason: Scheduled\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: api-server-67969b4d54-pbwhr\n    apiVersion: v1\n  Message: Container image \"quay.io/kubernaut-cicd/demo-http-server:1.0.0\" already\n    present on machine and can be accessed by the pod\n  Namespace: demo-platform\n  Reason: Pulled\n  Timestamp: 2026-10-02 01:09:20 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: api-server-67969b4d54-pbwhr\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-platform\n  Reason: Created\n  Timestamp: 2026-10-02 01:09:20 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: api-server-67969b4d54-pbwhr\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-platform\n  Reason: Started\n  Timestamp: 2026-10-02 01:09:20 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: api-server-67969b4d54-sf8ms\n    apiVersion: v1\n  Message: Successfully assigned demo-platform/api-server-67969b4d54-sf8ms to kubernaut-remote-cluster-control-plane\n  Namespace: demo-platform\n  Reason: Scheduled\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: api-server-67969b4d54-sf8ms\n    apiVersion: v1\n  Message: Container image \"quay.io/kubernaut-cicd/demo-http-server:1.0.0\" already\n    present on machine and can be accessed by the pod\n  Namespace: demo-platform\n  Reason: Pulled\n  Timestamp: 2026-10-02 01:09:20 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: api-server-67969b4d54-sf8ms\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-platform\n  Reason: Created\n  Timestamp: 2026-10-02 01:09:20 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: api-server-67969b4d54-sf8ms\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-platform\n  Reason: Started\n  Timestamp: 2026-10-02 01:09:20 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Created pod: api-server-67969b4d54-pbwhr'\n  Namespace: demo-platform\n  Reason: SuccessfulCreate\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Error creating: pods \"api-server-67969b4d54-6tz4b\" is forbidden: exceeded\n    quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi,\n    used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi,requests.memory=512Mi'\n  Namespace: demo-platform\n  Reason: FailedCreate\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Created pod: api-server-67969b4d54-sf8ms'\n  Namespace: demo-platform\n  Reason: SuccessfulCreate\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Error creating: pods \"api-server-67969b4d54-xpv6v\" is forbidden: exceeded\n    quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi,\n    used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi,requests.memory=512Mi'\n  Namespace: demo-platform\n  Reason: FailedCreate\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Error creating: pods \"api-server-67969b4d54-cnzrx\" is forbidden: exceeded\n    quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi,\n    used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi,requests.memory=512Mi'\n  Namespace: demo-platform\n  Reason: FailedCreate\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Error creating: pods \"api-server-67969b4d54-6dvbt\" is forbidden: exceeded\n    quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi,\n    used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi,requests.memory=512Mi'\n  Namespace: demo-platform\n  Reason: FailedCreate\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Error creating: pods \"api-server-67969b4d54-plz85\" is forbidden: exceeded\n    quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi,\n    used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi,requests.memory=512Mi'\n  Namespace: demo-platform\n  Reason: FailedCreate\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Error creating: pods \"api-server-67969b4d54-tf85v\" is forbidden: exceeded\n    quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi,\n    used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi,requests.memory=512Mi'\n  Namespace: demo-platform\n  Reason: FailedCreate\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Error creating: pods \"api-server-67969b4d54-h9qwv\" is forbidden: exceeded\n    quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi,\n    used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi,requests.memory=512Mi'\n  Namespace: demo-platform\n  Reason: FailedCreate\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Error creating: pods \"api-server-67969b4d54-f6wcb\" is forbidden: exceeded\n    quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi,\n    used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi,requests.memory=512Mi'\n  Namespace: demo-platform\n  Reason: FailedCreate\n  Timestamp: 2026-10-02 01:09:20 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: 'Error creating: pods \"api-server-67969b4d54-lnfl8\" is forbidden: exceeded\n    quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi,\n    used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi,requests.memory=512Mi'\n  Namespace: demo-platform\n  Reason: FailedCreate\n  Timestamp: 2026-10-02 01:09:20 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: ReplicaSet\n    Name: api-server-67969b4d54\n    apiVersion: apps/v1\n  Message: '(combined from similar events): Error creating: pods \"api-server-67969b4d54-4cdcv\"\n    is forbidden: exceeded quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi,\n    used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi,requests.memory=512Mi'\n  Namespace: demo-platform\n  Reason: FailedCreate\n  Timestamp: 2026-10-02 01:10:02 +0000 UTC\n  Type: Warning\n- InvolvedObject:\n    Kind: Deployment\n    Name: api-server\n    apiVersion: apps/v1\n  Message: Scaled up replica set api-server-67969b4d54 from 0 to 3\n  Namespace: demo-platform\n  Reason: ScalingReplicaSet\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Normal",
+      "tool_arguments": {
+        "namespace": "demo-platform"
+      },
+      "tool_call_index": 4,
+      "tool_result_preview": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: api-server-67969b4d54-pbwhr\n    apiVersion: v1\n  Message: Successfully assigned demo-platform/api-server-67969b4d54-pbwhr to kubernaut-remote-cluster-control-plane\n  Namespace: demo-platform\n  Reason: Scheduled\n  Timestamp: 2026-10-02 01:09:19 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: api-server-67969b4d54-pbwhr\n    apiVersion: v1\n  Message: Container image \"quay.io/kubernaut-cicd/"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:10:56+00:00",
+      "event_id": "799d7f90-7be0-4dcd-a2bd-184154923a7b",
+      "tool_name": "resources_get",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": "apiVersion: apps/v1\nkind: ReplicaSet\nmetadata:\n  annotations:\n    deployment.kubernetes.io/desired-replicas: \"3\"\n    deployment.kubernetes.io/max-replicas: \"4\"\n    deployment.kubernetes.io/revision: \"1\"\n  creationTimestamp: \"2026-10-02T01:09:19Z\"\n  generation: 1\n  labels:\n    app: api-server\n    pod-template-hash: 67969b4d54\n  name: api-server-67969b4d54\n  namespace: demo-platform\n  ownerReferences:\n  - apiVersion: apps/v1\n    blockOwnerDeletion: true\n    controller: true\n    kind: Deployment\n    name: api-server\n    uid: 0ee033c0-3414-41b8-b966-c8398d910c00\n  resourceVersion: \"46103\"\n  uid: d5d4bd3d-4763-4af2-9fab-0b0ac776b545\nspec:\n  replicas: 3\n  selector:\n    matchLabels:\n      app: api-server\n      pod-template-hash: 67969b4d54\n  template:\n    metadata:\n      labels:\n        app: api-server\n        pod-template-hash: 67969b4d54\n    spec:\n      containers:\n      - env:\n        - name: CONFIG_PATH\n          value: /etc/demo-http-server/config.yaml\n        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0\n        imagePullPolicy: IfNotPresent\n        livenessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 3\n          periodSeconds: 5\n          successThreshold: 1\n          timeoutSeconds: 1\n        name: api-server\n        ports:\n        - containerPort: 8080\n          name: http\n          protocol: TCP\n        readinessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 2\n          periodSeconds: 3\n          successThreshold: 1\n          timeoutSeconds: 1\n        resources:\n          limits:\n            cpu: 100m\n            memory: 256Mi\n          requests:\n            cpu: 50m\n            memory: 256Mi\n        terminationMessagePath: /dev/termination-log\n        terminationMessagePolicy: File\n        volumeMounts:\n        - mountPath: /etc/demo-http-server/config.yaml\n          name: config\n          subPath: config.yaml\n      dnsPolicy: ClusterFirst\n      restartPolicy: Always\n      schedulerName: default-scheduler\n      securityContext: {}\n      terminationGracePeriodSeconds: 30\n      volumes:\n      - configMap:\n          defaultMode: 420\n          name: api-server-config\n        name: config\nstatus:\n  availableReplicas: 2\n  conditions:\n  - lastTransitionTime: \"2026-10-02T01:09:19Z\"\n    message: 'pods \"api-server-67969b4d54-6tz4b\" is forbidden: exceeded quota: namespace-quota,\n      requested: limits.memory=256Mi,requests.memory=256Mi, used: limits.memory=512Mi,requests.memory=512Mi,\n      limited: limits.memory=512Mi,requests.memory=512Mi'\n    reason: FailedCreate\n    status: \"True\"\n    type: ReplicaFailure\n  fullyLabeledReplicas: 2\n  observedGeneration: 1\n  readyReplicas: 2\n  replicas: 2\n  terminatingReplicas: 0",
+      "tool_arguments": {
+        "kind": "ReplicaSet",
+        "name": "api-server-67969b4d54",
+        "namespace": "demo-platform",
+        "apiVersion": "apps/v1"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "apiVersion: apps/v1\nkind: ReplicaSet\nmetadata:\n  annotations:\n    deployment.kubernetes.io/desired-replicas: \"3\"\n    deployment.kubernetes.io/max-replicas: \"4\"\n    deployment.kubernetes.io/revision: \"1\"\n  creationTimestamp: \"2026-10-02T01:09:19Z\"\n  generation: 1\n  labels:\n    app: api-server\n    pod-template-hash: 67969b4d54\n  name: api-server-67969b4d54\n  namespace: demo-platform\n  ownerReferences:\n  - apiVersion: apps/v1\n    blockOwnerDeletion: true\n    controller: true\n    kind: Deployment\n  "
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:10:56+00:00",
+      "event_id": "2dac539f-6e15-4d12-82e7-c08a4a8b92db",
+      "tool_name": "resources_get",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"1\"\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"api-server\",\"kubernaut.ai/managed\":\"true\"},\"name\":\"api-server\",\"namespace\":\"demo-platform\"},\"spec\":{\"replicas\":3,\"selector\":{\"matchLabels\":{\"app\":\"api-server\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"api-server\"}},\"spec\":{\"containers\":[{\"env\":[{\"name\":\"CONFIG_PATH\",\"value\":\"/etc/demo-http-server/config.yaml\"}],\"image\":\"quay.io/kubernaut-cicd/demo-http-server:1.0.0\",\"livenessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":8080},\"initialDelaySeconds\":3,\"periodSeconds\":5},\"name\":\"api-server\",\"ports\":[{\"containerPort\":8080,\"name\":\"http\"}],\"readinessProbe\":{\"httpGet\":{\"path\":\"/healthz\",\"port\":8080},\"initialDelaySeconds\":2,\"periodSeconds\":3},\"resources\":{\"limits\":{\"cpu\":\"100m\",\"memory\":\"256Mi\"},\"requests\":{\"cpu\":\"50m\",\"memory\":\"256Mi\"}},\"volumeMounts\":[{\"mountPath\":\"/etc/demo-http-server/config.yaml\",\"name\":\"config\",\"subPath\":\"config.yaml\"}]}],\"volumes\":[{\"configMap\":{\"name\":\"api-server-config\"},\"name\":\"config\"}]}}}}\n  creationTimestamp: \"2026-10-02T01:09:19Z\"\n  generation: 1\n  labels:\n    app: api-server\n    kubernaut.ai/managed: \"true\"\n  name: api-server\n  namespace: demo-platform\n  resourceVersion: \"46104\"\n  uid: 0ee033c0-3414-41b8-b966-c8398d910c00\nspec:\n  progressDeadlineSeconds: 600\n  replicas: 3\n  revisionHistoryLimit: 10\n  selector:\n    matchLabels:\n      app: api-server\n  strategy:\n    rollingUpdate:\n      maxSurge: 25%\n      maxUnavailable: 25%\n    type: RollingUpdate\n  template:\n    metadata:\n      labels:\n        app: api-server\n    spec:\n      containers:\n      - env:\n        - name: CONFIG_PATH\n          value: /etc/demo-http-server/config.yaml\n        image: quay.io/kubernaut-cicd/demo-http-server:1.0.0\n        imagePullPolicy: IfNotPresent\n        livenessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 3\n          periodSeconds: 5\n          successThreshold: 1\n          timeoutSeconds: 1\n        name: api-server\n        ports:\n        - containerPort: 8080\n          name: http\n          protocol: TCP\n        readinessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 2\n          periodSeconds: 3\n          successThreshold: 1\n          timeoutSeconds: 1\n        resources:\n          limits:\n            cpu: 100m\n            memory: 256Mi\n          requests:\n            cpu: 50m\n            memory: 256Mi\n        terminationMessagePath: /dev/termination-log\n        terminationMessagePolicy: File\n        volumeMounts:\n        - mountPath: /etc/demo-http-server/config.yaml\n          name: config\n          subPath: config.yaml\n      dnsPolicy: ClusterFirst\n      restartPolicy: Always\n      schedulerName: default-scheduler\n      securityContext: {}\n      terminationGracePeriodSeconds: 30\n      volumes:\n      - configMap:\n          defaultMode: 420\n          name: api-server-config\n        name: config\nstatus:\n  availableReplicas: 2\n  conditions:\n  - lastTransitionTime: \"2026-10-02T01:09:19Z\"\n    lastUpdateTime: \"2026-10-02T01:09:19Z\"\n    message: Deployment does not have minimum availability.\n    reason: MinimumReplicasUnavailable\n    status: \"False\"\n    type: Available\n  - lastTransitionTime: \"2026-10-02T01:09:19Z\"\n    lastUpdateTime: \"2026-10-02T01:09:19Z\"\n    message: 'pods \"api-server-67969b4d54-6tz4b\" is forbidden: exceeded quota: namespace-quota,\n      requested: limits.memory=256Mi,requests.memory=256Mi, used: limits.memory=512Mi,requests.memory=512Mi,\n      limited: limits.memory=512Mi,requests.memory=512Mi'\n    reason: FailedCreate\n    status: \"True\"\n    type: ReplicaFailure\n  - lastTransitionTime: \"2026-10-02T01:09:19Z\"\n    lastUpdateTime: \"2026-10-02T01:09:24Z\"\n    message: ReplicaSet \"api-server-67969b4d54\" is progressing.\n    reason: ReplicaSetUpdated\n    status: \"True\"\n    type: Progressing\n  observedGeneration: 1\n  readyReplicas: 2\n  replicas: 2\n  terminatingReplicas: 0\n  unavailableReplicas: 1\n  updatedReplicas: 2",
+      "tool_arguments": {
+        "kind": "Deployment",
+        "name": "api-server",
+        "namespace": "demo-platform",
+        "apiVersion": "apps/v1"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"1\"\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":[REDACTED],\"labels\":{\"app\":\"api-server\",\"kubernaut.ai/managed\":\"true\"},\"name\":\"api-server\",\"namespace\":\"demo-platform\"},\"spec\":{\"replicas\":3,\"selector\":{\"matchLabels\":{\"app\":\"api-server\"}},\"template\":{\"metadata\":{\"labels\":{\"app\":\"api-server\"}},\"spec\":{\"containers"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:10:56+00:00",
+      "event_id": "15b9cb79-9a2c-434f-a7f5-254b779a9e55",
+      "tool_name": "pods_top",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": "NAMESPACE       POD                           NAME         CPU(cores)   MEMORY(bytes)   SWAP(bytes)   \ndemo-platform   api-server-67969b4d54-pbwhr   api-server   2m           2Mi             0Mi           \ndemo-platform   api-server-67969b4d54-sf8ms   api-server   1m           3Mi             0Mi           \n                                                                        ________        ________      \n                                                                        2m              6Mi           0Mi   ",
+      "tool_arguments": {
+        "namespace": "demo-platform",
+        "all_namespaces": false
+      },
+      "tool_call_index": 5,
+      "tool_result_preview": "NAMESPACE       POD                           NAME         CPU(cores)   MEMORY(bytes)   SWAP(bytes)   \ndemo-platform   api-server-67969b4d54-pbwhr   api-server   2m           2Mi             0Mi           \ndemo-platform   api-server-67969b4d54-sf8ms   api-server   1m           3Mi             0Mi           \n                                                                        ________        ________      \n                                                                        2m              "
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T01:10:59+00:00",
+      "event_id": "b111ea38-df10-4494-a43b-86466137e54c",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tokens_used": 15459,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 7,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:11:00+00:00",
+      "event_id": "401456ec-b7c5-47c8-9dab-ccfaa55cefb8",
+      "tool_name": "pods_log",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_log\" (cluster \"remote-cluster\") returned error: failed to get pod api-server-67969b4d54-pbwhr log in namespace demo-platform: previous terminated container \"api-server\" in pod \"api-server-67969b4d54-pbwhr\" not found",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "api-server-67969b4d54-pbwhr",
+        "tail": 100,
+        "previous": true,
+        "namespace": "demo-platform"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_log\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get pod api-server-67969b4d54-pbwhr log in namespace demo-platform: previous terminated container \\\"api-server\\\" in pod \\\"api-server-67969b4d54-pbwhr\\\" not found\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:11:00+00:00",
+      "event_id": "3f2095e2-3df7-47bc-bb9f-e36e14d0456d",
+      "tool_name": "pods_log",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": "2026/10/02 01:09:20 demo-http-server starting on :8080 (config=/etc/demo-http-server/config.yaml, tls=false)",
+      "tool_arguments": {
+        "name": "api-server-67969b4d54-sf8ms",
+        "tail": 100,
+        "namespace": "demo-platform"
+      },
+      "tool_call_index": 2,
+      "tool_result_preview": "2026/10/02 01:09:20 demo-http-server starting on :8080 (config=/etc/demo-http-server/config.yaml, tls=false)"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:11:00+00:00",
+      "event_id": "9c6b5581-e496-45f1-a8d6-2ba739f6ff09",
+      "tool_name": "pods_log",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_log\" (cluster \"remote-cluster\") returned error: failed to get pod api-server-67969b4d54-sf8ms log in namespace demo-platform: previous terminated container \"api-server\" in pod \"api-server-67969b4d54-sf8ms\" not found",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "api-server-67969b4d54-sf8ms",
+        "tail": 100,
+        "previous": true,
+        "namespace": "demo-platform"
+      },
+      "tool_call_index": 3,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_log\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get pod api-server-67969b4d54-sf8ms log in namespace demo-platform: previous terminated container \\\"api-server\\\" in pod \\\"api-server-67969b4d54-sf8ms\\\" not found\"}"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T01:11:00+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "edc00390-60d4-431d-84c7-54f482e8fbef",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "prompt_length": 39268,
+      "prompt_preview": "Investigate: warning KubeResourceQuotaExhausted in demo-platform \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:11:00+00:00",
+      "event_id": "8130cc0b-e57a-4a53-837f-faa71d3033f0",
+      "tool_name": "pods_log",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": "2026/10/02 01:09:21 demo-http-server starting on :8080 (config=/etc/demo-http-server/config.yaml, tls=false)",
+      "tool_arguments": {
+        "name": "api-server-67969b4d54-pbwhr",
+        "tail": 100,
+        "namespace": "demo-platform"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "2026/10/02 01:09:21 demo-http-server starting on :8080 (config=/etc/demo-http-server/config.yaml, tls=false)"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:11:00+00:00",
+      "event_id": "9b62020f-e803-4c88-a0a5-71db962db70c",
+      "tool_name": "get_namespaced_resource_context",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": {
+        "root_owner": {
+          "kind": "ResourceQuota",
+          "name": "namespace-quota",
+          "namespace": "demo-platform"
+        },
+        "remediation_history": {
+          "tier1": null,
+          "tier2": null,
+          "tier1_window": "",
+          "tier2_window": "",
+          "target_resource": "",
+          "regression_detected": false
+        }
+      },
+      "tool_arguments": {
+        "kind": "ResourceQuota",
+        "name": "namespace-quota",
+        "namespace": "demo-platform"
+      },
+      "tool_call_index": 6,
+      "tool_result_preview": "{\"root_owner\":{\"kind\":\"ResourceQuota\",\"name\":\"namespace-quota\",\"namespace\":\"demo-platform\"},\"remediation_history\":{\"target_resource\":\"\",\"regression_detected\":false,\"tier1\":null,\"tier1_window\":\"\",\"tier2\":null,\"tier2_window\":\"\"}}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:11:00+00:00",
+      "event_id": "7b0ac0ff-f613-45b6-a08e-f088609f314a",
+      "tool_name": "nodes_stats_summary",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__nodes_stats_summary\" (cluster \"remote-cluster\") returned error: failed to get node stats summary for kubernaut-remote-cluster-control-plane: failed to get node stats summary: nodes \"kubernaut-remote-cluster-control-plane\" is forbidden: User \"keycloak:service-account-kubernaut-fleet-read\" cannot get resource \"nodes/proxy\" in API group \"\" at the cluster scope",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "kubernaut-remote-cluster-control-plane"
+      },
+      "tool_call_index": 5,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__nodes_stats_summary\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get node stats summary for kubernaut-remote-cluster-control-plane: failed to get node stats summary: nodes \\\"kubernaut-remote-cluster-control-plane\\\" is forbidden: User \\\"keycloak:service-account-kubernaut-fleet-read\\\" cannot get resource \\\"nodes/proxy\\\" in API group \\\"\\\" at the cluster scope\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:11:00+00:00",
+      "event_id": "a3c9b204-dfac-46b6-a28f-bc557b429425",
+      "tool_name": "resources_get",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": "apiVersion: v1\ndata:\n  config.yaml: |\n    port: 8080\n    routes:\n      - path: /\n        status: 200\n        body: 'healthy'\n      - path: /healthz\n        status: 200\n        body: 'ok'\nkind: ConfigMap\nmetadata:\n  annotations:\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"v1\",\"data\":{\"config.yaml\":\"port: 8080\\nroutes:\\n  - path: /\\n    status: 200\\n    body: 'healthy'\\n  - path: /healthz\\n    status: 200\\n    body: 'ok'\\n\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotations\":[REDACTED],\"name\":\"api-server-config\",\"namespace\":\"demo-platform\"}}\n  creationTimestamp: \"2026-10-02T01:09:19Z\"\n  name: api-server-config\n  namespace: demo-platform\n  resourceVersion: \"46019\"\n  uid: 10de68b7-6263-4185-a2b9-d23de6d2eee2",
+      "tool_arguments": {
+        "kind": "ConfigMap",
+        "name": "api-server-config",
+        "namespace": "demo-platform",
+        "apiVersion": "v1"
+      },
+      "tool_call_index": 4,
+      "tool_result_preview": "apiVersion: v1\ndata:\n  config.yaml: |\n    port: 8080\n    routes:\n      - path: /\n        status: 200\n        body: 'healthy'\n      - path: /healthz\n        status: 200\n        body: 'ok'\nkind: ConfigMap\nmetadata:\n  annotations:\n    kubectl.kubernetes.io/last-applied-configuration: |\n      {\"apiVersion\":\"v1\",\"data\":{\"config.yaml\":\"port: 8080\\nroutes:\\n  - path: /\\n    status: 200\\n    body: 'healthy'\\n  - path: /healthz\\n    status: 200\\n    body: 'ok'\\n\"},\"kind\":\"ConfigMap\",\"metadata\":{\"annotati"
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T01:11:15+00:00",
+      "event_id": "e0df6cc4-e3e9-42cc-84ce-bad9300642eb",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tokens_used": 17416,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T01:11:16+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "757e332c-0c83-477a-9088-24301d64316f",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "prompt_length": 9358,
+      "prompt_preview": "RCA findings: The `api-server` Deployment cannot reach its desired 3 replicas because each pod requests and limits 256Mi memory while `demo-platform/namespace-quota` permits only 512Mi total, already fully consumed by the two existing pods.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "resourceQuotaConstrained": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-02T01:11:17+00:00",
+      "event_id": "6397611b-9685-48b8-aafd-8cf4166b0129",
+      "tool_name": "list_available_actions",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tool_result": {
+        "actionTypes": []
+      },
+      "tool_arguments": {},
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"actionTypes\":[]}"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-02T01:11:17+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "f980ec09-17bc-4e5c-be16-46eba7c37862",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "prompt_length": 9376,
+      "prompt_preview": "RCA findings: The `api-server` Deployment cannot reach its desired 3 replicas because each pod requests and limits 256Mi memory while `demo-platform/namespace-quota` permits only 512Mi total, already fully consumed by the two existing pods.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "resourceQuotaConstrained": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T01:11:17+00:00",
+      "event_id": "c3c6e10c-fa00-40d0-8494-ff023c43d4fd",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tokens_used": 3193,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-02T01:11:19+00:00",
+      "event_id": "eb937c31-7836-49c9-b954-44a48f07960f",
+      "incident_id": "rr-9a200a4bc21c-aee5cbe9",
+      "tokens_used": 3420,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    }
+  ],
+  "traceStats": {
+    "totalTokens": 47799,
+    "llmTurns": 5,
+    "totalToolCalls": 16,
+    "k8sToolCalls": 16,
+    "model": "gpt-5.6-luna"
+  },
+  "kaResponse": {
+    "analysis": "The `api-server` Deployment cannot reach its desired 3 replicas because each pod requests and limits 256Mi memory while `demo-platform/namespace-quota` permits only 512Mi total, already fully consumed by the two existing pods.",
+    "warnings": [],
+    "timestamp": "2026-10-02T01:11:19Z",
+    "confidence": 0.98,
+    "incidentId": "rr-9a200a4bc21c-aee5cbe9",
+    "isActionable": true,
     "needsHumanReview": true,
     "humanReviewReason": "no_matching_workflows",
     "rootCauseAnalysis": {
-      "summary": "The namespace ResourceQuota 'namespace-quota' memory limit (512Mi) is fully exhausted by 2 running pods (2 \u00d7 256Mi = 512Mi), preventing the Deployment/api-server from scaling to its desired 3 replicas.",
+      "summary": "The `api-server` Deployment cannot reach its desired 3 replicas because each pod requests and limits 256Mi memory while `demo-platform/namespace-quota` permits only 512Mi total, already fully consumed by the two existing pods.",
       "severity": "warning",
+      "causalChain": [
+        "Signal: `KubeResourceQuotaExhausted` reports ReplicaSet `api-server-67969b4d54` has one fewer ready pod than desired.",
+        "Why? The Deployment desires 3 replicas, but the ReplicaSet has only 2 ready replicas and repeated `FailedCreate` events for the third pod.",
+        "Why? The API server rejects each additional pod because `namespace-quota` is exceeded: the pod requests and limits 256Mi memory, while 512Mi is already used against a 512Mi quota.",
+        "Why? Two existing `api-server` pods each reserve 256Mi memory, consuming the entire namespace quota; the quota was sized for only two such replicas, while the Deployment is configured for three.",
+        "Root cause: `demo-platform/ResourceQuota/namespace-quota` has insufficient `requests.memory` and `limits.memory` capacity for the declared 3-replica `api-server` workload."
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "The primary target is `ResourceQuota/namespace-quota`, because increasing its memory capacity directly permits the missing pod to be created. The Deployment is the signal reporter and could alternatively be changed to two replicas or lower requests, but quota is the direct admission blocker and most specific target for restoring the declared replica count.",
+        "proportionality": "The incident is specifically a namespace admission-capacity mismatch affecting one Deployment. Targeting the quota is proportional and directly remediable for the declared 3 replicas. The Deployment's 256Mi-per-pod specification and 3-replica desired state are contributing configuration factors, not the primary target because changing quota removes the observed admission failure without altering workload sizing.",
+        "scopeCompleteness": "Inspected the named Deployment, ReplicaSet, representative pods (both available pods; within the three-pod sampling limit), namespace ResourceQuota, events, ConfigMap dependency, node conditions, pod usage, logs/current and previous-log paths, and ownership context. Prometheus metrics were not needed because direct quota status/events were conclusive. Node Summary API was attempted but blocked by RBAC.",
+        "causalCompleteness": "Traced the complete evidence-backed chain from reduced ready replicas through ReplicaSet admission failures to the exact quota and memory arithmetic. No deeper Kubernetes cause was identified; quota sizing/configuration is the deepest reachable cause. Application source and organizational quota policy were not available.",
+        "evidenceSufficiency": "Deployment and ReplicaSet status, ResourceQuota status, namespace events, pod status summary, pod metrics, node conditions, logs, and ConfigMap were inspected. Exact evidence includes 3 desired replicas, 2 ready replicas, 256Mi per pod, 512Mi used, and 512Mi hard quota. Assumptions are limited to whether increasing quota is acceptable under capacity/policy; node stats were inaccessible due to a `nodes/proxy` RBAC denial.",
+        "regressionAwareness": "No prior remediation history is available for `ResourceQuota/namespace-quota`; the Deployment context reports no prior remediation or regression. This proposed quota-capacity correction therefore does not repeat a recorded failed remediation.",
+        "alternativeHypotheses": "Checked for application crash/readiness failure, restart history, invalid configuration, node pressure, and live resource overload. These were contradicted by both pods Running/Ready with zero restarts, normal startup logs, valid `/healthz` configuration, node Ready with all pressure conditions false, and low observed pod usage. The remaining policy/capacity approval question is not an alternative technical cause.",
+        "confidenceCalibration": "0.98: started at 1.0; reduced 0.01 because node Summary API was blocked by missing `nodes/proxy` permission, although node conditions independently showed no pressure; reduced 0.01 because quota policy and whether additional capacity is approved were not verifiable. The direct cause is explicitly confirmed by ResourceQuota status and ReplicaSet/events."
+      },
       "remediationTarget": {
-        "kind": "Deployment",
-        "name": "api-server",
-        "namespace": "demo-quota"
+        "kind": "ResourceQuota",
+        "name": "namespace-quota",
+        "namespace": "demo-platform"
       },
       "contributingFactors": [
-        "ResourceQuota 'namespace-quota' sets a hard memory limit of 512Mi (requests and limits) for the entire demo-quota namespace",
-        "Deployment 'api-server' requests 3 replicas, each with 256Mi memory request and 256Mi memory limit",
-        "3 replicas \u00d7 256Mi = 768Mi total \u2014 exceeds the 512Mi quota cap by 256Mi (50% over quota)",
-        "Only 2 of 3 desired pods could be created (2 \u00d7 256Mi = 512Mi fully exhausting memory quota)",
-        "18+ FailedCreate events recorded for pod 'api-server-964647df6-*' with error: 'exceeded quota: namespace-quota, requested: limits.memory=256Mi,requests.memory=256Mi, used: limits.memory=512Mi,requests.memory=512Mi, limited: limits.memory=512Mi'",
-        "Deployment reports ReplicaFailure condition: 'Deployment does not have minimum availability' \u2014 1 unavailable replica",
-        "No prior remediation history for this Deployment"
+        "ResourceQuota `namespace-quota` has hard limits.memory and requests.memory of 512Mi; current usage is 512Mi for both.",
+        "Deployment `api-server` requests and limits 256Mi memory per replica, so two running replicas consume the entire quota and a third requires an additional 256Mi.",
+        "The Deployment specifies 3 replicas, but status shows only 2 ready/available and repeated ReplicaSet `FailedCreate` events for quota rejection."
       ]
     }
   },
-  "remediationRequest": {
-    "outcome": "Processing"
-  },
-  "kaResponse": {
-    "confidence": 0.98,
-    "analysis": "The namespace ResourceQuota 'namespace-quota' memory limit (512Mi) is fully exhausted by 2 running pods (2 \u00d7 256Mi = 512Mi), preventing the Deployment/api-server from scaling to its desired 3 replicas."
-  },
-  "traceStats": {
-    "totalTokens": 106504,
-    "llmTurns": 14,
-    "totalToolCalls": 10
-  },
   "toolCalls": [
     {
-      "tool": "kubectl_get_by_kind_in_namespace",
-      "index": 0
+      "tool": "resources_list",
+      "index": 3
     },
     {
-      "tool": "kubectl_get_by_kind_in_namespace",
-      "index": 1
-    },
-    {
-      "tool": "kubectl_get_by_kind_in_namespace",
-      "index": 2
-    },
-    {
-      "tool": "kubectl_events",
-      "index": 0
-    },
-    {
-      "tool": "kubectl_describe",
-      "index": 1
+      "tool": "resources_list",
+      "index": 6
     },
     {
       "tool": "get_namespaced_resource_context",
-      "index": 0
+      "index": 7
     },
     {
-      "tool": "list_available_actions",
-      "index": 0
+      "tool": "resources_list",
+      "index": 2
     },
     {
-      "tool": "list_available_actions",
-      "index": 0
+      "tool": "events_list",
+      "index": 4
     },
     {
-      "tool": "list_workflows",
-      "index": 0
-    },
-    {
-      "tool": "list_workflows",
+      "tool": "resources_get",
       "index": 1
+    },
+    {
+      "tool": "resources_get",
+      "index": 0
+    },
+    {
+      "tool": "pods_top",
+      "index": 5
+    },
+    {
+      "tool": "pods_log",
+      "index": 1
+    },
+    {
+      "tool": "pods_log",
+      "index": 2
+    },
+    {
+      "tool": "pods_log",
+      "index": 3
+    },
+    {
+      "tool": "pods_log",
+      "index": 0
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 6
+    },
+    {
+      "tool": "nodes_stats_summary",
+      "index": 5
+    },
+    {
+      "tool": "resources_get",
+      "index": 4
+    },
+    {
+      "tool": "list_available_actions",
+      "index": 0
     }
-  ]
+  ],
+  "workflowExecution": {
+    "phase": "NotCreated",
+    "workflowName": null,
+    "workflowId": null,
+    "actionType": null,
+    "duration": null,
+    "targetResource": null
+  },
+  "effectivenessAssessment": {
+    "phase": "NotCreated",
+    "reason": null,
+    "details": null,
+    "alertScore": null,
+    "healthScore": null,
+    "metricsScore": null
+  }
 }

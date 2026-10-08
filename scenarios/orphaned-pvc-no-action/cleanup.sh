@@ -3,6 +3,32 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # Workload resources are spoke-side; policy and workflow restoration plus
+    # Alertmanager/pipeline cleanup are hub-side.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-batch
+    if [ -f "${SCRIPT_DIR}/.approval-rego-backup" ] && [ "${KUBERNAUT_BATCH_SETUP_DONE:-}" != "1" ]; then
+        kubectl patch configmap aianalysis-policies -n "${PLATFORM_NS}" --type=merge \
+          -p "{\"data\":{\"approval.rego\":$(cat "${SCRIPT_DIR}/.approval-rego-backup" | jq -Rs .)}}"
+        kubectl rollout restart deployment/aianalysis-controller -n "${PLATFORM_NS}" 2>/dev/null || true
+        rm -f "${SCRIPT_DIR}/.approval-rego-backup"
+    elif [ -f "${SCRIPT_DIR}/.approval-rego-backup" ]; then
+        rm -f "${SCRIPT_DIR}/.approval-rego-backup"
+    fi
+    if ! kubectl get remediationworkflow cleanup-pvc-v1 -n "${PLATFORM_NS}" &>/dev/null; then
+        local_schema="${REPO_ROOT}/deploy/remediation-workflows/orphaned-pvc-no-action/orphaned-pvc-no-action.yaml"
+        if [ -f "${local_schema}" ]; then
+            kubectl apply -f "${local_schema}"
+        fi
+    fi
+    restart_alertmanager
+    purge_pipeline_crds
+    exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

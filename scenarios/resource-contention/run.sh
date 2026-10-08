@@ -10,11 +10,9 @@
 #
 # Fleet mode: set HUB_KUBECONFIG (Kubernaut control plane) and
 # SPOKE_KUBECONFIG (demo workload cluster) to run fleet/run.sh instead.
-# Only the first OOMKill -> ContainerOOMKilling alert is exercised --
-# fleet mode never runs the AIA/WFE remediation loop (single-cluster only
-# today), so the external-actor revert cycle and ineffective-remediation-
-# chain escalation this scenario is really about don't happen here. See
-# kubernaut-demo-scenarios#423 for the fuller story.
+# Fleet mode runs the first OOMKill -> AIA/WFE remediation cycle. The external
+# actor is routed to the hub for RR state and the spoke for workload mutation;
+# the Fleet validator asserts the same first-cycle contract as local mode.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,7 +21,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
 if fleet_dispatch_requested "$@"; then
-    fleet_warn_ignored_args "$@"
     exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
 else
     exec bash "${SCRIPT_DIR}/local/run.sh" "$@"

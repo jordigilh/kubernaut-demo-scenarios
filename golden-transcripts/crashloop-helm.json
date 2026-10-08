@@ -1,108 +1,1015 @@
 {
+  "schema_version": 1,
+  "_metadata": {
+    "captured_at": "2026-10-01T22:15:48.234352Z",
+    "ka_image": "quay.io/kubernaut-ai/aianalysis:1.6.0-rc20",
+    "model": "gpt-5.6-luna",
+    "cluster": "kind-kubernaut-hub",
+    "chart_version": "1.6.0",
+    "phaseModels": {
+      "rootCauseAnalysis": "gpt-5.6-luna",
+      "workflowDiscovery": "gpt-5.6-luna",
+      "source": "audit_events model fields"
+    },
+    "fleetMode": true,
+    "hubCluster": "kind-kubernaut-hub",
+    "spokeCluster": "kind-kubernaut-remote-cluster"
+  },
   "scenario": "crashloop-helm",
-  "incidentId": "rr-c2dc7f50dc7b-1cffde60",
-  "signal": {
-    "signalName": "KubePodCrashLooping",
-    "namespace": "demo-storefront",
-    "resourceKind": "Deployment",
-    "resourceName": "worker",
-    "severity": "critical"
+  "signalName": "KubePodCrashLooping",
+  "remediationRequest": {
+    "name": "rr-72622dc77609-f8055cb8",
+    "phase": "Completed",
+    "outcome": "Remediated"
   },
   "analysis": {
-    "phase": "Completed",
-    "selectedWorkflow": {
-      "confidence": 0.9,
-      "parameters": {
-        "TARGET_RESOURCE_KIND": "ConfigMap",
-        "TARGET_RESOURCE_NAME": "worker-config",
-        "TARGET_RESOURCE_NAMESPACE": "demo-storefront",
-        "TARGET_RESOURCE_API_VERSION": "v1"
+    "remediationId": "rr-72622dc77609-f8055cb8",
+    "signal": {
+      "signalName": "KubePodCrashLooping",
+      "severity": "critical",
+      "environment": "Production",
+      "targetResource": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-storefront-rc20"
       },
-      "workflowId": "47ec5289-a204-5e3d-bdf7-6b444be8cb46",
-      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:79fc8838a10fcc697f68482b2c242c37c7e8d48edfa2b394baa532ebc1ed35f1"
+      "businessPriority": "P0"
     },
-    "approvalRequired": true,
-    "needsHumanReview": false,
-    "humanReviewReason": null,
+    "investigation": {
+      "sessionId": "1edf16d0-f65f-45f8-a55b-0f628c462030"
+    },
     "rootCauseAnalysis": {
-      "summary": "ConfigMap 'worker-config' contains an invalid nginx directive 'invalid_directive_that_breaks_nginx' at line 11 of nginx.conf, introduced by a bad Helm rollout (Deployment generation 2), causing the worker container to crash immediately on startup with exit code 1. The previous Helm revision's pods remain healthy.",
+      "summary": "The worker CrashLoopBackOff is caused by the invalid nginx directive invalid_directive_that_breaks_nginx at line 10 in the revision-2 worker-config ConfigMap, causing nginx to exit with code 1.",
       "severity": "critical",
       "causalChain": [
-        "Signal: Pod 'worker-8657dcd6f8-8lhvw' in CrashLoopBackOff with 5+ restarts, exit code 1 within ~2 seconds",
-        "Why does the container exit immediately? nginx fails to start because it encounters an unknown directive in its config file",
-        "Why does nginx encounter an unknown directive? ConfigMap 'worker-config' contains 'invalid_directive_that_breaks_nginx on;' at line 11 of nginx.conf",
-        "Why was this invalid config deployed? A Helm rollout (Deployment generation 2) introduced or updated the 'worker-config' ConfigMap with the invalid directive",
-        "Root cause: ConfigMap 'worker-config' in namespace 'demo-storefront' contains a syntactically invalid nginx directive that prevents the nginx process from starting \u2014 this is a regression from a previously fixed state"
+        "Signal: `KubePodCrashLooping` reports repeated restarts for `worker-86bf4f67d-8tkzr`.",
+        "Why? Pod `worker-86bf4f67d-8tkzr` repeatedly terminates with exit code 1 and enters CrashLoopBackOff; events show BackOff after each start.",
+        "Why? Nginx fails during startup with `unknown directive \"invalid_directive_that_breaks_nginx\"` at `/etc/nginx/nginx.conf:10`, confirmed by both current and previous logs.",
+        "Why? The mounted `worker-config` ConfigMap contains `invalid_directive_that_breaks_nginx on;` inside the `http` block at line 10.",
+        "Root cause: The revision-2 `worker-config` ConfigMap contains an invalid nginx configuration directive and is mounted by Deployment `worker`, causing nginx startup failure."
       ],
       "dueDiligence": {
-        "targetAccuracy": "The remediation target is ConfigMap 'worker-config' because it is the resource whose data (nginx.conf) directly causes the crash. The Deployment spec itself is correct \u2014 it properly mounts the ConfigMap. An automated workflow can patch the ConfigMap's data field to remove the invalid directive. The Deployment is NOT the target because changing the Deployment without fixing the ConfigMap would not resolve the crash.",
-        "proportionality": "The ConfigMap is the precise, minimal remediation target. Patching one field (removing the invalid directive from nginx.conf data) resolves the crash. Rolling back the Deployment would also work but is a broader action; fixing the ConfigMap is more targeted and allows the new rollout to proceed correctly.",
-        "scopeCompleteness": "Investigated: the crashing pod (describe + current logs + previous logs), the Deployment spec, all pods in the namespace (confirmed 2 healthy old RS pods + 1 crashing new RS pod), the ConfigMap 'worker-config' (confirmed invalid content), pod events (confirmed readiness probe failure pattern), node not explicitly checked but old pods on same nodes are healthy ruling out node-level issues.",
-        "causalCompleteness": "Fully traced: CrashLoopBackOff \u2192 exit code 1 \u2192 nginx [emerg] parse error \u2192 invalid directive in ConfigMap \u2192 bad Helm rollout. The nginx error message explicitly names the file and line number. Cannot go deeper without inspecting the Helm chart values/templates that generated the ConfigMap, but the ConfigMap content itself is the direct fix target.",
-        "evidenceSufficiency": "All claims are backed by direct tool evidence: (1) pod logs explicitly show the nginx [emerg] error with file/line reference; (2) ConfigMap content confirms the invalid directive at line 11 with a comment stating it is intentionally invalid; (3) pod describe shows 2-second runtime and exit code 1; (4) events show 'connection refused' on readiness probe; (5) pod listing confirms old RS pods are healthy while only new RS pod crashes; (6) resource context confirms regression_detected=true for this ConfigMap.",
-        "regressionAwareness": "Remediation history confirms regression_detected=true for ConfigMap 'worker-config'. A prior remediation (rr-c2dc7f50dc7b-464a27bd) resolved the signal at 2026-06-04T03:42:53Z with effectiveness_score=0.58, but the fix was not preserved \u2014 the invalid config was re-introduced in the subsequent Helm rollout at 13:06:59Z. Any fix must also address the Helm chart template or values to prevent re-introduction.",
-        "alternativeHypotheses": "OOMKill was considered \u2014 ruled out: exit code is 1 (Error), not 137 (SIGKILL); container runs only ~2s which is too fast for memory pressure. Node resource exhaustion was considered \u2014 ruled out: old RS pods on same nodes are healthy. Image pull failure was considered \u2014 ruled out: events show 'Pulled' with count 5 (cached image). Permission/securityContext issue was considered \u2014 ruled out: nginx starts its entrypoint scripts successfully before failing on config parsing.",
-        "confidenceCalibration": "0.97: Starting at 1.0. -0.02 for not inspecting the Helm chart values/templates that generated the ConfigMap (cannot confirm whether this is a chart bug or a values override). -0.01 for not verifying the exact diff between old and new ConfigMap versions (old RS pods' config not compared directly). The nginx error message, ConfigMap content, and log evidence are unambiguous \u2014 confidence is very high."
+        "targetAccuracy": "Targeting namespaced ConfigMap `worker-config`, not the symptom-reporting Pod or Deployment. Changing this ConfigMap's nginx configuration is the most specific fix; the Helm-managed source should also be updated because the Deployment and ConfigMap carry Helm ownership metadata.",
+        "proportionality": "The failing behavior is isolated to the new ReplicaSet and its changed configuration checksum, while two prior-revision replicas are healthy. The ConfigMap is therefore more specific and actionable than restarting/deleting the Pod or changing node resources; Deployment/Helm rollout is a downstream restoration mechanism.",
+        "scopeCompleteness": "Checked the Deployment, both ReplicaSets, all three representative worker pods, failing pod describe/status, current and previous logs, namespace events, ConfigMap, node conditions, node usage, and ownership/remediation context. The referenced upstream Helm values/chart repository was not accessible through the available tools, so source-level correction is not verified.",
+        "causalCompleteness": "Traced the chain from CrashLoopBackOff through exit code 1 and nginx startup logs to the exact invalid ConfigMap directive and line. No deeper application cause is needed for this deterministic configuration syntax failure; the upstream Helm source should still be corrected to prevent recurrence.",
+        "evidenceSufficiency": "Direct evidence: Deployment/ReplicaSet/Pod objects, current and previous logs, events, ConfigMap contents, node conditions, and node top output. Unverified or inaccessible: pod metrics returned not found; node Summary API was forbidden due to missing `nodes/proxy` permission. These limitations do not undermine the direct log-to-ConfigMap match.",
+        "regressionAwareness": "No prior remediation history was reported for `demo-storefront-rc20/ConfigMap/worker-config`; context shows `regression_detected: false` and empty Tier 1/Tier 2 histories. Recommended remediation is a direct configuration correction, not a repeated prior action.",
+        "alternativeHypotheses": "Considered image failure, resource exhaustion/OOM, probe failure, node pressure, and scheduling failure. Image and resource profiles match healthy pods; termination is exit code 1 rather than OOMKilled; the process fails before probes can be meaningful; node is Ready with all pressure conditions false and 5% CPU/15% memory usage; scheduling and image pull succeeded. The configuration error is directly confirmed.",
+        "confidenceCalibration": "0.98. Starting at 1.0, reduced by 0.01 because the Helm source of the ConfigMap was not inspected and by 0.01 because pod metrics and node Summary API were unavailable/forbidden. The exact invalid directive is directly present in the ConfigMap and directly named in both log samples."
       },
       "remediationTarget": {
         "kind": "ConfigMap",
         "name": "worker-config",
-        "namespace": "demo-storefront"
+        "namespace": "demo-storefront-rc20"
       },
       "contributingFactors": [
-        "Bad Helm rollout (Deployment generation 2) introduced a broken nginx config into ConfigMap 'worker-config'",
-        "nginx exits with [emerg] error and code 1 when it encounters unknown directive 'invalid_directive_that_breaks_nginx', making the crash immediate (~2s runtime)",
-        "Readiness probe on /healthz:8080 fails with 'connection refused' because nginx never binds to the port",
-        "Regression detected: remediation history shows a prior fix to this ConfigMap with regression_detected=true, suggesting the invalid config was re-introduced by Helm",
-        "Old ReplicaSet 'worker-c547b545f' pods remain healthy, confirming the issue is isolated to the new rollout's config change",
-        "Prior in-place patch remediation had only moderate effectiveness (0.58) and did not persist across Helm upgrades"
+        "The revision-2 worker Deployment template mounts the faulty worker-config ConfigMap at /etc/nginx/nginx.conf.",
+        "The failing ReplicaSet uses the faulty ConfigMap checksum, while revision-1 healthy pods use a known-good checksum.",
+        "The Deployment is Helm-managed, so the faulty configuration should be reverted at the Helm release source and in-cluster."
       ]
-    }
+    },
+    "selectedWorkflow": {
+      "confidence": 0.98,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "ConfigMap",
+        "TARGET_RESOURCE_NAME": "worker-config",
+        "TARGET_RESOURCE_NAMESPACE": "demo-storefront-rc20",
+        "TARGET_RESOURCE_API_VERSION": "v1"
+      },
+      "workflowId": "0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:d7739e5bcf1270e32ec36ed7a6a528fe99e4d12a3fa2d55d9eaaddee2a107d25",
+      "workflowName": "helm-rollback-v1"
+    },
+    "alternativeWorkflows": [
+      {
+        "rationale": "PatchConfiguration matches the identifiable invalid directive in the ConfigMap, but it is less appropriate because the resource is Helm-managed and an in-place patch may be overwritten by a subsequent Helm upgrade.",
+        "confidence": 0.72,
+        "workflowId": "5abcef80-b22d-5c17-ae27-e9949cf8fb1e"
+      }
+    ],
+    "actionability": true,
+    "approvalRequired": false,
+    "approvalReason": "Policy evaluation does not require manual approval",
+    "needsHumanReview": false,
+    "humanReviewReason": null,
+    "phase": "Completed",
+    "rootCauseSummary": "The worker CrashLoopBackOff is caused by the invalid nginx directive invalid_directive_that_breaks_nginx at line 10 in the revision-2 worker-config ConfigMap, causing nginx to exit with code 1."
   },
-  "remediationRequest": {
-    "outcome": "Processing"
+  "llmTrace": [
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T20:11:26+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "83d91494-749f-4404-9065-1d4a290494c6",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "prompt_length": 14597,
+      "prompt_preview": "Investigate: critical KubePodCrashLooping in demo-storefront-rc20 \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T20:11:31+00:00",
+      "event_id": "4db7f475-5f4b-4d5c-8343-37ec259700fb",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tokens_used": 8386,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 8,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:37+00:00",
+      "event_id": "8bc724ad-45c4-43a5-b48c-b81923ba38ce",
+      "tool_name": "events_list",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: worker-86bf4f67d-8tkzr\n    apiVersion: v1\n  Message: Successfully assigned demo-storefront-rc20/worker-86bf4f67d-8tkzr to kubernaut-remote-cluster-control-plane\n  Namespace: demo-storefront-rc20\n  Reason: Scheduled\n  Timestamp: 2026-10-01 20:10:28 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: worker-86bf4f67d-8tkzr\n    apiVersion: v1\n  Message: Container image \"nginx:1.27-alpine\" already present on machine and can\n    be accessed by the pod\n  Namespace: demo-storefront-rc20\n  Reason: Pulled\n  Timestamp: 2026-10-01 20:11:15 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: worker-86bf4f67d-8tkzr\n    apiVersion: v1\n  Message: Container created\n  Namespace: demo-storefront-rc20\n  Reason: Created\n  Timestamp: 2026-10-01 20:11:15 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: worker-86bf4f67d-8tkzr\n    apiVersion: v1\n  Message: Container started\n  Namespace: demo-storefront-rc20\n  Reason: Started\n  Timestamp: 2026-10-01 20:11:17 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: worker-86bf4f67d-8tkzr\n    apiVersion: v1\n  Message: Back-off restarting failed container worker in pod worker-86bf4f67d-8tkzr_demo-storefront-rc20(7a2aac0a-17b0-4090-9787-eb09d67a9a1a)\n  Namespace: demo-storefront-rc20\n  Reason: BackOff\n  Timestamp: 2026-10-01 20:11:19 +0000 UTC\n  Type: Warning",
+      "tool_arguments": {
+        "namespace": "demo-storefront-rc20",
+        "fieldSelector": "involvedObject.name=worker-86bf4f67d-8tkzr"
+      },
+      "tool_call_index": 2,
+      "tool_result_preview": "# The following events (YAML format) were found:\n- InvolvedObject:\n    Kind: Pod\n    Name: worker-86bf4f67d-8tkzr\n    apiVersion: v1\n  Message: Successfully assigned demo-storefront-rc20/worker-86bf4f67d-8tkzr to kubernaut-remote-cluster-control-plane\n  Namespace: demo-storefront-rc20\n  Reason: Scheduled\n  Timestamp: 2026-10-01 20:10:28 +0000 UTC\n  Type: Normal\n- InvolvedObject:\n    Kind: Pod\n    Name: worker-86bf4f67d-8tkzr\n    apiVersion: v1\n  Message: Container image \"nginx:1.27-alpine\" alrea"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:37+00:00",
+      "event_id": "4160f96d-30d0-4aaf-a1bb-ca0ddd025f9a",
+      "tool_name": "pods_log",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": "/docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration\n/docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh\n10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf\n10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf\n/docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh\n/docker-entrypoint.sh: Configuration complete; ready for start up\n2026/10/01 20:11:17 [emerg] 1#1: unknown directive \"invalid_directive_that_breaks_nginx\" in /etc/nginx/nginx.conf:10\nnginx: [emerg] unknown directive \"invalid_directive_that_breaks_nginx\" in /etc/nginx/nginx.conf:10",
+      "tool_arguments": {
+        "name": "worker-86bf4f67d-8tkzr",
+        "tail": 200,
+        "previous": true,
+        "namespace": "demo-storefront-rc20"
+      },
+      "tool_call_index": 5,
+      "tool_result_preview": "/docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration\n/docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh\n10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf\n10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf\n/docker-entrypoint.sh: Sourcing /docker-entrypoint.d/"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:37+00:00",
+      "event_id": "1a440a99-4f0a-43ef-b44a-9bec1e99d233",
+      "tool_name": "pods_top",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__pods_top\" (cluster \"remote-cluster\") returned error: failed to get pods top: failed to get metrics for pod demo-storefront-rc20/worker-86bf4f67d-8tkzr: podmetrics.metrics.k8s.io \"demo-storefront-rc20/worker-86bf4f67d-8tkzr\" not found",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "worker-86bf4f67d-8tkzr",
+        "namespace": "demo-storefront-rc20",
+        "all_namespaces": false
+      },
+      "tool_call_index": 6,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__pods_top\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get pods top: failed to get metrics for pod demo-storefront-rc20/worker-86bf4f67d-8tkzr: podmetrics.metrics.k8s.io \\\"demo-storefront-rc20/worker-86bf4f67d-8tkzr\\\" not found\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:37+00:00",
+      "event_id": "86a9f2f6-03c1-427d-a0b3-4b9b46c78f53",
+      "tool_name": "pods_log",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": "/docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration\n/docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh\n10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf\n10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf\n/docker-entrypoint.sh: Sourcing /docker-entrypoint.d/15-local-resolvers.envsh\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/20-envsubst-on-templates.sh\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/30-tune-worker-processes.sh\n/docker-entrypoint.sh: Configuration complete; ready for start up\n2026/10/01 20:11:17 [emerg] 1#1: unknown directive \"invalid_directive_that_breaks_nginx\" in /etc/nginx/nginx.conf:10\nnginx: [emerg] unknown directive \"invalid_directive_that_breaks_nginx\" in /etc/nginx/nginx.conf:10",
+      "tool_arguments": {
+        "name": "worker-86bf4f67d-8tkzr",
+        "tail": 200,
+        "namespace": "demo-storefront-rc20"
+      },
+      "tool_call_index": 4,
+      "tool_result_preview": "/docker-entrypoint.sh: /docker-entrypoint.d/ is not empty, will attempt to perform configuration\n/docker-entrypoint.sh: Looking for shell scripts in /docker-entrypoint.d/\n/docker-entrypoint.sh: Launching /docker-entrypoint.d/10-listen-on-ipv6-by-default.sh\n10-listen-on-ipv6-by-default.sh: info: Getting the checksum of /etc/nginx/conf.d/default.conf\n10-listen-on-ipv6-by-default.sh: info: Enabled listen on IPv6 in /etc/nginx/conf.d/default.conf\n/docker-entrypoint.sh: Sourcing /docker-entrypoint.d/"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:37+00:00",
+      "event_id": "71e63117-3fc7-4d29-8831-740222630501",
+      "tool_name": "pods_list_in_namespace",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": "### Summary \u2014 namespace `demo-storefront-rc20`\n\n- **Total pods:** 3 `worker` pods, all scheduled on `kubernaut-remote-cluster-control-plane`.\n- **Application/release:** Helm-managed `demo-storefront` v1.0.0, chart `demo-storefront-0.1.0`, instance `demo-storefront-rc20`.\n- **Container:** `nginx:1.27-alpine` (`sha256:65645c...2a10`), listening on TCP/8080.\n- **Resources per pod:** Requests 10m CPU/32Mi memory; limits 50m CPU/64Mi memory. QoS class: **Burstable**.\n- **Configuration:** `worker-config` ConfigMap mounted at `/etc/nginx/nginx.conf` via `subPath`; readiness and liveness probes both request `GET /healthz` on port 8080.\n- **Security/service account:** Runs as UID/GID 0 using the `default` service account; no pod-level security context specified.\n\n### Pod status\n\n1. **`worker-96b59756b-9q778`**\n   - Created: `2026-10-01T20:10:02Z`\n   - ReplicaSet: `worker-96b59756b`\n   - **Running and Ready**\n   - Started: `20:10:04Z`\n   - Restart count: 0\n   - Config checksum: `974bcb98...24ebc3c`\n\n2. **`worker-96b59756b-lbrmb`**\n   - Created: `2026-10-01T20:10:02Z`\n   - ReplicaSet: `worker-96b59756b`\n   - **Running and Ready**\n   - Started: `20:10:04Z`\n   - Restart count: 0\n   - Config checksum: `974bcb98...24ebc3c`\n\n3. **`worker-86bf4f67d-8tkzr` \u2014 incident candidate**\n   - Created: `2026-10-01T20:10:28Z`\n   - ReplicaSet: `worker-86bf4f67d`\n   - Config checksum differs: `b3ee3cda...daef519`\n   - Pod phase reports **Running**, but the container is **not ready or started**\n   - Current state: **`CrashLoopBackOff`**, back-off 40 seconds\n   - Restart count: **3**\n   - Last termination:\n     - Exit code: **1**\n     - Reason: `Error`\n     - Started/finished: `2026-10-01T20:11:17Z`\n   - Readiness and containers-ready conditions are `False` with reason `ContainersNotReady`.\n   - This pod is using the same image and resource profile as the healthy pods, but its different `checksum/config` and ReplicaSet indicate a configuration revision change. The mounted `worker-config`/`nginx.conf` should be inspected first, along with container logs and events.\n\n### Investigation focus\n\nThe namespace has **two healthy replicas and one failing replacement/revision**. The failing pod\u2019s changed configuration checksum is the primary distinguishing factor; investigate the `worker-config` contents/revision and `kubectl logs --previous` for the exit-code-1 startup failure.",
+      "tool_arguments": {
+        "namespace": "demo-storefront-rc20",
+        "labelSelector": "app=worker"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "### Summary \u2014 namespace `demo-storefront-rc20`\n\n- **Total pods:** 3 `worker` pods, all scheduled on `kubernaut-remote-cluster-control-plane`.\n- **Application/release:** Helm-managed `demo-storefront` v1.0.0, chart `demo-storefront-0.1.0`, instance `demo-storefront-rc20`.\n- **Container:** `nginx:1.27-alpine` (`sha256:65645c...2a10`), listening on TCP/8080.\n- **Resources per pod:** Requests 10m CPU/32Mi memory; limits 50m CPU/64Mi memory. QoS class: **Burstable**.\n- **Configuration:** `worker-co"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:37+00:00",
+      "event_id": "13b5a0f7-6e55-4691-a136-610b5299c09a",
+      "tool_name": "resources_get",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"2\"\n    meta.helm.sh/release-name: demo-storefront-rc20\n    meta.helm.sh/release-namespace: demo-storefront-rc20\n  creationTimestamp: \"2026-10-01T20:10:02Z\"\n  generation: 2\n  labels:\n    app: worker\n    app.kubernetes.io/instance: demo-storefront-rc20\n    app.kubernetes.io/managed-by: Helm\n    app.kubernetes.io/name: demo-storefront\n    app.kubernetes.io/version: 1.0.0\n    helm.sh/chart: demo-storefront-0.1.0\n    kubernaut.ai/managed: \"true\"\n  name: worker\n  namespace: demo-storefront-rc20\n  resourceVersion: \"6254\"\n  uid: b3f014d5-10cc-426d-9786-ed7196fd1cc6\nspec:\n  progressDeadlineSeconds: 600\n  replicas: 2\n  revisionHistoryLimit: 10\n  selector:\n    matchLabels:\n      app: worker\n  strategy:\n    rollingUpdate:\n      maxSurge: 25%\n      maxUnavailable: 25%\n    type: RollingUpdate\n  template:\n    metadata:\n      annotations:\n        checksum/config: b3ee3cda91040db6411f4a9ba68a5ad0494d7073688ff8ddb97811664daef519\n      labels:\n        app: worker\n        app.kubernetes.io/instance: demo-storefront-rc20\n        app.kubernetes.io/managed-by: Helm\n        app.kubernetes.io/name: demo-storefront\n        app.kubernetes.io/version: 1.0.0\n        helm.sh/chart: demo-storefront-0.1.0\n        kubernaut.ai/managed: \"true\"\n    spec:\n      containers:\n      - image: nginx:1.27-alpine\n        imagePullPolicy: IfNotPresent\n        livenessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 3\n          periodSeconds: 5\n          successThreshold: 1\n          timeoutSeconds: 1\n        name: worker\n        ports:\n        - containerPort: 8080\n          protocol: TCP\n        readinessProbe:\n          failureThreshold: 3\n          httpGet:\n            path: /healthz\n            port: 8080\n            scheme: HTTP\n          initialDelaySeconds: 2\n          periodSeconds: 3\n          successThreshold: 1\n          timeoutSeconds: 1\n        resources:\n          limits:\n            cpu: 50m\n            memory: 64Mi\n          requests:\n            cpu: 10m\n            memory: 32Mi\n        terminationMessagePath: /dev/termination-log\n        terminationMessagePolicy: File\n        volumeMounts:\n        - mountPath: /etc/nginx/nginx.conf\n          name: config\n          subPath: nginx.conf\n      dnsPolicy: ClusterFirst\n      restartPolicy: Always\n      schedulerName: default-scheduler\n      securityContext: {}\n      terminationGracePeriodSeconds: 30\n      volumes:\n      - configMap:\n          defaultMode: 420\n          name: worker-config\n        name: config\nstatus:\n  availableReplicas: 2\n  conditions:\n  - lastTransitionTime: \"2026-10-01T20:10:08Z\"\n    lastUpdateTime: \"2026-10-01T20:10:08Z\"\n    message: Deployment has minimum availability.\n    reason: MinimumReplicasAvailable\n    status: \"True\"\n    type: Available\n  - lastTransitionTime: \"2026-10-01T20:10:02Z\"\n    lastUpdateTime: \"2026-10-01T20:10:28Z\"\n    message: ReplicaSet \"worker-86bf4f67d\" is progressing.\n    reason: ReplicaSetUpdated\n    status: \"True\"\n    type: Progressing\n  observedGeneration: 2\n  readyReplicas: 2\n  replicas: 3\n  terminatingReplicas: 0\n  unavailableReplicas: 1\n  updatedReplicas: 1",
+      "tool_arguments": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-storefront-rc20",
+        "apiVersion": "apps/v1"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  annotations:\n    deployment.kubernetes.io/revision: \"2\"\n    meta.helm.sh/release-name: demo-storefront-rc20\n    meta.helm.sh/release-namespace: demo-storefront-rc20\n  creationTimestamp: \"2026-10-01T20:10:02Z\"\n  generation: 2\n  labels:\n    app: worker\n    app.kubernetes.io/instance: demo-storefront-rc20\n    app.kubernetes.io/managed-by: Helm\n    app.kubernetes.io/name: demo-storefront\n    app.kubernetes.io/version: 1.0.0\n    helm.sh/chart: demo-sto"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T20:11:37+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "4a9b9ce9-e0a2-4282-9806-cd1ed6766f21",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "prompt_length": 36138,
+      "prompt_preview": "Investigate: critical KubePodCrashLooping in demo-storefront-rc20 \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:37+00:00",
+      "event_id": "611ec3be-0b0a-4dd8-9325-efba6d33d48c",
+      "tool_name": "pods_get",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": "apiVersion: v1\nkind: Pod\nmetadata:\n  annotations:\n    checksum/config: b3ee3cda91040db6411f4a9ba68a5ad0494d7073688ff8ddb97811664daef519\n  creationTimestamp: \"2026-10-01T20:10:28Z\"\n  generateName: worker-86bf4f67d-\n  generation: 1\n  labels:\n    app: worker\n    app.kubernetes.io/instance: demo-storefront-rc20\n    app.kubernetes.io/managed-by: Helm\n    app.kubernetes.io/name: demo-storefront\n    app.kubernetes.io/version: 1.0.0\n    helm.sh/chart: demo-storefront-0.1.0\n    kubernaut.ai/managed: \"true\"\n    pod-template-hash: 86bf4f67d\n  name: worker-86bf4f67d-8tkzr\n  namespace: demo-storefront-rc20\n  ownerReferences:\n  - apiVersion: apps/v1\n    blockOwnerDeletion: true\n    controller: true\n    kind: ReplicaSet\n    name: worker-86bf4f67d\n    uid: 5bfc4e28-2c42-4b90-95c6-3dee46531b4b\n  resourceVersion: \"6394\"\n  uid: 7a2aac0a-17b0-4090-9787-eb09d67a9a1a\nspec:\n  containers:\n  - image: nginx:1.27-alpine\n    imagePullPolicy: IfNotPresent\n    livenessProbe:\n      failureThreshold: 3\n      httpGet:\n        path: /healthz\n        port: 8080\n        scheme: HTTP\n      initialDelaySeconds: 3\n      periodSeconds: 5\n      successThreshold: 1\n      timeoutSeconds: 1\n    name: worker\n    ports:\n    - containerPort: 8080\n      protocol: TCP\n    readinessProbe:\n      failureThreshold: 3\n      httpGet:\n        path: /healthz\n        port: 8080\n        scheme: HTTP\n      initialDelaySeconds: 2\n      periodSeconds: 3\n      successThreshold: 1\n      timeoutSeconds: 1\n    resources:\n      limits:\n        cpu: 50m\n        memory: 64Mi\n      requests:\n        cpu: 10m\n        memory: 32Mi\n    terminationMessagePath: /dev/termination-log\n    terminationMessagePolicy: File\n    volumeMounts:\n    - mountPath: /etc/nginx/nginx.conf\n      name: config\n      subPath: nginx.conf\n    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount\n      name: kube-api-access-fjbw2\n      readOnly: true\n  dnsPolicy: ClusterFirst\n  enableServiceLinks: true\n  nodeName: kubernaut-remote-cluster-control-plane\n  preemptionPolicy: PreemptLowerPriority\n  priority: 0\n  restartPolicy: Always\n  schedulerName: default-scheduler\n  securityContext: {}\n  serviceAccount: default\n  serviceAccountName: default\n  terminationGracePeriodSeconds: 30\n  tolerations:\n  - effect: NoExecute\n    key: node.kubernetes.io/not-ready\n    operator: Exists\n    tolerationSeconds: 300\n  - effect: NoExecute\n    key: node.kubernetes.io/unreachable\n    operator: Exists\n    tolerationSeconds: 300\n  volumes:\n  - configMap:\n      defaultMode: 420\n      name: worker-config\n    name: config\n  - name: kube-api-access-fjbw2\n    projected:\n      defaultMode: 420\n      sources:\n      - serviceAccountToken:\n          expirationSeconds: 3607\n          path: token\n      - configMap:\n          items:\n          - key: ca.crt\n            path: ca.crt\n          name: kube-root-ca.crt\n      - downwardAPI:\n          items:\n          - fieldRef:\n              apiVersion: v1\n              fieldPath: metadata.namespace\n            path: namespace\nstatus:\n  allocatedResources:\n    cpu: 10m\n    memory: 32Mi\n  conditions:\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-10-01T20:10:29Z\"\n    observedGeneration: 1\n    status: \"True\"\n    type: PodReadyToStartContainers\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-10-01T20:10:28Z\"\n    observedGeneration: 1\n    status: \"True\"\n    type: Initialized\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-10-01T20:10:28Z\"\n    message: 'containers with unready status: [worker]'\n    observedGeneration: 1\n    reason: ContainersNotReady\n    status: \"False\"\n    type: Ready\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-10-01T20:10:28Z\"\n    message: 'containers with unready status: [worker]'\n    observedGeneration: 1\n    reason: ContainersNotReady\n    status: \"False\"\n    type: ContainersReady\n  - lastProbeTime: null\n    lastTransitionTime: \"2026-10-01T20:10:28Z\"\n    observedGeneration: 1\n    status: \"True\"\n    type: PodScheduled\n  containerStatuses:\n  - allocatedResources:\n      cpu: 10m\n      memory: 32Mi\n    containerID: containerd://419c73896d3a3964347e65ad2be40f31bc6de27168c8de2190138ac1e3aba2cc\n    image: docker.io/library/nginx:1.27-alpine\n    imageID: docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10\n    lastState:\n      terminated:\n        containerID: containerd://419c73896d3a3964347e65ad2be40f31bc6de27168c8de2190138ac1e3aba2cc\n        exitCode: 1\n        finishedAt: \"2026-10-01T20:11:17Z\"\n        reason: Error\n        startedAt: \"2026-10-01T20:11:17Z\"\n    name: worker\n    ready: false\n    resources:\n      limits:\n        cpu: 50m\n        memory: 64Mi\n      requests:\n        cpu: 10m\n        memory: 32Mi\n    restartCount: 3\n    started: false\n    state:\n      waiting:\n        message: back-off 40s restarting failed container=worker pod=worker-86bf4f67d-8tkzr_demo-storefront-rc20(7a2aac0a-17b0-4090-9787-eb09d67a9a1a)\n        reason: CrashLoopBackOff\n    user:\n      linux:\n        gid: 0\n        supplementalGroups:\n        - 0\n        - 1\n        - 2\n        - 3\n        - 4\n        - 6\n        - 10\n        - 11\n        - 20\n        - 26\n        - 27\n        uid: 0\n    volumeMounts:\n    - mountPath: /etc/nginx/nginx.conf\n      name: config\n    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount\n      name: kube-api-access-fjbw2\n      readOnly: true\n      recursiveReadOnly: Disabled\n  hostIP: [REDACTED]\n  hostIPs:\n  - ip: [REDACTED]\n  observedGeneration: 1\n  phase: Running\n  podIP: [REDACTED]\n  podIPs:\n  - ip: [REDACTED]\n  qosClass: Burstable\n  resources:\n    limits:\n      cpu: 50m\n      memory: 64Mi\n    requests:\n      memory: 32Mi\n  startTime: \"2026-10-01T20:10:28Z\"",
+      "tool_arguments": {
+        "name": "worker-86bf4f67d-8tkzr",
+        "namespace": "demo-storefront-rc20"
+      },
+      "tool_call_index": 3,
+      "tool_result_preview": "apiVersion: v1\nkind: Pod\nmetadata:\n  annotations:\n    checksum/config: b3ee3cda91040db6411f4a9ba68a5ad0494d7073688ff8ddb97811664daef519\n  creationTimestamp: \"2026-10-01T20:10:28Z\"\n  generateName: worker-86bf4f67d-\n  generation: 1\n  labels:\n    app: worker\n    app.kubernetes.io/instance: demo-storefront-rc20\n    app.kubernetes.io/managed-by: Helm\n    app.kubernetes.io/name: demo-storefront\n    app.kubernetes.io/version: 1.0.0\n    helm.sh/chart: demo-storefront-0.1.0\n    kubernaut.ai/managed: \"tru"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:37+00:00",
+      "event_id": "587050f4-0457-4a41-aad2-3f84acdaa620",
+      "tool_name": "resources_list",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": "- apiVersion: apps/v1\n  kind: ReplicaSet\n  metadata:\n    annotations:\n      deployment.kubernetes.io/desired-replicas: \"2\"\n      deployment.kubernetes.io/max-replicas: \"3\"\n      deployment.kubernetes.io/revision: \"2\"\n      meta.helm.sh/release-name: demo-storefront-rc20\n      meta.helm.sh/release-namespace: demo-storefront-rc20\n    creationTimestamp: \"2026-10-01T20:10:28Z\"\n    generation: 1\n    labels:\n      app: worker\n      app.kubernetes.io/instance: demo-storefront-rc20\n      app.kubernetes.io/managed-by: Helm\n      app.kubernetes.io/name: demo-storefront\n      app.kubernetes.io/version: 1.0.0\n      helm.sh/chart: demo-storefront-0.1.0\n      kubernaut.ai/managed: \"true\"\n      pod-template-hash: 86bf4f67d\n    name: worker-86bf4f67d\n    namespace: demo-storefront-rc20\n    ownerReferences:\n    - apiVersion: apps/v1\n      blockOwnerDeletion: true\n      controller: true\n      kind: Deployment\n      name: worker\n      uid: b3f014d5-10cc-426d-9786-ed7196fd1cc6\n    resourceVersion: \"6251\"\n    uid: 5bfc4e28-2c42-4b90-95c6-3dee46531b4b\n  spec:\n    replicas: 1\n    selector:\n      matchLabels:\n        app: worker\n        pod-template-hash: 86bf4f67d\n    template:\n      metadata:\n        annotations:\n          checksum/config: b3ee3cda91040db6411f4a9ba68a5ad0494d7073688ff8ddb97811664daef519\n        labels:\n          app: worker\n          app.kubernetes.io/instance: demo-storefront-rc20\n          app.kubernetes.io/managed-by: Helm\n          app.kubernetes.io/name: demo-storefront\n          app.kubernetes.io/version: 1.0.0\n          helm.sh/chart: demo-storefront-0.1.0\n          kubernaut.ai/managed: \"true\"\n          pod-template-hash: 86bf4f67d\n      spec:\n        containers:\n        - image: nginx:1.27-alpine\n          imagePullPolicy: IfNotPresent\n          livenessProbe:\n            failureThreshold: 3\n            httpGet:\n              path: /healthz\n              port: 8080\n              scheme: HTTP\n            initialDelaySeconds: 3\n            periodSeconds: 5\n            successThreshold: 1\n            timeoutSeconds: 1\n          name: worker\n          ports:\n          - containerPort: 8080\n            protocol: TCP\n          readinessProbe:\n            failureThreshold: 3\n            httpGet:\n              path: /healthz\n              port: 8080\n              scheme: HTTP\n            initialDelaySeconds: 2\n            periodSeconds: 3\n            successThreshold: 1\n            timeoutSeconds: 1\n          resources:\n            limits:\n              cpu: 50m\n              memory: 64Mi\n            requests:\n              cpu: 10m\n              memory: 32Mi\n          terminationMessagePath: /dev/termination-log\n          terminationMessagePolicy: File\n          volumeMounts:\n          - mountPath: /etc/nginx/nginx.conf\n            name: config\n            subPath: nginx.conf\n        dnsPolicy: ClusterFirst\n        restartPolicy: Always\n        schedulerName: default-scheduler\n        securityContext: {}\n        terminationGracePeriodSeconds: 30\n        volumes:\n        - configMap:\n            defaultMode: 420\n            name: worker-config\n          name: config\n  status:\n    fullyLabeledReplicas: 1\n    observedGeneration: 1\n    replicas: 1\n    terminatingReplicas: 0\n- apiVersion: apps/v1\n  kind: ReplicaSet\n  metadata:\n    annotations:\n      deployment.kubernetes.io/desired-replicas: \"2\"\n      deployment.kubernetes.io/max-replicas: \"3\"\n      deployment.kubernetes.io/revision: \"1\"\n      meta.helm.sh/release-name: demo-storefront-rc20\n      meta.helm.sh/release-namespace: demo-storefront-rc20\n    creationTimestamp: \"2026-10-01T20:10:02Z\"\n    generation: 1\n    labels:\n      app: worker\n      app.kubernetes.io/instance: demo-storefront-rc20\n      app.kubernetes.io/managed-by: Helm\n      app.kubernetes.io/name: demo-storefront\n      app.kubernetes.io/version: 1.0.0\n      helm.sh/chart: demo-storefront-0.1.0\n      kubernaut.ai/managed: \"true\"\n      pod-template-hash: 96b59756b\n    name: worker-96b59756b\n    namespace: demo-storefront-rc20\n    ownerReferences:\n    - apiVersion: apps/v1\n      blockOwnerDeletion: true\n      controller: true\n      kind: Deployment\n      name: worker\n      uid: b3f014d5-10cc-426d-9786-ed7196fd1cc6\n    resourceVersion: \"6187\"\n    uid: b10745ca-10e2-4de8-812b-cf9a7c98064c\n  spec:\n    replicas: 2\n    selector:\n      matchLabels:\n        app: worker\n        pod-template-hash: 96b59756b\n    template:\n      metadata:\n        annotations:\n          checksum/config: 974bcb98b3cc9e53a74ccc337ffa1ed4f68e2cd103f3e1a696fd4364e24ebc3c\n        labels:\n          app: worker\n          app.kubernetes.io/instance: demo-storefront-rc20\n          app.kubernetes.io/managed-by: Helm\n          app.kubernetes.io/name: demo-storefront\n          app.kubernetes.io/version: 1.0.0\n          helm.sh/chart: demo-storefront-0.1.0\n          kubernaut.ai/managed: \"true\"\n          pod-template-hash: 96b59756b\n      spec:\n        containers:\n        - image: nginx:1.27-alpine\n          imagePullPolicy: IfNotPresent\n          livenessProbe:\n            failureThreshold: 3\n            httpGet:\n              path: /healthz\n              port: 8080\n              scheme: HTTP\n            initialDelaySeconds: 3\n            periodSeconds: 5\n            successThreshold: 1\n            timeoutSeconds: 1\n          name: worker\n          ports:\n          - containerPort: 8080\n            protocol: TCP\n          readinessProbe:\n            failureThreshold: 3\n            httpGet:\n              path: /healthz\n              port: 8080\n              scheme: HTTP\n            initialDelaySeconds: 2\n            periodSeconds: 3\n            successThreshold: 1\n            timeoutSeconds: 1\n          resources:\n            limits:\n              cpu: 50m\n              memory: 64Mi\n            requests:\n              cpu: 10m\n              memory: 32Mi\n          terminationMessagePath: /dev/termination-log\n          terminationMessagePolicy: File\n          volumeMounts:\n          - mountPath: /etc/nginx/nginx.conf\n            name: config\n            subPath: nginx.conf\n        dnsPolicy: ClusterFirst\n        restartPolicy: Always\n        schedulerName: default-scheduler\n        securityContext: {}\n        terminationGracePeriodSeconds: 30\n        volumes:\n        - configMap:\n            defaultMode: 420\n            name: worker-config\n          name: config\n  status:\n    availableReplicas: 2\n    fullyLabeledReplicas: 2\n    observedGeneration: 1\n    readyReplicas: 2\n    replicas: 2\n    terminatingReplicas: 0",
+      "tool_arguments": {
+        "kind": "ReplicaSet",
+        "namespace": "demo-storefront-rc20",
+        "apiVersion": "apps/v1",
+        "labelSelector": "app=worker"
+      },
+      "tool_call_index": 7,
+      "tool_result_preview": "- apiVersion: apps/v1\n  kind: ReplicaSet\n  metadata:\n    annotations:\n      deployment.kubernetes.io/desired-replicas: \"2\"\n      deployment.kubernetes.io/max-replicas: \"3\"\n      deployment.kubernetes.io/revision: \"2\"\n      meta.helm.sh/release-name: demo-storefront-rc20\n      meta.helm.sh/release-namespace: demo-storefront-rc20\n    creationTimestamp: \"2026-10-01T20:10:28Z\"\n    generation: 1\n    labels:\n      app: worker\n      app.kubernetes.io/instance: demo-storefront-rc20\n      app.kubernetes."
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T20:11:40+00:00",
+      "event_id": "f172d66d-39fe-4ade-a925-91edd333181e",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tokens_used": 15224,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 6,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:41+00:00",
+      "event_id": "d47e9e05-2f49-42c0-b912-4ae6984baec0",
+      "tool_name": "nodes_stats_summary",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": {
+        "error": "remote tool \"remote-cluster__nodes_stats_summary\" (cluster \"remote-cluster\") returned error: failed to get node stats summary for kubernaut-remote-cluster-control-plane: failed to get node stats summary: nodes \"kubernaut-remote-cluster-control-plane\" is forbidden: User \"keycloak:service-account-kubernaut-fleet-read\" cannot get resource \"nodes/proxy\" in API group \"\" at the cluster scope",
+        "status": "error"
+      },
+      "tool_arguments": {
+        "name": "kubernaut-remote-cluster-control-plane"
+      },
+      "tool_call_index": 2,
+      "tool_result_preview": "{\"status\":\"error\",\"error\":\"remote tool \\\"remote-cluster__nodes_stats_summary\\\" (cluster \\\"remote-cluster\\\") returned error: failed to get node stats summary for kubernaut-remote-cluster-control-plane: failed to get node stats summary: nodes \\\"kubernaut-remote-cluster-control-plane\\\" is forbidden: User \\\"keycloak:service-account-kubernaut-fleet-read\\\" cannot get resource \\\"nodes/proxy\\\" in API group \\\"\\\" at the cluster scope\"}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:41+00:00",
+      "event_id": "369407ae-f06b-48b4-ac88-9e831bf569e5",
+      "tool_name": "resources_get",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": "apiVersion: v1\nkind: Node\nmetadata:\n  annotations:\n    node.alpha.kubernetes.io/ttl: \"0\"\n    volumes.kubernetes.io/controller-managed-attach-detach: \"true\"\n  creationTimestamp: \"2026-10-01T19:30:19Z\"\n  labels:\n    beta.kubernetes.io/arch: arm64\n    beta.kubernetes.io/os: linux\n    kubernetes.io/arch: arm64\n    kubernetes.io/hostname: kubernaut-remote-cluster-control-plane\n    kubernetes.io/os: linux\n    node-role.kubernetes.io/control-plane: \"\"\n  name: kubernaut-remote-cluster-control-plane\n  resourceVersion: \"6050\"\n  uid: 03a870ef-4558-4f92-b405-2d3d4bf39e4a\nspec:\n  podCIDR: [REDACTED]/24\n  podCIDRs:\n  - [REDACTED]/24\n  providerID: kind://podman/kubernaut-remote-cluster/kubernaut-remote-cluster-control-plane\nstatus:\n  addresses:\n  - address: [REDACTED]\n    type: InternalIP\n  - address: kubernaut-remote-cluster-control-plane\n    type: Hostname\n  allocatable:\n    cpu: \"6\"\n    ephemeral-storage: \"99252940800\"\n    hugepages-1Gi: \"0\"\n    hugepages-2Mi: \"0\"\n    hugepages-32Mi: \"0\"\n    hugepages-64Ki: \"0\"\n    memory: 14233708Ki\n    pods: \"110\"\n  capacity:\n    cpu: \"6\"\n    ephemeral-storage: \"99252940800\"\n    hugepages-1Gi: \"0\"\n    hugepages-2Mi: \"0\"\n    hugepages-32Mi: \"0\"\n    hugepages-64Ki: \"0\"\n    memory: 14233708Ki\n    pods: \"110\"\n  conditions:\n  - lastHeartbeatTime: \"2026-10-01T20:09:28Z\"\n    lastTransitionTime: \"2026-10-01T19:30:18Z\"\n    message: kubelet has sufficient memory available\n    reason: KubeletHasSufficientMemory\n    status: \"False\"\n    type: MemoryPressure\n  - lastHeartbeatTime: \"2026-10-01T20:09:28Z\"\n    lastTransitionTime: \"2026-10-01T19:30:18Z\"\n    message: kubelet has no disk pressure\n    reason: KubeletHasNoDiskPressure\n    status: \"False\"\n    type: DiskPressure\n  - lastHeartbeatTime: \"2026-10-01T20:09:28Z\"\n    lastTransitionTime: \"2026-10-01T19:30:18Z\"\n    message: kubelet has sufficient PID available\n    reason: KubeletHasSufficientPID\n    status: \"False\"\n    type: PIDPressure\n  - lastHeartbeatTime: \"2026-10-01T20:09:28Z\"\n    lastTransitionTime: \"2026-10-01T19:30:35Z\"\n    message: kubelet is posting ready status\n    reason: KubeletReady\n    status: \"True\"\n    type: Ready\n  daemonEndpoints:\n    kubeletEndpoint:\n      Port: 10250\n  declaredFeatures:\n  - ExtendWebSocketsToKubelet\n  - InPlacePodLevelResourcesVerticalScaling\n  - InPlacePodVerticalScalingInitContainers\n  - RestartAllContainersOnContainerExits\n  features:\n    supplementalGroupsPolicy: true\n  images:\n  - names:\n    - docker.io/prom/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e\n    - docker.io/prom/prometheus:latest\n    sizeBytes: 104819933\n  - names:\n    - docker.io/library/import-2026-08-26@sha256:4fbbef5581e6ed60b96426e3786371b57da07f66e350b4ff2b0077413c2b0444\n    - registry.k8s.io/kube-apiserver-arm64:v1.37.0\n    - registry.k8s.io/kube-apiserver:v1.37.0\n    sizeBytes: 97074418\n  - names:\n    - quay.io/thanos/thanos@sha256:4ec6df40fdb921de162677b321057caa8fb8324c65f4cfae9568ed55c4469e2c\n    - quay.io/thanos/thanos:v0.37.2\n    sizeBytes: 91152135\n  - names:\n    - docker.io/library/import-2026-08-26@sha256:dda35f6553455c1dde75aebfbb20759d24b7de776b884eb06415f242f276200c\n    - registry.k8s.io/kube-controller-manager-arm64:v1.37.0\n    - registry.k8s.io/kube-controller-manager:v1.37.0\n    sizeBytes: 85082212\n  - names:\n    - docker.io/library/import-2026-08-26@sha256:d5e740cce95911da5590b633aae2f7f7e3370ec9d212d4dbbbf3bf19fa07551f\n    - registry.k8s.io/kube-proxy-arm64:v1.37.0\n    - registry.k8s.io/kube-proxy:v1.37.0\n    sizeBytes: 84532964\n  - names:\n    - quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:d7739e5bcf1270e32ec36ed7a6a528fe99e4d12a3fa2d55d9eaaddee2a107d25\n    sizeBytes: 75309548\n  - names:\n    - docker.io/istio/pilot@sha256:7ccda8c22307ee796cb7ba3f4ce224ef533c3c683c063dcc92fd5a244d8a5c9d\n    - docker.io/istio/pilot:1.24.3\n    sizeBytes: 70504876\n  - names:\n    - ghcr.io/containers/kubernetes-mcp-server@sha256:4219880ffae9b61f5cf8e27c0536d4001336016a6af77dc5a63dfaf9ce938b97\n    sizeBytes: 60798794\n  - names:\n    - docker.io/library/import-2026-08-26@sha256:2aa78b45454b3df79d15bf6a57b4f9871f11ce16c8b645109ba2310076d228dd\n    - registry.k8s.io/kube-scheduler-arm64:v1.37.0\n    - registry.k8s.io/kube-scheduler:v1.37.0\n    sizeBytes: 59129565\n  - names:\n    - docker.io/kindest/kindnetd:v20260820-69b56db7\n    sizeBytes: 35652389\n  - names:\n    - quay.io/jetstack/cert-manager-controller@sha256:70f532fd9cfde0b09d55687200942399d89838bc2d5d5b45152eb799a15912b8\n    - quay.io/jetstack/cert-manager-controller:v1.21.2\n    sizeBytes: 22322766\n  - names:\n    - docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10\n    - docker.io/library/nginx:1.27-alpine\n    sizeBytes: 21832241\n  - names:\n    - registry.k8s.io/coredns/coredns:v1.14.6\n    sizeBytes: 21239459\n  - names:\n    - registry.k8s.io/metrics-server/metrics-server@sha256:d9862115e7c7881280d3d75ca26bda8ffc0fc213315979575bf23ce9826205c0\n    - registry.k8s.io/metrics-server/metrics-server:v0.9.0\n    sizeBytes: 20915021\n  - names:\n    - registry.k8s.io/etcd:3.7.0-0\n    sizeBytes: 20455189\n  - names:\n    - quay.io/prometheus-operator/prometheus-operator@sha256:a001ed10a3823bbf2410ea347796d0e35ff8decd24fb98acbe7ab9e98d431c39\n    - quay.io/prometheus-operator/prometheus-operator:v0.93.0\n    sizeBytes: 18890907\n  - names:\n    - quay.io/jetstack/cert-manager-webhook@sha256:a60e2dac46dbb8a7f3df95c54ce941012f54c2fe022f0ee55aaa1ab40ed957ae\n    - quay.io/jetstack/cert-manager-webhook:v1.21.2\n    sizeBytes: 17763959\n  - names:\n    - docker.io/kindest/local-path-provisioner:v20260820-69b56db7\n    sizeBytes: 14217939\n  - names:\n    - registry.k8s.io/kube-state-metrics/kube-state-metrics@sha256:639a1e2da549210adddc0391ff91e270e83f7873014aec53258462812f741e6f\n    - registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.13.0\n    sizeBytes: 13123973\n  - names:\n    - quay.io/prometheus-operator/prometheus-config-reloader@sha256:0ccb22ca9f3f6fd9f76ce95585d18bd2e363d421c534dde710be4bd13caa551d\n    - quay.io/prometheus-operator/prometheus-config-reloader:v0.93.0\n    sizeBytes: 13032467\n  - names:\n    - quay.io/jetstack/cert-manager-cainjector@sha256:c85268c64f2e0e76684bf5fe8906caff34b82523561c6affe0fae3546bd87562\n    - quay.io/jetstack/cert-manager-cainjector:v1.21.2\n    sizeBytes: 11045184\n  - names:\n    - quay.io/jetstack/cert-manager-startupapicheck@sha256:46e75b6866359ffb5d82624f41e3ed1c70b2994982702ced547ce5edb418a8f5\n    - quay.io/jetstack/cert-manager-startupapicheck:v1.21.2\n    sizeBytes: 10260766\n  - names:\n    - ghcr.io/jkroepke/kube-webhook-certgen@sha256:d0e80b2f62fe43bb5e1b96adc692132fb4522e802f4cf673c09b1f94722b8cb6\n    - ghcr.io/jkroepke/kube-webhook-certgen:1.8.5\n    sizeBytes: 7968652\n  - names:\n    - docker.io/kindest/local-path-helper:v20260131-7181c60a\n    sizeBytes: 2740462\n  - names:\n    - registry.k8s.io/pause:3.10\n    sizeBytes: 267933\n  nodeInfo:\n    architecture: arm64\n    bootID: 108ae7a5-cd34-42ab-89ce-cd2357f6943e\n    containerRuntimeVersion: containerd://2.3.4\n    kernelVersion: 7.1.10-200.fc44.aarch64\n    kubeProxyVersion: \"\"\n    kubeletVersion: v1.37.0\n    machineID: 237cf8c0ba724530a0a87a0e1a314d6d\n    operatingSystem: linux\n    osImage: Debian GNU/Linux 13 (trixie)\n    runningInUserNamespace: true\n    systemUUID: 361bf74a-0813-4f53-8238-261d170a7b93\n  runtimeHandlers:\n  - features:\n      recursiveReadOnlyMounts: true\n      userNamespaces: true\n    name: \"\"\n  - features:\n      recursiveReadOnlyMounts: true\n      userNamespaces: true\n    name: runc\n  - features:\n      recursiveReadOnlyMounts: true\n      userNamespaces: true\n    name: test-handler",
+      "tool_arguments": {
+        "kind": "Node",
+        "name": "kubernaut-remote-cluster-control-plane",
+        "apiVersion": "v1"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "apiVersion: v1\nkind: Node\nmetadata:\n  annotations:\n    node.alpha.kubernetes.io/ttl: \"0\"\n    volumes.kubernetes.io/controller-managed-attach-detach: \"true\"\n  creationTimestamp: \"2026-10-01T19:30:19Z\"\n  labels:\n    beta.kubernetes.io/arch: arm64\n    beta.kubernetes.io/os: linux\n    kubernetes.io/arch: arm64\n    kubernetes.io/hostname: kubernaut-remote-cluster-control-plane\n    kubernetes.io/os: linux\n    node-role.kubernetes.io/control-plane: \"\"\n  name: kubernaut-remote-cluster-control-plane\n  re"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:41+00:00",
+      "event_id": "1d04c8fb-686f-4cbf-af9f-ec924cab4fb4",
+      "tool_name": "get_namespaced_resource_context",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": {
+        "root_owner": {
+          "kind": "Deployment",
+          "name": "worker",
+          "namespace": "demo-storefront-rc20"
+        },
+        "remediation_history": {
+          "tier1": [],
+          "tier2": [],
+          "tier1_window": "24h0m0s",
+          "tier2_window": "2160h0m0s",
+          "target_resource": "demo-storefront-rc20/Deployment/worker",
+          "regression_detected": false
+        }
+      },
+      "tool_arguments": {
+        "kind": "Deployment",
+        "name": "worker",
+        "namespace": "demo-storefront-rc20"
+      },
+      "tool_call_index": 5,
+      "tool_result_preview": "{\"root_owner\":{\"kind\":\"Deployment\",\"name\":\"worker\",\"namespace\":\"demo-storefront-rc20\"},\"remediation_history\":{\"target_resource\":\"demo-storefront-rc20/Deployment/worker\",\"regression_detected\":false,\"tier1\":[],\"tier1_window\":\"24h0m0s\",\"tier2\":[],\"tier2_window\":\"2160h0m0s\"}}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:41+00:00",
+      "event_id": "d75f1445-2fa3-4dde-8061-dd4cfb6c98ee",
+      "tool_name": "resources_get",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": "apiVersion: v1\ndata:\n  nginx.conf: |\n    worker_processes auto;\n    error_log /var/log/nginx/error.log warn;\n    pid /tmp/nginx.pid;\n    events {\n        worker_connections 1024;\n    }\n    http {\n        invalid_directive_that_breaks_nginx on;\n        server {\n            listen 8080;\n            server_name _;\n            location / {\n                return 200 'healthy\\n';\n                add_header Content-Type text/plain;\n            }\n        }\n    }\nkind: ConfigMap\nmetadata:\n  annotations:\n    meta.helm.sh/release-name: demo-storefront-rc20\n    meta.helm.sh/release-namespace: demo-storefront-rc20\n  creationTimestamp: \"2026-10-01T20:10:02Z\"\n  labels:\n    app.kubernetes.io/instance: demo-storefront-rc20\n    app.kubernetes.io/managed-by: Helm\n    app.kubernetes.io/name: demo-storefront\n    app.kubernetes.io/version: 1.0.0\n    helm.sh/chart: demo-storefront-0.1.0\n  name: worker-config\n  namespace: demo-storefront-rc20\n  resourceVersion: \"6239\"\n  uid: 6c3cddab-3fce-4546-82b9-4d1207243252",
+      "tool_arguments": {
+        "kind": "ConfigMap",
+        "name": "worker-config",
+        "namespace": "demo-storefront-rc20",
+        "apiVersion": "v1"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "apiVersion: v1\ndata:\n  nginx.conf: |\n    worker_processes auto;\n    error_log /var/log/nginx/error.log warn;\n    pid /tmp/nginx.pid;\n    events {\n        worker_connections 1024;\n    }\n    http {\n        invalid_directive_that_breaks_nginx on;\n        server {\n            listen 8080;\n            server_name _;\n            location / {\n                return 200 'healthy\\n';\n                add_header Content-Type text/plain;\n            }\n        }\n    }\nkind: ConfigMap\nmetadata:\n  annotations:"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:41+00:00",
+      "event_id": "dc1d870c-d3e4-4b5b-bcf5-1c8705a82908",
+      "tool_name": "get_namespaced_resource_context",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": {
+        "root_owner": {
+          "kind": "ConfigMap",
+          "name": "worker-config",
+          "namespace": "demo-storefront-rc20"
+        },
+        "remediation_history": {
+          "tier1": [],
+          "tier2": [],
+          "tier1_window": "24h0m0s",
+          "tier2_window": "2160h0m0s",
+          "target_resource": "demo-storefront-rc20/ConfigMap/worker-config",
+          "regression_detected": false
+        }
+      },
+      "tool_arguments": {
+        "kind": "ConfigMap",
+        "name": "worker-config",
+        "namespace": "demo-storefront-rc20"
+      },
+      "tool_call_index": 4,
+      "tool_result_preview": "{\"root_owner\":{\"kind\":\"ConfigMap\",\"name\":\"worker-config\",\"namespace\":\"demo-storefront-rc20\"},\"remediation_history\":{\"target_resource\":\"demo-storefront-rc20/ConfigMap/worker-config\",\"regression_detected\":false,\"tier1\":[],\"tier1_window\":\"24h0m0s\",\"tier2\":[],\"tier2_window\":\"2160h0m0s\"}}"
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:41+00:00",
+      "event_id": "efdb4bdf-80d0-4206-a485-fe57fd9f4b4d",
+      "tool_name": "nodes_top",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": "NAME                                     CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   SWAP(bytes)   SWAP(%)   \nkubernaut-remote-cluster-control-plane   340m         5%       2123Mi          15%         0Mi           ",
+      "tool_arguments": {
+        "name": "kubernaut-remote-cluster-control-plane"
+      },
+      "tool_call_index": 3,
+      "tool_result_preview": "NAME                                     CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)   SWAP(bytes)   SWAP(%)   \nkubernaut-remote-cluster-control-plane   340m         5%       2123Mi          15%         0Mi           "
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T20:11:41+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "rca",
+      "event_id": "05543586-c301-4e90-a1e8-6dcd78f0ebeb",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "prompt_length": 45965,
+      "prompt_preview": "Investigate: critical KubePodCrashLooping in demo-storefront-rc20 \u2014 ",
+      "toolsets_enabled": [
+        "nodes_log",
+        "nodes_stats_summary",
+        "fetch_pod_logs",
+        "execute_prometheus_instant_query",
+        "execute_prometheus_range_query",
+        "get_metric_names",
+        "get_label_values",
+        "get_all_labels",
+        "get_metric_metadata",
+        "list_prometheus_rules",
+        "get_series",
+        "get_alerts",
+        "get_silences",
+        "get_namespaced_resource_context",
+        "get_cluster_resource_context",
+        "todo_write",
+        "events_list",
+        "namespaces_list",
+        "nodes_top",
+        "pods_delete",
+        "pods_exec",
+        "pods_get",
+        "pods_list",
+        "pods_list_in_namespace",
+        "pods_log",
+        "pods_run",
+        "pods_top",
+        "projects_list",
+        "resources_create_or_update",
+        "resources_delete",
+        "resources_get",
+        "resources_list",
+        "resources_scale",
+        "submit_result"
+      ]
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T20:11:54+00:00",
+      "event_id": "1817d632-f8b1-40d5-9843-4bc4ef2bd982",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tokens_used": 20186,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T20:11:55+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "a766bb24-2924-4a64-974e-1b2e9b4a0170",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "prompt_length": 9576,
+      "prompt_preview": "RCA findings: The `worker` container enters CrashLoopBackOff because the revision-2 `worker-config` ConfigMap contains the invalid nginx directive `invalid_directive_that_breaks_nginx` at line 10, causing nginx to exit with code 1 during startup.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "helmManaged": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T20:11:56+00:00",
+      "event_id": "17538f84-ecf5-473f-bd3d-467a5600dfde",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tokens_used": 3276,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:56+00:00",
+      "event_id": "076ef3e1-e0c7-4e9a-b499-89e945573dc3",
+      "tool_name": "list_available_actions",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": {
+        "actionTypes": [
+          {
+            "rank": 1,
+            "preferred": true,
+            "actionType": "HelmRollback",
+            "description": {
+              "what": "Roll back a Helm release to its previous healthy revision.",
+              "whenToUse": "A Helm-managed workload is crashing after a helm upgrade introduced a bad configuration, and the previous Helm revision was healthy.",
+              "whenNotToUse": "When the workload is not managed by Helm (use RollbackDeployment or GracefulRestart instead), or when the crash is caused by an external dependency failure.",
+              "preconditions": "The Helm release has at least one previous healthy revision in its history, and the Helm tiller/controller has access to roll back."
+            },
+            "workflowCount": 1,
+            "preferenceReason": "detected-label match for helmManaged=true",
+            "matchedDetectedLabels": {
+              "helmManaged": true
+            }
+          },
+          {
+            "rank": 2,
+            "preferred": false,
+            "actionType": "GitRevertCommit",
+            "description": {
+              "what": "Revert a bad commit in a Git repository managed by GitOps (ArgoCD/Flux).",
+              "whenToUse": "Root cause is a recent Git commit that introduced a regression in a GitOps-managed environment, and the ArgoCD/Flux controller will reconcile the reverted state.",
+              "whenNotToUse": "When the environment is not GitOps-managed. Use RollbackDeployment instead for direct kubectl-managed workloads.",
+              "preconditions": "GitOps tooling (ArgoCD or Flux) is active, the source Git repository is accessible, and a previous healthy commit exists."
+            },
+            "workflowCount": 1,
+            "preferenceReason": "highest-scoring matching workflow",
+            "matchedDetectedLabels": null
+          },
+          {
+            "rank": 3,
+            "preferred": false,
+            "actionType": "PatchConfiguration",
+            "description": {
+              "what": "Patch a faulty ConfigMap or configuration resource in-place to fix a configuration error without rolling back the deployment.",
+              "whenToUse": "When the root cause is a specific, identifiable configuration error in a mounted ConfigMap, and the fix is deterministic. Prioritizes speed over safety by modifying live resources.",
+              "whenNotToUse": "When the root cause is unclear, when multiple configuration resources may be affected, or when a full rollback to a known-good revision is preferred for safety.",
+              "preconditions": "The faulty configuration resource is identified and the correction can be applied programmatically."
+            },
+            "workflowCount": 3,
+            "preferenceReason": "highest-scoring matching workflow",
+            "matchedDetectedLabels": null
+          }
+        ]
+      },
+      "tool_arguments": {},
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"actionTypes\":[{\"actionType\":\"HelmRollback\",\"description\":{\"what\":\"Roll back a Helm release to its previous healthy revision.\",\"whenToUse\":\"A Helm-managed workload is crashing after a helm upgrade introduced a bad configuration, and the previous Helm revision was healthy.\",\"whenNotToUse\":\"When the workload is not managed by Helm (use RollbackDeployment or GracefulRestart instead), or when the crash is caused by an external dependency failure.\",\"preconditions\":\"The Helm release has at least one "
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T20:11:56+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "9d7894da-0843-4a3f-9232-d3ebcef7b4ac",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "prompt_length": 11843,
+      "prompt_preview": "RCA findings: The `worker` container enters CrashLoopBackOff because the revision-2 `worker-config` ConfigMap contains the invalid nginx directive `invalid_directive_that_breaks_nginx` at line 10, causing nginx to exit with code 1 during startup.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "helmManaged": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T20:11:57+00:00",
+      "event_id": "38a2081c-e286-4e92-ada3-9e7407eb3c4e",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tokens_used": 3772,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:57+00:00",
+      "event_id": "aace5edf-e88e-4e5e-aabe-4a666e5cc8a8",
+      "tool_name": "list_workflows",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": {
+        "workflows": [
+          {
+            "name": "helm-rollback-v1",
+            "version": "1.6.4",
+            "workflowId": "0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24",
+            "description": {
+              "what": "Rolls back a Helm release to its previous revision to recover from a failed resource or configuration change deployed via helm upgrade",
+              "whenToUse": "When a resource belonging to a Helm-managed release is unhealthy immediately after a helm upgrade, and the previous Helm revision was healthy",
+              "whenNotToUse": "When the workload is not managed by Helm (use RollbackDeployment instead), or when the crash is caused by an external dependency failure",
+              "preconditions": "The Helm release containing the RCA target has at least one previous healthy revision in its history"
+            },
+            "workflowName": "helm-rollback-v1"
+          }
+        ],
+        "actionType": "HelmRollback"
+      },
+      "tool_arguments": {
+        "action_type": "HelmRollback"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"actionType\":\"HelmRollback\",\"workflows\":[{\"workflowId\":\"0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24\",\"workflowName\":\"helm-rollback-v1\",\"name\":\"helm-rollback-v1\",\"description\":{\"what\":\"Rolls back a Helm release to its previous revision to recover from a failed resource or configuration change deployed via helm upgrade\",\"whenToUse\":\"When a resource belonging to a Helm-managed release is unhealthy immediately after a helm upgrade, and the previous Helm revision was healthy\",\"whenNotToUse\":\"When the workl"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T20:11:57+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "27ed1ad6-e19a-495e-985c-8666e27d6897",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "prompt_length": 12607,
+      "prompt_preview": "RCA findings: The `worker` container enters CrashLoopBackOff because the revision-2 `worker-config` ConfigMap contains the invalid nginx directive `invalid_directive_that_breaks_nginx` at line 10, causing nginx to exit with code 1 during startup.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "helmManaged": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T20:11:59+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "753d70d1-0fe0-4fce-8c60-f13099d60eba",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "prompt_length": 13239,
+      "prompt_preview": "RCA findings: The `worker` container enters CrashLoopBackOff because the revision-2 `worker-config` ConfigMap contains the invalid nginx directive `invalid_directive_that_breaks_nginx` at line 10, causing nginx to exit with code 1 during startup.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "helmManaged": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T20:11:59+00:00",
+      "event_id": "c3fe2fca-f386-46e1-97a2-fec5ff8eaf19",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tokens_used": 4005,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:11:59+00:00",
+      "event_id": "10c50555-7e64-4d88-8cd5-412962dddea4",
+      "tool_name": "get_workflow",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": {
+        "reason": "workflow_schema_not_persisted",
+        "result_omitted": true
+      },
+      "tool_arguments": {
+        "workflow_id": "0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"result_omitted\":true,\"reason\":\"workflow_schema_not_persisted\"}"
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T20:12:01+00:00",
+      "model": "gpt-5.6-luna",
+      "phase": "workflow_discovery",
+      "event_id": "c53bb370-f0e9-4362-9f26-158cd51f8f1c",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "prompt_length": 18567,
+      "prompt_preview": "RCA findings: The `worker` container enters CrashLoopBackOff because the revision-2 `worker-config` ConfigMap contains the invalid nginx directive `invalid_directive_that_breaks_nginx` at line 10, causing nginx to exit with code 1 during startup.\n\nSelect the appropriate remediation workflow.",
+      "toolsets_enabled": [
+        "list_available_actions",
+        "list_workflows",
+        "get_workflow",
+        "todo_write",
+        "submit_result_with_workflow",
+        "submit_result_no_workflow"
+      ],
+      "workflow_discovery_context": {
+        "detected_labels": {
+          "helmManaged": true
+        },
+        "prompt_labels_present": true,
+        "signal_labels_present": true,
+        "enrichment_labels_present": true
+      }
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:12:01+00:00",
+      "event_id": "fe0e425b-e2d0-4e8f-9d99-bd76bb53ac86",
+      "tool_name": "list_workflows",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": {
+        "workflows": [
+          {
+            "name": "increase-db-connections-v1",
+            "version": "1.6.3",
+            "workflowId": "32f9c2e8-e3a6-57a4-9ee2-6cafdea7d4dd",
+            "description": {
+              "what": "Increases the PostgreSQL max_connections limit by patching the database ConfigMap and restarting the database Deployment, relieving connection pool exhaustion so blocked clients can reconnect.\n",
+              "whenToUse": "When a DatabaseConnectionPoolExhausted or similar alert indicates that active database connections have reached or exceeded max_connections, and legitimate workloads are being denied connections. The ConfigMap holding the connection limit (e.g. POSTGRESQL_MAX_CONNECTIONS) is identifiable and the database supports dynamic pool expansion via restart.\n",
+              "whenNotToUse": "When the exhaustion is caused solely by a connection leak that will re-saturate any higher limit \u2014 scale down or restart the leaking workload instead. Also avoid when the database is at its hardware memory ceiling and cannot support more connections.\n",
+              "preconditions": "A ConfigMap holds the POSTGRESQL_MAX_CONNECTIONS value, the database Deployment reads it via envFrom, and the database has sufficient memory headroom to handle the increased connection count.\n"
+            },
+            "workflowName": "increase-db-connections-v1"
+          },
+          {
+            "name": "patch-configuration-v1",
+            "version": "1.6.3",
+            "workflowId": "5abcef80-b22d-5c17-ae27-e9949cf8fb1e",
+            "description": {
+              "what": "Patches a ConfigMap to remove invalid keys or restore known-good values from a backup ConfigMap, then restarts the Deployment that mounts it to recover from configuration-induced crashes",
+              "whenToUse": "When a Deployment's pods are crashing because a mounted ConfigMap contains invalid data (bad directives, corrupted values, injected keys) and the Deployment spec itself has NOT changed \u2014 only the ConfigMap content was modified in-place. Look for: (1) CrashLoopBackOff with exit code 1 and startup errors referencing config files, (2) the Deployment's volume still references the same ConfigMap name as before, (3) the ConfigMap data contains keys or values that were recently added or modified. This is the correct workflow when the root cause is bad ConfigMap content, not a bad Deployment spec change.",
+              "whenNotToUse": "When the Deployment spec was changed to reference a different ConfigMap name (e.g. volumes[].configMap.name was modified) \u2014 use CrashloopRollback instead, which reverts the entire pod template. When the crash is caused by an image change, resource limits, or external dependency failure. When the ConfigMap is managed by a GitOps tool (ArgoCD/Flux) \u2014 use GitRevert instead.",
+              "preconditions": "The ConfigMap exists in the target namespace. Either a backup ConfigMap (<name>-backup, <name>-good, <name>-original) is available, or the bad keys can be identified and removed."
+            },
+            "workflowName": "patch-configuration-v1"
+          },
+          {
+            "name": "hotfix-config-production-v1",
+            "version": "1.6.3",
+            "workflowId": "9f9a45fc-406b-5740-8858-d0cea1fc9129",
+            "description": {
+              "what": "Patches a faulty ConfigMap in-place to remove an invalid configuration directive, then restarts the owning Deployment so pods load the corrected configuration",
+              "whenToUse": "When a Deployment enters CrashLoopBackOff due to an identifiable configuration error in a mounted ConfigMap, the signal carries risk_tolerance=low, and the workload is NOT managed by Helm or GitOps. The target resource may be the ConfigMap itself or the Deployment that mounts it. This workflow patches the ConfigMap in-place, which is only appropriate for imperatively managed resources. For Helm-managed workloads, use HelmRollback instead \u2014 a Helm rollback reverts the entire release including all ConfigMaps to the previous healthy revision.",
+              "whenNotToUse": "When the workload is managed by Helm or GitOps (ArgoCD/Flux) \u2014 use HelmRollback or GitRevert instead, as in-place ConfigMap patches will be overwritten by the next sync or upgrade. Also avoid when the configuration error cannot be identified programmatically, or when the root cause is a bad image or pod spec change rather than a ConfigMap.",
+              "preconditions": "A Deployment mounts a ConfigMap as a volume, and the ConfigMap contains an identifiable invalid directive that can be removed to restore health."
+            },
+            "workflowName": "hotfix-config-production-v1"
+          }
+        ],
+        "actionType": "PatchConfiguration"
+      },
+      "tool_arguments": {
+        "action_type": "PatchConfiguration"
+      },
+      "tool_call_index": 0,
+      "tool_result_preview": "{\"actionType\":\"PatchConfiguration\",\"workflows\":[{\"workflowId\":\"32f9c2e8-e3a6-57a4-9ee2-6cafdea7d4dd\",\"workflowName\":\"increase-db-connections-v1\",\"name\":\"increase-db-connections-v1\",\"description\":{\"what\":\"Increases the PostgreSQL max_connections limit by patching the database ConfigMap and restarting the database Deployment, relieving connection pool exhaustion so blocked clients can reconnect.\\n\",\"whenToUse\":\"When a DatabaseConnectionPoolExhausted or similar alert indicates that active database "
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T20:12:01+00:00",
+      "event_id": "f98885b9-3bbf-431f-85d4-905d67f7c048",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tokens_used": 4192,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 2,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.tool_call",
+      "event_timestamp": "2026-10-01T20:12:01+00:00",
+      "event_id": "1f90f547-7b32-4658-a788-1c4ee17a8263",
+      "tool_name": "list_workflows",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tool_result": {
+        "workflows": [
+          {
+            "name": "git-revert-v2",
+            "version": "1.6.3",
+            "workflowId": "ea128483-8606-571b-be74-bf69f592f681",
+            "description": {
+              "what": "Reverts the most recent commit in a GitOps-managed repository to undo a bad change",
+              "whenToUse": "When a GitOps-managed workload is crashing due to a bad commit (ConfigMap, Deployment spec, etc.) and ArgoCD/Flux will reconcile the reverted state. ALWAYS prefer this over PatchConfiguration or RollbackDeployment when the environment is GitOps-managed (detected label gitOpsTool is set), because in-place patches or kubectl rollbacks will be overwritten by the next ArgoCD/Flux sync -- only a git revert permanently fixes the root cause in the source of truth.",
+              "whenNotToUse": "When the environment is not GitOps-managed (no ArgoCD/Flux annotations detected) -- use RollbackDeployment or PatchConfiguration instead",
+              "preconditions": "ArgoCD or Flux is active, the Gitea/GitHub repository is accessible, and a previous healthy commit exists"
+            },
+            "workflowName": "git-revert-v2"
+          }
+        ],
+        "actionType": "GitRevertCommit"
+      },
+      "tool_arguments": {
+        "action_type": "GitRevertCommit"
+      },
+      "tool_call_index": 1,
+      "tool_result_preview": "{\"actionType\":\"GitRevertCommit\",\"workflows\":[{\"workflowId\":\"ea128483-8606-571b-be74-bf69f592f681\",\"workflowName\":\"git-revert-v2\",\"name\":\"git-revert-v2\",\"description\":{\"what\":\"Reverts the most recent commit in a GitOps-managed repository to undo a bad change\",\"whenToUse\":\"When a GitOps-managed workload is crashing due to a bad commit (ConfigMap, Deployment spec, etc.) and ArgoCD/Flux will reconcile the reverted state. ALWAYS prefer this over PatchConfiguration or RollbackDeployment when the envir"
+    },
+    {
+      "event_type": "aiagent.llm.response",
+      "event_timestamp": "2026-10-01T20:12:05+00:00",
+      "event_id": "3927129c-6141-47ab-87a6-dcaedeb3d265",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "tokens_used": 5849,
+      "has_analysis": false,
+      "analysis_length": 0,
+      "tool_call_count": 1,
+      "analysis_preview": ""
+    },
+    {
+      "event_type": "aiagent.llm.request",
+      "event_timestamp": "2026-10-01T20:12:05+00:00",
+      "model": "",
+      "event_id": "bf7b1692-647c-491b-bce7-66d245e9cd45",
+      "incident_id": "rr-72622dc77609-f8055cb8",
+      "prompt_length": 0,
+      "prompt_preview": ""
+    }
+  ],
+  "traceStats": {
+    "totalTokens": 64890,
+    "llmTurns": 8,
+    "totalToolCalls": 19,
+    "k8sToolCalls": 19,
+    "model": "gpt-5.6-luna"
   },
   "kaResponse": {
-    "confidence": 0.9,
-    "analysis": "ConfigMap 'worker-config' contains an invalid nginx directive 'invalid_directive_that_breaks_nginx' at line 11 of nginx.conf, introduced by a bad Helm rollout (Deployment generation 2), causing the worker container to crash immediately on startup with exit code 1. The previous Helm revision's pods remain healthy."
-  },
-  "traceStats": {
-    "totalTokens": 177518,
-    "llmTurns": 17,
-    "totalToolCalls": 13
+    "analysis": "The worker CrashLoopBackOff is caused by the invalid nginx directive invalid_directive_that_breaks_nginx at line 10 in the revision-2 worker-config ConfigMap, causing nginx to exit with code 1.",
+    "warnings": [],
+    "timestamp": "2026-10-01T20:12:05Z",
+    "confidence": 0.98,
+    "incidentId": "rr-72622dc77609-f8055cb8",
+    "isActionable": true,
+    "needsHumanReview": false,
+    "selectedWorkflow": {
+      "confidence": 0.98,
+      "parameters": {
+        "TARGET_RESOURCE_KIND": "ConfigMap",
+        "TARGET_RESOURCE_NAME": "worker-config",
+        "TARGET_RESOURCE_NAMESPACE": "demo-storefront-rc20",
+        "TARGET_RESOURCE_API_VERSION": "v1"
+      },
+      "workflowId": "0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24",
+      "executionBundle": "quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:d7739e5bcf1270e32ec36ed7a6a528fe99e4d12a3fa2d55d9eaaddee2a107d25"
+    },
+    "rootCauseAnalysis": {
+      "summary": "The worker CrashLoopBackOff is caused by the invalid nginx directive invalid_directive_that_breaks_nginx at line 10 in the revision-2 worker-config ConfigMap, causing nginx to exit with code 1.",
+      "severity": "critical",
+      "causalChain": [
+        "Signal: `KubePodCrashLooping` reports repeated restarts for `worker-86bf4f67d-8tkzr`.",
+        "Why? Pod `worker-86bf4f67d-8tkzr` repeatedly terminates with exit code 1 and enters CrashLoopBackOff; events show BackOff after each start.",
+        "Why? Nginx fails during startup with `unknown directive \"invalid_directive_that_breaks_nginx\"` at `/etc/nginx/nginx.conf:10`, confirmed by both current and previous logs.",
+        "Why? The mounted `worker-config` ConfigMap contains `invalid_directive_that_breaks_nginx on;` inside the `http` block at line 10.",
+        "Root cause: The revision-2 `worker-config` ConfigMap contains an invalid nginx configuration directive and is mounted by Deployment `worker`, causing nginx startup failure."
+      ],
+      "dueDiligence": {
+        "targetAccuracy": "Targeting namespaced ConfigMap `worker-config`, not the symptom-reporting Pod or Deployment. Changing this ConfigMap's nginx configuration is the most specific fix; the Helm-managed source should also be updated because the Deployment and ConfigMap carry Helm ownership metadata.",
+        "proportionality": "The failing behavior is isolated to the new ReplicaSet and its changed configuration checksum, while two prior-revision replicas are healthy. The ConfigMap is therefore more specific and actionable than restarting/deleting the Pod or changing node resources; Deployment/Helm rollout is a downstream restoration mechanism.",
+        "scopeCompleteness": "Checked the Deployment, both ReplicaSets, all three representative worker pods, failing pod describe/status, current and previous logs, namespace events, ConfigMap, node conditions, node usage, and ownership/remediation context. The referenced upstream Helm values/chart repository was not accessible through the available tools, so source-level correction is not verified.",
+        "causalCompleteness": "Traced the chain from CrashLoopBackOff through exit code 1 and nginx startup logs to the exact invalid ConfigMap directive and line. No deeper application cause is needed for this deterministic configuration syntax failure; the upstream Helm source should still be corrected to prevent recurrence.",
+        "evidenceSufficiency": "Direct evidence: Deployment/ReplicaSet/Pod objects, current and previous logs, events, ConfigMap contents, node conditions, and node top output. Unverified or inaccessible: pod metrics returned not found; node Summary API was forbidden due to missing `nodes/proxy` permission. These limitations do not undermine the direct log-to-ConfigMap match.",
+        "regressionAwareness": "No prior remediation history was reported for `demo-storefront-rc20/ConfigMap/worker-config`; context shows `regression_detected: false` and empty Tier 1/Tier 2 histories. Recommended remediation is a direct configuration correction, not a repeated prior action.",
+        "alternativeHypotheses": "Considered image failure, resource exhaustion/OOM, probe failure, node pressure, and scheduling failure. Image and resource profiles match healthy pods; termination is exit code 1 rather than OOMKilled; the process fails before probes can be meaningful; node is Ready with all pressure conditions false and 5% CPU/15% memory usage; scheduling and image pull succeeded. The configuration error is directly confirmed.",
+        "confidenceCalibration": "0.98. Starting at 1.0, reduced by 0.01 because the Helm source of the ConfigMap was not inspected and by 0.01 because pod metrics and node Summary API were unavailable/forbidden. The exact invalid directive is directly present in the ConfigMap and directly named in both log samples."
+      },
+      "remediationTarget": {
+        "kind": "ConfigMap",
+        "name": "worker-config",
+        "namespace": "demo-storefront-rc20"
+      },
+      "contributingFactors": [
+        "The revision-2 worker Deployment template mounts the faulty worker-config ConfigMap at /etc/nginx/nginx.conf.",
+        "The failing ReplicaSet uses the faulty ConfigMap checksum, while revision-1 healthy pods use a known-good checksum.",
+        "The Deployment is Helm-managed, so the faulty configuration should be reverted at the Helm release source and in-cluster."
+      ]
+    },
+    "alternativeWorkflows": [
+      {
+        "rationale": "PatchConfiguration matches the identifiable invalid directive in the ConfigMap, but it is less appropriate because the resource is Helm-managed and an in-place patch may be overwritten by a subsequent Helm upgrade.",
+        "confidence": 0.72,
+        "workflowId": "5abcef80-b22d-5c17-ae27-e9949cf8fb1e"
+      }
+    ]
   },
   "toolCalls": [
     {
-      "tool": "kubectl_describe",
-      "index": 0
-    },
-    {
-      "tool": "kubectl_describe",
-      "index": 1
-    },
-    {
-      "tool": "kubectl_events",
+      "tool": "events_list",
       "index": 2
     },
     {
-      "tool": "kubectl_previous_logs",
-      "index": 0
+      "tool": "pods_log",
+      "index": 5
     },
     {
-      "tool": "kubectl_logs",
+      "tool": "pods_top",
+      "index": 6
+    },
+    {
+      "tool": "pods_log",
+      "index": 4
+    },
+    {
+      "tool": "pods_list_in_namespace",
       "index": 1
     },
     {
-      "tool": "kubectl_get_by_name",
-      "index": 2
+      "tool": "resources_get",
+      "index": 0
     },
     {
-      "tool": "kubectl_get_by_kind_in_namespace",
+      "tool": "pods_get",
       "index": 3
     },
     {
+      "tool": "resources_list",
+      "index": 7
+    },
+    {
+      "tool": "nodes_stats_summary",
+      "index": 2
+    },
+    {
+      "tool": "resources_get",
+      "index": 1
+    },
+    {
       "tool": "get_namespaced_resource_context",
+      "index": 5
+    },
+    {
+      "tool": "resources_get",
       "index": 0
+    },
+    {
+      "tool": "get_namespaced_resource_context",
+      "index": 4
+    },
+    {
+      "tool": "nodes_top",
+      "index": 3
     },
     {
       "tool": "list_available_actions",
@@ -113,16 +1020,32 @@
       "index": 0
     },
     {
+      "tool": "get_workflow",
+      "index": 0
+    },
+    {
+      "tool": "list_workflows",
+      "index": 0
+    },
+    {
       "tool": "list_workflows",
       "index": 1
-    },
-    {
-      "tool": "get_workflow",
-      "index": 0
-    },
-    {
-      "tool": "get_workflow",
-      "index": 0
     }
-  ]
+  ],
+  "workflowExecution": {
+    "phase": "Completed",
+    "workflowName": "helm-rollback-v1",
+    "workflowId": "0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24",
+    "actionType": "HelmRollback",
+    "duration": "10s",
+    "targetResource": "demo-storefront-rc20/ConfigMap/worker-config"
+  },
+  "effectivenessAssessment": {
+    "phase": "Completed",
+    "reason": "Full",
+    "details": "Assessment completed: Full",
+    "alertScore": 1,
+    "healthScore": null,
+    "metricsScore": 0
+  }
 }

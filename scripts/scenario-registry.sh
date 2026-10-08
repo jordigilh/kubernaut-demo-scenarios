@@ -42,6 +42,7 @@ declare -A SCENARIO_NS=(
   [pvc-capacity-forecast]="demo-archive"
   [operator-health]="demo-operator"
   [cross-namespace-dependency]="demo-xns-infra demo-xns-app"
+  [vm-boot-failure]="demo-vm-boot"
 
   # ── Misdirection / adversarial scenarios (namespace names kept intentional) ─
   [alert-misdirection]="demo-backend"

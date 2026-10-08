@@ -3,6 +3,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # Alert silencing and pipeline cleanup target the hub; scenario resources
+    # are owned by the spoke.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-order-fulfillment
+    silence_alert "KubePodCrashLooping" "demo-order-fulfillment" "2m"
+    purge_pipeline_crds
+    exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

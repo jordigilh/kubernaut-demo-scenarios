@@ -3,6 +3,19 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # Toolset and approval restoration plus pipeline cleanup target the hub;
+    # the SLO workload and monitoring resources target the spoke.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    disable_prometheus_toolset || true
+    restore_production_approval || true
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-api
+    purge_pipeline_crds
+    exit 0
+fi
 
 echo "==> Cleaning up SLO Error Budget Burn demo..."
 

@@ -6,7 +6,7 @@ title = 'Pods Pending on resource exhaustion -> provision an additional node'
 kind  = 'yes'
 host  = 'macos'
 ocp   = 'no'
-fleet = 'no'
+fleet = 'yes'
 
 [notes]
 kind = 'Kind on Linux bare-metal inherits full host memory -> alert payload exceeds gateway limit; works on macOS (capped Podman/Docker VM)'

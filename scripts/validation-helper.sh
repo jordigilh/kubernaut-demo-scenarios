@@ -105,6 +105,19 @@ fi
 
 _find_rr_name() {
     local target_ns="$1"
+    # A recurrence validator may need to pin all accessors to the newly
+    # created RR instead of the older Completed RR that the normal preference
+    # ordering intentionally selects. The override is validated against the
+    # requested target namespace before it is used.
+    if [ -n "${VALIDATION_RR_NAME:-}" ]; then
+        local _override_ns
+        _override_ns=$(kubectl get remediationrequests "${VALIDATION_RR_NAME}" -n "${PLATFORM_NS}" \
+            -o jsonpath='{.spec.signalLabels.namespace}' 2>/dev/null || true)
+        if [ "${_override_ns}" = "${target_ns}" ]; then
+            echo "${VALIDATION_RR_NAME}"
+            return
+        fi
+    fi
     # Find the best RR whose signalLabels.namespace exactly matches the
     # target namespace.  Uses awk instead of grep to avoid substring collisions
     # (e.g. "demo-store" matching "demo-storefront") — #148.
@@ -120,7 +133,7 @@ _find_rr_name() {
     # second RR.
     local _all_rrs
     _all_rrs=$(kubectl get remediationrequests -n "$PLATFORM_NS" \
-        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\t"}{.status.overallPhase}{"\t"}{.status.outcome}{"\n"}{end}' 2>/dev/null \
+        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\t"}{.status.overallPhase}{"\t"}{.status.completionStatus.outcome}{"\n"}{end}' 2>/dev/null \
         | awk -F'\t' -v ns="$target_ns" '$2 == ns { print $1 "\t" $3 "\t" $4 }')
 
     if [ -z "$_all_rrs" ]; then
@@ -162,7 +175,7 @@ get_rr_outcome() {
     rr_name=$(_find_rr_name "$1")
     if [ -z "$rr_name" ]; then echo ""; return; fi
     kubectl get remediationrequests "$rr_name" -n "$PLATFORM_NS" \
-        -o jsonpath='{.status.outcome}' 2>/dev/null || echo ""
+        -o jsonpath='{.status.completionStatus.outcome}' 2>/dev/null || echo ""
 }
 
 get_rr_name() {
@@ -217,6 +230,12 @@ wait_for_alert() {
     local alert_name="$1"
     local namespace="$2"
     local timeout="${3:-300}"
+
+    if [ "${FLEET_PIPELINE_ALREADY_DRIVEN:-false}" = true ]; then
+        log_info "Fleet runner already confirmed and processed ${alert_name}; skipping duplicate alert wait."
+        return 0
+    fi
+
     local am_pod="${ALERTMANAGER_POD}"
     local elapsed=0
     local interval=10
@@ -276,6 +295,12 @@ wait_for_alert() {
 wait_for_rr() {
     local target_ns="$1"
     local timeout="${2:-240}"
+
+    if [ "${FLEET_PIPELINE_ALREADY_DRIVEN:-false}" = true ]; then
+        log_info "Fleet runner already completed the pipeline for ${target_ns}; skipping duplicate RR wait."
+        return 0
+    fi
+
     # Allow a global env-var override for parallel/batch runs where the
     # gateway may take longer to create RRs from batched alert payloads.
     if [ -n "${WAIT_FOR_RR_TIMEOUT:-}" ] && [ "$WAIT_FOR_RR_TIMEOUT" -gt "$timeout" ] 2>/dev/null; then
@@ -474,15 +499,15 @@ show_ai_analysis() {
     local root_cause severity affected_kind affected_name affected_ns
     local confidence workflow_id exec_bundle rationale approval approval_reason
 
-    root_cause=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCause}' 2>/dev/null || true)
-    severity=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.severity}' 2>/dev/null || true)
-    affected_kind=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || true)
-    affected_name=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || true)
-    affected_ns=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.namespace}' 2>/dev/null || true)
-    confidence=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || true)
-    workflow_id=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || true)
-    exec_bundle=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || true)
-    rationale=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.selectedWorkflow.rationale}' 2>/dev/null || true)
+    root_cause=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rcaResult.rootCauseAnalysis.summary}' 2>/dev/null || true)
+    severity=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rcaResult.rootCauseAnalysis.severity}' 2>/dev/null || true)
+    affected_kind=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || true)
+    affected_name=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || true)
+    affected_ns=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.namespace}' 2>/dev/null || true)
+    confidence=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rcaResult.selectedWorkflow.confidence}' 2>/dev/null || true)
+    workflow_id=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || true)
+    exec_bundle=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || true)
+    rationale=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.rcaResult.selectedWorkflow.rationale}' 2>/dev/null || true)
     approval=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.approvalRequired}' 2>/dev/null || true)
     approval_reason=$(kubectl get aianalyses "$aa_name" -n "$ns" -o jsonpath='{.status.approvalReason}' 2>/dev/null || true)
 
@@ -740,6 +765,12 @@ poll_pipeline() {
         timeout="$POLL_PIPELINE_TIMEOUT"
     fi
     local approve_mode="${3:---auto-approve}"
+
+    if [ "${FLEET_PIPELINE_ALREADY_DRIVEN:-false}" = true ]; then
+        log_info "Fleet runner already completed the pipeline for ${target_ns}; skipping duplicate pipeline poll."
+        return 0
+    fi
+
     local elapsed=0
     local interval=10
     local prev_phase=""

@@ -17,5 +17,7 @@ spec:
       app.kubernetes.io/component: controller
       app.kubernetes.io/instance: cert-manager
   endpoints:
-  - port: tcp-prometheus-servicemonitor
+  # cert-manager v1.21 exposes its controller metrics as http-metrics.
+  # tcp-prometheus-servicemonitor was the port name used by older charts.
+  - port: http-metrics
     interval: 15s

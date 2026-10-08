@@ -20,22 +20,32 @@ PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 
 ACTOR_TIMEOUT=${ACTOR_TIMEOUT:-1800}
 
+# In Fleet mode, RR state is on the hub while the workload is on the spoke.
+# Keep local mode's ambient kubectl behavior unchanged.
+if [ -n "${HUB_KUBECONFIG:-}" ] && [ -n "${SPOKE_KUBECONFIG:-}" ]; then
+  kube_hub() { kubectl --kubeconfig="${HUB_KUBECONFIG}" "$@"; }
+  kube_spoke() { kubectl --kubeconfig="${SPOKE_KUBECONFIG}" "$@"; }
+else
+  kube_hub() { kubectl "$@"; }
+  kube_spoke() { kubectl "$@"; }
+fi
+
 echo "[external-actor] Watching ${DEPLOYMENT} in ${NAMESPACE} for spec changes... [timeout: ${ACTOR_TIMEOUT}s]"
 
 _start=$SECONDS
 
 echo "[external-actor] Waiting for first remediation cycle to complete..."
 while [ $(( SECONDS - _start )) -lt "${ACTOR_TIMEOUT}" ]; do
-  if ! kubectl get ns "${NAMESPACE}" &>/dev/null; then
+  if ! kube_spoke get ns "${NAMESPACE}" &>/dev/null; then
     echo "[external-actor] Namespace ${NAMESPACE} gone. Exiting."
     exit 0
   fi
 
-  PHASE=$(kubectl get rr -n "${PLATFORM_NS}" \
+  PHASE=$(kube_hub get rr -n "${PLATFORM_NS}" \
     -l "kubernaut.ai/signal-namespace=${NAMESPACE}" \
     -o jsonpath='{.items[0].status.overallPhase}' 2>/dev/null || echo "")
   if [[ -z "$PHASE" ]]; then
-    PHASE=$(kubectl get rr -n "${PLATFORM_NS}" \
+    PHASE=$(kube_hub get rr -n "${PLATFORM_NS}" \
       -o jsonpath='{range .items[?(@.spec.signalLabels.namespace=="'"${NAMESPACE}"'")]}{.status.overallPhase}{"\n"}{end}' 2>/dev/null | head -1 || echo "")
   fi
   case "$PHASE" in
@@ -48,18 +58,18 @@ while [ $(( SECONDS - _start )) -lt "${ACTOR_TIMEOUT}" ]; do
 done
 
 while [ $(( SECONDS - _start )) -lt "${ACTOR_TIMEOUT}" ]; do
-  if ! kubectl get ns "${NAMESPACE}" &>/dev/null; then
+  if ! kube_spoke get ns "${NAMESPACE}" &>/dev/null; then
     echo "[external-actor] Namespace ${NAMESPACE} gone. Exiting."
     exit 0
   fi
 
-  CURRENT_LIMIT=$(kubectl -n "${NAMESPACE}" get deployment "${DEPLOYMENT}" \
+  CURRENT_LIMIT=$(kube_spoke -n "${NAMESPACE}" get deployment "${DEPLOYMENT}" \
     -o jsonpath='{.spec.template.spec.containers[0].resources.limits.memory}' 2>/dev/null || echo "")
 
   if [[ -n "${CURRENT_LIMIT}" && "${CURRENT_LIMIT}" != "${ORIGINAL_LIMIT}" ]]; then
     echo "[external-actor] Detected spec change: memory limit ${CURRENT_LIMIT} != ${ORIGINAL_LIMIT}"
     echo "[external-actor] Reverting to original value (simulating GitOps sync)..."
-    kubectl -n "${NAMESPACE}" patch deployment "${DEPLOYMENT}" --type=json \
+    kube_spoke -n "${NAMESPACE}" patch deployment "${DEPLOYMENT}" --type=json \
       -p="[{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/resources/limits/memory\",\"value\":\"${ORIGINAL_LIMIT}\"},{\"op\":\"replace\",\"path\":\"/spec/template/spec/containers/0/resources/requests/memory\",\"value\":\"${ORIGINAL_REQUEST}\"}]"
     echo "[external-actor] Reverted. Kubernaut's remediation is now ineffective."
   fi

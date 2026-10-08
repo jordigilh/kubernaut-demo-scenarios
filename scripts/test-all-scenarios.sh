@@ -7,7 +7,8 @@
 #   bash scripts/test-all-scenarios.sh --only=crashloop,memory-leak
 #
 # Results are written to test-results-<timestamp>.txt
-# Each scenario: run.sh --auto-approve → capture exit code → cleanup.sh → next
+# Each scenario: run.sh --auto-approve → capture exit code → cleanup.sh on
+# success. Failed scenarios are preserved for RCA and must be cleaned up manually.
 #
 # Safe to run from a terminal outside Cursor (survives IDE crashes).
 set -uo pipefail
@@ -158,16 +159,21 @@ for scenario in "${SCENARIO_ORDER[@]}"; do
     echo "  ---" | tee -a "${RESULTS_FILE}"
   fi
 
-  # Cleanup
-  echo "  Cleaning up ${scenario}..." | tee -a "${RESULTS_FILE}"
-  if [ -f "${scenario_dir}/cleanup.sh" ]; then
-    set +e
-    bash "${scenario_dir}/cleanup.sh" >> "${log_file}" 2>&1
-    cleanup_exit=$?
-    set -e
-    if [ $cleanup_exit -ne 0 ]; then
-      echo "  ⚠️  Cleanup failed (exit=${cleanup_exit})" | tee -a "${RESULTS_FILE}"
+  # Cleanup successful runs only. Failed resources are intentionally retained
+  # so workload logs, events, and Helm history remain available for RCA.
+  if [ $run_exit -eq 0 ]; then
+    echo "  Cleaning up ${scenario}..." | tee -a "${RESULTS_FILE}"
+    if [ -f "${scenario_dir}/cleanup.sh" ]; then
+      set +e
+      bash "${scenario_dir}/cleanup.sh" >> "${log_file}" 2>&1
+      cleanup_exit=$?
+      set -e
+      if [ $cleanup_exit -ne 0 ]; then
+        echo "  ⚠️  Cleanup failed (exit=${cleanup_exit})" | tee -a "${RESULTS_FILE}"
+      fi
     fi
+  else
+    echo "  Preserving ${scenario} resources after failure for RCA (cleanup skipped)" | tee -a "${RESULTS_FILE}"
   fi
 
   echo "  Finished: $(date)" | tee -a "${RESULTS_FILE}"

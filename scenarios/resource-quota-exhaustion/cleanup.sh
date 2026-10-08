@@ -3,6 +3,21 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # Approval/toolset restoration, Alertmanager, and pipeline state belong
+    # to the hub; the quota workload and monitoring resources belong to the
+    # spoke.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    disable_prometheus_toolset || true
+    restore_production_approval || true
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-platform
+    restart_alertmanager
+    purge_pipeline_crds
+    exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

@@ -3,6 +3,36 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+  # Workflow/RBAC and policy restoration target the hub. Both workload
+  # namespaces and their monitoring resources target the spoke.
+  # shellcheck source=../../scripts/platform-helper.sh
+  source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+  disable_prometheus_toolset || true
+  for _wf in hotfix-config-v1 hotfix-config-production-v1 restart-pods-v1 crashloop-rollback-risk-v1; do
+    kubectl delete remediationworkflow "$_wf" -n "${PLATFORM_NS}" --ignore-not-found 2>/dev/null || true
+    kubectl delete clusterrolebinding "${_wf}-runner" --ignore-not-found 2>/dev/null || true
+    kubectl delete clusterrole "${_wf}-runner" --ignore-not-found 2>/dev/null || true
+    kubectl delete serviceaccount "${_wf}-runner" -n "${WE_NAMESPACE:-kubernaut-workflows}" --ignore-not-found 2>/dev/null || true
+  done
+  fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-team-alpha demo-team-beta
+  ORIGINAL_B64=$(kubectl get configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+    -o jsonpath='{.metadata.annotations.kubernaut\\.ai/original-policy-rego}' 2>/dev/null || echo "")
+  if [ -n "${ORIGINAL_B64}" ]; then
+    ORIGINAL_POLICY=$(echo "${ORIGINAL_B64}" | base64 -d)
+    kubectl patch configmap signalprocessing-policy -n "${PLATFORM_NS}" --type=merge \
+      -p "{\"data\":{\"policy.rego\":$(echo "${ORIGINAL_POLICY}" | jq -Rs .)}}"
+    kubectl annotate configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+      "kubernaut.ai/original-policy-rego-" 2>/dev/null || true
+  fi
+  kubectl rollout restart deployment/signalprocessing-controller -n "${PLATFORM_NS}" 2>/dev/null || true
+  restore_production_approval || true
+  restart_alertmanager
+  purge_pipeline_crds
+  exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

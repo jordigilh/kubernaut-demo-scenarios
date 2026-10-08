@@ -238,18 +238,31 @@ export FLEET_EXECUTION_CLUSTER_ID=hub
 The script performs the following steps on the existing environment:
 
 1. **Platform readiness** -- Validates or reuses the upstream Kubernaut installation.
-2. **Demo dependencies** -- Installs Gitea and ArgoCD when not skipped. Existing upstream/operator-managed monitoring and cert-manager installations are detected and reused. In fleet mode these run on the hub.
+2. **Demo dependencies** -- Installs Gitea and ArgoCD on the hub, and cert-manager, metrics-server, and Istio on a Kind spoke when not skipped. Existing Helm/operator-managed installations are detected and reused. In fleet mode, workload dependencies are always targeted at the spoke and control-plane/GitOps dependencies at the hub.
 3. **Policies** -- Applies the canonical SignalProcessing and AIAnalysis policy ConfigMaps.
 4. **Catalog content** -- Applies ActionType CRDs and RemediationWorkflow definitions from this repository.
 5. **GitOps security** -- Creates `gitea-repo-creds` only in the hub's `kubernaut-workflows` namespace and requires the Kind Gitea-to-ArgoCD push webhook.
 
 Every step is idempotent -- you can safely re-run the script if it fails partway through.
 
+In fleet mode, the script installs cert-manager, metrics-server, and Istio on
+the spoke for Kind (unless `--skip-infra` or the corresponding `--skip-*` flag
+is specified). These are workload-cluster dependencies: cert-manager and Istio
+must be present where the scenario resources run, while the hub keeps the
+Kubernaut control plane and GitOps services. Existing Helm/operator-managed
+installations are reused. OpenShift spokes are expected to provide cert-manager
+and Service Mesh through their operators.
+
+Fleet setup also grants the exchanged read identity the narrow permissions
+needed by the cert-manager scenario: read access to the demo `ClusterIssuer`
+and CA Secret, plus `nodes/proxy` for node metrics collection. These grants
+are applied to the spoke and are safe to reapply.
+
 ### Flags
 
 | Flag | Purpose |
 |------|---------|
-| `--skip-infra` | Skip optional demo dependencies (Gitea, ArgoCD, and local-only infrastructure) |
+| `--skip-infra` | Skip optional demo dependencies (Gitea, ArgoCD, cert-manager, metrics-server, Istio, and related infrastructure) |
 | `--skip-monitoring` | Skip kube-prometheus-stack installation when monitoring is provided by OCP or another operator |
 | `--skip-cert-manager` | Skip cert-manager installation |
 | `--skip-metrics-server` | Skip metrics-server installation |

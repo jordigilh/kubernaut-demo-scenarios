@@ -7,7 +7,8 @@
 #
 # The script:
 #   1. Waits for any in-flight disk-pressure-emptydir run to finish
-#   2. Runs each scenario: run.sh --auto-approve → capture-eval.sh --wait → cleanup.sh
+#   2. Runs each scenario: run.sh --auto-approve → capture-eval.sh --wait →
+#      cleanup.sh on success (failed scenarios are preserved for RCA)
 #   3. Batch-captures golden transcripts via capture-golden-transcripts.sh
 #   4. Writes a summary table to overnight-results-<timestamp>.txt
 set -uo pipefail
@@ -241,16 +242,21 @@ for scenario in "${SCENARIO_ORDER[@]}"; do
     capture_transcript "$scenario" "$log_file"
   fi
 
-  # Cleanup
-  log_both "  Cleaning up ${scenario}..."
-  if [ -f "${scenario_dir}/cleanup.sh" ]; then
-    set +e
-    bash "${scenario_dir}/cleanup.sh" >> "${log_file}" 2>&1
-    cleanup_exit=$?
-    set -e
-    if [ $cleanup_exit -ne 0 ]; then
-      log_both "  WARN: cleanup failed (exit=${cleanup_exit})"
+  # Cleanup successful runs only. Failed resources are intentionally retained
+  # so workload logs, events, and Helm history remain available for RCA.
+  if [ $run_exit -eq 0 ]; then
+    log_both "  Cleaning up ${scenario}..."
+    if [ -f "${scenario_dir}/cleanup.sh" ]; then
+      set +e
+      bash "${scenario_dir}/cleanup.sh" >> "${log_file}" 2>&1
+      cleanup_exit=$?
+      set -e
+      if [ $cleanup_exit -ne 0 ]; then
+        log_both "  WARN: cleanup failed (exit=${cleanup_exit})"
+      fi
     fi
+  else
+    log_both "  Preserving ${scenario} resources after failure for RCA (cleanup skipped)"
   fi
 
   log_both "  Finished: $(date -u '+%H:%M:%S UTC')"

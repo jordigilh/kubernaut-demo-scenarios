@@ -265,7 +265,7 @@ if [ "${_AA_FROM_DB:-false}" = "true" ]; then
         AA_STRUCTURED=$(echo "$AA_STRUCTURED" | python3 -c "
 import json, sys
 a = json.load(sys.stdin)
-enrich = json.loads('''$_ENRICH_DATA''')
+enrich = json.loads(sys.argv[1])
 
 rca = enrich.get('rca') or {}
 wfe = enrich.get('wfe') or {}
@@ -316,7 +316,7 @@ elif approval:
 
 a['_enriched_from_audit'] = True
 print(json.dumps(a, indent=2))
-" 2>/dev/null) || true
+ " "$_ENRICH_DATA" 2>/dev/null) || true
     fi
 fi
 

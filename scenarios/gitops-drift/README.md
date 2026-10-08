@@ -120,10 +120,11 @@ The default mode is `--interactive`, which pauses at the approval step for manua
 intervention (ideal for demos and video recording). Pass `--auto-approve` to skip
 the approval gate (CI/batch runs).
 
-The local runner temporarily sets the Remediation Orchestrator's
-`asyncPropagation.gitOpsSyncDelay` to `10s`. Gitea's webhook triggers ArgoCD
-reconciliation immediately, so the default polling-oriented delay is unnecessary
-for this scenario. `cleanup.sh` restores the original RO configuration.
+The local runner, or the fleet hub runner, temporarily sets the Remediation
+Orchestrator's `asyncPropagation.gitOpsSyncDelay` to `10s`. Gitea's webhook
+triggers ArgoCD reconciliation immediately, so the default polling-oriented
+delay is unnecessary for this scenario. `cleanup.sh` restores the original RO
+configuration.
 
 ```bash
 # Interactive (default) — pauses for manual approval
@@ -182,11 +183,11 @@ export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
 ./scenarios/gitops-drift/run.sh --fleet --alert-only    # stop once the alert reaches the hub
 ```
 
-For cleanup, use the fleet-specific script when the workload was deployed on a
-separate spoke:
+For cleanup, pass `--fleet` to the top-level cleanup so the Gitea repository is
+reset on the hub and the workload namespace is removed from the spoke:
 
 ```bash
-GITOPS_NAMESPACE=demo-webui ./scenarios/gitops-drift/fleet/cleanup.sh
+GITOPS_NAMESPACE=demo-webui ./scenarios/gitops-drift/cleanup.sh --fleet
 ```
 
 Fleet mode then drives the full remediation pipeline on the hub. The topology (signal on

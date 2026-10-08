@@ -130,6 +130,17 @@ scoped permissions (created automatically when workflows are seeded via
 ./scenarios/pdb-deadlock/run.sh
 ```
 
+### Fleet mode
+
+Fleet mode deploys the workload and starts the blocked drain on the spoke,
+then waits for the hub Alertmanager and drives `relax-pdb-v1` from the hub:
+
+```bash
+HUB_KUBECONFIG=~/.kube/kubernaut-hub-config \
+SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config \
+./scenarios/pdb-deadlock/run.sh --fleet --auto-approve
+```
+
 ### `run.sh` flags
 
 | Flag | Behavior | When to use |

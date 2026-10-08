@@ -5,7 +5,6 @@ metadata:
   namespace: demo-mesh
   labels:
     app: api-server
-    kubernaut.ai/managed: "true"
 spec:
   replicas: 2
   selector:
@@ -76,7 +75,6 @@ metadata:
   namespace: demo-mesh
   labels:
     app: api-server
-    kubernaut.ai/managed: "true"
     kubernaut.ai/metrics: "true"
 spec:
   selector:

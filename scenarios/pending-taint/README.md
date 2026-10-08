@@ -54,6 +54,19 @@ scoped permissions (created automatically when workflows are seeded via
 ./scenarios/pending-taint/run.sh
 ```
 
+### Fleet mode
+
+Set the hub and spoke kubeconfigs and add `--fleet`:
+
+```bash
+HUB_KUBECONFIG=~/.kube/kubernaut-hub-config \
+SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config \
+./scenarios/pending-taint/run.sh --fleet --auto-approve
+```
+
+The workload and taint are applied on the spoke; Alertmanager, AIAnalysis, and
+remediation are driven from the hub.
+
 ### `run.sh` flags
 
 | Flag | Behavior | When to use |

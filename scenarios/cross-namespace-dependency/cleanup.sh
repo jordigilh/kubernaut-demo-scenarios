@@ -3,6 +3,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # The two workload namespaces and their monitoring resources live on the
+    # spoke; alert silencing and pipeline CRDs live on the hub.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-xns-app demo-xns-infra
+    silence_alert "KubePodCrashLooping" "demo-xns-app" "2m"
+    purge_pipeline_crds
+    exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

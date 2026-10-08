@@ -41,7 +41,7 @@ rr_phase=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
 assert_eq "$rr_phase" "Completed" "RR phase"
 
 rr_outcome=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.completionStatus.outcome}' 2>/dev/null || echo "")
 assert_eq "$rr_outcome" "Remediated" "RR outcome"
 
 sp_phase=$(kubectl get signalprocessings "sp-${rr_name}" -n "${PLATFORM_NS}" \
@@ -53,15 +53,15 @@ aa_phase=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
 assert_eq "$aa_phase" "Completed" "AA phase"
 
 workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 assert_neq "$workflow_id" "" "AA selected a workflow"
 
 bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
 assert_contains "$bundle" "fix-network-policy-job" "AA selected correct workflow"
 
 confidence=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.confidence}' 2>/dev/null || echo "")
 assert_neq "$confidence" "" "AA confidence present"
 
 wfe_phase=$(kubectl get workflowexecutions "we-${rr_name}" -n "${PLATFORM_NS}" \
@@ -74,7 +74,7 @@ assert_eq "$ea_phase" "Completed" "EA phase"
 
 # Verify default-network-policy was removed
 netpol_count=$(kubectl get networkpolicy default-network-policy -n "${NAMESPACE}" \
-  --no-headers 2>/dev/null | wc -l | tr -d ' ')
+  --no-headers 2>/dev/null | wc -l | tr -d ' ' || true)
 assert_eq "${netpol_count:-0}" "0" "Default network policy removed"
 
 # Verify web-frontend pods are Running

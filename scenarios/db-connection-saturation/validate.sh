@@ -45,16 +45,16 @@ rr_name=$(get_rr_name "${NAMESPACE}")
 aa_name="ai-${rr_name}"
 
 workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 
 root_cause=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCause}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.summary}' 2>/dev/null || echo "")
 assert_neq "$root_cause" "" "AA root cause analysis present"
 
 rem_target_name=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
 rem_target_kind=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
 
 # Multi-path validation: the LLM may target the client-pool (ideal), postgres
 # (acceptable), or escalate. All are valid outcomes.

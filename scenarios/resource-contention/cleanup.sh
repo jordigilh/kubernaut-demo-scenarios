@@ -3,10 +3,28 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NAMESPACE="demo-analytics"
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+  # Pipeline cleanup and Alertmanager state target the hub; workload resources
+  # and the external actor's Deployment target the spoke.
+  # shellcheck source=../../scripts/platform-helper.sh
+  source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+  disable_prometheus_toolset || true
+  for kind in remediationrequests signalprocessings aianalyses workflowexecutions effectivenessassessments; do
+    for name in $(kubectl get "$kind" -n "$PLATFORM_NS" -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null | grep "$NAMESPACE" | cut -f1); do
+      kubectl delete "$kind" "$name" -n "$PLATFORM_NS" --wait=false 2>/dev/null || true
+    done
+  done
+  fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" "$NAMESPACE"
+  restart_alertmanager
+  purge_pipeline_crds
+  exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
-NAMESPACE="demo-analytics"
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 
 echo "==> Cleaning up Resource Contention demo..."

@@ -22,6 +22,12 @@ NAMESPACE="demo-telemetry"
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 fleet_check_spoke_connectivity
 
+if ! kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get apiservice v1beta1.metrics.k8s.io \
+    -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null | grep -q True; then
+    echo "ERROR: Kubernetes Metrics API is unavailable on the spoke. Install metrics-server so the Agent can inspect workload CPU/memory with kubectl top." >&2
+    exit 1
+fi
+
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying scenario resources..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
 fleet_deploy_workload "${MANIFEST_DIR}"

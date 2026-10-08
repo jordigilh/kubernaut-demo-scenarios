@@ -16,9 +16,9 @@ source "${SCRIPT_DIR}/../../../scripts/platform-helper.sh"
 ARGOCD_NAMESPACE=$(get_argocd_namespace)
 
 GITEA_NAMESPACE="gitea"
-GITEA_ADMIN_USER="kubernaut"
-GITEA_ADMIN_PASS="kubernaut123"
-REPO_NAME="demo-gitops-repo"
+GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-kubernaut}"
+GITEA_ADMIN_PASS="${GITEA_ADMIN_PASS:-kubernaut123}"
+REPO_NAME="${REPO_NAME:-demo-gitops-repo}"
 
 # ── ArgoCD installation (Kind only) ─────────────────────────────────────────
 
@@ -92,7 +92,7 @@ fi
 # ── Gitea credentials (both platforms) ───────────────────────────────────────
 
 echo "==> Configuring ArgoCD to trust Gitea repository..."
-GITEA_REPO_URL="http://gitea-http.gitea:3000/kubernaut/demo-gitops-repo.git"
+GITEA_REPO_URL="http://gitea-http.${GITEA_NAMESPACE}:3000/${GITEA_ADMIN_USER}/${REPO_NAME}.git"
 
 kubectl apply -f - <<EOF
 apiVersion: v1
@@ -105,8 +105,8 @@ metadata:
 stringData:
   type: git
   url: http://gitea-http.gitea:3000
-  username: kubernaut
-  password: kubernaut123
+  username: ${GITEA_ADMIN_USER}
+  password: ${GITEA_ADMIN_PASS}
 EOF
 
 echo "==> Provisioning Git credentials for workflow execution namespace (DD-WE-006)..."
@@ -120,8 +120,8 @@ metadata:
   labels:
     kubernaut.ai/dependency-type: git-credentials
 stringData:
-  username: kubernaut
-  password: kubernaut123
+  username: ${GITEA_ADMIN_USER}
+  password: ${GITEA_ADMIN_PASS}
 EOF
 
 # ── Gitea → ArgoCD webhook (Kind only) ───────────────────────────────────────

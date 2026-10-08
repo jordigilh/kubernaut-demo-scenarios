@@ -4,12 +4,14 @@
 # from the Kubernaut DataStorage PostgreSQL backend.
 #
 # Usage:
-#   bash scripts/extract-audit-trace.sh <rr-name>           # specific RR
-#   bash scripts/extract-audit-trace.sh --latest             # most recent RR
-#   bash scripts/extract-audit-trace.sh --all                # all RRs
-#   bash scripts/extract-audit-trace.sh <rr-name> --json     # JSON output
+#   bash scripts/extract-audit-trace.sh <rr-name>             # specific RR
+#   bash scripts/extract-audit-trace.sh --latest               # most recent RR
+#   bash scripts/extract-audit-trace.sh --all                  # all RRs
+#   bash scripts/extract-audit-trace.sh --fleet --latest       # latest RR on fleet hub
+#   bash scripts/extract-audit-trace.sh <rr-name> --json       # JSON output
 #
 # Options:
+#   --fleet         Target the fleet hub (requires HUB_KUBECONFIG and SPOKE_KUBECONFIG)
 #   --json          Output raw JSON instead of formatted table
 #   --investigation Only show AI investigation tool calls and LLM turns
 #   --summary       One-line-per-RR summary (phase, workflow, confidence)
@@ -18,73 +20,160 @@
 #
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/fleet-helper.sh"
+
 KUBERNAUT_NS="${KUBERNAUT_NS:-kubernaut-system}"
+KUBERNAUT_DB_NAME="${KUBERNAUT_DB_NAME:-}"
 OUTPUT_FORMAT="table"
 FILTER=""
 OUTPUT_FILE=""
 RR_SELECTOR=""
+FLEET_MODE=false
 
 usage() {
-    sed -n '3,13p' "$0" | sed 's/^# \?//'
-    exit 1
+    cat <<'EOF'
+Usage: bash scripts/extract-audit-trace.sh [--fleet] <rr-name|--latest|--all> [options]
+
+Extract audit events for one or more RemediationRequests from DataStorage PostgreSQL.
+By default, kubectl uses the current context. --fleet explicitly targets HUB_KUBECONFIG.
+
+Options:
+  --fleet         Target the fleet hub; requires HUB_KUBECONFIG and SPOKE_KUBECONFIG
+  --json          Output raw JSON instead of formatted table
+  --investigation Only show AI investigation tool calls and LLM turns
+  --summary       One-line-per-RR summary (phase, workflow, confidence)
+  -o FILE         Write output to file instead of stdout
+  -n NAMESPACE    Kubernaut system namespace (default: kubernaut-system)
+  -h, --help      Show this help
+EOF
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --fleet)       FLEET_MODE=true; shift ;;
         --latest)      RR_SELECTOR="__latest__"; shift ;;
         --all)         RR_SELECTOR="__all__"; shift ;;
         --json)        OUTPUT_FORMAT="json"; shift ;;
         --investigation) FILTER="investigation"; shift ;;
         --summary)     FILTER="summary"; shift ;;
-        -o)            OUTPUT_FILE="$2"; shift 2 ;;
-        -n)            KUBERNAUT_NS="$2"; shift 2 ;;
-        -h|--help)     usage ;;
-        -*)            echo "Unknown option: $1" >&2; usage ;;
+        -o)
+            if [[ $# -lt 2 ]]; then
+                echo "ERROR: -o requires a file path." >&2
+                usage >&2
+                exit 2
+            fi
+            OUTPUT_FILE="$2"; shift 2 ;;
+        -n)
+            if [[ $# -lt 2 ]]; then
+                echo "ERROR: -n requires a namespace." >&2
+                usage >&2
+                exit 2
+            fi
+            KUBERNAUT_NS="$2"; shift 2 ;;
+        -h|--help)     usage; exit 0 ;;
+        -*)            echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
         *)             RR_SELECTOR="$1"; shift ;;
     esac
 done
 
-[[ -z "$RR_SELECTOR" ]] && usage
+if [[ -z "$RR_SELECTOR" ]]; then
+    usage >&2
+    exit 2
+fi
 
-PG_POD=$(kubectl get pod -n "$KUBERNAUT_NS" -l app.kubernetes.io/name=postgresql \
-    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+if [[ "$FLEET_MODE" == true ]]; then
+    # Match the rest of the fleet entry points: fleet targeting is opt-in and
+    # requires both kubeconfigs, even though this read-only query runs on hub.
+    fleet_dispatch_requested --fleet
+    export KUBECONFIG="$HUB_KUBECONFIG"
+fi
+
+find_pg_pod_by_selector() {
+    local selector="$1"
+    local candidates
+    candidates=$(kubectl get pods -n "$KUBERNAUT_NS" -l "$selector" \
+        --no-headers -o custom-columns=NAME:.metadata.name,PHASE:.status.phase 2>/dev/null) || return 1
+    printf '%s\n' "$candidates" | awk '$2 == "Running" { print $1; exit }'
+}
+
+PG_POD=$(find_pg_pod_by_selector app=postgresql) || {
+    echo "ERROR: Could not list pods in namespace $KUBERNAUT_NS using the selected kubeconfig." >&2
+    exit 1
+}
 if [[ -z "$PG_POD" ]]; then
-    echo "ERROR: No postgresql pod found in $KUBERNAUT_NS" >&2
+    PG_POD=$(find_pg_pod_by_selector app.kubernetes.io/name=postgresql) || {
+        echo "ERROR: Could not list pods in namespace $KUBERNAUT_NS using the selected kubeconfig." >&2
+        exit 1
+    }
+fi
+if [[ -z "$PG_POD" ]]; then
+    PG_PODS=$(kubectl get pods -n "$KUBERNAUT_NS" \
+        --no-headers -o custom-columns=NAME:.metadata.name,PHASE:.status.phase 2>/dev/null) || {
+        echo "ERROR: Could not list pods in namespace $KUBERNAUT_NS using the selected kubeconfig." >&2
+        exit 1
+    }
+    PG_POD=$(printf '%s\n' "$PG_PODS" | awk '$2 == "Running" && $1 ~ /^postgresql([-.]|$)/ { print $1; exit }')
+fi
+if [[ -z "$PG_POD" ]]; then
+    echo "ERROR: No running PostgreSQL pod found in $KUBERNAUT_NS (looked for postgresql pod names and app labels)." >&2
     exit 1
 fi
 
-DB_USER=$(kubectl get secret postgresql-secret -n "$KUBERNAUT_NS" \
-    -o jsonpath='{.data.username}' 2>/dev/null | base64 -d 2>/dev/null)
-DB_PASS=$(kubectl get secret postgresql-secret -n "$KUBERNAUT_NS" \
-    -o jsonpath='{.data.password}' 2>/dev/null | base64 -d 2>/dev/null)
+secret_value() {
+    local key="$1"
+    local encoded
+    encoded=$(kubectl get secret postgresql-secret -n "$KUBERNAUT_NS" \
+        -o "jsonpath={.data.${key}}" 2>/dev/null) || return 1
+    [[ -n "$encoded" ]] || return 1
+    printf '%s' "$encoded" | base64 -d 2>/dev/null
+}
+
+DB_USER="${KUBERNAUT_DB_USER:-}"
+DB_PASS="${KUBERNAUT_DB_PASSWORD:-}"
 if [[ -z "$DB_USER" ]]; then
-    DB_USER=$(kubectl get secret postgresql-secret -n "$KUBERNAUT_NS" \
-        -o jsonpath='{.data.POSTGRES_USER}' | base64 -d)
-    DB_PASS=$(kubectl get secret postgresql-secret -n "$KUBERNAUT_NS" \
-        -o jsonpath='{.data.POSTGRES_PASSWORD}' | base64 -d)
+    DB_USER=$(secret_value POSTGRES_USER 2>/dev/null) || DB_USER=""
+fi
+if [[ -z "$DB_USER" ]]; then
+    DB_USER=$(secret_value username 2>/dev/null) || DB_USER=""
+fi
+if [[ -z "$DB_PASS" ]]; then
+    DB_PASS=$(secret_value POSTGRES_PASSWORD 2>/dev/null) || DB_PASS=""
+fi
+if [[ -z "$DB_PASS" ]]; then
+    DB_PASS=$(secret_value password 2>/dev/null) || DB_PASS=""
+fi
+if [[ -z "$KUBERNAUT_DB_NAME" ]]; then
+    KUBERNAUT_DB_NAME=$(secret_value POSTGRES_DB 2>/dev/null) || KUBERNAUT_DB_NAME="action_history"
+fi
+if [[ -z "$DB_USER" || -z "$DB_PASS" ]]; then
+    echo "ERROR: Could not read PostgreSQL credentials from postgresql-secret in $KUBERNAUT_NS." >&2
+    exit 1
 fi
 
 run_sql() {
     local sql="$1"
-    local tmpfile
-    tmpfile=$(mktemp)
-    echo "$sql" > "$tmpfile"
-    kubectl cp "$tmpfile" "$KUBERNAUT_NS/$PG_POD:/tmp/_audit_query.sql" 2>/dev/null
-    rm -f "$tmpfile"
     kubectl exec -n "$KUBERNAUT_NS" "$PG_POD" -- \
-        env PGPASSWORD="$DB_PASS" psql -U "$DB_USER" -d kubernaut \
-        --no-align --tuples-only -f /tmp/_audit_query.sql 2>/dev/null
+        env PGPASSWORD="$DB_PASS" psql -X -U "$DB_USER" -d "$KUBERNAUT_DB_NAME" \
+        --no-align --tuples-only --set=ON_ERROR_STOP=1 -c "$sql"
 }
 
 resolve_rr() {
     if [[ "$RR_SELECTOR" == "__latest__" ]]; then
-        run_sql "SELECT DISTINCT correlation_id FROM audit_events
-                 WHERE event_type LIKE 'gateway.crd.created'
-                 ORDER BY correlation_id DESC LIMIT 1;"
+        run_sql "SELECT correlation_id FROM audit_events
+                 WHERE event_type IN ('apifrontend.rr.created', 'gateway.crd.created')
+                   AND correlation_id IS NOT NULL AND correlation_id <> ''
+                 ORDER BY event_timestamp DESC LIMIT 1;"
     elif [[ "$RR_SELECTOR" == "__all__" ]]; then
-        run_sql "SELECT DISTINCT correlation_id FROM audit_events
-                 WHERE event_type LIKE 'gateway.crd.created'
-                 ORDER BY correlation_id;"
+        run_sql "SELECT correlation_id FROM (
+                     SELECT correlation_id, min(event_timestamp) AS created_at
+                     FROM audit_events
+                     WHERE event_type IN ('apifrontend.rr.created', 'gateway.crd.created')
+                       AND correlation_id IS NOT NULL AND correlation_id <> ''
+                     GROUP BY correlation_id
+                 ) rr_events
+                 ORDER BY created_at;"
     else
         echo "$RR_SELECTOR"
     fi
@@ -92,9 +181,12 @@ resolve_rr() {
 
 build_where() {
     local rr="$1"
-    local fp
-    fp=$(echo "$rr" | sed 's/^rr-//' | cut -d- -f1)
-    echo "WHERE (correlation_id LIKE '%${fp}%' OR resource_id LIKE '%${fp}%' OR resource_name LIKE '%${fp}%')"
+    # Correlation IDs are the authoritative RR boundary. Do not truncate the
+    # ID to a signal-fingerprint prefix: an initial RR and a recurrence RR can
+    # legitimately share that prefix, which would merge their audit traces.
+    local rr_sql
+    rr_sql=$(printf '%s' "$rr" | sed "s/'/''/g")
+    echo "WHERE (correlation_id = '${rr_sql}' OR event_data->>'incident_id' = '${rr_sql}')"
 }
 
 extract_summary() {
@@ -106,7 +198,8 @@ extract_summary() {
         'rr', '${rr}',
         'signal', (SELECT event_data->>'signal_name'
                    FROM audit_events ${where}
-                   AND event_type = 'gateway.signal.received' LIMIT 1),
+                   AND event_type IN ('apifrontend.rr.created', 'gateway.signal.received', 'gateway.crd.created')
+                   ORDER BY event_timestamp DESC LIMIT 1),
         'signal_mode', (SELECT event_data->>'signal_mode'
                         FROM audit_events ${where}
                         AND event_type = 'signalprocessing.classification.decision' LIMIT 1),
@@ -122,10 +215,16 @@ extract_summary() {
         'tool_calls', (SELECT count(*)
                        FROM audit_events ${where}
                        AND event_type = 'aiagent.llm.tool_call'),
-        'workflow_selected', (SELECT event_data->'response_data'->>'selectedWorkflow'
-                              FROM audit_events ${where}
-                              AND event_type = 'aiagent.response.complete'
-                              ORDER BY event_timestamp DESC LIMIT 1),
+        'workflow_selected', coalesce(
+            (SELECT event_data->>'workflow_name'
+             FROM audit_events ${where}
+             AND event_type = 'workflowexecution.selection.completed'
+             ORDER BY event_timestamp DESC LIMIT 1),
+            (SELECT event_data->'response_data'->>'selectedWorkflow'
+             FROM audit_events ${where}
+             AND event_type = 'aiagent.response.complete'
+             ORDER BY event_timestamp DESC LIMIT 1)
+        ),
         'confidence', (SELECT event_data->'response_data'->>'confidence'
                        FROM audit_events ${where}
                        AND event_type = 'aiagent.response.complete'

@@ -4,6 +4,20 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # Helm release and workload monitoring live on the spoke; policy and
+    # toolset restoration plus pipeline cleanup live on the hub.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    disable_prometheus_toolset || true
+    restore_production_approval || true
+    helm --kubeconfig="${SPOKE_KUBECONFIG}" uninstall demo-storefront -n demo-storefront 2>/dev/null || true
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-storefront
+    purge_pipeline_crds
+    exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

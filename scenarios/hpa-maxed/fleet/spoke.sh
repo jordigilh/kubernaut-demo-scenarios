@@ -18,8 +18,9 @@ NAMESPACE="demo-gateway"
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 fleet_check_spoke_connectivity
 
-if ! kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get deployment metrics-server -n kube-system &>/dev/null; then
-    echo "ERROR: metrics-server is not installed on the spoke. HPA cannot scale on CPU without it." >&2
+if ! kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get apiservice v1beta1.metrics.k8s.io \
+    -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null | grep -q True; then
+    echo "ERROR: Kubernetes Metrics API is unavailable on the spoke. HPA cannot scale on CPU without metrics-server." >&2
     exit 1
 fi
 

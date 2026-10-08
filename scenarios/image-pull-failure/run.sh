@@ -13,7 +13,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
-fleet_fail_if_requested "image-pull-failure" "$@"
+if fleet_dispatch_requested "$@"; then
+    exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
+fi
 NAMESPACE="demo-inventory"
 
 APPROVE_MODE="--auto-approve"

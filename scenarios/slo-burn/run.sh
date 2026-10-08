@@ -10,10 +10,10 @@
 # Fleet mode: set HUB_KUBECONFIG (Kubernaut control plane) and
 # SPOKE_KUBECONFIG (demo workload cluster) to run fleet/run.sh instead,
 # which deploys the workload on the spoke and always behaves as
-# --alert-only (see scripts/fleet-helper.sh). The Probe CRD (prometheus-
-# operator) is skipped like every other operator-only kind on the spoke;
-# fleet mode instead adds a raw scrape_configs job that reproduces the
-# same blackbox_exporter /probe pattern by hand (params+relabel_configs).
+# --alert-only (see scripts/fleet-helper.sh). The Probe CRD and PrometheusRule
+# are applied natively to the spoke's operator-managed Prometheus, preserving
+# the same blackbox_exporter /probe behavior as local mode without editing
+# prometheus-config or restarting Prometheus.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

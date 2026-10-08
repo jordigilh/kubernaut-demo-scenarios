@@ -59,6 +59,23 @@ fleet_dispatch_requested() {
     return 0
 }
 
+# Initialize a cleanup or validation entry point. Fleet mode is selected only
+# by an explicit --fleet flag; environment variables alone never change the
+# local target. In fleet mode, ambient kubectl is bound to the hub so the
+# platform helpers operate on control-plane resources.
+#
+# Call as: if fleet_initialize_targeting "$@"; then ...; fi
+fleet_initialize_targeting() {
+    FLEET_MODE=false
+    if ! fleet_dispatch_requested "$@"; then
+        return 1
+    fi
+
+    FLEET_MODE=true
+    export KUBECONFIG="${HUB_KUBECONFIG}"
+    fleet_check_connectivity
+}
+
 # Explicit-unsupported gate for scenarios WITHOUT fleet mode: call with the
 # scenario name and the script's "$@" right after SCRIPT_DIR is set. Fails
 # loud if --fleet was passed (fleet mode is never a silent no-op or a quiet
@@ -108,6 +125,13 @@ _fleet_require_mode() {
 
 FLEET_MONITORING_NS="${FLEET_MONITORING_NS:-monitoring}"
 
+# Resolve the spoke's registered fleet identity for alert attribution. The
+# label is intentionally the same `cluster` value that fleet_wait_for_alert
+# uses and that Kubernaut maps to cluster_id.
+fleet_cluster_id() {
+    printf '%s\n' "${SPOKE_CLUSTER_LABEL:-${FLEET_CLUSTER_ID:-remote-cluster}}"
+}
+
 # Operator-managed monitoring kinds a scenario may ship. fleet_deploy_workload
 # skips these (they go through fleet_deploy_monitoring instead, keeping
 # workload deployment separate from monitoring resource deployment);
@@ -124,6 +148,77 @@ kubectl_workload() {
     else
         kubectl "$@"
     fi
+}
+
+# Run a workload-cluster command using the explicit mode selected by
+# fleet_initialize_targeting. Unlike kubectl_workload, this wrapper does not
+# infer fleet mode from environment-variable presence, so local invocations
+# remain local even when fleet kubeconfigs are exported in the shell.
+fleet_target_kubectl() {
+    if [ "${FLEET_MODE:-false}" = true ]; then
+        kubectl --kubeconfig="${SPOKE_KUBECONFIG}" "$@"
+    else
+        kubectl "$@"
+    fi
+}
+
+# Return the platform of the workload cluster for cleanup/validation resource
+# decisions. In local mode this is the already-detected ambient platform.
+fleet_target_platform() {
+    if [ "${FLEET_MODE:-false}" = true ]; then
+        detect_spoke_platform
+    else
+        printf '%s\n' "${PLATFORM:-kind}"
+    fi
+}
+
+# Delete the scenario's rendered workload and monitoring resources from the
+# selected workload target, then wait for its scenario namespaces to vanish.
+# Fleet mode selects the spoke explicitly; local mode preserves ambient
+# kubectl behavior. Pass the scenario manifest directory followed by one or
+# more workload namespaces.
+fleet_cleanup_scenario_resources() {
+    local manifest_dir="${1:?usage: fleet_cleanup_scenario_resources <manifest-dir> <namespace>...}"
+    shift
+    [ "$#" -gt 0 ] || {
+        echo "ERROR: fleet_cleanup_scenario_resources requires at least one namespace." >&2
+        return 1
+    }
+
+    local scenario_dir target_dir
+    # Callers historically pass either the scenario directory or its
+    # manifests subdirectory. Normalize both forms before selecting the
+    # spoke's platform overlay.
+    scenario_dir="$manifest_dir"
+    if [ "$(basename "$scenario_dir")" = "manifests" ]; then
+        scenario_dir="$(dirname "$scenario_dir")"
+    fi
+    if [ "${FLEET_MODE:-false}" = true ]; then
+        target_dir=$(fleet_get_manifest_dir "$scenario_dir")
+        echo "==> [spoke] Deleting scenario resources from ${target_dir}..."
+        fleet_target_kubectl delete -k "$target_dir" --ignore-not-found 2>/dev/null || true
+    else
+        echo "==> Deleting scenario resources from ${manifest_dir}..."
+        fleet_target_kubectl delete -k "$manifest_dir" --ignore-not-found 2>/dev/null || true
+    fi
+
+    local namespace elapsed
+    for namespace in "$@"; do
+        echo "==> [${FLEET_MODE:+${FLEET_MODE}}] Deleting namespace ${namespace}..."
+        fleet_target_kubectl delete namespace "$namespace" --ignore-not-found --wait=false
+    done
+
+    for namespace in "$@"; do
+        elapsed=0
+        while fleet_target_kubectl get namespace "$namespace" &>/dev/null; do
+            sleep 2
+            elapsed=$((elapsed + 2))
+            if [ "$elapsed" -ge 120 ]; then
+                echo "  WARNING: Namespace ${namespace} still terminating after 120s, proceeding..."
+                break
+            fi
+        done
+    done
 }
 
 # Detect whether the spoke is OpenShift or vanilla Kubernetes. Mirrors
@@ -147,10 +242,9 @@ detect_spoke_platform() {
     fi
 }
 
-# True when any spoke node reports arm64. Used by scenarios whose demo
-# workload ships an amd64-only image (e.g. the etcd-defrag dedicated demo
-# etcd, which fatals under emulation) to fail loud with guidance instead
-# of timing out a rollout that can never go green.
+# True when any spoke node reports arm64. Keep this helper available for
+# scenarios that may add architecture-specific workload images; callers should
+# use it to fail early rather than wait for an impossible rollout.
 fleet_spoke_is_arm64() {
     _fleet_require_mode "fleet_spoke_is_arm64" || return 1
     kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get nodes -o jsonpath='{range .items[*]}{.status.nodeInfo.architecture}{"\n"}{end}' \
@@ -181,6 +275,7 @@ fleet_check_hub_connectivity() {
         echo "ERROR: Cannot connect to hub cluster (HUB_KUBECONFIG)." >&2
         return 1
     fi
+    fleet_reconcile_bridge_endpoints
 }
 
 # Verify only the spoke is reachable. Call from a scenario's fleet/spoke.sh,
@@ -200,6 +295,89 @@ fleet_check_spoke_connectivity() {
 # back-to-back for the single-spoke case).
 fleet_check_connectivity() {
     fleet_check_hub_connectivity && fleet_check_spoke_connectivity
+}
+
+# Update one address in a hand-authored Service/Endpoints bridge when a Kind
+# node has been recreated. Podman/Kind node bridge IPs are not stable across a
+# VM restart, while the bridge Endpoints objects intentionally are not
+# selector-backed and therefore cannot self-heal through EndpointSlice
+# discovery. Missing bridges are deliberately ignored so this helper remains
+# safe on OCP and on fleet installations that do not use the demo bridges.
+_fleet_reconcile_endpoint_ip() {
+    local kubeconfig="$1"
+    local namespace="$2"
+    local name="$3"
+    local desired_ip="$4"
+    local description="$5"
+    local current_ip
+
+    if ! kubectl --kubeconfig="${kubeconfig}" -n "${namespace}" \
+        get endpoints "${name}" &>/dev/null; then
+        return 0
+    fi
+
+    current_ip=$(kubectl --kubeconfig="${kubeconfig}" -n "${namespace}" \
+        get endpoints "${name}" -o jsonpath='{.subsets[0].addresses[0].ip}' \
+        2>/dev/null || true)
+    if [ -z "${current_ip}" ] || [ "${current_ip}" = "${desired_ip}" ]; then
+        return 0
+    fi
+
+    echo "  [fleet] Updating ${description} bridge ${namespace}/${name}: ${current_ip} -> ${desired_ip}"
+    kubectl --kubeconfig="${kubeconfig}" -n "${namespace}" \
+        patch endpoints "${name}" --type=json \
+        -p="[{\"op\":\"replace\",\"path\":\"/subsets/0/addresses/0/ip\",\"value\":\"${desired_ip}\"}]" \
+        >/dev/null
+}
+
+# Reconcile the demo Fleet bridge Endpoints against the current Kind node
+# addresses. This is intentionally idempotent and no-ops when a bridge is not
+# installed, so callers can run it before every Fleet scenario rather than
+# relying on the one-time bootstrap IPs.
+fleet_reconcile_bridge_endpoints() {
+    _fleet_require_mode "fleet_reconcile_bridge_endpoints" || return 1
+
+    local hub_ip spoke_ip
+    hub_ip=$(kubectl --kubeconfig="${HUB_KUBECONFIG}" get node \
+        -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' \
+        2>/dev/null || true)
+    spoke_ip=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get node \
+        -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}' \
+        2>/dev/null || true)
+
+    if [ -z "${hub_ip}" ] || [ -z "${spoke_ip}" ]; then
+        echo "WARNING: unable to resolve current Fleet node IPs; bridge reconciliation skipped." >&2
+        return 0
+    fi
+
+    local platform_ns="${PLATFORM_NS:-kubernaut-system}"
+    local mcp_ns="${FLEET_MCP_NS:-mcp-system}"
+    local monitoring_ns="${FLEET_MONITORING_NS:-monitoring}"
+
+    # Hub -> spoke bridges.
+    # rc20 puts the remote MCP bridge in mcp-system; older demo installs put
+    # it in kubernaut-system. Reconcile the first namespace that exists so a
+    # release-line upgrade cannot leave a stale node address behind.
+    local mcp_bridge_ns
+    if kubectl --kubeconfig="${HUB_KUBECONFIG}" -n "${mcp_ns}" \
+        get endpoints kube-mcp-server-remote &>/dev/null; then
+        mcp_bridge_ns="${mcp_ns}"
+    elif kubectl --kubeconfig="${HUB_KUBECONFIG}" -n "${platform_ns}" \
+        get endpoints kube-mcp-server-remote &>/dev/null; then
+        mcp_bridge_ns="${platform_ns}"
+    fi
+    if [ -n "${mcp_bridge_ns:-}" ]; then
+        _fleet_reconcile_endpoint_ip "${HUB_KUBECONFIG}" "${mcp_bridge_ns}" \
+            kube-mcp-server-remote "${spoke_ip}" "remote MCP"
+    fi
+    _fleet_reconcile_endpoint_ip "${HUB_KUBECONFIG}" "${monitoring_ns}" \
+        thanos-sidecar-remote "${spoke_ip}" "remote Thanos"
+
+    # Spoke -> hub bridges.
+    _fleet_reconcile_endpoint_ip "${SPOKE_KUBECONFIG}" "${mcp_ns}" \
+        keycloak "${hub_ip}" "Keycloak"
+    _fleet_reconcile_endpoint_ip "${SPOKE_KUBECONFIG}" "${monitoring_ns}" \
+        alertmanager-remote "${hub_ip}" "hub Alertmanager"
 }
 
 # Deploy scenario workload resources (namespace/configmap/deployment) to the
@@ -259,6 +437,8 @@ for line in open(sys.argv[2]):
 fleet_deploy_monitoring() {
     _fleet_require_mode "fleet_deploy_monitoring" || return 1
     local manifest_dir="${1:?usage: fleet_deploy_monitoring <manifest-dir>}"
+    local cluster_id
+    cluster_id=$(fleet_cluster_id)
 
     echo "==> [fleet] Deploying monitoring CRDs to spoke (operator-native, no config surgery)..."
     local tmpdir
@@ -285,6 +465,39 @@ for line in open(sys.argv[2]):
         [ -f "$doc" ] || continue
         if grep -qE 'kind: (PrometheusRule|ServiceMonitor|Probe|PodMonitor|ScrapeConfig)' "$doc"; then
             kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f "$doc" 2>&1 | sed 's/^/    /'
+            if grep -qE '^kind: PrometheusRule$' "$doc"; then
+                # Thanos/Alertmanager federation may drop Prometheus external
+                # labels. Stamp the source cluster into each alert rule itself
+                # so the cluster survives the spoke-to-hub alert path and the
+                # gateway can resolve cluster_id for the target resource.
+                local patch_json
+                patch_json=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get -f "$doc" -o json \
+                    | python3 -c '
+import json, sys
+
+cluster_id = sys.argv[1]
+resource = json.load(sys.stdin)
+patch = []
+for group_index, group in enumerate(resource.get("spec", {}).get("groups", [])):
+    for rule_index, rule in enumerate(group.get("rules", [])):
+        if "alert" not in rule:
+            continue
+        path = f"/spec/groups/{group_index}/rules/{rule_index}"
+        labels = rule.get("labels")
+        if not isinstance(labels, dict):
+            patch.append({"op": "add", "path": path + "/labels", "value": {"cluster": cluster_id}})
+        else:
+            # JSON Patch add replaces an existing object key too, correcting
+            # a stale cluster label if this rule is deployed to another spoke.
+            patch.append({"op": "add", "path": path + "/labels/cluster", "value": cluster_id})
+print(json.dumps(patch))
+' "${cluster_id}")
+                if [ "${patch_json}" != "[]" ]; then
+                    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" patch -f "$doc" \
+                        --type=json -p "${patch_json}" >/dev/null
+                    echo "    Set cluster=${cluster_id} on alert rules in $(basename "$doc")."
+                fi
+            fi
             applied=$((applied + 1))
         else
             skipped=$((skipped + 1))
@@ -324,12 +537,12 @@ fleet_ensure_kube_state_metrics() {
     fi
 
     echo "==> [fleet] Deploying kube-state-metrics to spoke (${FLEET_MONITORING_NS})..."
-    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - <<'EOF' 2>&1 | sed 's/^/    /'
+    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - <<EOF 2>&1 | sed 's/^/    /'
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: kube-state-metrics
-  namespace: monitoring
+  namespace: ${FLEET_MONITORING_NS}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -360,13 +573,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kube-state-metrics
-  namespace: monitoring
+  namespace: ${FLEET_MONITORING_NS}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kube-state-metrics
-  namespace: monitoring
+  namespace: ${FLEET_MONITORING_NS}
   labels:
     app: kube-state-metrics
 spec:
@@ -401,7 +614,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: kube-state-metrics
-  namespace: monitoring
+  namespace: ${FLEET_MONITORING_NS}
   labels:
     app: kube-state-metrics
 spec:
@@ -436,12 +649,11 @@ fleet_wait_for_alert() {
     local alertname="${1:?usage: fleet_wait_for_alert <alertname> <namespace> [timeout] [cluster]}"
     local namespace="${2:?usage: fleet_wait_for_alert <alertname> <namespace> [timeout] [cluster]}"
     local timeout="${3:-300}"
-    # The spoke's operator-managed Prometheus stamps every alert with the
-    # external cluster label (cluster=remote-cluster by default). Use it by
-    # default so an unlabeled twin cannot satisfy the wait condition.
+    # Fleet monitoring deployment stamps `cluster` directly onto each alert
+    # rule so Thanos/Alertmanager federation cannot strip the attribution.
     # Override this for multi-spoke demos by passing the fourth argument or
-    # setting SPOKE_CLUSTER_LABEL.
-    local cluster="${4:-${SPOKE_CLUSTER_LABEL:-remote-cluster}}"
+    # setting SPOKE_CLUSTER_LABEL (FLEET_CLUSTER_ID is also accepted).
+    local cluster="${4:-$(fleet_cluster_id)}"
 
     local ham_pod
     ham_pod=$(kubectl --kubeconfig="${HUB_KUBECONFIG}" get pods -n "${FLEET_MONITORING_NS}" \
@@ -594,7 +806,13 @@ EOF
     if [[ "$server" =~ ^https://(127\.0\.0\.1|localhost) ]]; then
         local container="${kind_cluster_name}-control-plane"
         local ip
-        ip=$(docker inspect "${container}" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
+        if command -v docker >/dev/null 2>&1; then
+            ip=$(docker inspect "${container}" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || true)
+        elif command -v podman >/dev/null 2>&1; then
+            ip=$(podman inspect "${container}" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || true)
+        else
+            ip=""
+        fi
         if [ -z "$ip" ]; then
             echo "ERROR: fleet_register_argocd_spoke_cluster: spoke kubeconfig server is loopback (${server}) and could not resolve '${container}' container IP for local Kind substitution." >&2
             return 1
@@ -634,8 +852,9 @@ EOF
 # no config surgery, no restarts. No-op in single-cluster mode.
 #
 # Assumes the spoke's Prometheus accepts scenario monitoring CRDs
-# (Prometheus/fleet-spoke selects all namespaces) and stamps
-# cluster=remote-cluster via externalLabels.
+# (Prometheus/fleet-spoke selects all namespaces). fleet_deploy_monitoring
+# stamps each PrometheusRule alert with the registered cluster label because
+# external labels are not reliable across the Thanos/Alertmanager path.
 #
 # Args: $1 = manifest dir (e.g. the fleet_get_manifest_dir selection)
 fleet_bootstrap_monitoring() {

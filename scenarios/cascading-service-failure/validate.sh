@@ -86,8 +86,27 @@ else
     log_warn "No Blocked RRs -- LLM may have identified different targets for each app"
 fi
 
-# Resolve RR name once to avoid TOCTOU races
-rr_name=$(get_rr_name "${NAMESPACE}")
+# Resolve the RR whose RCA identified the shared postgres dependency.  A
+# second dependent-app alert may produce another completed RR whose RCA points
+# at the dependent application itself (or has no matching workflow); selecting
+# that RR makes the shared-dependency assertions fail even though the intended
+# postgres remediation succeeded.
+rr_name=""
+while IFS=$'\t' read -r candidate_rr _candidate_phase; do
+    [ -n "$candidate_rr" ] || continue
+    candidate_target=$(kubectl get aianalyses "ai-${candidate_rr}" -n "${PLATFORM_NS}" \
+      -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
+    case "$candidate_target" in
+        postgres|postgres-config)
+            rr_name="$candidate_rr"
+            break
+            ;;
+    esac
+done <<< "$all_rrs"
+
+if [ -z "$rr_name" ]; then
+    rr_name=$(get_rr_name "${NAMESPACE}")
+fi
 aa_name="ai-${rr_name}"
 
 aa_phase=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
@@ -95,9 +114,9 @@ aa_phase=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
 assert_eq "$aa_phase" "Completed" "AA phase"
 
 rem_target_name=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
 rem_target_kind=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
 
 assert_in "$rem_target_name" "AA RCA target name" "postgres" "postgres-config"
 assert_in "$rem_target_kind" "AA RCA target kind" "Deployment" "StatefulSet" "ConfigMap"
@@ -109,7 +128,7 @@ if [ -n "$wfe_phase" ]; then
     assert_eq "$wfe_phase" "Completed" "WFE phase"
 else
     rr_outcome=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+      -o jsonpath='{.status.completionStatus.outcome}' 2>/dev/null || echo "")
     if [ "$rr_outcome" = "ManualReviewRequired" ]; then
         log_warn "WFE not created (NoMatchingWorkflows) — RCA correct, workflow gap"
         _ASSERT_TOTAL=$((_ASSERT_TOTAL + 1)); _ASSERT_PASS=$((_ASSERT_PASS + 1))

@@ -14,7 +14,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
-fleet_fail_if_requested "node-notready" "$@"
+if fleet_dispatch_requested "$@"; then
+    exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
+fi
 NAMESPACE="demo-compute"
 
 APPROVE_MODE="--auto-approve"
@@ -41,6 +43,15 @@ if [ "$PLATFORM" = "ocp" ]; then
     echo "       See https://github.com/jordigilh/kubernaut-demo-scenarios/issues/287"
     exit 1
 fi
+
+# The documented RCA uses kubectl_top_nodes, which reads the Kubernetes Metrics
+# API rather than Prometheus directly.
+# shellcheck source=../../scripts/monitoring-helper.sh
+source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
+require_infra metrics-server
+echo "==> Enabling Kubernaut Agent metrics tools..."
+enable_prometheus_toolset
+echo ""
 
 # Workaround for #282: clean up completed WFE Jobs to avoid name collisions
 # when the same workflow+target is reused across runs.

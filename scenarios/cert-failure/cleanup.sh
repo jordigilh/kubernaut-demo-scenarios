@@ -4,6 +4,27 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # Certificate and monitoring resources are spoke-side. Toolset and EM
+    # restoration are control-plane operations on the hub.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    disable_prometheus_toolset || true
+    spoke_platform=$(fleet_target_platform)
+    fleet_target_kubectl delete secret demo-ca-key-pair -n cert-manager --ignore-not-found
+    if [ "$spoke_platform" = "ocp" ]; then
+        fleet_target_kubectl delete rolebinding prometheus-k8s-read-binding -n cert-manager --ignore-not-found
+        fleet_target_kubectl delete role prometheus-k8s-read -n cert-manager --ignore-not-found
+        fleet_target_kubectl label namespace cert-manager openshift.io/cluster-monitoring- 2>/dev/null || true
+    fi
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-portal
+    restart_alertmanager
+    purge_pipeline_crds
+    restore_em || true
+    exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
@@ -29,6 +50,7 @@ if [ "$PLATFORM" = "ocp" ]; then
     kubectl label namespace cert-manager openshift.io/cluster-monitoring- 2>/dev/null || true
 fi
 
+restart_alertmanager
 purge_pipeline_crds
 
 echo "==> Restoring EM configuration..."

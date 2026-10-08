@@ -100,7 +100,7 @@ is purely factual -- no diagnostic guidance for the LLM.
 | LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With ServiceMonitor support for user namespaces |
 | Workflow catalog | `defrag-etcd-v1` registered in DataStorage |
-| Images | `quay.io/coreos/etcd:v3.4.27` |
+| Images | `quay.io/coreos/etcd:v3.5.21` (multi-architecture upstream image) |
 | Storage | StorageClass for 3x 1Gi PVCs (etcd data) |
 
 ### Workflow RBAC
@@ -127,7 +127,7 @@ rules:
 kubectl get remediationworkflow -n kubernaut-system | grep defrag-etcd
 
 # 2. Verify etcd image is pullable
-skopeo inspect docker://quay.io/coreos/etcd:v3.4.27 | grep Architecture
+skopeo inspect docker://quay.io/coreos/etcd:v3.5.21 | grep Architecture
 
 # 3. Verify StorageClass is available for PVCs
 kubectl get sc -o name | head -3
@@ -212,8 +212,9 @@ Local Kind equivalent:
 ETCD_LIVE_CLUSTER=1 ./scenarios/etcd-defrag-forecast/run.sh --alert-only
 ```
 
-On arm64 kind clusters the dedicated mode refuses to start (its etcd image is
-amd64-only); live mode is the way there.
+The dedicated demo uses the multi-architecture upstream etcd image, including
+linux/arm64. The live mode remains available as an opt-in path for testing the
+actual Kind control-plane datastore.
 
 How it works (`fleet/live/`, applied by `fleet/spoke.sh` in live opt-in mode
 and by the local runner in local opt-in mode):

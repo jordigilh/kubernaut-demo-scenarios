@@ -74,6 +74,7 @@ The EA (EffectivenessAssessment) detects the revert via spec hash comparison:
 | Cluster | Kind or OCP with Kubernaut services |
 | LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
+| Metrics API | metrics-server (required by the RCA's `kubectl_top_nodes`/`kubectl_top_pods` tools) |
 | Workflow | `increase-memory-limits-v1` (shipped with demo content) |
 | KA Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 
@@ -145,11 +146,10 @@ export SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config
 ./scenarios/resource-contention/run.sh --fleet
 ```
 
-Fleet mode stops after confirming the `ContainerOOMKilling` alert reaches the hub's
-Alertmanager -- `--interactive`/`--auto-approve` have no effect. The external-actor
-revert loop and ineffective-remediation-chain escalation this scenario demonstrates need
-the full multi-cycle pipeline, single-cluster only today. See
-[kubernaut-demo-scenarios#423](https://github.com/jordigilh/kubernaut-demo-scenarios/issues/423).
+Fleet mode runs the first remediation cycle with the RR on the hub and the external
+actor's Deployment mutations on the spoke. `--interactive` and `--auto-approve` are
+supported. The validator asserts the first-cycle `IncreaseMemoryLimits` remediation;
+the longer multi-cycle ineffective-remediation escalation remains a manual follow-up.
 
 ### Manual Step-by-Step
 

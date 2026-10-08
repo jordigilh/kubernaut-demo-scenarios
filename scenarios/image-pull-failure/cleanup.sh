@@ -3,6 +3,23 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    disable_prometheus_toolset || true
+    restore_production_approval || true
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-inventory
+    fleet_target_kubectl delete namespace demo-inventory-source --ignore-not-found --wait=false 2>/dev/null || true
+    fleet_target_kubectl delete secret registry-credentials-template \
+        -n "${WE_NAMESPACE:-kubernaut-workflows}" --ignore-not-found 2>/dev/null || true
+    purge_pipeline_crds
+    restart_alertmanager
+    exit 0
+fi
+
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

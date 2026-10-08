@@ -13,7 +13,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
-fleet_fail_if_requested "pdb-deadlock" "$@"
+if fleet_dispatch_requested "$@"; then
+    exec bash "${SCRIPT_DIR}/fleet/run.sh" "$@"
+fi
 NAMESPACE="demo-payments"
 
 APPROVE_MODE="--auto-approve"

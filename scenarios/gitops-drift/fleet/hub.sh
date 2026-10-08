@@ -26,7 +26,7 @@ GITEA_NAMESPACE="gitea"
 GITEA_ADMIN_USER="kubernaut"
 GITEA_ADMIN_PASS="kubernaut123"
 REPO_NAME="demo-gitops-repo"
-FLEET_CLUSTER_ID="${FLEET_CLUSTER_ID:-remote-cluster}"
+FLEET_CLUSTER_ID="${SPOKE_CLUSTER_LABEL:-${FLEET_CLUSTER_ID:-remote-cluster}}"
 APPROVE_MODE="--interactive"
 ALERT_ONLY=""
 for _arg in "$@"; do
@@ -47,6 +47,11 @@ fleet_check_hub_connectivity
 export KUBECONFIG="${HUB_KUBECONFIG}"
 # shellcheck source=../../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+
+# ArgoCD is webhook-driven in this scenario, so the default polling-oriented
+# RO propagation delay is unnecessarily conservative. RO runs on the hub in
+# fleet mode; cleanup.sh restores the original cluster-specific configuration.
+configure_ro_gitops_sync_delay "10s"
 
 echo "==> [hub=${HUB_KUBECONFIG}] Ensuring Gitea + ArgoCD are installed..."
 if ! kubectl get deployment gitea -n "${GITEA_NAMESPACE}" &>/dev/null; then

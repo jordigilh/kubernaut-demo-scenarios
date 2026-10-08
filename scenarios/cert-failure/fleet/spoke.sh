@@ -5,8 +5,8 @@
 # SPOKE_KUBECONFIG. Requires cert-manager on the spoke (installed with
 # --set prometheus.enabled=true, same as local mode). Monitoring is
 # operator-native: manifests/servicemonitor.yaml is applied as-is and picked
-# up by the spoke's Prometheus; its metricRelabelings reproduce the
-# namespace -> exported_namespace rename the alert query expects.
+# up by the spoke's Prometheus. Prometheus preserves the workload namespace as
+# exported_namespace because the scrape target itself lives in cert-manager.
 # Touches only the spoke -- safe to
 # invoke directly, multiple times, once per spoke cluster if demoing
 # across several spokes. Run ../fleet/hub.sh afterward (once all spokes

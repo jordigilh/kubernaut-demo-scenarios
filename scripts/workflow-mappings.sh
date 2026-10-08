@@ -15,7 +15,7 @@ WORKFLOWS=(
     "autoscale:provision-node-job"
     "slo-burn:proactive-rollback-job"
     "memory-leak:graceful-restart-job"
-    "operator-oomkill-informer:increase-memory-limits-job"
+    "operator-oomkill-informer:increase-memory-limits-gitops-job"
     "crashloop:crashloop-rollback-job"
     "hpa-maxed:patch-hpa-job"
     "pdb-deadlock:relax-pdb-job"

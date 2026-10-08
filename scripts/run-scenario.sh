@@ -6,6 +6,7 @@
 #   ./scripts/run-scenario.sh --scenario hpa-maxed --auto-approve --cleanup
 #   ./scripts/run-scenario.sh --scenario hpa-maxed,stuck-rollout
 #   ./scripts/run-scenario.sh --validate-only --scenario hpa-maxed
+#   ./scripts/run-scenario.sh --fleet --scenario hpa-maxed
 #   ./scripts/run-scenario.sh --list
 #
 # Flags:
@@ -13,9 +14,11 @@
 #   --auto-approve           Auto-approve RemediationApprovalRequests (default)
 #   --interactive            Pause for manual RAR approval
 #   --alert-only             Deploy fault and stop once the alert fires (skip validation)
-#   --cleanup                Run cleanup.sh after each scenario
+#   --cleanup                Run cleanup.sh after each successful scenario
+#                            (failed scenarios are preserved for RCA)
 #   --validate-only          Skip run.sh, only validate (scenario already deployed)
 #   --skip-run               Alias for --validate-only
+#   --fleet                  Run workload on SPOKE_KUBECONFIG and control plane on HUB_KUBECONFIG
 #   --no-color               Disable color output
 #   --timeout SECONDS        Pipeline timeout per scenario (default: 600)
 #   --list                   List available scenarios and exit
@@ -32,8 +35,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SCENARIOS_DIR="${REPO_ROOT}/scenarios"
 
-# Respect user-provided KUBECONFIG; fall back to the demo kubeconfig.
-export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
+# shellcheck source=fleet-helper.sh
+source "${SCRIPT_DIR}/fleet-helper.sh"
 
 # Defaults
 SCENARIO_LIST=""
@@ -44,6 +47,7 @@ DO_CLEANUP=false
 VALIDATE_ONLY=false
 PIPELINE_TIMEOUT=600
 NO_COLOR_FLAG=""
+FLEET_MODE=false
 DS_PORT_FORWARD_PID=""
 
 usage() {
@@ -139,6 +143,10 @@ while [[ $# -gt 0 ]]; do
             NO_COLOR_FLAG="--no-color"
             shift
             ;;
+        --fleet)
+            FLEET_MODE=true
+            shift
+            ;;
         --timeout)
             PIPELINE_TIMEOUT="$2"
             shift 2
@@ -160,6 +168,14 @@ done
 if [ -z "$SCENARIO_LIST" ]; then
     echo "ERROR: --scenario is required (or use --list to see available scenarios)"
     exit 1
+fi
+
+if [ "$FLEET_MODE" = true ]; then
+    fleet_dispatch_requested --fleet
+    export KUBECONFIG="${HUB_KUBECONFIG}"
+else
+    # Respect user-provided KUBECONFIG; fall back to the demo kubeconfig.
+    export KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
 fi
 
 if [ "$ALERT_ONLY" = true ] && [ "$VALIDATE_ONLY" = true ]; then
@@ -248,6 +264,12 @@ for scenario in "${SCENARIOS[@]}"; do
         continue
     fi
 
+    if [ "$FLEET_MODE" = true ] && [ ! -f "${scenario_dir}/fleet/run.sh" ]; then
+        echo "ERROR: Scenario '${scenario}' has no fleet runner"
+        RESULTS+=("${scenario}:ERROR:0")
+        continue
+    fi
+
     echo ""
     echo "  ${_c_bold}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${_c_reset}"
     echo "  ${_c_bold}  Scenario: ${scenario}${_c_reset}"
@@ -263,7 +285,11 @@ for scenario in "${SCENARIOS[@]}"; do
     if [ "$VALIDATE_ONLY" = false ]; then
         if [ -f "${scenario_dir}/run.sh" ]; then
             log_phase "Running ${scenario}/run.sh..."
-            if ! bash "${scenario_dir}/run.sh" --no-validate "$RUN_MODE"; then
+            run_args=(--no-validate "$RUN_MODE")
+            if [ "$FLEET_MODE" = true ]; then
+                run_args+=(--fleet)
+            fi
+            if ! bash "${scenario_dir}/run.sh" "${run_args[@]}"; then
                 log_error "run.sh failed for ${scenario}"
                 scenario_result="FAIL"
             fi
@@ -279,10 +305,29 @@ for scenario in "${SCENARIOS[@]}"; do
     if [ "$ALERT_ONLY" = true ]; then
         log_warn "Skipping validate.sh (--alert-only: stopping once the alert fires)"
     elif [ "$scenario_result" != "FAIL" ]; then
-        if [ -f "${scenario_dir}/validate.sh" ]; then
-            log_phase "Running ${scenario}/validate.sh..."
+        validation_script="${scenario_dir}/validate.sh"
+        validation_label="validate.sh"
+        if [ "$FLEET_MODE" = true ]; then
+            validation_script="${scenario_dir}/fleet/validate.sh"
+            validation_label="fleet/validate.sh"
+        fi
+        if [ -f "$validation_script" ]; then
+            log_phase "Running ${scenario}/${validation_label}..."
             reset_assertions
-            if ! bash "${scenario_dir}/validate.sh" "$APPROVE_MODE" $NO_COLOR_FLAG; then
+            validate_args=("$APPROVE_MODE")
+            if [ "$FLEET_MODE" = true ]; then
+                validate_args+=(--fleet)
+            fi
+            [ -n "$NO_COLOR_FLAG" ] && validate_args+=("$NO_COLOR_FLAG")
+            if [ "$FLEET_MODE" = true ] && [ "$VALIDATE_ONLY" = false ]; then
+                # The Fleet runner's hub step already waited for and drove the
+                # pipeline. Tell the shared validator to reuse that completed
+                # pipeline instead of waiting for a second alert/RR after
+                # remediation has cleared the original alert.
+                if ! FLEET_PIPELINE_ALREADY_DRIVEN=true bash "$validation_script" "${validate_args[@]}"; then
+                    scenario_result="FAIL"
+                fi
+            elif ! bash "$validation_script" "${validate_args[@]}"; then
                 scenario_result="FAIL"
             fi
         else
@@ -296,11 +341,18 @@ for scenario in "${SCENARIOS[@]}"; do
 
     RESULTS+=("${scenario}:${scenario_result}:${SCENARIO_DURATION}")
 
-    # Step 3: cleanup.sh (if --cleanup)
+    # Step 3: cleanup.sh (if --cleanup and the scenario passed). Preserve
+    # failed scenario resources so pods, events, workload state, and Helm
+    # history remain available for RCA. Invoke the scenario cleanup.sh
+    # manually when teardown of a failed run is desired.
     if [ "$DO_CLEANUP" = true ]; then
-        if [ -f "${scenario_dir}/cleanup.sh" ]; then
+        if [ "$scenario_result" = "PASS" ] && [ -f "${scenario_dir}/cleanup.sh" ]; then
             log_phase "Running ${scenario}/cleanup.sh..."
-            bash "${scenario_dir}/cleanup.sh" || true
+            cleanup_args=()
+            [ "$FLEET_MODE" = true ] && cleanup_args+=(--fleet)
+            bash "${scenario_dir}/cleanup.sh" "${cleanup_args[@]}" || true
+        elif [ "$scenario_result" = "FAIL" ]; then
+            log_warn "Preserving ${scenario} resources after failure for RCA (cleanup skipped)"
         fi
     fi
 done

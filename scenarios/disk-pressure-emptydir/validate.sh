@@ -39,7 +39,7 @@ assert_eq "$rr_outcome" "Remediated" "RR outcome"
 rr_name=$(get_rr_name "${NAMESPACE}")
 aa_name="ai-${rr_name}"
 workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 assert_neq "$workflow_id" "" "AA selected a workflow"
 
 # Resolve the workflow name from the selected workflowId.
