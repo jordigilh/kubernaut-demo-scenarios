@@ -98,3 +98,14 @@ jobs:
 
       - name: Validate detectedLabels types
         run: python3 scripts/validate-detected-labels.py deploy/remediation-workflows
+
+  helm-rollback-target-contract:
+    name: HelmRollback target contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Exercise release-wide target handling
+        run: bash deploy/remediation-workflows/crashloop-helm/test-remediate.sh
