@@ -1,4 +1,0 @@
-Classification: blocked by missing Kind private-registry prerequisite.
-The existing fixture is OpenShift-internal-registry-specific. The Fleet runner
-fails before deployment on a Kind spoke rather than claiming ImagePullBackOff
-from a public image whose missing pull secret would not be causal.

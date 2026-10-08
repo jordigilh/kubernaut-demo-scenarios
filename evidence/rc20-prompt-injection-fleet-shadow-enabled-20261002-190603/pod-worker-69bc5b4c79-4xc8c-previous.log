@@ -1,1 +1,0 @@
-[emerg] failed to parse config /etc/demo-http-server/config.yaml: yaml: line 2: mapping values are not allowed in this context — aborting

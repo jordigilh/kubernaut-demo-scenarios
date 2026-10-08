@@ -1,7 +1,0 @@
-LAST SEEN   TYPE     REASON              OBJECT                                          MESSAGE
-12m         Normal   WorkflowValidated   workflowexecution/we-rr-220b295e549b-0016b3e9   Workflow spec validated: fb6a832d-510d-54a2-b512-cc2a52e31786 (target: demo-monitoring/Deployment/metrics-collector)
-12m         Normal   ExecutionCreated    workflowexecution/we-rr-220b295e549b-0016b3e9   Created job execution resource kubernaut-workflows/wfe-58b329b6cf3ac55b
-12m         Normal   PhaseTransition     workflowexecution/we-rr-220b295e549b-0016b3e9   Phase transition: Pending → Running
-74s         Normal   WorkflowCompleted   workflowexecution/we-rr-220b295e549b-0016b3e9   Workflow fb6a832d-510d-54a2-b512-cc2a52e31786 completed successfully in &Duration{Duration:11m37s,}
-74s         Normal   PhaseTransition     workflowexecution/we-rr-220b295e549b-0016b3e9   Phase transition: Running → Completed
-14s         Normal   LockReleased        workflowexecution/we-rr-220b295e549b-0016b3e9   Lock released for demo-monitoring/Deployment/metrics-collector after cooldown

@@ -1,3 +1,0 @@
-LAST SEEN   TYPE      REASON    OBJECT                        MESSAGE
-3m21s       Warning   BackOff   pod/worker-69bc5b4c79-4xc8c   Back-off restarting failed container worker in pod worker-69bc5b4c79-4xc8c_demo-workers(e27b97bb-ae19-4b32-b5ba-80ef11b8e098)
-115s        Normal    Pulled    pod/worker-69bc5b4c79-4xc8c   Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already present on machine and can be accessed by the pod

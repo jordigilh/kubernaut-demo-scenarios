@@ -1,3 +1,0 @@
-NAME                              READY   STATUS    RESTARTS   AGE   IP       NODE     NOMINATED NODE   READINESS GATES
-batch-processor-6547d9848-5brk4   0/1     Pending   0          83m   <none>   <none>   <none>           <none>
-batch-processor-6547d9848-jc2h8   0/1     Pending   0          83m   <none>   <none>   <none>           <none>

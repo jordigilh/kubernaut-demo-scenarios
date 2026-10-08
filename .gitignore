@@ -67,3 +67,8 @@ base/secrets/
 
 # Machine-specific local editor/MCP config (shared kubernaut-family convention)
 .cursor/
+
+# Ephemeral fleet validation outputs
+/evidence/
+/*.log
+/*.tar.gz

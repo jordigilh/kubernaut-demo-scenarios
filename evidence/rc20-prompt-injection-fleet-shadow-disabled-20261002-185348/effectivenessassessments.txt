@@ -1,5 +1,0 @@
-NAME                          PHASE       REASON    CORRELATIONID              READYREASON   AGE
-ea-rr-10a3e3419019-f32ca31b   Completed   Full      rr-10a3e3419019-f32ca31b   Ready         4h17m
-ea-rr-220b295e549b-0016b3e9   Completed   Full      rr-220b295e549b-0016b3e9   Ready         4h37m
-ea-rr-4309bc63be09-2aadfaa5   Completed   Full      rr-4309bc63be09-2aadfaa5   Ready         4h28m
-ea-rr-9d7638a122e2-dd1813f9   Completed   Expired   rr-9d7638a122e2-dd1813f9   Ready         4h8m

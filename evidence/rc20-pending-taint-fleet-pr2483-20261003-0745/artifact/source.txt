@@ -1,6 +1,0 @@
-PR: https://github.com/jordigilh/kubernaut/pull/2483
-Merge commit: 7c516ee860d2b190ab2efafc5b6fbb240095667b
-Image build commit: 931bd2e6db6919d62defcd8e1d80738641426c85
-CI run: https://github.com/jordigilh/kubernaut/actions/runs/37083497983
-Artifact: image-kubernautagent-arm64 (11260196099)
-Local tar: /private/var/folders/r7/gktmmltd1zq7wqhsjjslwsm80000gn/T/opencode/ka-pr2483/kubernautagent-arm64.tar

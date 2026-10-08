@@ -1,8 +1,0 @@
-LAST SEEN   TYPE     REASON                           OBJECT                                        MESSAGE
-10m         Normal   RemediationCreated               remediationrequest/rr-9d7638a122e2-dd1813f9   RemediationRequest accepted for signal KubeDeploymentReplicasMismatch
-10m         Normal   PhaseTransition                  remediationrequest/rr-9d7638a122e2-dd1813f9   Phase transition: Pending → Processing
-10m         Normal   PhaseTransition                  remediationrequest/rr-9d7638a122e2-dd1813f9   Phase transition: Processing → Analyzing
-9m8s        Normal   PhaseTransition                  remediationrequest/rr-9d7638a122e2-dd1813f9   Phase transition: Analyzing → Executing
-8m37s       Normal   RemediationCompleted             remediationrequest/rr-9d7638a122e2-dd1813f9   Remediation succeeded, entering verification phase (#280)
-8m37s       Normal   EffectivenessAssessmentCreated   remediationrequest/rr-9d7638a122e2-dd1813f9   Created EffectivenessAssessment ea-rr-9d7638a122e2-dd1813f9 (correlationID: rr-9d7638a122e2-dd1813f9)
-66s         Normal   NotificationCreated              remediationrequest/rr-9d7638a122e2-dd1813f9   Completion notification created: nr-completion-rr-9d7638a122e2-dd1813f9
