@@ -382,25 +382,22 @@ for scenario in "${SCENARIOS[@]}"; do
             validation_script="${scenario_dir}/fleet/validate.sh"
             validation_label="fleet/validate.sh"
         fi
-        if [ -f "$validation_script" ]; then
-            log_phase "Running ${scenario}/${validation_label}..."
-            reset_assertions
-            validate_args=("$APPROVE_MODE")
-            if [ "$FLEET_MODE" = true ]; then
-                validate_args+=(--fleet)
-            fi
-            [ -n "$NO_COLOR_FLAG" ] && validate_args+=("$NO_COLOR_FLAG")
-            if [ "$FLEET_MODE" = true ] && [ "$VALIDATE_ONLY" = false ]; then
-                # The Fleet runner's hub step already waited for and drove the
-                # pipeline. Tell the shared validator to reuse that completed
-                # pipeline instead of waiting for a second alert/RR after
-                # remediation has cleared the original alert.
-                if ! FLEET_PIPELINE_ALREADY_DRIVEN=true bash "$validation_script" "${validate_args[@]}"; then
+            if [ -f "$validation_script" ]; then
+                log_phase "Running ${scenario}/${validation_label}..."
+                reset_assertions
+                validate_args=("$APPROVE_MODE")
+                if [ "$FLEET_MODE" = true ]; then
+                    validate_args+=(--fleet)
+                fi
+                [ -n "$NO_COLOR_FLAG" ] && validate_args+=("$NO_COLOR_FLAG")
+                # run.sh was invoked with --no-validate above, so the validator
+                # owns the pipeline wait and must not be told that the Fleet
+                # runner already processed it. That flag is only appropriate
+                # when a direct scenario invocation has already driven the
+                # complete pipeline before calling a second validator.
+                if ! bash "$validation_script" "${validate_args[@]}"; then
                     scenario_result="FAIL"
                 fi
-            elif ! bash "$validation_script" "${validate_args[@]}"; then
-                scenario_result="FAIL"
-            fi
         else
             log_warn "No validate.sh found for ${scenario} -- skipping validation"
             scenario_result="SKIP"
