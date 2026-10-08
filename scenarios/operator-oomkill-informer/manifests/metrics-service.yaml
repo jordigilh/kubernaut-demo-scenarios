@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-controllers-controller-metrics
+  namespace: demo-controllers
+  labels:
+    app: demo-controllers-controller
+    kubernaut.ai/metrics: "true"
+spec:
+  selector:
+    app: demo-controllers-controller
+  ports:
+  - name: http
+    port: 8080
+    targetPort: metrics

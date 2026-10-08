@@ -1,0 +1,27 @@
+# GitOps Increase Memory - Runnable Job Container (BR-WE-014)
+# Scenario: operator-oomkill-informer (#446)
+#
+# The Job runs on the GitOps hub. It creates a forward-change pull request in
+# Gitea and waits for a human to merge it. It deliberately has no Kubernetes
+# write permission for the workload and never patches the live Deployment.
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+
+ARG TARGETARCH
+ARG KUBECTL_VERSION=v1.31.4
+
+# ubi-minimal already provides curl-minimal; installing the full curl package
+# conflicts with it on UBI9 (both amd64 and arm64). Keep the bundled curl
+# implementation and install only the additional runtime tools.
+RUN microdnf install -y ca-certificates git jq && microdnf clean all
+
+RUN curl -fsSL -o /usr/local/bin/kubectl \
+    "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" && \
+    chmod +x /usr/local/bin/kubectl
+
+COPY remediate.sh /scripts/remediate.sh
+RUN chmod +x /scripts/remediate.sh
+
+USER 1001
+
+ENTRYPOINT ["/scripts/remediate.sh"]

@@ -2,12 +2,10 @@
 # Operator OOMKill from Informer Cache Flooding -- Fleet Spoke Steps
 # Based on kubeflow/spark-operator#2878.
 #
-# Deploys the operator and floods it with ConfigMaps against
-# SPOKE_KUBECONFIG. Touches only the spoke -- safe to invoke directly,
-# multiple times, once per spoke cluster if demoing the same fault across
-# several spokes. Run ../fleet/hub.sh afterward (once all spokes are done)
-# to confirm the alert(s) reached the hub's Alertmanager, or use ../run.sh
-# which runs both in order for the common single-spoke case.
+# Prepares only the spoke. The operator, RBAC, namespace, and monitoring
+# resources are applied by the hub's Argo CD Application; the fault stimulus
+# is injected by fleet/hub.sh after that Application is healthy. This keeps
+# the desired state GitOps-managed end to end.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,34 +15,12 @@ NAMESPACE="demo-controllers"
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 fleet_check_spoke_connectivity
 
-echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying operator and RBAC..."
-MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
-fleet_deploy_workload "${MANIFEST_DIR}"
-fleet_bootstrap_monitoring "${MANIFEST_DIR}"
+if ! kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get apiservice v1beta1.metrics.k8s.io \
+    -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null | grep -q True; then
+    echo "ERROR: Kubernetes Metrics API is unavailable on the spoke. Install metrics-server so workload CPU/memory can be inspected with kubectl top." >&2
+    exit 1
+fi
 
-echo "==> [spoke] Waiting for operator to be ready..."
-kubectl_workload wait --for=condition=Available deployment/demo-controllers-controller \
-  -n "${NAMESPACE}" --timeout=120s
-echo "  Operator is running with 128Mi memory limit."
-kubectl_workload get pods -n "${NAMESPACE}"
-echo ""
-
-echo "==> [spoke] Establishing healthy baseline (10s)..."
-sleep 10
-echo "  Baseline established. Operator healthy, 0 restarts."
-echo ""
-
-echo "==> [spoke] Flooding namespace with 100 x 1MB ConfigMaps..."
-echo "  This mirrors the attack vector from the Spark Operator CVE."
-NAMESPACE="${NAMESPACE}" KUBECONFIG="${SPOKE_KUBECONFIG}" bash "${SCRIPT_DIR}/inject-configmap-flood.sh"
-echo ""
-
-echo "==> [spoke] Waiting for operator to OOMKill (~30-60s)..."
-sleep 15
-kubectl_workload get pods -n "${NAMESPACE}"
-echo ""
-echo "  Waiting for restarts to accumulate..."
-sleep 30
-kubectl_workload get pods -n "${NAMESPACE}"
-echo ""
-echo "==> [spoke] Fault injected. Run fleet/hub.sh (or ../run.sh) to confirm the alert on the hub."
+echo "==> [spoke=${SPOKE_KUBECONFIG}] Preparing kube-state-metrics for Argo CD..."
+fleet_ensure_kube_state_metrics
+echo "  Spoke is ready for the hub-side Argo CD Application."

@@ -3,4 +3,6 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - deployment.yaml
+  - metrics-service.yaml
+  - metrics-servicemonitor.yaml
   - prometheus-rule.yaml

@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: increase-memory-limits-gitops-v1-runner
+  namespace: kubernaut-workflows
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: increase-memory-limits-gitops-v1
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: increase-memory-limits-gitops-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: increase-memory-limits-gitops-v1
+rules:
+- apiGroups: ["argoproj.io"]
+  resources: ["applications"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: increase-memory-limits-gitops-v1-runner
+  labels:
+    kubernaut.ai/workflow-runner: "true"
+    kubernaut.ai/workflow: increase-memory-limits-gitops-v1
+subjects:
+- kind: ServiceAccount
+  name: increase-memory-limits-gitops-v1-runner
+  namespace: kubernaut-workflows
+roleRef:
+  kind: ClusterRole
+  name: increase-memory-limits-gitops-v1-runner
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationWorkflow
+metadata:
+  name: increase-memory-limits-gitops-v1
+  namespace: kubernaut-system
+spec:
+  # GitOps forward-change workflow for operator-oomkill-informer (#446).
+  # This is deliberately separate from the generic direct-patch workflow so
+  # non-GitOps scenarios retain their existing execution contract.
+  version: "1.0.7"
+  description:
+    what: "Proposes a reviewed GitOps change that increases an operator Deployment's memory limit by a fixed 128Mi increment on each remediation run after an informer-cache OOM"
+    whenToUse: "When an OOMKilled Deployment is managed by Argo CD and the desired-state change must pass a human-reviewed pull request before it reaches the workload cluster; each run adds exactly 128Mi to the current memory limit"
+    whenNotToUse: "When the workload is not GitOps-managed, when repository access is unavailable, or when the durable fix requires changing the operator's informer selectors rather than buying temporary memory headroom; use remediation history and platform routing to decide whether another temporary increment remains appropriate"
+    preconditions: "An Argo CD Application targets the affected namespace, the hub can reach its Gitea repository, and the repository's main branch requires human review"
+  actionType: IncreaseMemoryLimits
+  labels:
+    severity: [critical, high]
+    environment: [production, staging]
+    component: [apps/v1/Deployment]
+    priority: "*"
+    cluster: ["*"]
+  detectedLabels:
+    gitOpsManaged: true
+    gitOpsTool: argocd
+  execution:
+    engine: job
+    serviceAccountName: increase-memory-limits-gitops-v1-runner
+    # Repository credentials and Argo CD API access are hub-side. The signal
+    # and the Deployment being changed remain on the spoke.
+    clusterId: hub
+    bundle: quay.io/kubernaut-cicd/test-workflows/increase-memory-limits-gitops-job@sha256:9a9b1f81abbe6452e90caf50fe1fa82cde9b2b9bf6270b9d7b66156959f6c1c9
+  dependencies:
+    secrets:
+    - name: gitea-repo-creds
+  parameters:
+  - name: TARGET_RESOURCE_NAMESPACE
+    type: string
+    required: true
+    description: "Namespace of the affected Deployment"
+  - name: TARGET_RESOURCE_NAME
+    type: string
+    required: true
+    description: "Name of the Deployment whose desired state must change"
+  - name: TARGET_RESOURCE_KIND
+    type: string
+    required: true
+    description: "Must be Deployment"
+  - name: GITOPS_DEPLOYMENT_FILE
+    type: string
+    required: false
+    default: "deployment.yaml"
+    description: "Deployment manifest path relative to the Argo CD source path"
+  - name: PR_WAIT_TIMEOUT_SECONDS
+    type: string
+    required: false
+    default: "1500"
+    description: "Bounded human-review wait; expiration fails the workflow without applying remediation"

@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: demo-controllers-controller
+  namespace: demo-controllers
+  labels:
+    release: kube-prometheus-stack
+    app.kubernetes.io/managed-by: kubernaut-demo-scenarios
+spec:
+  selector:
+    matchLabels:
+      kubernaut.ai/metrics: "true"
+  endpoints:
+  - port: http
+    interval: 15s
+    path: /metrics

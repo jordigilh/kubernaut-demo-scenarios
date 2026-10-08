@@ -35,6 +35,14 @@ done
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 require_demo_ready
+# shellcheck source=../../scripts/monitoring-helper.sh
+source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
+require_infra metrics-server
+if ! kubectl get apiservice v1beta1.metrics.k8s.io \
+    -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null | grep -q True; then
+    echo "ERROR: Kubernetes Metrics API is unavailable. Check metrics-server before running this scenario; workload CPU/memory must be available to kubectl top." >&2
+    exit 1
+fi
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
@@ -53,6 +61,15 @@ ensure_clean_slate "${NAMESPACE}"
 echo "==> Step 1: Deploying operator and RBAC..."
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
+# The repository manifests carry Argo CD ownership for the fleet path. A
+# single-cluster run has no Argo CD Application, so remove only the live
+# ownership markers and keep the established direct IncreaseMemoryLimits
+# workflow contract for this non-GitOps mode. The source manifests remain
+# GitOps-ready for fleet/hub.sh.
+kubectl annotate namespace "${NAMESPACE}" argocd.argoproj.io/instance- \
+  --ignore-not-found 2>/dev/null || true
+kubectl annotate deployment/demo-controllers-controller -n "${NAMESPACE}" \
+  argocd.argoproj.io/instance- --ignore-not-found 2>/dev/null || true
 
 # Step 2: Wait for operator to be healthy
 echo "==> Step 2: Waiting for operator to be ready..."
@@ -103,5 +120,5 @@ if [ "${ALERT_ONLY}" = "true" ]; then
 elif [ "${SKIP_VALIDATE}" != "true" ] && [ -f "${SCRIPT_DIR}/validate.sh" ]; then
     echo ""
     echo "==> Running validation pipeline..."
-    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
+    OPERATOR_GITOPS_LOCAL_DIRECT=true bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
 fi
