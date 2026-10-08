@@ -25,7 +25,7 @@ INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-100}"
 # environments that need a different run-scoped value. The shorter stabilization
 # window keeps this demo verification quick; cleanup restores the original values.
 GITOPS_SYNC_DELAY="${GITOPS_SYNC_DELAY:-10s}"
-EFFECTIVENESS_STABILIZATION_WINDOW="${EFFECTIVENESS_STABILIZATION_WINDOW:-1m}"
+EFFECTIVENESS_STABILIZATION_WINDOW="${EFFECTIVENESS_STABILIZATION_WINDOW:-30s}"
 APPROVE_MODE="--interactive"
 ALERT_ONLY=false
 NO_VALIDATE=false
@@ -77,8 +77,10 @@ cleanup_run() {
     cleanup_port_forward
     # The delay is a run-scoped tuning knob. Restore it even when setup or
     # validation exits early, rather than relying on a later manual cleanup.
-    restore_ro_gitops_sync_delay || true
-    restore_production_approval || true
+    if [ "${DEFER_FLEET_TUNING_RESTORE:-false}" != true ]; then
+        restore_ro_gitops_sync_delay || true
+        restore_production_approval || true
+    fi
 }
 trap cleanup_run EXIT
 

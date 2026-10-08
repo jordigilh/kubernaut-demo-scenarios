@@ -61,6 +61,7 @@ usage() {
 }
 
 cleanup_port_forward() {
+    restore_deferred_fleet_tuning
     if [ -n "$DS_PORT_FORWARD_PID" ]; then
         kill "$DS_PORT_FORWARD_PID" 2>/dev/null || true
         wait "$DS_PORT_FORWARD_PID" 2>/dev/null || true
@@ -75,6 +76,16 @@ cleanup_port_forward() {
     [ -z "$PROM_PORT_FORWARD_LOG" ] || rm -f "$PROM_PORT_FORWARD_LOG"
 }
 trap cleanup_port_forward EXIT
+
+restore_deferred_fleet_tuning() {
+    if [ "${FLEET_MODE:-false}" = true ]; then
+        # Fleet runners invoked below with --no-validate defer their temporary
+        # approval/timing configuration until this wrapper finishes validation.
+        # Both helpers are no-ops when no run-scoped override was installed.
+        restore_ro_gitops_sync_delay || true
+        restore_production_approval || true
+    fi
+}
 
 # Read a scenario's scenario.toml (if any); prints "fleet kind ocp" values.
 read_scenario_meta() {
@@ -360,7 +371,12 @@ for scenario in "${SCENARIOS[@]}"; do
             if [ "$FLEET_MODE" = true ]; then
                 run_args+=(--fleet)
             fi
-            if ! bash "${scenario_dir}/run.sh" "${run_args[@]}"; then
+            if [ "$FLEET_MODE" = true ]; then
+                if ! DEFER_FLEET_TUNING_RESTORE=true bash "${scenario_dir}/run.sh" "${run_args[@]}"; then
+                    log_error "run.sh failed for ${scenario}"
+                    scenario_result="FAIL"
+                fi
+            elif ! bash "${scenario_dir}/run.sh" "${run_args[@]}"; then
                 log_error "run.sh failed for ${scenario}"
                 scenario_result="FAIL"
             fi
@@ -403,6 +419,10 @@ for scenario in "${SCENARIOS[@]}"; do
             scenario_result="SKIP"
         fi
     fi
+
+    # Restore deferred fleet tuning before the next scenario and even when
+    # validation failed. The EXIT trap repeats this safely for interrupted runs.
+    restore_deferred_fleet_tuning
 
     SCENARIO_END=$(date +%s)
     SCENARIO_DURATION=$((SCENARIO_END - SCENARIO_START))
