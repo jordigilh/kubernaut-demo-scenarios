@@ -249,7 +249,7 @@ ensure_datastorage_port_forward() {
     DS_PORT_FORWARD_LOG=$(mktemp "${TMPDIR:-/tmp}/kubernaut-datastorage.XXXXXX")
     log_phase "Starting DataStorage port-forward (127.0.0.1:${DS_PORT_FORWARD_PORT} -> svc/data-storage-service:8081)..."
     kubectl port-forward --address=127.0.0.1 -n kubernaut-system \
-        "svc/data-storage-service:${DS_PORT_FORWARD_PORT}:8081" \
+        svc/data-storage-service "${DS_PORT_FORWARD_PORT}:8081" \
         >"${DS_PORT_FORWARD_LOG}" 2>&1 &
     DS_PORT_FORWARD_PID=$!
 
@@ -288,7 +288,7 @@ ensure_prometheus_port_forward() {
     PROM_PORT_FORWARD_LOG=$(mktemp "${TMPDIR:-/tmp}/kubernaut-prometheus.XXXXXX")
     log_phase "Starting Prometheus port-forward (127.0.0.1:${PROM_PORT_FORWARD_PORT} -> svc/${prometheus_target}:9090)..."
     kubectl port-forward --address=127.0.0.1 -n monitoring \
-        "svc/${prometheus_target}:${PROM_PORT_FORWARD_PORT}:9090" \
+        "svc/${prometheus_target}" "${PROM_PORT_FORWARD_PORT}:9090" \
         >"${PROM_PORT_FORWARD_LOG}" 2>&1 &
     PROM_PORT_FORWARD_PID=$!
 
