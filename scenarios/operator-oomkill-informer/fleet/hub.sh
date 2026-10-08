@@ -20,6 +20,9 @@ GITEA_REVIEWER_EMAIL="${GITEA_REVIEWER_EMAIL:-sre-reviewer@kubernaut.ai}"
 REPO_NAME="${OPERATOR_GITOPS_REPO:-demo-operator-oomkill-repo}"
 APP_NAME="${OPERATOR_GITOPS_APP_NAME:-operator-oomkill-informer}"
 INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-100}"
+# The pinned GitOps execution bundle is public on Quay. Private mirrors can
+# opt back into the hub-only image pull secret path explicitly.
+OPERATOR_GITOPS_IMAGE_REQUIRES_AUTH="${OPERATOR_GITOPS_IMAGE_REQUIRES_AUTH:-false}"
 # Argo CD is refreshed by the Gitea push webhook, so the default polling-oriented
 # propagation delay can be shorter for this scenario. Keep the override for
 # environments that need a different run-scoped value. The shorter stabilization
@@ -108,11 +111,14 @@ ensure_workflow_image_pull_secret() {
     local auth_file=""
     local candidate
 
-    # The execution bundle is published to a private Quay repository in the
-    # demo environment. Keep this credential on the hub only: copy the
-    # operator's existing local container auth into a hub Secret, then attach
-    # it to this workflow runner ServiceAccount. Never place auth in Git or on
-    # the workload spoke.
+    if [ "${OPERATOR_GITOPS_IMAGE_REQUIRES_AUTH}" != "true" ]; then
+        echo "  Workflow bundle is public; using anonymous image pull (no registry secret needed)."
+        return 0
+    fi
+
+    # Private mirrors keep credentials on the hub only: copy the operator's
+    # existing local container auth into a hub Secret, then attach it to this
+    # workflow runner ServiceAccount. Never place auth in Git or on the spoke.
     for candidate in "${REGISTRY_AUTH_FILE:-}" \
         "${DOCKER_CONFIG:-}/config.json" \
         "${HOME:-}/.config/containers/auth.json" \
@@ -126,7 +132,7 @@ ensure_workflow_image_pull_secret() {
     done
 
     if [ -z "${auth_file}" ]; then
-        echo "ERROR: no local container auth with quay.io credentials was found; cannot pull the private GitOps workflow image." >&2
+        echo "ERROR: private GitOps workflow image requires Quay credentials, but none were found." >&2
         echo "       Set REGISTRY_AUTH_FILE or log in to quay.io before running fleet mode." >&2
         return 1
     fi
