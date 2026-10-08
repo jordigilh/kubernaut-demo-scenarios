@@ -20,9 +20,6 @@ GITEA_REVIEWER_EMAIL="${GITEA_REVIEWER_EMAIL:-sre-reviewer@kubernaut.ai}"
 REPO_NAME="${OPERATOR_GITOPS_REPO:-demo-operator-oomkill-repo}"
 APP_NAME="${OPERATOR_GITOPS_APP_NAME:-operator-oomkill-informer}"
 INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-100}"
-# The pinned GitOps execution bundle is public on Quay. Private mirrors can
-# opt back into the hub-only image pull secret path explicitly.
-OPERATOR_GITOPS_IMAGE_REQUIRES_AUTH="${OPERATOR_GITOPS_IMAGE_REQUIRES_AUTH:-false}"
 # Argo CD is refreshed by the Gitea push webhook, so the default polling-oriented
 # propagation delay can be shorter for this scenario. Keep the override for
 # environments that need a different run-scoped value. The shorter stabilization
@@ -105,53 +102,6 @@ gitea_api_code() {
     curl "${args[@]}" "${GITEA_API}${path}" || true
 }
 
-ensure_workflow_image_pull_secret() {
-    local workflow_ns="${WE_NAMESPACE:-kubernaut-workflows}"
-    local secret_name="${OPERATOR_GITOPS_IMAGE_PULL_SECRET:-quay-workflow-pull}"
-    local auth_file=""
-    local candidate
-
-    if [ "${OPERATOR_GITOPS_IMAGE_REQUIRES_AUTH}" != "true" ]; then
-        echo "  Workflow bundle is public; using anonymous image pull (no registry secret needed)."
-        return 0
-    fi
-
-    # Private mirrors keep credentials on the hub only: copy the operator's
-    # existing local container auth into a hub Secret, then attach it to this
-    # workflow runner ServiceAccount. Never place auth in Git or on the spoke.
-    for candidate in "${REGISTRY_AUTH_FILE:-}" \
-        "${DOCKER_CONFIG:-}/config.json" \
-        "${HOME:-}/.config/containers/auth.json" \
-        "${HOME:-}/.docker/config.json"; do
-        [ -n "${candidate}" ] && [ -f "${candidate}" ] || continue
-        if jq -e '(.auths["quay.io"] // .auths["https://quay.io"] // null) != null' \
-            "${candidate}" >/dev/null 2>&1; then
-            auth_file="${candidate}"
-            break
-        fi
-    done
-
-    if [ -z "${auth_file}" ]; then
-        echo "ERROR: private GitOps workflow image requires Quay credentials, but none were found." >&2
-        echo "       Set REGISTRY_AUTH_FILE or log in to quay.io before running fleet mode." >&2
-        return 1
-    fi
-
-    kubectl create secret generic "${secret_name}" -n "${workflow_ns}" \
-        --from-file=.dockerconfigjson="${auth_file}" \
-        --type=kubernetes.io/dockerconfigjson \
-        --dry-run=client -o yaml | kubectl apply -f - >/dev/null
-
-    local merged_pull_secrets
-    merged_pull_secrets=$(kubectl get serviceaccount increase-memory-limits-gitops-v1-runner \
-        -n "${workflow_ns}" -o json 2>/dev/null \
-        | jq --arg name "${secret_name}" -c \
-            '(.imagePullSecrets // []) | if any(.[]; .name == $name) then . else . + [{name:$name}] end')
-    kubectl patch serviceaccount increase-memory-limits-gitops-v1-runner -n "${workflow_ns}" \
-        --type=merge -p "$(jq -cn --argjson secrets "${merged_pull_secrets}" '{imagePullSecrets:$secrets}')" \
-        >/dev/null
-    echo "  Workflow image pull secret attached to the hub runner (${workflow_ns}/${secret_name})."
-}
 
 # Provisional demo tuning only. The RO's existing async propagation mechanism
 # remains authoritative; cleanup.sh restores the original values.
@@ -206,7 +156,6 @@ echo "==> [hub] Seeding the GitOps workflow catalog entry and hub runner RBAC...
 HUB_KUBECONFIG="${HUB_KUBECONFIG}" SPOKE_KUBECONFIG="${SPOKE_KUBECONFIG}" \
     bash "${REPO_ROOT}/scripts/seed-workflows.sh" \
     --scenario operator-oomkill-informer --continue-on-error
-ensure_workflow_image_pull_secret
 
 echo "==> [hub] Registering spoke as the Argo CD destination..."
 SPOKE_SERVER=$(fleet_register_argocd_spoke_cluster "spoke" "${ARGOCD_NS}")
