@@ -1,0 +1,6 @@
+LAST SEEN   TYPE      REASON              OBJECT                                 MESSAGE
+2m13s       Warning   FailedScheduling    pod/batch-processor-6547d9848-wbxfp    0/2 nodes are available: 1 node(s) didn't match Pod's node affinity/selector, 1 node(s) had untolerated taint(s). preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling.
+2m13s       Warning   FailedScheduling    pod/batch-processor-6547d9848-xwgvd    0/2 nodes are available: 1 node(s) didn't match Pod's node affinity/selector, 1 node(s) had untolerated taint(s). preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling.
+2m13s       Normal    SuccessfulCreate    replicaset/batch-processor-6547d9848   Created pod: batch-processor-6547d9848-xwgvd
+2m13s       Normal    SuccessfulCreate    replicaset/batch-processor-6547d9848   Created pod: batch-processor-6547d9848-wbxfp
+2m13s       Normal    ScalingReplicaSet   deployment/batch-processor             Scaled up replica set batch-processor-6547d9848 from 0 to 2

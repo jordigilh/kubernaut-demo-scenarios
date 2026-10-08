@@ -1,0 +1,92 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: WorkflowExecution
+metadata:
+  creationTimestamp: "2026-10-03T03:21:23Z"
+  finalizers:
+  - workflowexecution.kubernaut.ai/workflowexecution-cleanup
+  generation: 1
+  name: we-rr-157ae5efb2f2-fd846b3b
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RemediationRequest
+    name: rr-157ae5efb2f2-fd846b3b
+    uid: 8dbd04a0-2c39-46f5-949b-e232be5fdbc2
+  resourceVersion: "74909"
+  uid: c9b4657f-96ba-492f-9b50-13cdfb6c2605
+spec:
+  clusterID: remote-cluster
+  confidence: 0.95
+  parameters:
+    SCALE_REPLICAS: "11"
+    TARGET_RESOURCE_API_VERSION: apps/v1
+    TARGET_RESOURCE_KIND: Deployment
+    TARGET_RESOURCE_NAME: web-cluster
+    TARGET_RESOURCE_NAMESPACE: demo-loadtest
+  rationale: The catalog's higher-ranked capacity workflow, ProvisionNode, was considered,
+    but the RCA identifies the Deployment's replica surge as the specific workload
+    configuration causing the excess demand. ScaleReplicas directly targets that Deployment
+    and can reduce replicas to a schedulable level; the catalog also describes it
+    as applicable when insufficient capacity is addressed by adjusting replicas.
+  remediationRequestRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: RemediationRequest
+    name: rr-157ae5efb2f2-fd846b3b
+    namespace: kubernaut-system
+    uid: 8dbd04a0-2c39-46f5-949b-e232be5fdbc2
+  targetResource: demo-loadtest/Deployment/web-cluster
+  timesOutAt: "2026-10-03T03:51:23Z"
+  workflowRef:
+    actionType: ScaleReplicas
+    declaredParameterNames:
+      SCALE_REPLICAS: true
+      TARGET_RESOURCE_KIND: true
+      TARGET_RESOURCE_NAME: true
+      TARGET_RESOURCE_NAMESPACE: true
+    executionBundle: quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:8e7ce7de50a2115bb9d1f0a74ad27bf13f201ceb8cb98285edce9166f894f125
+    executionEngine: job
+    serviceAccountName: scale-replicas-v1-runner
+    version: 1.6.3
+    workflowId: 4841e667-eac3-5974-9a75-88f17de6ceae
+    workflowName: scale-replicas-v1
+status:
+  completionTime: "2026-10-03T03:21:34Z"
+  conditions:
+  - lastTransitionTime: "2026-10-03T03:21:23Z"
+    message: Audit event workflow.completed recorded to DataStorage
+    observedGeneration: 1
+    reason: AuditSucceeded
+    status: "True"
+    type: AuditRecorded
+  - lastTransitionTime: "2026-10-03T03:21:23Z"
+    message: job execution resource wfe-d7cf8deabcda0f61 created in kubernaut-workflows
+      namespace
+    observedGeneration: 1
+    reason: ExecutionCreated
+    status: "True"
+    type: ExecutionCreated
+  - lastTransitionTime: "2026-10-03T03:21:34Z"
+    message: All tasks completed successfully in &Duration{Duration:11s,}
+    observedGeneration: 1
+    reason: ExecutionSucceeded
+    status: "True"
+    type: ExecutionComplete
+  - lastTransitionTime: "2026-10-03T03:21:34Z"
+    message: Workflow execution completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  duration: 11s
+  executionRef:
+    name: wfe-d7cf8deabcda0f61
+  executionStatus:
+    completedTasks: 1
+    reason: Succeeded
+    status: "True"
+    totalTasks: 1
+  observedGeneration: 1
+  phase: Completed
+  startTime: "2026-10-03T03:21:23Z"

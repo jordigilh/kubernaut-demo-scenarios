@@ -1,0 +1,76 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: EffectivenessAssessment
+metadata:
+  creationTimestamp: "2026-10-01T20:12:16Z"
+  generation: 1
+  name: ea-rr-72622dc77609-f8055cb8
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: false
+    controller: true
+    kind: RemediationRequest
+    name: rr-72622dc77609-f8055cb8
+    uid: cbbb21de-197f-4e87-975c-63e6585cfb58
+  resourceVersion: "11478"
+  uid: 6e33af91-13d1-476f-a156-c4bf9244317e
+spec:
+  clusterID: remote-cluster
+  config:
+    stabilizationWindow: 5m0s
+  correlationID: rr-72622dc77609-f8055cb8
+  preRemediationSpecHash: sha256:91818981c4b5efc61b250572e2d6a5959198eafcc3caa248ffce05d40f1ffb9a
+  remediationCreatedAt: "2026-10-01T20:11:24Z"
+  remediationRequestPhase: Verifying
+  remediationTarget:
+    apiVersion: v1
+    kind: ConfigMap
+    name: worker-config
+    namespace: demo-storefront-rc20
+  signalName: KubePodCrashLooping
+  signalTarget:
+    kind: Deployment
+    name: worker
+    namespace: demo-storefront-rc20
+status:
+  alertManagerCheckAfter: "2026-10-01T20:17:16Z"
+  assessmentReason: Full
+  completedAt: "2026-10-01T20:17:16Z"
+  components:
+    alertAssessed: true
+    alertScore: 1
+    currentSpecHash: sha256:622025a573979c44d3567add6fe9563962b4aebd6dd295ea8bd0f9f67a03ec69
+    hashComputed: true
+    healthAssessed: true
+    metricsAssessed: true
+    metricsScore: 0
+    postRemediationSpecHash: sha256:622025a573979c44d3567add6fe9563962b4aebd6dd295ea8bd0f9f67a03ec69
+  conditions:
+  - lastTransitionTime: "2026-10-01T20:17:16Z"
+    message: Post-remediation spec hash captured
+    observedGeneration: 1
+    reason: PostHashCaptured
+    status: "True"
+    type: PostHashCaptured
+  - lastTransitionTime: "2026-10-01T20:17:16Z"
+    message: Post-remediation spec hash computed; baseline established
+    observedGeneration: 1
+    reason: SpecUnchanged
+    status: "True"
+    type: SpecIntegrity
+  - lastTransitionTime: "2026-10-01T20:17:16Z"
+    message: Assessment completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-10-01T20:17:16Z"
+    message: 'Assessment completed: Full'
+    observedGeneration: 1
+    reason: AssessmentFull
+    status: "True"
+    type: AssessmentComplete
+  message: 'Assessment completed: Full'
+  phase: Completed
+  prometheusCheckAfter: "2026-10-01T20:17:16Z"
+  validityDeadline: "2026-10-01T20:19:16Z"

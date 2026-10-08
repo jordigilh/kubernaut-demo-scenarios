@@ -1,0 +1,142 @@
+==> [spoke=/Users/jgil/.kube/kubernaut-remote-cluster-config] Deploying scenario resources...
+==> [fleet] Deploying workload manifests to spoke (skipping operator monitoring kinds -- see fleet_deploy_monitoring)...
+    namespace/demo-payments created
+    resourcequota/pod-limit created
+    configmap/payment-service-config created
+    service/payment-service created
+    deployment.apps/payment-service created
+    poddisruptionbudget.policy/payment-service-pdb created
+  Applied 6 document(s) to spoke, skipped 2 (monitoring kinds).
+  [fleet] kube-state-metrics already deployed on spoke.
+==> [fleet] Deploying monitoring CRDs to spoke (operator-native, no config surgery)...
+    prometheusrule.monitoring.coreos.com/demo-app-alerts created
+    Set cluster=remote-cluster on alert rules in doc-6.yaml.
+    servicemonitor.monitoring.coreos.com/demo-app-metrics created
+  Applied 2 monitoring document(s) to spoke, skipped 6 (workload kinds).
+deployment.apps/payment-service condition met
+NAME                             READY   STATUS    RESTARTS   AGE   IP            NODE                                         NOMINATED NODE   READINESS GATES
+payment-service-7f7f779d-cbx22   1/1     Running   0          9s    10.244.1.2    kubernaut-remote-cluster-worker-1790996710   <none>           <none>
+payment-service-7f7f779d-fqjhp   1/1     Running   0          9s    10.244.0.78   kubernaut-remote-cluster-control-plane       <none>           <none>
+NAME                  MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+payment-service-pdb   2               N/A               0                     9s
+==> [spoke] Starting the PDB-blocked drain...
+==> Draining worker node: kubernaut-remote-cluster-control-plane (payment-service pods only)...
+    The PDB (minAvailable=2 with 2 replicas) will BLOCK all evictions.
+    The drain will hang until Kubernaut relaxes the PDB.
+
+    Drain running in background (PID 77980).
+    Watch: kubectl get nodes
+    Watch PDB: kubectl get pdb -n demo-payments
+
+    Expected state: node kubernaut-remote-cluster-control-plane shows SchedulingDisabled,
+    but pods remain Running because PDB blocks eviction.
+node/kubernaut-remote-cluster-control-plane cordoned
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+==> [fleet] Waiting for alert 'KubePodDisruptionBudgetAtLimit' (namespace=demo-payments, cluster=remote-cluster) on hub Alertmanager (timeout 480s)...
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+  alert 'KubePodDisruptionBudgetAtLimit' (namespace=demo-payments, cluster=remote-cluster) is firing.
+==> [fleet] Waiting for alert 'KubePodDisruptionBudgetAtLimit' (namespace=demo-payments, cluster=remote-cluster) on hub Alertmanager (timeout 480s)...
+  alert 'KubePodDisruptionBudgetAtLimit' (namespace=demo-payments, cluster=remote-cluster) is firing.
+[23:11:21] Waiting for RemediationRequest (target: demo-payments)...
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+[23:11:27] RemediationRequest rr-7e2b686ca561-ca34b5f8 created -> Phase: Analyzing
+[23:11:27] Polling pipeline (timeout: 600s, approval: --auto-approve)...
+[23:11:27] AI Analysis in progress...
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+error when evicting pods/"payment-service-7f7f779d-fqjhp" -n "demo-payments" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+[23:12:28] Phase: Analyzing -> Executing
+
+           AI Analysis
+           ──────────────────────────────────────────
+           Root Cause:    payment-service-pdb allows zero voluntary disruptions because minAvailable: 2 equals the two healthy payment-service replicas; this is a configuration/capacity condition, not pod failure.
+           Severity:      warning
+           Target:        Deployment/payment-service (ns: demo-payments)
+           Workflow:      30d56add-47c3-5735-bdc9-e09c7e9bb2bf (quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:ab38364edf3a3ae99fb424d1aae26ed34dec104cbba45c5e8857745a28028538)
+           Confidence:    0.93
+           Rationale:     The catalog-preferred RelaxPDB action matches the pdbProtected label a...
+           Approval:      not required
+
+[23:12:29] WorkflowExecution running...
+           WFE Phase: Running
+evicting pod demo-payments/payment-service-7f7f779d-fqjhp
+pod/payment-service-7f7f779d-fqjhp evicted
+node/kubernaut-remote-cluster-control-plane drained
+           WFE Phase: Running
+[23:12:50] Phase: Executing -> Verifying
+[23:12:50] EffectivenessAssessment verification in progress...
+[23:17:47] Phase: Verifying -> Completed
+[23:17:47] Pipeline completed (outcome: Remediated)
+[23:17:47] Waiting for EffectivenessAssessment to complete...
+
+           Effectiveness Assessment
+           ──────────────────────────────────────────
+           Phase:         Completed
+           Reason:        Full
+           Message:       Assessment completed: Full
+           Alert Score:   1
+           Health Score:  1
+           Metrics Score: 0.25000000000000006
+
+node/kubernaut-remote-cluster-control-plane uncordoned
+deployment.apps/payment-service condition met

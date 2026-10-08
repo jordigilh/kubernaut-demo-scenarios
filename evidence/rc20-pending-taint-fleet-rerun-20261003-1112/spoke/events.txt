@@ -1,0 +1,6 @@
+LAST SEEN   TYPE      REASON              OBJECT                                 MESSAGE
+83m         Normal    SuccessfulCreate    replicaset/batch-processor-6547d9848   Created pod: batch-processor-6547d9848-5brk4
+83m         Normal    SuccessfulCreate    replicaset/batch-processor-6547d9848   Created pod: batch-processor-6547d9848-jc2h8
+83m         Normal    ScalingReplicaSet   deployment/batch-processor             Scaled up replica set batch-processor-6547d9848 from 0 to 2
+3m45s       Warning   FailedScheduling    pod/batch-processor-6547d9848-5brk4    0/2 nodes are available: 1 node(s) didn't match Pod's node affinity/selector, 1 node(s) had untolerated taint(s). preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling.
+3m45s       Warning   FailedScheduling    pod/batch-processor-6547d9848-jc2h8    0/2 nodes are available: 1 node(s) didn't match Pod's node affinity/selector, 1 node(s) had untolerated taint(s). preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling.

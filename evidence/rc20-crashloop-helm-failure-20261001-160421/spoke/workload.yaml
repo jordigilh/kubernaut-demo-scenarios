@@ -1,0 +1,1110 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 56055b12793cc5e4e1aaa49fe8d0809af903adc099f3553f33ba0df027abe1a6
+    creationTimestamp: "2026-10-01T19:47:36Z"
+    generateName: worker-55f949bcdf-
+    generation: 1
+    labels:
+      app: worker
+      app.kubernetes.io/instance: demo-storefront
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: demo-storefront
+      app.kubernetes.io/version: 1.0.0
+      helm.sh/chart: demo-storefront-0.1.0
+      kubernaut.ai/managed: "true"
+      pod-template-hash: 55f949bcdf
+    name: worker-55f949bcdf-kmzfl
+    namespace: demo-storefront
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: worker-55f949bcdf
+      uid: 2187aec5-46b8-4922-919e-a65392224969
+    resourceVersion: "3063"
+    uid: 6af8b022-41d8-4930-abd6-80027281923d
+  spec:
+    containers:
+    - image: nginx:1.27-alpine
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: worker
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 2
+        periodSeconds: 3
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/nginx/nginx.conf
+        name: config
+        subPath: nginx.conf
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-qj2gh
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: worker-config
+      name: config
+    - name: kube-api-access-qj2gh
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 10m
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:47:37Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:47:36Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:47:48Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:47:48Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:47:36Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://f507f9d6e12ba88874a9a2511e301b78558ede671448daf9069f974b67290c63
+      image: docker.io/library/nginx:1.27-alpine
+      imageID: docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+      lastState: {}
+      name: worker
+      ready: true
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-01T19:47:44Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 6
+          - 10
+          - 11
+          - 20
+          - 26
+          - 27
+          uid: 0
+      volumeMounts:
+      - mountPath: /etc/nginx/nginx.conf
+        name: config
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-qj2gh
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.5
+    hostIPs:
+    - ip: 10.89.0.5
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.18
+    podIPs:
+    - ip: 10.244.0.18
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        memory: 32Mi
+    startTime: "2026-10-01T19:47:36Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 56055b12793cc5e4e1aaa49fe8d0809af903adc099f3553f33ba0df027abe1a6
+    creationTimestamp: "2026-10-01T19:47:36Z"
+    generateName: worker-55f949bcdf-
+    generation: 1
+    labels:
+      app: worker
+      app.kubernetes.io/instance: demo-storefront
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: demo-storefront
+      app.kubernetes.io/version: 1.0.0
+      helm.sh/chart: demo-storefront-0.1.0
+      kubernaut.ai/managed: "true"
+      pod-template-hash: 55f949bcdf
+    name: worker-55f949bcdf-wfrqz
+    namespace: demo-storefront
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: worker-55f949bcdf
+      uid: 2187aec5-46b8-4922-919e-a65392224969
+    resourceVersion: "3068"
+    uid: 942d7e85-e88b-49fa-b3c4-413fabcd7fa9
+  spec:
+    containers:
+    - image: nginx:1.27-alpine
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: worker
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 2
+        periodSeconds: 3
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/nginx/nginx.conf
+        name: config
+        subPath: nginx.conf
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-q9gqp
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: worker-config
+      name: config
+    - name: kube-api-access-q9gqp
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 10m
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:47:37Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:47:36Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:47:48Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:47:48Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:47:36Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://877de429872c94217bb2abfdda7b81627488748bdf341a018356582064617edf
+      image: docker.io/library/nginx:1.27-alpine
+      imageID: docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+      lastState: {}
+      name: worker
+      ready: true
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-01T19:47:44Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 6
+          - 10
+          - 11
+          - 20
+          - 26
+          - 27
+          uid: 0
+      volumeMounts:
+      - mountPath: /etc/nginx/nginx.conf
+        name: config
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-q9gqp
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.5
+    hostIPs:
+    - ip: 10.89.0.5
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.17
+    podIPs:
+    - ip: 10.244.0.17
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        memory: 32Mi
+    startTime: "2026-10-01T19:47:36Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: fc48e171082e0c7dd6138fa5e6c36c419f10f29046306f45a5c7dae9f179c6f0
+    creationTimestamp: "2026-10-01T19:57:29Z"
+    generateName: worker-7db6dfdc68-
+    generation: 1
+    labels:
+      app: worker
+      app.kubernetes.io/instance: demo-storefront
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: demo-storefront
+      app.kubernetes.io/version: 1.0.0
+      helm.sh/chart: demo-storefront-0.1.0
+      kubernaut.ai/managed: "true"
+      pod-template-hash: 7db6dfdc68
+    name: worker-7db6dfdc68-hj7bv
+    namespace: demo-storefront
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: worker-7db6dfdc68
+      uid: 42a5ff5a-ac7d-4c0d-b9ac-1e5091c022a3
+    resourceVersion: "5285"
+    uid: 607b9768-48c8-4d2e-96ab-e8850dede715
+  spec:
+    containers:
+    - image: nginx:1.27-alpine
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: worker
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 2
+        periodSeconds: 3
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/nginx/nginx.conf
+        name: config
+        subPath: nginx.conf
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-jpcdx
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: worker-config
+      name: config
+    - name: kube-api-access-jpcdx
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 10m
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:57:30Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:57:29Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:57:29Z"
+      message: 'containers with unready status: [worker]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:57:29Z"
+      message: 'containers with unready status: [worker]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:57:29Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://5e887a0871de196921861631afc6f8f11a67e53788454a63e16fe11ab1b8b07f
+      image: docker.io/library/nginx:1.27-alpine
+      imageID: docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+      lastState:
+        terminated:
+          containerID: containerd://5e887a0871de196921861631afc6f8f11a67e53788454a63e16fe11ab1b8b07f
+          exitCode: 1
+          finishedAt: "2026-10-01T20:03:29Z"
+          reason: Error
+          startedAt: "2026-10-01T20:03:28Z"
+      name: worker
+      ready: false
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 6
+      started: false
+      state:
+        waiting:
+          message: back-off 5m0s restarting failed container=worker pod=worker-7db6dfdc68-hj7bv_demo-storefront(607b9768-48c8-4d2e-96ab-e8850dede715)
+          reason: CrashLoopBackOff
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 6
+          - 10
+          - 11
+          - 20
+          - 26
+          - 27
+          uid: 0
+      volumeMounts:
+      - mountPath: /etc/nginx/nginx.conf
+        name: config
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-jpcdx
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.5
+    hostIPs:
+    - ip: 10.89.0.5
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.21
+    podIPs:
+    - ip: 10.244.0.21
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        memory: 32Mi
+    startTime: "2026-10-01T19:57:29Z"
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: demo-storefront
+      meta.helm.sh/release-namespace: demo-storefront
+    creationTimestamp: "2026-10-01T19:47:36Z"
+    labels:
+      app: worker
+      app.kubernetes.io/instance: demo-storefront
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: demo-storefront
+      app.kubernetes.io/version: 1.0.0
+      helm.sh/chart: demo-storefront-0.1.0
+      kubernaut.ai/managed: "true"
+    name: worker
+    namespace: demo-storefront
+    resourceVersion: "2996"
+    uid: b69be67f-0f63-4dcc-a49a-0dad0be61c42
+  spec:
+    clusterIP: 10.96.86.219
+    clusterIPs:
+    - 10.96.86.219
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: worker
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "4"
+      meta.helm.sh/release-name: demo-storefront
+      meta.helm.sh/release-namespace: demo-storefront
+    creationTimestamp: "2026-10-01T19:47:36Z"
+    generation: 4
+    labels:
+      app: worker
+      app.kubernetes.io/instance: demo-storefront
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: demo-storefront
+      app.kubernetes.io/version: 1.0.0
+      helm.sh/chart: demo-storefront-0.1.0
+      kubernaut.ai/managed: "true"
+    name: worker
+    namespace: demo-storefront
+    resourceVersion: "4459"
+    uid: 45bd7a01-71e0-4fc2-a51f-388dbd5038ab
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 2
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: worker
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        annotations:
+          checksum/config: fc48e171082e0c7dd6138fa5e6c36c419f10f29046306f45a5c7dae9f179c6f0
+        labels:
+          app: worker
+          app.kubernetes.io/instance: demo-storefront
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: demo-storefront
+          app.kubernetes.io/version: 1.0.0
+          helm.sh/chart: demo-storefront-0.1.0
+          kubernaut.ai/managed: "true"
+      spec:
+        containers:
+        - image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: worker
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 50m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /etc/nginx/nginx.conf
+            name: config
+            subPath: nginx.conf
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: worker-config
+          name: config
+  status:
+    availableReplicas: 2
+    conditions:
+    - lastTransitionTime: "2026-10-01T19:47:48Z"
+      lastUpdateTime: "2026-10-01T19:47:48Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2026-10-01T19:47:36Z"
+      lastUpdateTime: "2026-10-01T19:57:29Z"
+      message: ReplicaSet "worker-7db6dfdc68" is progressing.
+      reason: ReplicaSetUpdated
+      status: "True"
+      type: Progressing
+    observedGeneration: 4
+    readyReplicas: 2
+    replicas: 3
+    terminatingReplicas: 0
+    unavailableReplicas: 1
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "3"
+      deployment.kubernetes.io/revision-history: "1"
+      meta.helm.sh/release-name: demo-storefront
+      meta.helm.sh/release-namespace: demo-storefront
+    creationTimestamp: "2026-10-01T19:47:36Z"
+    generation: 1
+    labels:
+      app: worker
+      app.kubernetes.io/instance: demo-storefront
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: demo-storefront
+      app.kubernetes.io/version: 1.0.0
+      helm.sh/chart: demo-storefront-0.1.0
+      kubernaut.ai/managed: "true"
+      pod-template-hash: 55f949bcdf
+    name: worker-55f949bcdf
+    namespace: demo-storefront
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: worker
+      uid: 45bd7a01-71e0-4fc2-a51f-388dbd5038ab
+    resourceVersion: "4296"
+    uid: 2187aec5-46b8-4922-919e-a65392224969
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: worker
+        pod-template-hash: 55f949bcdf
+    template:
+      metadata:
+        annotations:
+          checksum/config: 56055b12793cc5e4e1aaa49fe8d0809af903adc099f3553f33ba0df027abe1a6
+        labels:
+          app: worker
+          app.kubernetes.io/instance: demo-storefront
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: demo-storefront
+          app.kubernetes.io/version: 1.0.0
+          helm.sh/chart: demo-storefront-0.1.0
+          kubernaut.ai/managed: "true"
+          pod-template-hash: 55f949bcdf
+      spec:
+        containers:
+        - image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: worker
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 50m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /etc/nginx/nginx.conf
+            name: config
+            subPath: nginx.conf
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: worker-config
+          name: config
+  status:
+    availableReplicas: 2
+    fullyLabeledReplicas: 2
+    observedGeneration: 1
+    readyReplicas: 2
+    replicas: 2
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "4"
+      deployment.kubernetes.io/revision-history: "2"
+      meta.helm.sh/release-name: demo-storefront
+      meta.helm.sh/release-namespace: demo-storefront
+    creationTimestamp: "2026-10-01T19:48:09Z"
+    generation: 3
+    labels:
+      app: worker
+      app.kubernetes.io/instance: demo-storefront
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: demo-storefront
+      app.kubernetes.io/version: 1.0.0
+      helm.sh/chart: demo-storefront-0.1.0
+      kubernaut.ai/managed: "true"
+      pod-template-hash: 7db6dfdc68
+    name: worker-7db6dfdc68
+    namespace: demo-storefront
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: worker
+      uid: 45bd7a01-71e0-4fc2-a51f-388dbd5038ab
+    resourceVersion: "4458"
+    uid: 42a5ff5a-ac7d-4c0d-b9ac-1e5091c022a3
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: worker
+        pod-template-hash: 7db6dfdc68
+    template:
+      metadata:
+        annotations:
+          checksum/config: fc48e171082e0c7dd6138fa5e6c36c419f10f29046306f45a5c7dae9f179c6f0
+        labels:
+          app: worker
+          app.kubernetes.io/instance: demo-storefront
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: demo-storefront
+          app.kubernetes.io/version: 1.0.0
+          helm.sh/chart: demo-storefront-0.1.0
+          kubernaut.ai/managed: "true"
+          pod-template-hash: 7db6dfdc68
+      spec:
+        containers:
+        - image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: worker
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 2
+            periodSeconds: 3
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 50m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /etc/nginx/nginx.conf
+            name: config
+            subPath: nginx.conf
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: worker-config
+          name: config
+  status:
+    fullyLabeledReplicas: 1
+    observedGeneration: 3
+    replicas: 1
+    terminatingReplicas: 0
+- apiVersion: v1
+  data:
+    root-cert.pem: |
+      -----BEGIN CERTIFICATE-----
+      MIIC/TCCAeWgAwIBAgIRAO4un7nw1fWDaimNGZFxs5wwDQYJKoZIhvcNAQELBQAw
+      GDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0yNjEwMDExOTQxNDRaFw0zNjA5
+      MjgxOTQxNDRaMBgxFjAUBgNVBAoTDWNsdXN0ZXIubG9jYWwwggEiMA0GCSqGSIb3
+      DQEBAQUAA4IBDwAwggEKAoIBAQDOr7LTMTexYC7D/tA8Xwa+lp8sWrLhrvIf08Rv
+      SQseCrn7Au2deunYvxbjCzFiI3WDLivgZzlHm2qdvXQTO3YJyXbaBEQaxbBUIVkW
+      TEbqa3U9ceFFRctkH5WAvVWvQEMFku1hxJTHQSt+X5lCRnHLz7p7X5TLAaurOXSo
+      FgQRub82iiPfHVxX1QS0iuLvIokaUxSX/0SeWsW+l7uXwmk9sO5ktPEDGBqmNfgm
+      nRhs7KNXY70MJJVbA6j0hqu8+VWzXTVBS6Y6Ybm5f7e1I8K62KdANoh1xKDiaMG6
+      odMgKi4ZoQTEFkK3AsD3Tamk7oc02l4pDLgGd19/YnKjff39AgMBAAGjQjBAMA4G
+      A1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQtNjKBUBCL
+      V5PmiOy4yIrVQqD47jANBgkqhkiG9w0BAQsFAAOCAQEABMk5hn9ugn4lcIw76/P5
+      djQ/wDkc6uRKXgzQnjZEtCwPjRtm2GQro2XSm7Gf2nc+3j4pRrGeEY1Kkvd97doR
+      tdPurJVrkoceRnYY/ojtR+o40AJ7jN5qOHa9gN4U0O7ezwTssQjJ7O04ZL1vfB6T
+      DwXijVeu7CVq9ys7eRJtjoVWpFOqGKmOdHXm0H+XoXfsgn8rQIuWnqirTV0ChwJr
+      tujqpo6gtom7u26SX7dx4Nc3CG0PLUJA/byDBqMSX9aIfXdh+vewWIymXmMxxx6O
+      YfQNBlSxeJ8dGyAUT9feOwihCU0zFBcI8+XnbDGZEVhzin0/eANo1VA9r2EEggXS
+      Qg==
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-10-01T19:47:33Z"
+    labels:
+      istio.io/config: "true"
+    name: istio-ca-root-cert
+    namespace: demo-storefront
+    resourceVersion: "2983"
+    uid: 6fd55c3c-00d6-442d-8cfe-c4b46f722f55
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDBTCCAe2gAwIBAgIIY8tfM6a43JcwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
+      AxMKa3ViZXJuZXRlczAeFw0yNjEwMDExOTI1MTRaFw0zNjA5MjgxOTMwMTRaMBUx
+      EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+      AoIBAQC/QJW1PJE47mZ0taKaK2+BVcWheb1zrLOCMjbZX7Rj01HhhtVNI3Y1Q0xh
+      VoRfzWgoR7C5oP6kzTs0dpo8zuUgI/vAfN+lMe/s0NBTc4qREsbU5aupp+Gk4vOP
+      E5uBkCENu1jTyk/YY7J9UI6BOAZwG89hwyrq5m2cWxk3CF33KYoQ12kN0BeszwRK
+      Q5rrhcF59zFidUatjIIFQISdEOMqcHdKv5Xfx6rCEk2F6AnoeOFZ2si7SDXWnj2t
+      JoS0ybVxTQMbUL+da5n1kKWcobcspkxlSF0KawMScCjUXFJdITPUrp35JLyWoCW3
+      k5xJ0ZBc+85PHEG4SWuim0Ym9kATAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
+      BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQY2IXfpGLwBzyaIot1JCTdwH5xwjAV
+      BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQA+yIT3l/Og
+      Hdza2N+q96ZHwuqT0NmHAMqDoFFz2Ci08ZOyPFhiPOe0kwROJXgIR/JWmuojva9H
+      sid0wBPkQvOikE513ZOpVrUvdhNDBpSEqkWDFgZYMDWw2aL/J7IB+wiw+HJ/5CkO
+      pAfa1WEZkMh5rIdPX/Dcwyrvm6+fvYic+ykSMXkOxCP7J29yW4n9vDu4tVR1Gabe
+      cQqlVxRwE7KTbVmgXDjwn8M6buiYbEaCFW8spbzb7qY0MphpQTQG+lfv7ocaieet
+      ViUl2/tgi0pvXJp6HlzAvTxn8DpnIaxlvjvadizC1mt1OFHvDdJ4WQ8VNgX9xcRC
+      gPNE8oGyuFGc
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2026-10-01T19:47:33Z"
+    name: kube-root-ca.crt
+    namespace: demo-storefront
+    resourceVersion: "2982"
+    uid: a3892a51-27db-430b-b144-c839c8ebfed8
+- apiVersion: v1
+  data:
+    nginx.conf: |
+      worker_processes auto;
+      error_log /var/log/nginx/error.log warn;
+      pid /tmp/nginx.pid;
+
+      events {
+          worker_connections 1024;
+      }
+
+      http {
+          # INVALID: causes nginx to fail on startup
+          invalid_directive_that_breaks_nginx on;
+
+          server {
+              listen 8080;
+              server_name _;
+
+              location / {
+                  return 200 'healthy\n';
+                  add_header Content-Type text/plain;
+              }
+          }
+      }
+  kind: ConfigMap
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: demo-storefront
+      meta.helm.sh/release-namespace: demo-storefront
+    creationTimestamp: "2026-10-01T19:47:36Z"
+    labels:
+      app.kubernetes.io/instance: demo-storefront
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: demo-storefront
+      app.kubernetes.io/version: 1.0.0
+      helm.sh/chart: demo-storefront-0.1.0
+    name: worker-config
+    namespace: demo-storefront
+    resourceVersion: "4444"
+    uid: 5078b618-5e27-4579-a021-d0e1d804f050
+kind: List
+metadata:
+  resourceVersion: ""

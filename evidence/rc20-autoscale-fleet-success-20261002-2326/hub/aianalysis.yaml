@@ -1,0 +1,213 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: AIAnalysis
+metadata:
+  creationTimestamp: "2026-10-03T03:19:49Z"
+  finalizers:
+  - kubernaut.ai/finalizer
+  generation: 1
+  name: ai-rr-157ae5efb2f2-fd846b3b
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RemediationRequest
+    name: rr-157ae5efb2f2-fd846b3b
+    uid: 8dbd04a0-2c39-46f5-949b-e232be5fdbc2
+  resourceVersion: "74863"
+  uid: 33cde841-5c43-4cfa-827a-df0b3f5c887f
+spec:
+  analysisRequest:
+    analysisTypes:
+    - Investigation
+    - RootCause
+    - WorkflowSelection
+    signalContext:
+      businessPriority: P0
+      enrichmentResults:
+        businessClassification:
+          businessUnit: infrastructure
+          criticality: High
+          serviceOwner: sre-team
+          slaRequirement: Gold
+        kubernetesContext:
+          cluster:
+            labels:
+              environment: production
+              kubernaut.ai/managed: "true"
+          clusterID: remote-cluster
+          namespace:
+            annotations:
+              kubectl.kubernetes.io/last-applied-configuration: |
+                {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"kubernaut.ai/business-unit":"infrastructure","kubernaut.ai/component":"api-server","kubernaut.ai/criticality":"high","kubernaut.ai/environment":"production","kubernaut.ai/managed":"true","kubernaut.ai/service-owner":"sre-team","kubernaut.ai/sla-tier":"tier-2"},"name":"demo-loadtest"}}
+            labels:
+              kubernaut.ai/business-unit: infrastructure
+              kubernaut.ai/component: api-server
+              kubernaut.ai/criticality: high
+              kubernaut.ai/environment: production
+              kubernaut.ai/managed: "true"
+              kubernaut.ai/service-owner: sre-team
+              kubernaut.ai/sla-tier: tier-2
+              kubernetes.io/metadata.name: demo-loadtest
+            name: demo-loadtest
+          workload:
+            annotations:
+              deployment.kubernetes.io/revision: "1"
+              kubectl.kubernetes.io/last-applied-configuration: |
+                {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"web-cluster","kubernaut.ai/managed":"true"},"name":"web-cluster","namespace":"demo-loadtest"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"web-cluster"}},"template":{"metadata":{"labels":{"app":"web-cluster"}},"spec":{"containers":[{"env":[{"name":"CONFIG_PATH","value":"/etc/demo-http-server/config.yaml"}],"image":"quay.io/kubernaut-cicd/demo-http-server:1.0.0","livenessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":5,"periodSeconds":10},"name":"web-cluster","ports":[{"containerPort":8080,"name":"http"}],"readinessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":3,"periodSeconds":5},"resources":{"limits":{"cpu":"500m","memory":"2Gi"},"requests":{"cpu":"250m","memory":"2Gi"}},"volumeMounts":[{"mountPath":"/etc/demo-http-server/config.yaml","name":"config","subPath":"config.yaml"}]}],"nodeSelector":{"kubernaut.ai/managed":"true"},"volumes":[{"configMap":{"name":"web-cluster-config"},"name":"config"}]}}}}
+            kind: Deployment
+            labels:
+              app: web-cluster
+              kubernaut.ai/managed: "true"
+            name: web-cluster
+      environment: Production
+      fingerprint: 157ae5efb2f22cc19a87b95b5d08e06b84edbbcecd3e434db170ed6e00802d66
+      severity: critical
+      signalAnnotations:
+        description: |
+          Workload pods in namespace demo-loadtest have not been scheduled. Service capacity may be degraded.
+        summary: |
+          One or more pods in namespace demo-loadtest are stuck in Pending state.
+      signalMode: reactive
+      signalName: KubePodSchedulingFailed
+      targetResource:
+        kind: Deployment
+        name: web-cluster
+        namespace: demo-loadtest
+  clusterID: remote-cluster
+  remediationId: rr-157ae5efb2f2-fd846b3b
+  remediationRequestRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: RemediationRequest
+    name: rr-157ae5efb2f2-fd846b3b
+    namespace: kubernaut-system
+    uid: 8dbd04a0-2c39-46f5-949b-e232be5fdbc2
+  timesOutAt: "2026-10-03T03:29:49Z"
+status:
+  approval:
+    approvalReason: Auto-approved
+    approvalRequired: false
+  completedAt: "2026-10-03T03:21:23Z"
+  conditions:
+  - lastTransitionTime: "2026-10-03T03:19:49Z"
+    message: AgentSession as-rr-157ae5efb2f2-fd846b3b created
+    observedGeneration: 1
+    reason: SessionCreated
+    status: "True"
+    type: InvestigationSessionReady
+  - lastTransitionTime: "2026-10-03T03:21:23Z"
+    message: KA investigation completed successfully
+    observedGeneration: 1
+    reason: InvestigationSucceeded
+    status: "True"
+    type: InvestigationComplete
+  - lastTransitionTime: "2026-10-03T03:21:23Z"
+    message: Policy evaluation does not require manual approval
+    observedGeneration: 1
+    reason: AutoApproved
+    status: "False"
+    type: ApprovalRequired
+  - lastTransitionTime: "2026-10-03T03:21:23Z"
+    message: Workflow 4841e667-eac3-5974-9a75-88f17de6ceae selected with confidence
+      95%
+    observedGeneration: 1
+    reason: WorkflowSelected
+    status: "True"
+    type: WorkflowResolved
+  - lastTransitionTime: "2026-10-03T03:21:23Z"
+    message: Rego policy evaluation completed successfully
+    observedGeneration: 1
+    reason: AnalysisSucceeded
+    status: "True"
+    type: AnalysisComplete
+  - lastTransitionTime: "2026-10-03T03:21:23Z"
+    message: Analysis completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  investigationMetadata:
+    investigationId: ai-rr-157ae5efb2f2-fd846b3b
+    investigationTime: 94426
+    totalAnalysisTime: 94459
+  investigationSession:
+    createdAt: "2026-10-03T03:19:49Z"
+    generation: 0
+    id: as-rr-157ae5efb2f2-fd846b3b
+    lastPolled: "2026-10-03T03:21:23Z"
+    pollCount: 4
+  message: Analysis complete
+  observedGeneration: 1
+  phase: Completed
+  postRCAContext:
+    detectedLabels:
+      cdiManaged: false
+      gitOpsManaged: false
+      helmManaged: false
+      hpaEnabled: false
+      liveMigratable: false
+      networkIsolated: false
+      pdbProtected: false
+      resourceQuotaConstrained: false
+      stateful: false
+      virtualMachine: false
+    setAt: "2026-10-03T03:21:23Z"
+  rcaResult:
+    actionability: Actionable
+    alternativeWorkflows:
+    - confidence: 0.72
+      rationale: Provisioning a node could add memory capacity and addresses cluster-wide
+        resource exhaustion, but it is less targeted than correcting the Deployment's
+        documented replica surge.
+      workflowId: f499e43e-8c60-5a2c-8ceb-0dfdd01813f8
+    rootCause: Three web-cluster replicas are Pending because Deployment/web-cluster
+      requests 14 replicas at 2Gi memory each, exceeding the two matching nodes' schedulable
+      memory capacity.
+    rootCauseAnalysis:
+      contributingFactors:
+      - Deployment/web-cluster scaled to 14 replicas while only 11 became available.
+      - Each pod requests and limits 2Gi memory, producing 6Gi of unschedulable demand
+        for three replicas.
+      - Both matching nodes reported insufficient memory and preemption found no victims.
+      - Filesystem utilization was not evidenced as the scheduling cause.
+      remediationTarget:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: web-cluster
+        namespace: demo-loadtest
+      severity: critical
+      signalType: KubePodSchedulingFailed
+      summary: Three web-cluster replicas are Pending because Deployment/web-cluster
+        requests 14 replicas at 2Gi memory each, exceeding the two matching nodes'
+        schedulable memory capacity.
+    selectedWorkflow:
+      actionType: ScaleReplicas
+      confidence: 0.95
+      declaredParameterNames:
+        SCALE_REPLICAS: true
+        TARGET_RESOURCE_KIND: true
+        TARGET_RESOURCE_NAME: true
+        TARGET_RESOURCE_NAMESPACE: true
+      executionBundle: quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:8e7ce7de50a2115bb9d1f0a74ad27bf13f201ceb8cb98285edce9166f894f125
+      executionEngine: job
+      parameters:
+        SCALE_REPLICAS: "11"
+        TARGET_RESOURCE_API_VERSION: apps/v1
+        TARGET_RESOURCE_KIND: Deployment
+        TARGET_RESOURCE_NAME: web-cluster
+        TARGET_RESOURCE_NAMESPACE: demo-loadtest
+      rationale: The catalog's higher-ranked capacity workflow, ProvisionNode, was
+        considered, but the RCA identifies the Deployment's replica surge as the specific
+        workload configuration causing the excess demand. ScaleReplicas directly targets
+        that Deployment and can reduce replicas to a schedulable level; the catalog
+        also describes it as applicable when insufficient capacity is addressed by
+        adjusting replicas.
+      selectedAt: "2026-10-03T03:21:23Z"
+      serviceAccountName: scale-replicas-v1-runner
+      version: 1.6.3
+      workflowId: 4841e667-eac3-5974-9a75-88f17de6ceae
+      workflowName: scale-replicas-v1
+  reason: AnalysisCompleted
+  review:
+    needsHumanReview: false
+  startedAt: "2026-10-03T03:19:49Z"

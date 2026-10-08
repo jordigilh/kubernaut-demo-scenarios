@@ -1,0 +1,300 @@
+apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "2"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"metrics-collector","kubernaut.ai/managed":"true"},"name":"metrics-collector","namespace":"demo-monitoring"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"metrics-collector"}},"template":{"metadata":{"labels":{"app":"metrics-collector"}},"spec":{"containers":[{"args":["while true; do kubectl get pods -n demo-monitoring \u003e /dev/null 2\u003e\u00261 \u0026\u0026 echo \"$(date) OK\" || echo \"$(date) FORBIDDEN\"; sleep 10; done\n"],"command":["/bin/sh","-c"],"image":"docker.io/alpine/k8s:1.30.0","name":"metrics-collector","readinessProbe":{"exec":{"command":["kubectl","auth","can-i","list","pods","-n","demo-monitoring"]},"failureThreshold":3,"initialDelaySeconds":5,"periodSeconds":10}}],"serviceAccountName":"metrics-collector"}}}}
+    creationTimestamp: "2026-10-02T18:10:56Z"
+    generation: 2
+    labels:
+      app: metrics-collector
+      kubernaut.ai/managed: "true"
+    name: metrics-collector
+    namespace: demo-monitoring
+    resourceVersion: "5454"
+    uid: 47bb2aca-069d-4e8b-b04d-7ea836224c55
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: metrics-collector
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-10-02T18:25:58Z"
+        labels:
+          app: metrics-collector
+      spec:
+        containers:
+        - args:
+          - |
+            while true; do kubectl get pods -n demo-monitoring > /dev/null 2>&1 && echo "$(date) OK" || echo "$(date) FORBIDDEN"; sleep 10; done
+          command:
+          - /bin/sh
+          - -c
+          image: docker.io/alpine/k8s:1.30.0
+          imagePullPolicy: IfNotPresent
+          name: metrics-collector
+          readinessProbe:
+            exec:
+              command:
+              - kubectl
+              - auth
+              - can-i
+              - list
+              - pods
+              - -n
+              - demo-monitoring
+            failureThreshold: 3
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: metrics-collector
+        serviceAccountName: metrics-collector
+        terminationGracePeriodSeconds: 30
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-10-02T18:25:58Z"
+      lastUpdateTime: "2026-10-02T18:25:58Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2026-10-02T18:10:56Z"
+      lastUpdateTime: "2026-10-02T18:26:09Z"
+      message: ReplicaSet "metrics-collector-56687b8cb4" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    observedGeneration: 2
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+    updatedReplicas: 1
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/restartedAt: "2026-10-02T18:25:58Z"
+    creationTimestamp: "2026-10-02T18:25:58Z"
+    generateName: metrics-collector-56687b8cb4-
+    generation: 1
+    labels:
+      app: metrics-collector
+      pod-template-hash: 56687b8cb4
+    name: metrics-collector-56687b8cb4-p2vpr
+    namespace: demo-monitoring
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: metrics-collector-56687b8cb4
+      uid: c89b29ad-e8a3-4427-bb5f-0f2e447a6e02
+    resourceVersion: "5377"
+    uid: b0bd6941-a7d4-41af-9ebc-48aa27c97372
+  spec:
+    containers:
+    - args:
+      - |
+        while true; do kubectl get pods -n demo-monitoring > /dev/null 2>&1 && echo "$(date) OK" || echo "$(date) FORBIDDEN"; sleep 10; done
+      command:
+      - /bin/sh
+      - -c
+      image: docker.io/alpine/k8s:1.30.0
+      imagePullPolicy: IfNotPresent
+      name: metrics-collector
+      readinessProbe:
+        exec:
+          command:
+          - kubectl
+          - auth
+          - can-i
+          - list
+          - pods
+          - -n
+          - demo-monitoring
+        failureThreshold: 3
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-p8dm6
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: metrics-collector
+    serviceAccountName: metrics-collector
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-p8dm6
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T18:25:58Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T18:25:58Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T18:26:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T18:26:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T18:25:58Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: containerd://010972d35747fa0b95274922d3cf06856d9a50bb1cfe5036fee77bac4aa806af
+      image: docker.io/alpine/k8s:1.30.0
+      imageID: docker.io/alpine/k8s@sha256:bd01dae02676ce4cab62fc744e43443eee5bf660054e94d3496d23bfc35d384e
+      lastState: {}
+      name: metrics-collector
+      ready: true
+      resources: {}
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T18:25:58Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 6
+          - 10
+          - 11
+          - 20
+          - 26
+          - 27
+          uid: 0
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-p8dm6
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.12
+    hostIPs:
+    - ip: 10.89.0.12
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.19
+    podIPs:
+    - ip: 10.244.0.19
+    qosClass: BestEffort
+    resources: {}
+    startTime: "2026-10-02T18:25:58Z"
+- apiVersion: rbac.authorization.k8s.io/v1
+  kind: Role
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"rbac.authorization.k8s.io/v1","kind":"Role","metadata":{"annotations":{},"name":"metrics-collector","namespace":"demo-monitoring"},"rules":[{"apiGroups":[""],"resources":["pods","services"],"verbs":["get","list"]}]}
+    creationTimestamp: "2026-10-02T18:10:56Z"
+    name: metrics-collector
+    namespace: demo-monitoring
+    resourceVersion: "3280"
+    uid: 0fab244f-3564-46bb-85a5-a527fe7e3980
+  rules:
+  - apiGroups:
+    - ""
+    resources:
+    - pods
+    - services
+    verbs:
+    - get
+    - list
+- apiVersion: rbac.authorization.k8s.io/v1
+  kind: RoleBinding
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"rbac.authorization.k8s.io/v1","kind":"RoleBinding","metadata":{"annotations":{},"name":"metrics-collector","namespace":"demo-monitoring"},"roleRef":{"apiGroup":"rbac.authorization.k8s.io","kind":"Role","name":"metrics-collector"},"subjects":[{"kind":"ServiceAccount","name":"metrics-collector","namespace":"demo-monitoring"}]}
+    creationTimestamp: "2026-10-02T18:25:58Z"
+    name: metrics-collector
+    namespace: demo-monitoring
+    resourceVersion: "5319"
+    uid: 54e44356-4304-4775-8dea-fabb529f7de7
+  roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: Role
+    name: metrics-collector
+  subjects:
+  - kind: ServiceAccount
+    name: metrics-collector
+    namespace: demo-monitoring
+kind: List
+metadata:
+  resourceVersion: ""

@@ -1,0 +1,186 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "9"
+    meta.helm.sh/release-name: kubernaut
+    meta.helm.sh/release-namespace: kubernaut-system
+  creationTimestamp: "2026-10-02T17:58:05Z"
+  generation: 9
+  labels:
+    app: signalprocessing-controller
+    app.kubernetes.io/instance: kubernaut
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kubernaut
+    app.kubernetes.io/version: 1.6.0
+    helm.sh/chart: kubernaut-1.6.0
+  name: signalprocessing-controller
+  namespace: kubernaut-system
+  resourceVersion: "184278"
+  uid: f56d7ccc-a81b-42ed-9c4b-eee6ddf47831
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: signalprocessing-controller
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        checksum/config: 8bfcc9f215d3f6e7c77b62a13801a9d1e3fe9e530af820fdd556ea91745ef104
+        checksum/policy: ddc50589cc4a08e08af9d5cdd3a1b2738a00f2061ca53673702810dbda35a66c
+        checksum/proactive-signal-mappings: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        kubectl.kubernetes.io/restartedAt: "2026-10-03T12:44:06-04:00"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9090"
+        prometheus.io/scrape: "true"
+      labels:
+        app: signalprocessing-controller
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: signalprocessing-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - --config=/etc/signalprocessing/config.yaml
+        image: quay.io/kubernaut-ai/signalprocessing:1.6.0-rc20
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 20
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: signalprocessing-controller
+        ports:
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        - containerPort: 8081
+          name: health
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 6
+          httpGet:
+            path: /readyz
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /healthz
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/signalprocessing/config.yaml
+          name: config
+          subPath: config.yaml
+        - mountPath: /etc/signalprocessing/policies
+          name: policy
+          readOnly: true
+        - mountPath: /etc/signalprocessing/proactive-signal-mappings.yaml
+          name: proactive-signal-mappings
+          subPath: proactive-signal-mappings.yaml
+        - mountPath: /etc/tls-ca
+          name: tls-ca
+          readOnly: true
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /etc/signalprocessing/fleet-oauth2-creds
+          name: oauth2-credentials
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: signalprocessing-controller
+      serviceAccountName: signalprocessing-controller
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: signalprocessing-config
+        name: config
+      - configMap:
+          defaultMode: 420
+          name: signalprocessing-policy
+        name: policy
+      - configMap:
+          defaultMode: 420
+          name: signalprocessing-proactive-signal-mappings
+        name: proactive-signal-mappings
+      - configMap:
+          defaultMode: 420
+          name: inter-service-ca
+          optional: true
+        name: tls-ca
+      - emptyDir:
+          sizeLimit: 8Mi
+        name: tmp
+      - name: oauth2-credentials
+        secret:
+          defaultMode: 420
+          secretName: fleet-oauth2-creds
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2026-10-02T18:00:35Z"
+    lastUpdateTime: "2026-10-02T18:00:35Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-10-02T17:58:05Z"
+    lastUpdateTime: "2026-10-03T16:44:17Z"
+    message: ReplicaSet "signalprocessing-controller-6cc9997745" has successfully
+      progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 9
+  readyReplicas: 1
+  replicas: 1
+  terminatingReplicas: 0
+  updatedReplicas: 1

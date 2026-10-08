@@ -1,0 +1,6178 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 63f60886fccadf3ef5721a388c2bb3f02a8243a0e206e8b4bcccfb7457839165
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9090"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    generateName: aianalysis-controller-8558694cb9-
+    generation: 1
+    labels:
+      app: aianalysis-controller
+      pod-template-hash: 8558694cb9
+    name: aianalysis-controller-8558694cb9-lbxks
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: aianalysis-controller-8558694cb9
+      uid: 7264534a-5335-47b5-a054-2d102cfa4668
+    resourceVersion: "92295"
+    uid: 04e3ca78-6dff-47db-91b0-18c7fc1aeae6
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: aianalysis-controller
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - -config
+      - $(CONFIG_PATH)
+      env:
+      - name: CONFIG_PATH
+        value: /etc/aianalysis/config.yaml
+      image: quay.io/kubernaut-ai/aianalysis:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 30
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: aianalysis
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      - containerPort: 9090
+        protocol: TCP
+      - containerPort: 8081
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /readyz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 3
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/aianalysis
+        name: config
+        readOnly: true
+      - mountPath: /etc/aianalysis/policies
+        name: rego-policies
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-fwlqv
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: aianalysis-controller
+    serviceAccountName: aianalysis-controller
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: aianalysis-config
+      name: config
+    - configMap:
+        defaultMode: 420
+        name: aianalysis-policies
+      name: rego-policies
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 8Mi
+      name: tmp
+    - name: kube-api-access-fwlqv
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 100m
+      memory: 128Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:52Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:52Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:07Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 128Mi
+      containerID: containerd://28f5bdc69d9480ad2161fcee40bb300c0200418c76a4df6d8b27a12ecbd5fe07
+      image: quay.io/kubernaut-ai/aianalysis:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/aianalysis@sha256:efeeb6d272c84f81d29e80dbfd253ebd87710f6dc1e07009ee038257cfac0272
+      lastState:
+        terminated:
+          containerID: containerd://e39780006f476dccd3f97377bf5972c9b40423c5ab02012b42c42edde9552765
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:37:35Z"
+      name: aianalysis
+      ready: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:56Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/aianalysis
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/aianalysis/policies
+        name: rego-policies
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-fwlqv
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.25
+    podIPs:
+    - ip: 10.244.0.25
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 79m
+        memory: 128Mi
+    startTime: "2026-10-01T19:37:08Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: b02a529aaec8465d0a7aeff75625d98dc445bffd3a0e95cd2d335f885d3a4b56
+    creationTimestamp: "2026-10-01T19:37:08Z"
+    generateName: apifrontend-64dfd494b9-
+    generation: 1
+    labels:
+      app: apifrontend
+      pod-template-hash: 64dfd494b9
+    name: apifrontend-64dfd494b9-tccms
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: apifrontend-64dfd494b9
+      uid: 0d013d53-719f-4b3e-9628-afef82184e8e
+    resourceVersion: "92363"
+    uid: d6a57f94-0eb5-4980-b781-905bdc7afabb
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: apifrontend
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    automountServiceAccountToken: true
+    containers:
+    - env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      image: quay.io/kubernaut-ai/apifrontend:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 30
+        periodSeconds: 15
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: apifrontend
+      ports:
+      - containerPort: 8443
+        name: https
+        protocol: TCP
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /readyz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 5
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/apifrontend
+        name: config
+        readOnly: true
+      - mountPath: /etc/apifrontend/tls
+        name: tls-certs
+        readOnly: true
+      - mountPath: /etc/apifrontend/llm-credentials
+        name: llm-credentials
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/apifrontend/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-pcjfm
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: apifrontend
+    serviceAccountName: apifrontend
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        items:
+        - key: config.yaml
+          path: config.yaml
+        name: apifrontend-config
+      name: config
+    - name: tls-certs
+      secret:
+        defaultMode: 420
+        secretName: apifrontend-tls
+    - name: llm-credentials
+      secret:
+        defaultMode: 420
+        secretName: llm-credentials-primary
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 8Mi
+      name: tmp
+    - name: oauth2-credentials
+      secret:
+        defaultMode: 420
+        secretName: fleet-oauth2-creds
+    - name: kube-api-access-pcjfm
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 50m
+      memory: 64Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:55Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:03:00Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:03:00Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 50m
+        memory: 64Mi
+      containerID: containerd://da20721f986e5b6e5e4dab9e80e31b1a9daed7ca750b330bfb83d6c32d3bff10
+      image: quay.io/kubernaut-ai/apifrontend:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/apifrontend@sha256:17eaa216809dc6bef4984baec309e39f5205c8b8129ee34839a42b7902c98513
+      lastState:
+        terminated:
+          containerID: containerd://fab39cebc173e837bb7e4d9ec09eba1851d3e6487b0281f54ab72a1255c24a21
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-02T04:35:01Z"
+      name: apifrontend
+      ready: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      restartCount: 6
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:57Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/apifrontend
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/apifrontend/tls
+        name: tls-certs
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/apifrontend/llm-credentials
+        name: llm-credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/apifrontend/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-pcjfm
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.44
+    podIPs:
+    - ip: 10.244.0.44
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 28m
+        memory: 64Mi
+    startTime: "2026-10-01T19:37:08Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 0bb5bf76dbdb4342ace5ad73433447995441d663f23c23c3fb2fcf97cfe2858f
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    generateName: authwebhook-687bf89769-
+    generation: 1
+    labels:
+      app: authwebhook
+      pod-template-hash: 687bf89769
+    name: authwebhook-687bf89769-ncm2g
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: authwebhook-687bf89769
+      uid: 9dde2340-eea6-4224-afbe-e4bfdedabde6
+    resourceVersion: "91684"
+    uid: a2407b11-11b0-4c23-9e9e-599da87609e6
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: authwebhook
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - -config=/etc/authwebhook/authwebhook.yaml
+      env:
+      - name: LOG_LEVEL
+        value: debug
+      image: quay.io/kubernaut-ai/authwebhook:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: authwebhook
+      ports:
+      - containerPort: 9443
+        name: webhook
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 6
+        httpGet:
+          path: /readyz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp/k8s-webhook-server/serving-certs
+        name: webhook-certs
+        readOnly: true
+      - mountPath: /etc/authwebhook
+        name: config
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-x72wv
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    initContainers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        CA_FILE="/certs/ca.crt"
+        if [ ! -f "$CA_FILE" ]; then
+          echo "WARNING: $CA_FILE not found — skipping caBundle patch"
+          exit 0
+        fi
+
+        CA_BUNDLE=$(base64 < "$CA_FILE" | tr -d '\n')
+
+        # Issue #1542 follow-up, round 1: this init container's failures
+        # were initially misdiagnosed as kube-proxy/CNI warm-up races
+        # (a retry loop, then a whole-cluster network-readiness gate).
+        # Instrumenting the retries surfaced "the connection to the
+        # server localhost:8080 was refused" — kubectl's ambient
+        # in-cluster config auto-detection was failing in this image.
+        # Configure the in-cluster API server explicitly from the
+        # mounted service account on every invocation instead of
+        # relying on kubectl auto-detection, and avoid writing a
+        # kubeconfig file since this container's root filesystem is
+        # read-only.
+        KUBE_SA="/var/run/secrets/kubernetes.io/serviceaccount"
+        KUBE_TOKEN=$(cat "${KUBE_SA}/token")
+        kube() {
+          kubectl --server="https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT}" \
+            --certificate-authority="${KUBE_SA}/ca.crt" \
+            --token="${KUBE_TOKEN}" \
+            --request-timeout=5s \
+            "$@"
+        }
+
+        # Issue #1542 follow-up, round 2: with the config bug fixed, the
+        # *real* underlying issue became visible directly — genuine
+        # "context deadline exceeded" / connection timeouts reaching
+        # the in-cluster API server ClusterIP that persist for
+        # ~60-90s, recurring on every fresh pod (install, upgrade, and
+        # dev quick-start all hit it, ruling out a one-time cluster
+        # startup warm-up). Long-running controller pods never surface
+        # this: client-go retries silently in the background and their
+        # readiness probes have a generous initialDelaySeconds, so they
+        # just take a little longer to go Ready. This single-shot,
+        # `set -e` init container has no such tolerance, so retry each
+        # kubectl call explicitly with a budget wide enough to span the
+        # observed window instead of failing (and burning a
+        # CrashLoopBackOff cycle) on the first transient timeout.
+        kube_retry() {
+          attempt=0
+          err=""
+          while [ "$attempt" -lt 20 ]; do
+            if out=$(kube "$@" 2>&1); then
+              printf '%s\n' "$out"
+              return 0
+            fi
+            err="$out"
+            attempt=$((attempt + 1))
+            sleep 3
+          done
+          echo "ERROR: 'kubectl $*' failed after ${attempt} attempts. Last error: ${err}" >&2
+          return 1
+        }
+
+        patch_webhooks() {
+          KIND="$1"
+          NAME="$2"
+          COUNT=$(kube_retry get "$KIND" "$NAME" -o jsonpath='{.webhooks[*].name}' | wc -w | tr -d ' ')
+          PATCH="["
+          i=0
+          while [ "$i" -lt "$COUNT" ]; do
+            [ "$i" -gt 0 ] && PATCH="${PATCH},"
+            PATCH="${PATCH}{\"op\":\"add\",\"path\":\"/webhooks/${i}/clientConfig/caBundle\",\"value\":\"${CA_BUNDLE}\"}"
+            i=$((i + 1))
+          done
+          PATCH="${PATCH}]"
+          echo "  Patching $NAME ($COUNT webhooks)..."
+          kube_retry patch "$KIND" "$NAME" --type='json' -p "$PATCH"
+        }
+
+        echo "==> Init-container: patching webhook caBundle (#377 self-healing)..."
+        patch_webhooks mutatingwebhookconfigurations authwebhook-mutating
+        patch_webhooks validatingwebhookconfigurations authwebhook-validating
+        echo "==> Webhook caBundle patching complete"
+      image: docker.io/bitnami/kubectl:latest@sha256:6e2cdb22d6ab7264ea198c717f555e30536b54029d26c8781b9f25f78951b564
+      imagePullPolicy: IfNotPresent
+      name: patch-cabundle
+      resources:
+        limits:
+          cpu: 100m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /certs
+        name: webhook-certs
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-x72wv
+        readOnly: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: authwebhook
+    serviceAccountName: authwebhook
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: webhook-certs
+      secret:
+        defaultMode: 420
+        secretName: authwebhook-tls
+    - configMap:
+        defaultMode: 420
+        name: authwebhook-config
+      name: config
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 8Mi
+      name: tmp
+    - name: kube-api-access-x72wv
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 100m
+      memory: 128Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:55Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:17Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:51Z"
+      message: 'containers with unready status: [authwebhook]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:51Z"
+      message: 'containers with unready status: [authwebhook]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 128Mi
+      containerID: containerd://a79b4617c770b5ff0dceb796187384aa81e945b8b593fe764933f77bc6f9c450
+      image: quay.io/kubernaut-ai/authwebhook:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/authwebhook@sha256:9da1338831a86afa9a3dbf1f1026c898a2d03d84f1f40203b087c7243bce2780
+      lastState: {}
+      name: authwebhook
+      ready: false
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: containerd://a79b4617c770b5ff0dceb796187384aa81e945b8b593fe764933f77bc6f9c450
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:38:37Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /tmp/k8s-webhook-server/serving-certs
+        name: webhook-certs
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/authwebhook
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-x72wv
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    initContainerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://cf4a8efcc28e8e796979ba86ed8ecdc696bd04092864f8025a2bb2b155f77ba6
+      image: sha256:f524362370d0d6f878123fc630952db94dbad23e5e876c7298def9df5472235a
+      imageID: docker.io/bitnami/kubectl@sha256:6e2cdb22d6ab7264ea198c717f555e30536b54029d26c8781b9f25f78951b564
+      lastState:
+        terminated:
+          containerID: containerd://0c6ffde63fd78e287dd3f367f5e440adf5e0f2ecbee5d21c91fa1d8f40e4de10
+          exitCode: 0
+          finishedAt: "2026-10-01T19:37:16Z"
+          reason: Completed
+          startedAt: "2026-10-01T19:37:13Z"
+      name: patch-cabundle
+      ready: false
+      resources:
+        limits:
+          cpu: 100m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:57Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          uid: 1001
+      volumeMounts:
+      - mountPath: /certs
+        name: webhook-certs
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-x72wv
+        readOnly: true
+        recursiveReadOnly: Disabled
+    observedGeneration: 1
+    phase: Pending
+    podIP: 10.244.0.41
+    podIPs:
+    - ip: 10.244.0.41
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    startTime: "2026-10-01T19:37:08Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: cf9d6218bc30d518ca80b61d995f0b659be79a9e0757d8fec623385ab38b1370
+    creationTimestamp: "2026-10-01T19:37:09Z"
+    generateName: console-756d955c66-
+    generation: 1
+    labels:
+      app: console
+      pod-template-hash: 756d955c66
+    name: console-756d955c66-64z77
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: console-756d955c66
+      uid: aeb005ec-1552-40fe-a084-853b6759e6c1
+    resourceVersion: "91718"
+    uid: 1088dd8f-beec-4a7e-98b7-d7ccdccbc2d6
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: console
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    automountServiceAccountToken: false
+    containers:
+    - args:
+      - --provider=oidc
+      - --oidc-issuer-url=https://keycloak:8443/realms/kubernaut-demo
+      - --backend-logout-url=https://keycloak:8443/realms/kubernaut-demo/protocol/openid-connect/logout?id_token_hint={id_token}
+      - --skip-oidc-discovery=true
+      - --login-url=https://keycloak:8443/realms/kubernaut-demo/protocol/openid-connect/auth
+      - --redeem-url=https://keycloak.idp.svc.cluster.local:8443/realms/kubernaut-demo/protocol/openid-connect/token
+      - --oidc-jwks-url=https://keycloak.idp.svc.cluster.local:8443/realms/kubernaut-demo/protocol/openid-connect/certs
+      - --redirect-url=https://kubernaut-console.local:8843/oauth2/callback
+      - --http-address=0.0.0.0:4180
+      - --upstream=http://localhost:8080
+      - --pass-access-token=true
+      - --skip-provider-button=true
+      - --cookie-name=_kubernaut_console
+      - --cookie-secure=true
+      - --cookie-samesite=lax
+      - --email-domain=*
+      - --scope=openid email profile
+      - --skip-jwt-bearer-tokens=true
+      - --cookie-refresh=25m
+      - --provider-ca-file=/etc/tls-ca/ca.crt
+      - --use-system-trust-store=true
+      - --ping-path=/oauth2/ping
+      env:
+      - name: OAUTH2_PROXY_CLIENT_ID
+        valueFrom:
+          secretKeyRef:
+            key: client-id
+            name: console-oauth-creds
+      - name: OAUTH2_PROXY_CLIENT_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: client-secret
+            name: console-oauth-creds
+      - name: OAUTH2_PROXY_COOKIE_SECRET
+        valueFrom:
+          secretKeyRef:
+            key: cookie-secret
+            name: console-oauth-creds
+      image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.3
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /oauth2/ping
+          port: 4180
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 15
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: oauth2-proxy
+      ports:
+      - containerPort: 4180
+        name: http
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /oauth2/ping
+          port: 4180
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 100m
+          memory: 128Mi
+        requests:
+          cpu: 25m
+          memory: 32Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+    - image: quay.io/kubernaut-ai/kubernaut-console:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: console
+      ports:
+      - containerPort: 8080
+        name: static
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 2
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 16Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /tmp
+        name: nginx-tmp
+      - mountPath: /var/log/nginx
+        name: nginx-var-log
+      - mountPath: /run
+        name: nginx-run
+      - mountPath: /var/lib/nginx/tmp
+        name: nginx-var-lib
+      - mountPath: /opt/app-root/etc/nginx.d/kubernaut-http.conf
+        name: nginx-config
+        readOnly: true
+        subPath: http.conf
+      - mountPath: /opt/app-root/etc/nginx.default.d/kubernaut-server.conf
+        name: nginx-config
+        readOnly: true
+        subPath: server.conf
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - emptyDir: {}
+      name: nginx-tmp
+    - emptyDir: {}
+      name: nginx-var-log
+    - emptyDir: {}
+      name: nginx-run
+    - emptyDir: {}
+      name: nginx-var-lib
+    - configMap:
+        defaultMode: 420
+        name: console-nginx
+      name: nginx-config
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+  status:
+    allocatedResources:
+      cpu: 35m
+      memory: 48Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:55Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:03Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:03Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 16Mi
+      containerID: containerd://5361af03fde16691e48a0684a69834739e6402138f42b7e79f0604d5bb0e24f4
+      image: quay.io/kubernaut-ai/kubernaut-console:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/kubernaut-console@sha256:9c6a336f4bf1d53184e497988778fc747d7fafa72376ef29b37dfeaa473ec1e2
+      lastState:
+        terminated:
+          containerID: containerd://d4404fdfad1397a5bf9ceee5033267a2807f3457a0f680cf3e74f608e365e3e8
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:38:55Z"
+      name: console
+      ready: true
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 16Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:58Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          uid: 1001
+      volumeMounts:
+      - mountPath: /tmp
+        name: nginx-tmp
+      - mountPath: /var/log/nginx
+        name: nginx-var-log
+      - mountPath: /run
+        name: nginx-run
+      - mountPath: /var/lib/nginx/tmp
+        name: nginx-var-lib
+      - mountPath: /opt/app-root/etc/nginx.d/kubernaut-http.conf
+        name: nginx-config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /opt/app-root/etc/nginx.default.d/kubernaut-server.conf
+        name: nginx-config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+    - allocatedResources:
+        cpu: 25m
+        memory: 32Mi
+      containerID: containerd://f1f7ac8bc875107bc92955e487c9265db3e48dff205a7c061a3adc6e0dffc873
+      image: quay.io/oauth2-proxy/oauth2-proxy:v7.15.3
+      imageID: quay.io/oauth2-proxy/oauth2-proxy@sha256:10a1165743a192e1940b4708fb9647027185ce11a681a1c5519b442ff7f1f561
+      lastState:
+        terminated:
+          containerID: containerd://acea639c3daea95a6c9838764e76de4c9942981658a934f6475d3cffb1b120e6
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-02T04:32:36Z"
+      name: oauth2-proxy
+      ready: true
+      resources:
+        limits:
+          cpu: 100m
+          memory: 128Mi
+        requests:
+          cpu: 25m
+          memory: 32Mi
+      restartCount: 4
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:57Z"
+      user:
+        linux:
+          gid: 65532
+          supplementalGroups:
+          - 65532
+          uid: 65532
+      volumeMounts:
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.21
+    podIPs:
+    - ip: 10.244.0.21
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 150m
+        memory: 192Mi
+      requests:
+        cpu: 28m
+        memory: 48Mi
+    startTime: "2026-10-01T19:37:09Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 51a937b611d15a7e0321b171468c3634714f9102ee2fad179fae495431ad5288
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9090"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    generateName: datastorage-84bb6d8f5c-
+    generation: 1
+    labels:
+      app: datastorage
+      pod-template-hash: 84bb6d8f5c
+    name: datastorage-84bb6d8f5c-6z962
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: datastorage-84bb6d8f5c
+      uid: 081b9da6-900b-4346-9d4a-17fdd705f9db
+    resourceVersion: "92247"
+    uid: 310c53ed-dcee-44bc-a7ba-836577d6410d
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: datastorage
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - env:
+      - name: CONFIG_PATH
+        value: /etc/datastorage/config.yaml
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      image: quay.io/kubernaut-ai/datastorage:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: datastorage
+      ports:
+      - containerPort: 8080
+        name: http
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /readyz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 3
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 250m
+          memory: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/datastorage
+        name: config
+        readOnly: true
+      - mountPath: /etc/datastorage/secrets
+        name: secrets
+        readOnly: true
+      - mountPath: /etc/tls
+        name: tls-certs
+        readOnly: true
+      - mountPath: /etc/certs
+        name: signing-certs
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-ppd4n
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    initContainers:
+    - command:
+      - sh
+      - -c
+      - until pg_isready -h postgresql.kubernaut-system.svc.cluster.local -p 5432;
+        do echo "waiting for postgresql..."; sleep 2; done
+      image: postgres:16-alpine
+      imagePullPolicy: IfNotPresent
+      name: wait-for-postgres
+      resources:
+        limits:
+          cpu: 50m
+          memory: 32Mi
+        requests:
+          cpu: 10m
+          memory: 16Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 70
+        seccompProfile:
+          type: RuntimeDefault
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-ppd4n
+        readOnly: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: data-storage-sa
+    serviceAccountName: data-storage-sa
+    terminationGracePeriodSeconds: 90
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: datastorage-config
+      name: config
+    - name: secrets
+      projected:
+        defaultMode: 420
+        sources:
+        - secret:
+            items:
+            - key: db-secrets.yaml
+              path: db-secrets.yaml
+            name: postgresql-secret
+        - secret:
+            items:
+            - key: valkey-secrets.yaml
+              path: valkey-secrets.yaml
+            name: valkey-secret
+        - secret:
+            items:
+            - key: audit-hmac-key.yaml
+              path: audit-hmac-key.yaml
+            name: datastorage-audit-hmac-key
+    - name: tls-certs
+      secret:
+        defaultMode: 420
+        secretName: datastorage-tls
+    - name: signing-certs
+      secret:
+        defaultMode: 420
+        secretName: datastorage-signing-cert
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 64Mi
+      name: tmp
+    - name: kube-api-access-ppd4n
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 250m
+      memory: 256Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:38:34Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:45Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:45Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:07Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 250m
+        memory: 256Mi
+      containerID: containerd://12b9de44cd778559a87567f9c9f20d4b0e12fb584eb0b9a252708e17b0100d10
+      image: quay.io/kubernaut-ai/datastorage:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/datastorage@sha256:479ffe81ba370c172d1980c39654a691f6973a217dfbe8e54d1582f79ea32bb9
+      lastState:
+        terminated:
+          containerID: containerd://7164cd9017ffa770bd5665b994b6fe7a6d83d2b924a2de312a6df8a82bb5e067
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:38:59Z"
+      name: datastorage
+      ready: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 250m
+          memory: 256Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:02:15Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/datastorage
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/datastorage/secrets
+        name: secrets
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls
+        name: tls-certs
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/certs
+        name: signing-certs
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-ppd4n
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    initContainerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 16Mi
+      containerID: containerd://f1654193c16f5692d9765afd2157e5325966dc3ddf6f16c56c2f7402ff174856
+      image: docker.io/library/postgres:16-alpine
+      imageID: docker.io/library/postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+      lastState:
+        terminated:
+          containerID: containerd://9143c63179b4cf2a87f7809eb71a9251a7d03e3ba20f70bb41a17e691e482bb0
+          exitCode: 0
+          finishedAt: "2026-10-01T19:38:33Z"
+          reason: Completed
+          startedAt: "2026-10-01T19:37:31Z"
+      name: wait-for-postgres
+      ready: true
+      resources:
+        limits:
+          cpu: 50m
+          memory: 32Mi
+        requests:
+          cpu: 10m
+          memory: 16Mi
+      restartCount: 1
+      started: false
+      state:
+        terminated:
+          containerID: containerd://f1654193c16f5692d9765afd2157e5325966dc3ddf6f16c56c2f7402ff174856
+          exitCode: 0
+          finishedAt: "2026-10-02T05:02:13Z"
+          reason: Completed
+          startedAt: "2026-10-02T05:01:56Z"
+      user:
+        linux:
+          gid: 70
+          supplementalGroups:
+          - 70
+          uid: 70
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-ppd4n
+        readOnly: true
+        recursiveReadOnly: Disabled
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.40
+    podIPs:
+    - ip: 10.244.0.40
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 232m
+        memory: 256Mi
+    startTime: "2026-10-01T19:37:08Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 9e32b350cd01c4e1db50c232227c49ed26c3a2b24b0c2bb40709cfcb2a725bd3
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9090"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-10-01T19:37:08Z"
+    generateName: effectivenessmonitor-controller-cb7d95bb6-
+    generation: 1
+    labels:
+      app: effectivenessmonitor-controller
+      pod-template-hash: cb7d95bb6
+    name: effectivenessmonitor-controller-cb7d95bb6-xmdss
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: effectivenessmonitor-controller-cb7d95bb6
+      uid: 5287eb1c-1e18-4286-9990-f8033f9360eb
+    resourceVersion: "92335"
+    uid: e0fb055b-9e54-470e-af52-eacaaee5ccd5
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: effectivenessmonitor-controller
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - --config=/etc/effectivenessmonitor/effectivenessmonitor.yaml
+      image: quay.io/kubernaut-ai/effectivenessmonitor:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: controller
+      ports:
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /readyz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 5
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/effectivenessmonitor
+        name: config
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/effectivenessmonitor/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-v9kxx
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: effectivenessmonitor-controller
+    serviceAccountName: effectivenessmonitor-controller
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: effectivenessmonitor-config
+      name: config
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 8Mi
+      name: tmp
+    - name: oauth2-credentials
+      secret:
+        defaultMode: 420
+        secretName: fleet-oauth2-creds
+    - name: kube-api-access-v9kxx
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 50m
+      memory: 64Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:59Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:59Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 50m
+        memory: 64Mi
+      containerID: containerd://2a2ea2e6088e1ce4f0f76dc50a162f16db80ca68c8138ed3ee41dcf1ae350e74
+      image: quay.io/kubernaut-ai/effectivenessmonitor:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/effectivenessmonitor@sha256:ee33961a25779a76be0bcd9bcb318b9e9c6c34a938685b8f92965842451261af
+      lastState:
+        terminated:
+          containerID: containerd://014ac41e060d995cb99c9f957ccfdc3857b689e177cc434294f777bd29c8c584
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:37:51Z"
+      name: controller
+      ready: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:56Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/effectivenessmonitor
+        name: config
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/effectivenessmonitor/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-v9kxx
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.18
+    podIPs:
+    - ip: 10.244.0.18
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 28m
+        memory: 64Mi
+    startTime: "2026-10-01T19:37:08Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 2cd7f37881de39b7e3fedc36edf192637b1f7803ca4d2aee02a61bc35fabaf4c
+      kubectl.kubernetes.io/restartedAt: "2026-10-02T01:06:13-04:00"
+    creationTimestamp: "2026-10-02T05:06:13Z"
+    generateName: fleetmetadatacache-6dffb7dcf9-
+    generation: 1
+    labels:
+      app.kubernetes.io/component: fleet-metadata-cache
+      app.kubernetes.io/name: fleetmetadatacache
+      pod-template-hash: 6dffb7dcf9
+    name: fleetmetadatacache-6dffb7dcf9-t45wj
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: fleetmetadatacache-6dffb7dcf9
+      uid: 687b59a4-1b24-4828-bb52-d003d4390f74
+    resourceVersion: "93100"
+    uid: e25115ab-ad01-4f81-9295-4fcd7ed74a6d
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: fleetmetadatacache
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - --config=/etc/fleetmetadatacache/config.yaml
+      image: quay.io/kubernaut-ai/fleetmetadatacache:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: fleetmetadatacache
+      ports:
+      - containerPort: 8080
+        name: api
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /readyz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 5
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/fleetmetadatacache
+        name: config
+        readOnly: true
+      - mountPath: /etc/fleetmetadatacache/fleet-oauth2
+        name: oauth2-credentials
+        readOnly: true
+      - mountPath: /etc/tls
+        name: tls-certs
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-pj8j8
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: fleetmetadatacache
+    serviceAccountName: fleetmetadatacache
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: fleetmetadatacache-config
+      name: config
+    - name: oauth2-credentials
+      secret:
+        defaultMode: 420
+        secretName: fleet-oauth2-creds
+    - name: tls-certs
+      secret:
+        defaultMode: 420
+        secretName: fleetmetadatacache-tls
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - name: kube-api-access-pj8j8
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 50m
+      memory: 64Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:06:14Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:06:13Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:06:13Z"
+      message: 'containers with unready status: [fleetmetadatacache]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:06:13Z"
+      message: 'containers with unready status: [fleetmetadatacache]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:06:13Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 50m
+        memory: 64Mi
+      containerID: containerd://6349ae0b96bc1bd79e8dfbc061e99f2e7fa346c56d9ed330ae55105fbf38a2ed
+      image: quay.io/kubernaut-ai/fleetmetadatacache:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/fleetmetadatacache@sha256:c315aeb4afb2f71e9c5ba439c387c4925823513ef1a5225e9db7c4bc6937cc54
+      lastState: {}
+      name: fleetmetadatacache
+      ready: false
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:06:14Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/fleetmetadatacache
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/fleetmetadatacache/fleet-oauth2
+        name: oauth2-credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls
+        name: tls-certs
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-pj8j8
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.48
+    podIPs:
+    - ip: 10.244.0.48
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 200m
+        memory: 128Mi
+      requests:
+        cpu: 28m
+        memory: 64Mi
+    startTime: "2026-10-02T05:06:13Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 2cd7f37881de39b7e3fedc36edf192637b1f7803ca4d2aee02a61bc35fabaf4c
+    creationTimestamp: "2026-10-01T19:37:08Z"
+    generateName: fleetmetadatacache-d4dd6c7f8-
+    generation: 1
+    labels:
+      app.kubernetes.io/component: fleet-metadata-cache
+      app.kubernetes.io/name: fleetmetadatacache
+      pod-template-hash: d4dd6c7f8
+    name: fleetmetadatacache-d4dd6c7f8-88xcg
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: fleetmetadatacache-d4dd6c7f8
+      uid: e4e3bddf-72c0-4e3f-8750-c302e4ec259d
+    resourceVersion: "91741"
+    uid: 22153a7a-0a3b-4689-9c75-c1bbbd6250bd
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: fleetmetadatacache
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - --config=/etc/fleetmetadatacache/config.yaml
+      image: quay.io/kubernaut-ai/fleetmetadatacache:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: fleetmetadatacache
+      ports:
+      - containerPort: 8080
+        name: api
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /readyz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 5
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/fleetmetadatacache
+        name: config
+        readOnly: true
+      - mountPath: /etc/fleetmetadatacache/fleet-oauth2
+        name: oauth2-credentials
+        readOnly: true
+      - mountPath: /etc/tls
+        name: tls-certs
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-9pvvf
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: fleetmetadatacache
+    serviceAccountName: fleetmetadatacache
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: fleetmetadatacache-config
+      name: config
+    - name: oauth2-credentials
+      secret:
+        defaultMode: 420
+        secretName: fleet-oauth2-creds
+    - name: tls-certs
+      secret:
+        defaultMode: 420
+        secretName: fleetmetadatacache-tls
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - name: kube-api-access-9pvvf
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 50m
+      memory: 64Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T04:50:30Z"
+      message: 'containers with unready status: [fleetmetadatacache]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T04:50:30Z"
+      message: 'containers with unready status: [fleetmetadatacache]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 50m
+        memory: 64Mi
+      containerID: containerd://a97e789f5da0902cdff869385659fcafac9846a1235c996eed6bed9ca411b8a4
+      image: quay.io/kubernaut-ai/fleetmetadatacache:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/fleetmetadatacache@sha256:c315aeb4afb2f71e9c5ba439c387c4925823513ef1a5225e9db7c4bc6937cc54
+      lastState:
+        terminated:
+          containerID: containerd://83780f2e968a59625066d0f904c8b02dd3ebe6bfc481b5ca9734e3dc0505b21a
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-02T04:50:53Z"
+      name: fleetmetadatacache
+      ready: false
+      resources:
+        limits:
+          cpu: 200m
+          memory: 128Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      restartCount: 9
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:57Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/fleetmetadatacache
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/fleetmetadatacache/fleet-oauth2
+        name: oauth2-credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls
+        name: tls-certs
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-9pvvf
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.20
+    podIPs:
+    - ip: 10.244.0.20
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 200m
+        memory: 128Mi
+      requests:
+        cpu: 28m
+        memory: 64Mi
+    startTime: "2026-10-01T19:37:09Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 37220daef57faad77a793381a62676caefd99403df5ee46b33d6ada90ba873be
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9090"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-10-01T19:54:39Z"
+    generateName: gateway-588c9d65cc-
+    generation: 1
+    labels:
+      app: gateway
+      pod-template-hash: 588c9d65cc
+    name: gateway-588c9d65cc-dlzbm
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: gateway-588c9d65cc
+      uid: bcb359bd-e571-453c-80bc-4c57322521ce
+    resourceVersion: "91738"
+    uid: 0d1437ea-1cc0-4550-9310-a21dd268a07a
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: gateway
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - --config=/etc/gateway/config.yaml
+      env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.name
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      image: quay.io/kubernaut-ai/gateway:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: gateway
+      ports:
+      - containerPort: 8080
+        name: http
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 6
+        httpGet:
+          path: /readyz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 30
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 5
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/gateway
+        name: config
+        readOnly: true
+      - mountPath: /etc/tls
+        name: tls-certs
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/gateway/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-h5szx
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: gateway
+    serviceAccountName: gateway
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: gateway-config
+      name: config
+    - name: tls-certs
+      secret:
+        defaultMode: 420
+        secretName: gateway-tls
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 8Mi
+      name: tmp
+    - name: oauth2-credentials
+      secret:
+        defaultMode: 420
+        secretName: fleet-oauth2-creds
+    - name: kube-api-access-h5szx
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 100m
+      memory: 256Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:54:39Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T04:50:49Z"
+      message: 'containers with unready status: [gateway]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T04:50:49Z"
+      message: 'containers with unready status: [gateway]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:54:39Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 256Mi
+      containerID: containerd://c7ef73d8fa31ec136feded447b48042a0b9235c43a7832a472ef042a6a11e46f
+      image: quay.io/kubernaut-ai/gateway:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/gateway@sha256:172f431253256e285d6c7dbe691c1d3684bf12e057e3014fac28b831838ffd6e
+      lastState:
+        terminated:
+          containerID: containerd://12e9c705d12fd19667a9121948418caff134823c847ab1afa544276f3ae37b7e
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:54:45Z"
+      name: gateway
+      ready: false
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:57Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/gateway
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls
+        name: tls-certs
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/gateway/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-h5szx
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.26
+    podIPs:
+    - ip: 10.244.0.26
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 79m
+        memory: 256Mi
+    startTime: "2026-10-01T19:54:39Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: fb1a30f31a4d06cfd1fe0ffbb305eea209f1cc4663527584c47a51481973872f
+      checksum/llm-runtime: 60d002171c7c0e4a6633ae2f47a9dd9bf2304c936c34e4326c2db064f9fd6024
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9090"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-10-01T19:37:08Z"
+    generateName: kubernaut-agent-5d495d7fc-
+    generation: 1
+    labels:
+      app: kubernaut-agent
+      pod-template-hash: 5d495d7fc
+    name: kubernaut-agent-5d495d7fc-5x6q4
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: kubernaut-agent-5d495d7fc
+      uid: 0ba3a888-5cb2-4640-883d-08f5d875b7dc
+    resourceVersion: "92497"
+    uid: 0f0d9ca6-1952-48a1-9d61-97e0c3bdc678
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: kubernaut-agent
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - -config
+      - /etc/kubernaut-agent/config.yaml
+      - -llm-runtime
+      - /etc/kubernaut-agent/llm-runtime/llm-runtime.yaml
+      image: quay.io/kubernaut-ai/kubernautagent:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: kubernaut-agent
+      ports:
+      - containerPort: 8443
+        name: https
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 6
+        httpGet:
+          path: /readyz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources:
+        limits:
+          cpu: "1"
+          memory: 1Gi
+        requests:
+          cpu: 200m
+          memory: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/kubernaut-agent/llm-runtime
+        name: llm-runtime
+        readOnly: true
+      - mountPath: /etc/kubernaut-agent
+        name: config
+        readOnly: true
+      - mountPath: /etc/kubernaut-agent/credentials
+        name: llm-credentials-file
+        readOnly: true
+      - mountPath: /etc/kubernaut-agent/fleet-oauth2-creds
+        name: fleet-oauth2-credentials
+        readOnly: true
+      - mountPath: /etc/tls
+        name: tls-certs
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: sa-token
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: kubernaut-agent-sa
+    serviceAccountName: kubernaut-agent-sa
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: kubernaut-agent-config
+      name: config
+    - configMap:
+        defaultMode: 420
+        name: kubernaut-agent-llm-runtime
+      name: llm-runtime
+    - name: llm-credentials-file
+      secret:
+        defaultMode: 420
+        secretName: llm-credentials-primary
+    - name: fleet-oauth2-credentials
+      secret:
+        defaultMode: 420
+        secretName: fleet-oauth2-creds
+    - name: tls-certs
+      secret:
+        defaultMode: 420
+        secretName: kubernautagent-tls
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 8Mi
+      name: tmp
+    - name: sa-token
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            audience: https://kubernetes.default.svc.cluster.local
+            expirationSeconds: 3600
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 200m
+      memory: 256Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:03:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:03:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 200m
+        memory: 256Mi
+      containerID: containerd://f74f582532861f9ebdd02f0fc388c89f1e0a1e8c8cea2cc066f77dc45e278300
+      image: quay.io/kubernaut-ai/kubernautagent:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/kubernautagent@sha256:8cf804f386be939eff3372497d98ca941f4f91714d27f3b91318e728bc35d615
+      lastState:
+        terminated:
+          containerID: containerd://ee4b2c38e7fe5b40b3dda77169608177d6e07b3a6cb366bfc2caf7b81a12618d
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:38:01Z"
+      name: kubernaut-agent
+      ready: true
+      resources:
+        limits:
+          cpu: "1"
+          memory: 1Gi
+        requests:
+          cpu: 200m
+          memory: 256Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:56Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/kubernaut-agent/llm-runtime
+        name: llm-runtime
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/kubernaut-agent
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/kubernaut-agent/credentials
+        name: llm-credentials-file
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/kubernaut-agent/fleet-oauth2-creds
+        name: fleet-oauth2-credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls
+        name: tls-certs
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: sa-token
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.36
+    podIPs:
+    - ip: 10.244.0.36
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: "1"
+        memory: 1Gi
+      requests:
+        cpu: 181m
+        memory: 256Mi
+    startTime: "2026-10-01T19:37:09Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-10-01T19:56:20Z"
+    generateName: kubernaut-db-migration-
+    generation: 1
+    labels:
+      app: db-migration
+      batch.kubernetes.io/controller-uid: 7c78b402-4eb3-4a8f-8502-3c5e0f4a1794
+      batch.kubernetes.io/job-name: kubernaut-db-migration
+      controller-uid: 7c78b402-4eb3-4a8f-8502-3c5e0f4a1794
+      job-name: kubernaut-db-migration
+    name: kubernaut-db-migration-2gvzh
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: batch/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Job
+      name: kubernaut-db-migration
+      uid: 7c78b402-4eb3-4a8f-8502-3c5e0f4a1794
+    resourceVersion: "91358"
+    uid: 33ee2035-c265-4561-a8e8-b93168dd564e
+  spec:
+    containers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+
+        GOOSE_DBSTRING="host=$PGHOST user=$PGUSER password=$PGPASSWORD dbname=$PGDATABASE sslmode=$PGSSLMODE"
+
+        # Issue #581: Fresh-vs-upgrade detection for future major-version baselines.
+        # For minor releases, `goose up` handles both paths (fresh applies all;
+        # upgrade applies only pending). Uncomment when a baseline file exists.
+        #
+        # if ! psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -tAc \
+        #     "SELECT 1 FROM goose_db_version LIMIT 1" 2>/dev/null; then
+        #   echo "==> Fresh install detected — applying baseline"
+        #   psql -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" -f /migrations/baseline_v2_schema.sql
+        #   echo "==> Baseline applied, skipping numbered chain"
+        #   exit 0
+        # fi
+
+        echo "==> Applying SQL migrations with goose (DD-012)"
+        goose -dir /migrations postgres "$GOOSE_DBSTRING" up
+
+        echo "==> Granting privileges..."
+        psql -q <<'EOSQL'
+        GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO slm_user;
+        GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO slm_user;
+        GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO slm_user;
+        EOSQL
+        echo "==> Migrations complete"
+      env:
+      - name: PGHOST
+        value: postgresql.kubernaut-system.svc.cluster.local
+      - name: PGPORT
+        value: "5432"
+      - name: PGUSER
+        value: slm_user
+      - name: PGPASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_PASSWORD
+            name: postgresql-secret
+      - name: PGDATABASE
+        value: action_history
+      - name: PGSSLMODE
+        value: require
+      image: quay.io/kubernaut-ai/db-migrate:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      name: migrate
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /migrations
+        name: migrations
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-qmbxr
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    initContainers:
+    - command:
+      - /bin/sh
+      - -c
+      - |
+        echo "Waiting for PostgreSQL..."
+        until psql -c 'SELECT 1' >/dev/null 2>&1; do
+          echo "  PostgreSQL not ready, retrying in 2s..."
+          sleep 2
+        done
+        echo "PostgreSQL is ready."
+      env:
+      - name: PGHOST
+        value: postgresql.kubernaut-system.svc.cluster.local
+      - name: PGPORT
+        value: "5432"
+      - name: PGUSER
+        value: slm_user
+      - name: PGPASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_PASSWORD
+            name: postgresql-secret
+      - name: PGDATABASE
+        value: action_history
+      - name: PGSSLMODE
+        value: require
+      image: quay.io/kubernaut-ai/db-migrate:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      name: wait-for-postgresql
+      resources:
+        limits:
+          cpu: 50m
+          memory: 32Mi
+        requests:
+          cpu: 10m
+          memory: 16Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-qmbxr
+        readOnly: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Never
+    schedulerName: default-scheduler
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: kubernaut-hook-sa
+    serviceAccountName: kubernaut-hook-sa
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: kubernaut-migrations
+      name: migrations
+    - name: kube-api-access-qmbxr
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 50m
+      memory: 64Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:56:31Z"
+      message: pod sandbox is not ready
+      observedGeneration: 1
+      reason: PodSandboxNotReady
+      status: "False"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:56:27Z"
+      observedGeneration: 1
+      reason: PodCompleted
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:56:30Z"
+      observedGeneration: 1
+      reason: PodCompleted
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:56:30Z"
+      observedGeneration: 1
+      reason: PodCompleted
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:56:20Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 50m
+        memory: 64Mi
+      containerID: containerd://75181fb31c24cf07712b33e8624937c051e7c3ee2835a73829896d5a23214459
+      image: quay.io/kubernaut-ai/db-migrate:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/db-migrate@sha256:6b7611cd2e93d250707ab530b0a7512d3bb1b9f0a5521d445089df0f66b5d2a6
+      lastState: {}
+      name: migrate
+      ready: false
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 64Mi
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: containerd://75181fb31c24cf07712b33e8624937c051e7c3ee2835a73829896d5a23214459
+          exitCode: 0
+          finishedAt: "2026-10-01T19:56:29Z"
+          reason: Completed
+          startedAt: "2026-10-01T19:56:28Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          uid: 1001
+      volumeMounts:
+      - mountPath: /migrations
+        name: migrations
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-qmbxr
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    initContainerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 16Mi
+      containerID: containerd://8c5c14907b39947321e0e5aaeab9a7e77b3bc36f91dd237b69dc56d8895b29e4
+      image: quay.io/kubernaut-ai/db-migrate:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/db-migrate@sha256:6b7611cd2e93d250707ab530b0a7512d3bb1b9f0a5521d445089df0f66b5d2a6
+      lastState: {}
+      name: wait-for-postgresql
+      ready: true
+      resources:
+        limits:
+          cpu: 50m
+          memory: 32Mi
+        requests:
+          cpu: 10m
+          memory: 16Mi
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: containerd://8c5c14907b39947321e0e5aaeab9a7e77b3bc36f91dd237b69dc56d8895b29e4
+          exitCode: 0
+          finishedAt: "2026-10-01T19:56:26Z"
+          reason: Completed
+          startedAt: "2026-10-01T19:56:21Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          uid: 1001
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-qmbxr
+        readOnly: true
+        recursiveReadOnly: Disabled
+    observedGeneration: 1
+    phase: Succeeded
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+    startTime: "2026-10-01T19:56:20Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: afca65d0f90fd7158b328a8729f952b1701c381d422387ff8146630a1556d4be
+      checksum/routing-config: 23749fca84595fe891a0fe9dcfa76f1f1c2003334b69775ca0dcc3253f091ecb
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9090"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-10-01T19:37:08Z"
+    generateName: notification-controller-5cbf768644-
+    generation: 1
+    labels:
+      app: notification-controller
+      control-plane: controller-manager
+      pod-template-hash: 5cbf768644
+    name: notification-controller-5cbf768644-jn8qv
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: notification-controller-5cbf768644
+      uid: ce5f47aa-52c2-4c44-a95b-a559cc202a03
+    resourceVersion: "92389"
+    uid: 313235b6-bb00-4b84-a4d2-83cb2bfab2c0
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: notification-controller
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - -config
+      - $(CONFIG_PATH)
+      env:
+      - name: CONFIG_PATH
+        value: /etc/notification/config.yaml
+      - name: ROUTING_CONFIG_PATH
+        value: /etc/notification-routing/routing.yaml
+      - name: POD_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      image: quay.io/kubernaut-ai/notification:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: manager
+      ports:
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 6
+        httpGet:
+          path: /readyz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/notification
+        name: config
+        readOnly: true
+      - mountPath: /etc/notification-routing
+        name: routing-config
+        readOnly: true
+      - mountPath: /etc/notification/credentials
+        name: credentials
+        readOnly: true
+      - mountPath: /tmp/notifications
+        name: notification-output
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-6rj2x
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: notification-controller
+    serviceAccountName: notification-controller
+    terminationGracePeriodSeconds: 10
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: notification-controller-config
+      name: config
+    - configMap:
+        defaultMode: 420
+        name: notification-routing-config
+      name: routing-config
+    - emptyDir: {}
+      name: credentials
+    - emptyDir: {}
+      name: notification-output
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 8Mi
+      name: tmp
+    - name: kube-api-access-6rj2x
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 100m
+      memory: 128Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:03:01Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:03:01Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 128Mi
+      containerID: containerd://6cc90d9298f541f35726004351648edd347422cacf2bbd043726c104e0201a61
+      image: quay.io/kubernaut-ai/notification:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/notification@sha256:b0003fc81a5334ca0b50110c4490f5700141687d6dffe52fbb48203d4083bb79
+      lastState:
+        terminated:
+          containerID: containerd://92c6f54e33fab5c65668f9416283408146edb474fbae6e2c1bb1f857b3c2df2f
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:38:07Z"
+      name: manager
+      ready: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:57Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/notification
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/notification-routing
+        name: routing-config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/notification/credentials
+        name: credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp/notifications
+        name: notification-output
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-6rj2x
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.38
+    podIPs:
+    - ip: 10.244.0.38
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 79m
+        memory: 128Mi
+    startTime: "2026-10-01T19:37:09Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-10-01T19:37:08Z"
+    generateName: postgresql-64f6569d48-
+    generation: 1
+    labels:
+      app: postgresql
+      pod-template-hash: 64f6569d48
+    name: postgresql-64f6569d48-gsr68
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: postgresql-64f6569d48
+      uid: 14250352-bbab-4b34-93d3-cbb9c5b9914a
+    resourceVersion: "91725"
+    uid: a526f021-84b1-4e8b-bff8-151090194d3e
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: postgresql
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/certs/tls.crt
+      - -c
+      - ssl_key_file=/certs/tls.key
+      - -c
+      - hba_file=/etc/postgresql-hba/pg_hba.conf
+      env:
+      - name: POSTGRES_USER
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_USER
+            name: postgresql-secret
+      - name: POSTGRES_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_PASSWORD
+            name: postgresql-secret
+      - name: POSTGRES_DB
+        valueFrom:
+          secretKeyRef:
+            key: POSTGRES_DB
+            name: postgresql-secret
+      - name: PGDATA
+        value: /var/lib/kubernaut-pg/data/pgdata
+      image: postgres:16-alpine
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        exec:
+          command:
+          - pg_isready
+          - -U
+          - slm_user
+          - -d
+          - action_history
+        failureThreshold: 3
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: postgresql
+      ports:
+      - containerPort: 5432
+        name: postgresql
+        protocol: TCP
+      readinessProbe:
+        exec:
+          command:
+          - pg_isready
+          - -U
+          - slm_user
+          - -d
+          - action_history
+        failureThreshold: 3
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 3
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 250m
+          memory: 256Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: false
+        runAsNonRoot: true
+        runAsUser: 70
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/lib/kubernaut-pg/data
+        name: postgresql-data
+      - mountPath: /certs
+        name: postgresql-tls
+        readOnly: true
+      - mountPath: /etc/postgresql-hba
+        name: postgresql-hba
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 70
+      runAsNonRoot: true
+      runAsUser: 70
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: postgresql
+    serviceAccountName: postgresql
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: postgresql-data
+      persistentVolumeClaim:
+        claimName: postgresql-data
+    - name: postgresql-tls
+      secret:
+        defaultMode: 416
+        secretName: postgresql-tls
+    - configMap:
+        defaultMode: 420
+        name: postgresql-hba
+      name: postgresql-hba
+  status:
+    allocatedResources:
+      cpu: 250m
+      memory: 256Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:15Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:03Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:03Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:15Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 250m
+        memory: 256Mi
+      containerID: containerd://575b3d22a572508acc18272be7dc41ad09020d830def20bd495e4ac227aa44f0
+      image: docker.io/library/postgres:16-alpine
+      imageID: docker.io/library/postgres@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+      lastState:
+        terminated:
+          containerID: containerd://db72f2dd5b1c85891b36b2f7c87f48bb5bf07ac071abe4b3937f4c843b6be73e
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:38:26Z"
+      name: postgresql
+      ready: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 250m
+          memory: 256Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:57Z"
+      user:
+        linux:
+          gid: 70
+          supplementalGroups:
+          - 70
+          uid: 70
+      volumeMounts:
+      - mountPath: /var/lib/kubernaut-pg/data
+        name: postgresql-data
+      - mountPath: /certs
+        name: postgresql-tls
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/postgresql-hba
+        name: postgresql-hba
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.45
+    podIPs:
+    - ip: 10.244.0.45
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 232m
+        memory: 256Mi
+    startTime: "2026-10-01T19:37:15Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: e39a539b7295bd24f37d46b18eb7eac62baad49ca4368a0b3eb0693bdbec7a86
+      kubectl.kubernetes.io/restartedAt: "2026-10-02T00:06:16-04:00"
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9090"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-10-02T04:06:17Z"
+    generateName: remediationorchestrator-controller-7bc6bb77cd-
+    generation: 1
+    labels:
+      app: remediationorchestrator-controller
+      pod-template-hash: 7bc6bb77cd
+    name: remediationorchestrator-controller-7bc6bb77cd-kmln7
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: remediationorchestrator-controller-7bc6bb77cd
+      uid: bbb5335c-ab89-4f42-a35d-354e2baa1572
+    resourceVersion: "92422"
+    uid: ac5aa4f4-4966-484a-8950-99047b5d283e
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: remediationorchestrator-controller
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - --config=/etc/config/remediationorchestrator.yaml
+      env:
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.name
+      - name: KUBERNAUT_CONTROLLER_NAMESPACE
+        valueFrom:
+          fieldRef:
+            apiVersion: v1
+            fieldPath: metadata.namespace
+      image: quay.io/kubernaut-ai/remediationorchestrator:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: remediationorchestrator-controller
+      ports:
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 6
+        httpGet:
+          path: /readyz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 5
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/config
+        name: config
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/remediationorchestrator/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-j97ph
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: remediationorchestrator-controller
+    serviceAccountName: remediationorchestrator-controller
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: remediationorchestrator-config
+      name: config
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 8Mi
+      name: tmp
+    - name: oauth2-credentials
+      secret:
+        defaultMode: 420
+        secretName: fleet-oauth2-creds
+    - name: kube-api-access-j97ph
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 100m
+      memory: 128Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T04:06:17Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T04:51:34Z"
+      message: 'containers with unready status: [remediationorchestrator-controller]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T04:51:34Z"
+      message: 'containers with unready status: [remediationorchestrator-controller]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T04:06:17Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 128Mi
+      containerID: containerd://09e72aa543efe3bc01b0e0def7e86263ea2d98a9764714edcd3a7ea9d361c73d
+      image: quay.io/kubernaut-ai/remediationorchestrator:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/remediationorchestrator@sha256:2a1fe303267215cec4de3b13c4c4d9d63683e6970d5c93d5c5910d4f4a5a801b
+      lastState:
+        terminated:
+          containerID: containerd://f291fcf11c673d63192d0d447a6c98c876a5b1c3a611b870eed435cb69173e17
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-02T04:06:19Z"
+      name: remediationorchestrator-controller
+      ready: false
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:55Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/config
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/remediationorchestrator/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-j97ph
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.29
+    podIPs:
+    - ip: 10.244.0.29
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 79m
+        memory: 128Mi
+    startTime: "2026-10-02T04:06:17Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 8bfcc9f215d3f6e7c77b62a13801a9d1e3fe9e530af820fdd556ea91745ef104
+      checksum/policy: ddc50589cc4a08e08af9d5cdd3a1b2738a00f2061ca53673702810dbda35a66c
+      checksum/proactive-signal-mappings: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9090"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-10-01T19:56:11Z"
+    generateName: signalprocessing-controller-5c4c69cd6f-
+    generation: 1
+    labels:
+      app: signalprocessing-controller
+      pod-template-hash: 5c4c69cd6f
+    name: signalprocessing-controller-5c4c69cd6f-8trbz
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: signalprocessing-controller-5c4c69cd6f
+      uid: 0e52b2a6-3ab4-4da6-9e96-365e0f062ad9
+    resourceVersion: "92269"
+    uid: a21c06a2-3f61-43fb-ac57-79eb5494fc8c
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: signalprocessing-controller
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - --config=/etc/signalprocessing/config.yaml
+      image: quay.io/kubernaut-ai/signalprocessing:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: signalprocessing-controller
+      ports:
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 6
+        httpGet:
+          path: /readyz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 5
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/signalprocessing/config.yaml
+        name: config
+        subPath: config.yaml
+      - mountPath: /etc/signalprocessing/policies
+        name: policy
+        readOnly: true
+      - mountPath: /etc/signalprocessing/proactive-signal-mappings.yaml
+        name: proactive-signal-mappings
+        subPath: proactive-signal-mappings.yaml
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/signalprocessing/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-vm7mm
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: signalprocessing-controller
+    serviceAccountName: signalprocessing-controller
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: signalprocessing-config
+      name: config
+    - configMap:
+        defaultMode: 420
+        name: signalprocessing-policy
+      name: policy
+    - configMap:
+        defaultMode: 420
+        name: signalprocessing-proactive-signal-mappings
+      name: proactive-signal-mappings
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 8Mi
+      name: tmp
+    - name: oauth2-credentials
+      secret:
+        defaultMode: 420
+        secretName: fleet-oauth2-creds
+    - name: kube-api-access-vm7mm
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 100m
+      memory: 128Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:55Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:56:11Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:49Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:49Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:56:11Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 128Mi
+      containerID: containerd://c1e01486e37c3c22bb4b01bf2f3dbb2771e174c44ee298210e3fff9d18c8e51d
+      image: quay.io/kubernaut-ai/signalprocessing:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/signalprocessing@sha256:8d55f05b8473bf5fd59adbe99d7a900bbb05ecd88f7e3c8928957361054cf5d1
+      lastState:
+        terminated:
+          containerID: containerd://d396220ef3bef8d1d8c261739bcf98ab46942a3ee58438cfc51d0edd0d2d5b55
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:56:11Z"
+      name: signalprocessing-controller
+      ready: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:57Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/signalprocessing/config.yaml
+        name: config
+      - mountPath: /etc/signalprocessing/policies
+        name: policy
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/signalprocessing/proactive-signal-mappings.yaml
+        name: proactive-signal-mappings
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/signalprocessing/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-vm7mm
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.30
+    podIPs:
+    - ip: 10.244.0.30
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 79m
+        memory: 128Mi
+    startTime: "2026-10-01T19:56:11Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    generateName: valkey-5695d478b9-
+    generation: 1
+    labels:
+      app: valkey
+      pod-template-hash: 5695d478b9
+    name: valkey-5695d478b9-pbz8p
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: valkey-5695d478b9
+      uid: b3dc802f-1430-43ed-b9c0-6d4ca055a66b
+    resourceVersion: "91727"
+    uid: ede5ba46-5a96-4576-b789-b2c2953d5b9f
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: valkey
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - --port
+      - "0"
+      - --tls-port
+      - "6380"
+      - --tls-cert-file
+      - /certs/tls.crt
+      - --tls-key-file
+      - /certs/tls.key
+      - --tls-ca-cert-file
+      - /etc/tls-ca/ca.crt
+      - --tls-auth-clients
+      - "yes"
+      image: valkey/valkey:8-alpine
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        exec:
+          command:
+          - valkey-cli
+          - --tls
+          - --cacert
+          - /etc/tls-ca/ca.crt
+          - --cert
+          - /certs/tls.crt
+          - --key
+          - /certs/tls.key
+          - -p
+          - "6380"
+          - ping
+        failureThreshold: 3
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: valkey
+      ports:
+      - containerPort: 6380
+        name: valkey
+        protocol: TCP
+      readinessProbe:
+        exec:
+          command:
+          - valkey-cli
+          - --tls
+          - --cacert
+          - /etc/tls-ca/ca.crt
+          - --cert
+          - /certs/tls.crt
+          - --key
+          - /certs/tls.key
+          - -p
+          - "6380"
+          - ping
+        failureThreshold: 3
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 3
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: false
+        runAsNonRoot: true
+        runAsUser: 999
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /data
+        name: valkey-data
+      - mountPath: /certs
+        name: valkey-tls
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      fsGroup: 999
+      runAsNonRoot: true
+      runAsUser: 999
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: valkey
+    serviceAccountName: valkey
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: valkey-data
+      persistentVolumeClaim:
+        claimName: valkey-data
+    - name: valkey-tls
+      secret:
+        defaultMode: 420
+        secretName: valkey-tls
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+  status:
+    allocatedResources:
+      cpu: 100m
+      memory: 128Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:55Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:15Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:03Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:03Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:15Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 128Mi
+      containerID: containerd://e6557bafe7454356e3567c92cbc52223e569fba1e0738c74331ab7226109b40c
+      image: docker.io/valkey/valkey:8-alpine
+      imageID: docker.io/valkey/valkey@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
+      lastState:
+        terminated:
+          containerID: containerd://f6c6726c2a9160e6da84d889e6516124d9aa7d3c0f8b7e2532893dd7f9e8fbd5
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:38:26Z"
+      name: valkey
+      ready: true
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:57Z"
+      user:
+        linux:
+          gid: 1000
+          supplementalGroups:
+          - 999
+          - 1000
+          uid: 999
+      volumeMounts:
+      - mountPath: /data
+        name: valkey-data
+      - mountPath: /certs
+        name: valkey-tls
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.43
+    podIPs:
+    - ip: 10.244.0.43
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 79m
+        memory: 128Mi
+    startTime: "2026-10-01T19:37:15Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      checksum/config: 0f018bc3b607d6e53a64899551d698aa1d1731ad5438543de6dad6fbd2c23fc8
+      prometheus.io/path: /metrics
+      prometheus.io/port: "9090"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    generateName: workflowexecution-controller-c7bb9b96d-
+    generation: 1
+    labels:
+      app: workflowexecution-controller
+      pod-template-hash: c7bb9b96d
+    name: workflowexecution-controller-c7bb9b96d-6spjh
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: workflowexecution-controller-c7bb9b96d
+      uid: 4aebebe7-353c-41ca-acdf-dec6475bd86d
+    resourceVersion: "92328"
+    uid: 0efcc58a-8c59-4850-8ae2-57b17707e569
+  spec:
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - podAffinityTerm:
+            labelSelector:
+              matchLabels:
+                app: workflowexecution-controller
+            topologyKey: kubernetes.io/hostname
+          weight: 100
+    containers:
+    - args:
+      - --config=/etc/config/workflowexecution.yaml
+      image: quay.io/kubernaut-ai/workflowexecution:1.6.0-rc20
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 5
+      name: workflowexecution-controller
+      ports:
+      - containerPort: 9090
+        name: metrics
+        protocol: TCP
+      - containerPort: 8081
+        name: health
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 6
+        httpGet:
+          path: /readyz
+          port: 8081
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /healthz
+          port: health
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 5
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/config
+        name: config
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/workflowexecution/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-zqcq4
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-hub-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    serviceAccount: workflowexecution-controller
+    serviceAccountName: workflowexecution-controller
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: workflowexecution-config
+      name: config
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+        optional: true
+      name: tls-ca
+    - emptyDir:
+        sizeLimit: 8Mi
+      name: tmp
+    - name: oauth2-credentials
+      secret:
+        defaultMode: 420
+        secretName: fleet-oauth2-creds
+    - name: kube-api-access-zqcq4
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 100m
+      memory: 64Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:01:54Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:59Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T05:02:59Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T19:37:07Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 64Mi
+      containerID: containerd://b8fc8ada679ffa3b70577b55fbe082b019b1a85b0aeb0dd1cb1ad43d5d157d8e
+      image: quay.io/kubernaut-ai/workflowexecution:1.6.0-rc20
+      imageID: quay.io/kubernaut-ai/workflowexecution@sha256:e77ab6bb30d6ad75f924dac83c9ccb3b0ef82bc3a95fb6d3da4933e6bb7eb822
+      lastState:
+        terminated:
+          containerID: containerd://12f1be441e9e05720990fa509409d4f587b5c8ee1b5a86b80356b9e9ff118667
+          exitCode: 255
+          finishedAt: "2026-10-02T05:01:46Z"
+          reason: Unknown
+          startedAt: "2026-10-01T19:37:46Z"
+      name: workflowexecution-controller
+      ready: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 64Mi
+      restartCount: 1
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T05:01:55Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/config
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /tmp
+        name: tmp
+      - mountPath: /etc/workflowexecution/fleet-oauth2-creds
+        name: oauth2-credentials
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-zqcq4
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.2
+    hostIPs:
+    - ip: 10.89.0.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.23
+    podIPs:
+    - ip: 10.244.0.23
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 79m
+        memory: 64Mi
+    startTime: "2026-10-01T19:37:08Z"
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: aianalysis-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: aianalysis-controller
+    namespace: kubernaut-system
+    resourceVersion: "3139"
+    uid: a13eb157-9a9f-4e48-9fce-73345701718b
+  spec:
+    clusterIP: 10.96.210.237
+    clusterIPs:
+    - 10.96.210.237
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: api
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    - name: health
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
+    selector:
+      app: aianalysis-controller
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+      prometheus.io/port: "9090"
+      prometheus.io/scrape: "true"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: apifrontend
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: apifrontend
+    namespace: kubernaut-system
+    resourceVersion: "3175"
+    uid: a6475735-5571-4f8a-93be-e55e53010e6d
+  spec:
+    clusterIP: 10.96.160.250
+    clusterIPs:
+    - 10.96.160.250
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: https
+      port: 8443
+      protocol: TCP
+      targetPort: https
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: metrics
+    - name: health
+      port: 8081
+      protocol: TCP
+      targetPort: health
+    selector:
+      app: apifrontend
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: authwebhook
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: authwebhook
+    namespace: kubernaut-system
+    resourceVersion: "3154"
+    uid: 97005f19-fee6-4eac-8c97-c7024b9d1591
+  spec:
+    clusterIP: 10.96.161.231
+    clusterIPs:
+    - 10.96.161.231
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: https
+      port: 443
+      protocol: TCP
+      targetPort: webhook
+    selector:
+      app: authwebhook
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: console
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: console
+    namespace: kubernaut-system
+    resourceVersion: "3172"
+    uid: 85f12e97-7d0b-45c8-8f05-4ce6ee1541e4
+  spec:
+    clusterIP: 10.96.83.194
+    clusterIPs:
+    - 10.96.83.194
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      port: 4180
+      protocol: TCP
+      targetPort: http
+    selector:
+      app: console
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      argocd.argoproj.io/sync-wave: "-1"
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: datastorage
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: data-storage-service
+    namespace: kubernaut-system
+    resourceVersion: "3189"
+    uid: 1c61fe92-d996-4255-9ad3-038a808cd220
+  spec:
+    clusterIP: 10.96.236.51
+    clusterIPs:
+    - 10.96.236.51
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    - name: health
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    selector:
+      app: datastorage
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: effectivenessmonitor-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: effectivenessmonitor-metrics
+    namespace: kubernaut-system
+    resourceVersion: "3134"
+    uid: 9a600ebe-fd24-4fb3-a967-dc9bb8be2c45
+  spec:
+    clusterIP: 10.96.247.122
+    clusterIPs:
+    - 10.96.247.122
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    selector:
+      app: effectivenessmonitor-controller
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app.kubernetes.io/component: fleet-metadata-cache
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: fleetmetadatacache
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: fleetmetadatacache-service
+    namespace: kubernaut-system
+    resourceVersion: "3155"
+    uid: 5e4a2c79-6d58-41ea-a7e6-a4dc1a5aad4f
+  spec:
+    clusterIP: 10.96.60.38
+    clusterIPs:
+    - 10.96.60.38
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: api
+      port: 8080
+      protocol: TCP
+      targetPort: api
+    - name: health
+      port: 8081
+      protocol: TCP
+      targetPort: health
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: metrics
+    selector:
+      app.kubernetes.io/name: fleetmetadatacache
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:54:39Z"
+    labels:
+      app: gateway
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: gateway-service
+    namespace: kubernaut-system
+    resourceVersion: "7531"
+    uid: bf04356f-b7a6-4a9c-b1ac-ba22e6163378
+  spec:
+    clusterIP: 10.96.1.2
+    clusterIPs:
+    - 10.96.1.2
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    - name: health
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    selector:
+      app: gateway
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"component":"identity","kubernaut.ai/managed":"true"},"name":"keycloak","namespace":"kubernaut-system"},"spec":{"externalName":"keycloak.idp.svc.cluster.local","type":"ExternalName"}}
+    creationTimestamp: "2026-10-01T19:30:08Z"
+    labels:
+      component: identity
+      kubernaut.ai/managed: "true"
+    name: keycloak
+    namespace: kubernaut-system
+    resourceVersion: "1156"
+    uid: da243ef1-0750-46ec-9e68-aa84b6b58403
+  spec:
+    externalName: keycloak.idp.svc.cluster.local
+    sessionAffinity: None
+    type: ExternalName
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: kubernaut-agent
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: kubernaut-agent
+    namespace: kubernaut-system
+    resourceVersion: "3177"
+    uid: 1bcb9c81-767e-4b96-86a4-6e5e4a12db55
+  spec:
+    clusterIP: 10.96.25.34
+    clusterIPs:
+    - 10.96.25.34
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: https
+      port: 8443
+      protocol: TCP
+      targetPort: 8443
+    - name: health
+      port: 8081
+      protocol: TCP
+      targetPort: 8081
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    selector:
+      app: kubernaut-agent
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: notification-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: notification-metrics
+    namespace: kubernaut-system
+    resourceVersion: "3146"
+    uid: d6ec7cc7-8f1a-42b0-9bd7-e7592b53bff4
+  spec:
+    clusterIP: 10.96.102.198
+    clusterIPs:
+    - 10.96.102.198
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    selector:
+      app: notification-controller
+      control-plane: controller-manager
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      argocd.argoproj.io/sync-wave: "-1"
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: postgresql
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: postgresql
+    namespace: kubernaut-system
+    resourceVersion: "3158"
+    uid: febb435c-efcb-434b-8f8c-e6eec3e459ab
+  spec:
+    clusterIP: 10.96.19.127
+    clusterIPs:
+    - 10.96.19.127
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: postgresql
+      port: 5432
+      protocol: TCP
+      targetPort: 5432
+    selector:
+      app: postgresql
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: remediationorchestrator-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: remediationorchestrator-controller
+    namespace: kubernaut-system
+    resourceVersion: "3142"
+    uid: 4f7e9825-2240-499f-90a1-9998c99b4269
+  spec:
+    clusterIP: 10.96.164.223
+    clusterIPs:
+    - 10.96.164.223
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    selector:
+      app: remediationorchestrator-controller
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: signalprocessing-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: signalprocessing-controller-metrics
+    namespace: kubernaut-system
+    resourceVersion: "3166"
+    uid: 5c6c6237-7efd-426e-9670-666c476de8a5
+  spec:
+    clusterIP: 10.96.178.74
+    clusterIPs:
+    - 10.96.178.74
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    selector:
+      app: signalprocessing-controller
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      argocd.argoproj.io/sync-wave: "-1"
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: valkey
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: valkey
+    namespace: kubernaut-system
+    resourceVersion: "3186"
+    uid: 123de67e-77f7-4c88-af70-49f9689a1b3c
+  spec:
+    clusterIP: 10.96.39.71
+    clusterIPs:
+    - 10.96.39.71
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: valkey
+      port: 6380
+      protocol: TCP
+      targetPort: 6380
+    selector:
+      app: valkey
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      meta.helm.sh/release-name: kubernaut
+      meta.helm.sh/release-namespace: kubernaut-system
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: workflowexecution-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      helm.sh/chart: kubernaut-1.6.0
+    name: workflowexecution-controller-metrics
+    namespace: kubernaut-system
+    resourceVersion: "3183"
+    uid: c43095c8-0fc5-4b8c-972a-d81ce48130e6
+  spec:
+    clusterIP: 10.96.183.239
+    clusterIPs:
+    - 10.96.183.239
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+      targetPort: 9090
+    selector:
+      app: workflowexecution-controller
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-02T05:02:52Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: aianalysis-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: aianalysis-controller
+    namespace: kubernaut-system
+    resourceVersion: "92297"
+    uid: c486b5a8-e589-402e-8970-232e6f02d3df
+  subsets:
+  - addresses:
+    - ip: 10.244.0.25
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: aianalysis-controller-8558694cb9-lbxks
+        namespace: kubernaut-system
+        uid: 04e3ca78-6dff-47db-91b0-18c7fc1aeae6
+    ports:
+    - name: health
+      port: 8081
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      protocol: TCP
+    - name: api
+      port: 8080
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-02T05:03:00Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: apifrontend
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: apifrontend
+    namespace: kubernaut-system
+    resourceVersion: "92364"
+    uid: fc814d75-4e97-4409-8b87-300d9c6f2d1d
+  subsets:
+  - addresses:
+    - ip: 10.244.0.44
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: apifrontend-64dfd494b9-tccms
+        namespace: kubernaut-system
+        uid: d6a57f94-0eb5-4980-b781-905bdc7afabb
+    ports:
+    - name: health
+      port: 8081
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      protocol: TCP
+    - name: https
+      port: 8443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-01T19:37:07Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: authwebhook
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: authwebhook
+    namespace: kubernaut-system
+    resourceVersion: "91883"
+    uid: f28b3b64-02f7-43b7-b7b3-50524dcf5ef7
+  subsets:
+  - notReadyAddresses:
+    - ip: 10.244.0.41
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: authwebhook-687bf89769-ncm2g
+        namespace: kubernaut-system
+        uid: a2407b11-11b0-4c23-9e9e-599da87609e6
+    ports:
+    - name: https
+      port: 9443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-01T19:37:07Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: console
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: console
+    namespace: kubernaut-system
+    resourceVersion: "91845"
+    uid: e4cd24c8-9789-4eed-800b-7ac3f2793b3b
+  subsets:
+  - addresses:
+    - ip: 10.244.0.21
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: console-756d955c66-64z77
+        namespace: kubernaut-system
+        uid: 1088dd8f-beec-4a7e-98b7-d7ccdccbc2d6
+    ports:
+    - name: http
+      port: 4180
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-02T05:02:45Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: datastorage
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: data-storage-service
+    namespace: kubernaut-system
+    resourceVersion: "92248"
+    uid: a290bac2-cad0-499b-ab94-8d65beec2bdd
+  subsets:
+  - addresses:
+    - ip: 10.244.0.40
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: datastorage-84bb6d8f5c-6z962
+        namespace: kubernaut-system
+        uid: 310c53ed-dcee-44bc-a7ba-836577d6410d
+    ports:
+    - name: health
+      port: 8081
+      protocol: TCP
+    - name: http
+      port: 8080
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-02T05:02:59Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: effectivenessmonitor-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: effectivenessmonitor-metrics
+    namespace: kubernaut-system
+    resourceVersion: "92336"
+    uid: 490669be-a1ae-46b3-8b8f-6ed623aacd86
+  subsets:
+  - addresses:
+    - ip: 10.244.0.18
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: effectivenessmonitor-controller-cb7d95bb6-xmdss
+        namespace: kubernaut-system
+        uid: e0fb055b-9e54-470e-af52-eacaaee5ccd5
+    ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-02T05:06:13Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app.kubernetes.io/component: fleet-metadata-cache
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: fleetmetadatacache
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: fleetmetadatacache-service
+    namespace: kubernaut-system
+    resourceVersion: "93086"
+    uid: b54f01c9-d1f3-4889-ae00-3ebc99190498
+  subsets:
+  - notReadyAddresses:
+    - ip: 10.244.0.20
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: fleetmetadatacache-d4dd6c7f8-88xcg
+        namespace: kubernaut-system
+        uid: 22153a7a-0a3b-4689-9c75-c1bbbd6250bd
+    - ip: 10.244.0.48
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: fleetmetadatacache-6dffb7dcf9-t45wj
+        namespace: kubernaut-system
+        uid: e25115ab-ad01-4f81-9295-4fcd7ed74a6d
+    ports:
+    - name: health
+      port: 8081
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      protocol: TCP
+    - name: api
+      port: 8080
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-01T19:54:39Z"
+    creationTimestamp: "2026-10-01T19:54:39Z"
+    labels:
+      app: gateway
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: gateway-service
+    namespace: kubernaut-system
+    resourceVersion: "91879"
+    uid: 380c9db3-4876-44b0-bd19-5ed6217512ff
+  subsets:
+  - notReadyAddresses:
+    - ip: 10.244.0.26
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: gateway-588c9d65cc-dlzbm
+        namespace: kubernaut-system
+        uid: 0d1437ea-1cc0-4550-9310-a21dd268a07a
+    ports:
+    - name: health
+      port: 8081
+      protocol: TCP
+    - name: http
+      port: 8080
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-02T05:03:08Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: kubernaut-agent
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: kubernaut-agent
+    namespace: kubernaut-system
+    resourceVersion: "92498"
+    uid: f3fce274-a714-4de7-b87d-5ab0caa545a8
+  subsets:
+  - addresses:
+    - ip: 10.244.0.36
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: kubernaut-agent-5d495d7fc-5x6q4
+        namespace: kubernaut-system
+        uid: 0f0d9ca6-1952-48a1-9d61-97e0c3bdc678
+    ports:
+    - name: health
+      port: 8081
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      protocol: TCP
+    - name: https
+      port: 8443
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-02T05:03:01Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: notification-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: notification-metrics
+    namespace: kubernaut-system
+    resourceVersion: "92392"
+    uid: bd21d5fd-6af3-4e53-b669-db71ed5c1af1
+  subsets:
+  - addresses:
+    - ip: 10.244.0.38
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: notification-controller-5cbf768644-jn8qv
+        namespace: kubernaut-system
+        uid: 313235b6-bb00-4b84-a4d2-83cb2bfab2c0
+    ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-01T19:37:07Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: postgresql
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: postgresql
+    namespace: kubernaut-system
+    resourceVersion: "91801"
+    uid: a46baaa4-404c-4240-a73d-6a3960a28194
+  subsets:
+  - addresses:
+    - ip: 10.244.0.45
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: postgresql-64f6569d48-gsr68
+        namespace: kubernaut-system
+        uid: a526f021-84b1-4e8b-bff8-151090194d3e
+    ports:
+    - name: postgresql
+      port: 5432
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-01T19:37:07Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: remediationorchestrator-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: remediationorchestrator-controller
+    namespace: kubernaut-system
+    resourceVersion: "91826"
+    uid: 8f14a52f-9f69-42e3-839e-30a46ff1ec3a
+  subsets:
+  - notReadyAddresses:
+    - ip: 10.244.0.29
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: remediationorchestrator-controller-7bc6bb77cd-kmln7
+        namespace: kubernaut-system
+        uid: ac5aa4f4-4966-484a-8950-99047b5d283e
+    ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-02T05:02:49Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: signalprocessing-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: signalprocessing-controller-metrics
+    namespace: kubernaut-system
+    resourceVersion: "92271"
+    uid: 8e6bc8a9-09dc-46b1-9a16-98f76d134e54
+  subsets:
+  - addresses:
+    - ip: 10.244.0.30
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: signalprocessing-controller-5c4c69cd6f-8trbz
+        namespace: kubernaut-system
+        uid: a21c06a2-3f61-43fb-ac57-79eb5494fc8c
+    ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-01T19:37:07Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: valkey
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: valkey
+    namespace: kubernaut-system
+    resourceVersion: "91825"
+    uid: ecc0f600-508f-469b-b5c8-a97e509bc538
+  subsets:
+  - addresses:
+    - ip: 10.244.0.43
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: valkey-5695d478b9-pbz8p
+        namespace: kubernaut-system
+        uid: ede5ba46-5a96-4576-b789-b2c2953d5b9f
+    ports:
+    - name: valkey
+      port: 6380
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      endpoints.kubernetes.io/last-change-trigger-time: "2026-10-02T05:02:59Z"
+    creationTimestamp: "2026-10-01T19:37:07Z"
+    labels:
+      app: workflowexecution-controller
+      app.kubernetes.io/instance: kubernaut
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/part-of: kubernaut
+      app.kubernetes.io/version: 1.6.0
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+      helm.sh/chart: kubernaut-1.6.0
+    name: workflowexecution-controller-metrics
+    namespace: kubernaut-system
+    resourceVersion: "92329"
+    uid: 4a5a987b-2294-4bfe-9ea0-74096e9a0785
+  subsets:
+  - addresses:
+    - ip: 10.244.0.23
+      nodeName: kubernaut-hub-control-plane
+      targetRef:
+        kind: Pod
+        name: workflowexecution-controller-c7bb9b96d-6spjh
+        namespace: kubernaut-system
+        uid: 0efcc58a-8c59-4850-8ae2-57b17707e569
+    ports:
+    - name: metrics
+      port: 9090
+      protocol: TCP
+kind: List
+metadata:
+  resourceVersion: ""

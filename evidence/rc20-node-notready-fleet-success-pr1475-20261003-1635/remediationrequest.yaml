@@ -1,0 +1,176 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationRequest
+metadata:
+  annotations:
+    kubernaut.ai/created-at: "2026-10-03T16:35:54Z"
+  creationTimestamp: "2026-10-03T16:35:54Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/component: remediation
+    app.kubernetes.io/managed-by: gateway-service
+  name: rr-427a0f3fccea-7842ed4f
+  namespace: kubernaut-system
+  resourceVersion: "183862"
+  uid: ddccfe9d-5c88-408c-a7a3-461e082ba5fa
+spec:
+  clusterID: remote-cluster
+  firingTime: "2026-10-03T16:32:04Z"
+  originalPayload: |
+    {"receiver":"gateway-webhook","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"KubePodCrashLooping","cluster":"remote-cluster","container":"manager","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-controllers","pod":"demo-controllers-controller-6fd84755c7-qqldw","prometheus":"monitoring/fleet-spoke","service":"kube-state-metrics","severity":"critical","uid":"4e58fef4-56cd-412a-9a0d-a5f3670b16d7"},"annotations":{"description":"A container in namespace demo-controllers is failing to reach a stable running state. Elevated restart rate may indicate service degradation.\n","summary":"Container manager in pod demo-controllers-controller-6fd84755c7-qqldw is restarting repeatedly in namespace demo-controllers.\n"},"startsAt":"2026-10-03T16:23:13.767Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=rate%28kube_pod_container_status_restarts_total%7Bnamespace%3D%22demo-controllers%22%2Cpod%3D~%22demo-controllers-controller.%2A%22%7D%5B10m%5D%29+%2A+60+%2A+5+%3E+0\u0026g0.tab=1","fingerprint":"fbbf24360f6af798"},{"status":"firing","labels":{"alertname":"KubeNodeNotReady","cluster":"remote-cluster","namespace":"demo-compute","node":"kubernaut-remote-cluster-worker-1790996710","prometheus":"monitoring/fleet-spoke","severity":"critical"},"annotations":{"description":"A cluster node has transitioned to NotReady status. Workloads scheduled on this node may experience disruption or reduced availability.\n","summary":"Node kubernaut-remote-cluster-worker-1790996710 is in NotReady state.\n"},"startsAt":"2026-10-03T16:32:04.542Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=max+by+%28node%29+%28kube_node_status_condition%7Bcondition%3D%22Ready%22%2Cstatus%3D%22true%22%7D+%3D%3D+0%29\u0026g0.tab=1","fingerprint":"c4a7dae7671178cc"}],"notification_reason":"new alerts added","groupLabels":{},"commonLabels":{"cluster":"remote-cluster","prometheus":"monitoring/fleet-spoke","severity":"critical"},"commonAnnotations":{},"routeLabels":{},"externalURL":"http://alertmanager-585bc8bd58-ngrnx:9093","version":"4","groupKey":"{}:{}","truncatedAlerts":0}
+  providerData: '{"labels":{"alertname":"KubeNodeNotReady","cluster":"remote-cluster","namespace":"demo-compute","node":"kubernaut-remote-cluster-worker-1790996710","prometheus":"monitoring/fleet-spoke","severity":"critical"},"namespace":"demo-compute"}'
+  receivedTime: "2026-10-03T16:35:54Z"
+  severity: critical
+  signalAnnotations:
+    description: |
+      A cluster node has transitioned to NotReady status. Workloads scheduled on this node may experience disruption or reduced availability.
+    summary: |
+      Node kubernaut-remote-cluster-worker-1790996710 is in NotReady state.
+  signalFingerprint: 427a0f3fcceaf1da99d0a99c8d7f557716cc4d9db1b04fdb085e841846fbe31b
+  signalLabels:
+    alertname: KubeNodeNotReady
+    cluster: remote-cluster
+    namespace: demo-compute
+    node: kubernaut-remote-cluster-worker-1790996710
+    prometheus: monitoring/fleet-spoke
+    severity: critical
+  signalName: KubeNodeNotReady
+  signalSource: prometheus
+  signalType: alert
+  targetResource:
+    kind: Node
+    name: kubernaut-remote-cluster-worker-1790996710
+    namespace: demo-compute
+  targetType: kubernetes
+status:
+  completedAt: "2026-10-03T16:42:17Z"
+  completionStatus:
+    approvalNotificationSent: true
+    notificationRequestRefs:
+    - apiVersion: notification.kubernaut.ai/v1alpha1
+      kind: NotificationRequest
+      name: nr-approval-rr-427a0f3fccea-7842ed4f
+      namespace: kubernaut-system
+    - apiVersion: notification.kubernaut.ai/v1alpha1
+      kind: NotificationRequest
+      name: nr-completion-rr-427a0f3fccea-7842ed4f
+      namespace: kubernaut-system
+      uid: 4eef6321-70ca-483d-bec3-b75d3c4fa50a
+    notificationStatus: Sent
+    outcome: Remediated
+  conditions:
+  - lastTransitionTime: "2026-10-03T16:35:54Z"
+    message: SignalProcessing CRD sp-rr-427a0f3fccea-7842ed4f created successfully
+    observedGeneration: 1
+    reason: SignalProcessingCreated
+    status: "True"
+    type: SignalProcessingReady
+  - lastTransitionTime: "2026-10-03T16:37:17Z"
+    message: Remediation completed, verifying effectiveness
+    observedGeneration: 1
+    reason: Verifying
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-10-03T16:35:54Z"
+    message: AIAnalysis CRD ai-rr-427a0f3fccea-7842ed4f created successfully
+    observedGeneration: 1
+    reason: AIAnalysisCreated
+    status: "True"
+    type: AIAnalysisReady
+  - lastTransitionTime: "2026-10-03T16:35:54Z"
+    message: SignalProcessing completed successfully
+    observedGeneration: 1
+    reason: SignalProcessingSucceeded
+    status: "True"
+    type: SignalProcessingComplete
+  - lastTransitionTime: "2026-10-03T16:37:03Z"
+    message: AIAnalysis completed successfully
+    observedGeneration: 1
+    reason: AIAnalysisSucceeded
+    status: "True"
+    type: AIAnalysisComplete
+  - lastTransitionTime: "2026-10-03T16:37:03Z"
+    message: Notification delivered successfully
+    observedGeneration: 1
+    reason: DeliverySucceeded
+    status: "True"
+    type: NotificationDelivered
+  - lastTransitionTime: "2026-10-03T16:37:07Z"
+    message: Pre-remediation hash captured
+    observedGeneration: 1
+    reason: HashCaptured
+    status: "True"
+    type: PreRemediationHashCaptured
+  - lastTransitionTime: "2026-10-03T16:37:07Z"
+    message: WorkflowExecution CRD we-rr-427a0f3fccea-7842ed4f created successfully
+    observedGeneration: 1
+    reason: WorkflowExecutionCreated
+    status: "True"
+    type: WorkflowExecutionReady
+  - lastTransitionTime: "2026-10-03T16:37:17Z"
+    message: WorkflowExecution completed successfully
+    observedGeneration: 1
+    reason: WorkflowSucceeded
+    status: "True"
+    type: WorkflowExecutionComplete
+  - lastTransitionTime: "2026-10-03T16:42:17Z"
+    message: 'Effectiveness assessment completed (reason: Full)'
+    observedGeneration: 1
+    reason: AssessmentCompleted
+    status: "True"
+    type: EffectivenessAssessed
+  deduplication:
+    firstSeenAt: "2026-10-03T16:35:54Z"
+    lastSeenAt: "2026-10-03T16:36:14Z"
+    occurrenceCount: 3
+  observedGeneration: 1
+  operatorAudit:
+    lastModifiedAt: "2026-10-03T16:35:54Z"
+    lastModifiedBy: system:serviceaccount:kubernaut-system:remediationorchestrator-controller
+    preRemediationSpecHash: sha256:bb3300ad00b558e30c4e461026b283db625c15095d4c80bd53b9a78d4eb17a1e
+  overallPhase: Completed
+  phaseProgress:
+    aiAnalysisRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: AIAnalysis
+      name: ai-rr-427a0f3fccea-7842ed4f
+      namespace: kubernaut-system
+    analyzingStartTime: "2026-10-03T16:35:54Z"
+    effectivenessAssessmentRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: EffectivenessAssessment
+      name: ea-rr-427a0f3fccea-7842ed4f
+      namespace: kubernaut-system
+    executingStartTime: "2026-10-03T16:37:07Z"
+    processingStartTime: "2026-10-03T16:35:54Z"
+    signalProcessingRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: SignalProcessing
+      name: sp-rr-427a0f3fccea-7842ed4f
+      namespace: kubernaut-system
+    verificationDeadline: "2026-10-03T16:44:47Z"
+    workflowExecutionRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: WorkflowExecution
+      name: we-rr-427a0f3fccea-7842ed4f
+      namespace: kubernaut-system
+  retentionExpiryTime: "2026-10-04T16:42:17Z"
+  routingStatus: {}
+  startTime: "2026-10-03T16:35:54Z"
+  timeoutConfig:
+    analyzing: 10m0s
+    executing: 30m0s
+    global: 1h0m0s
+    processing: 5m0s
+  workflowSelection:
+    confidence: "0.80"
+    remediationTarget:
+      apiVersion: v1
+      kind: Node
+      name: kubernaut-remote-cluster-worker-1790996710
+    selectedWorkflowRef:
+      executionBundle: quay.io/kubernaut-cicd/test-workflows/cordon-drain-job@sha256:282c218ff8d4db85d1153dc32132204b927db422bff2513baf53ec99a7826371
+      version: 1.6.3
+      workflowId: 85b21e13-729a-5b6b-8e5b-a4a698b6643e
+    signalTargetDisplay: Node/kubernaut-remote-cluster-worker-1790996710
+    targetDisplay: Node/kubernaut-remote-cluster-worker-1790996710
+    workflowDisplayName: CordonDrainNode/cordon-drain-v1

@@ -1,0 +1,189 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    meta.helm.sh/release-name: kubernaut
+    meta.helm.sh/release-namespace: kubernaut-system
+  creationTimestamp: "2026-10-02T18:09:17Z"
+  generation: 1
+  labels:
+    app: gateway
+    app.kubernetes.io/instance: kubernaut
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: kubernaut
+    app.kubernetes.io/version: 1.6.0
+    helm.sh/chart: kubernaut-1.6.0
+  name: gateway
+  namespace: kubernaut-system
+  resourceVersion: "175950"
+  uid: 736e6438-dd34-4be5-9e01-1d214157a77f
+spec:
+  progressDeadlineSeconds: 750
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: gateway
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        checksum/config: fbae2fb18a6242573032a77e023d6fe6f7e419580936707e25cd15182d16594c
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9090"
+        prometheus.io/scrape: "true"
+      labels:
+        app: gateway
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: gateway
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - --config=/etc/gateway/config.yaml
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        image: quay.io/kubernaut-ai/gateway:1.6.0-rc20
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: gateway
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 8081
+          name: health
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 6
+          httpGet:
+            path: /readyz
+            port: 8081
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /healthz
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /etc/gateway
+          name: config
+          readOnly: true
+        - mountPath: /etc/tls
+          name: tls-certs
+          readOnly: true
+        - mountPath: /etc/tls-ca
+          name: tls-ca
+          readOnly: true
+        - mountPath: /tmp
+          name: tmp
+        - mountPath: /etc/gateway/fleet-oauth2-creds
+          name: oauth2-credentials
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccount: gateway
+      serviceAccountName: gateway
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - configMap:
+          defaultMode: 420
+          name: gateway-config
+        name: config
+      - name: tls-certs
+        secret:
+          defaultMode: 420
+          secretName: gateway-tls
+      - configMap:
+          defaultMode: 420
+          name: inter-service-ca
+          optional: true
+        name: tls-ca
+      - emptyDir:
+          sizeLimit: 8Mi
+        name: tmp
+      - name: oauth2-credentials
+        secret:
+          defaultMode: 420
+          secretName: fleet-oauth2-creds
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2026-10-02T18:09:17Z"
+    lastUpdateTime: "2026-10-02T18:09:57Z"
+    message: ReplicaSet "gateway-cdf75d94" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  - lastTransitionTime: "2026-10-03T15:55:07Z"
+    lastUpdateTime: "2026-10-03T15:55:07Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  observedGeneration: 1
+  readyReplicas: 1
+  replicas: 1
+  terminatingReplicas: 0
+  updatedReplicas: 1

@@ -1,0 +1,112 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: AgentSession
+metadata:
+  creationTimestamp: "2026-10-02T22:07:06Z"
+  finalizers:
+  - apifrontend.kubernaut.ai/agentsession-terminal-close
+  - kubernautagent.kubernaut.ai/agentsession-dispatch-cleanup
+  generation: 1
+  name: as-rr-34d70cf37c03-d7f0cb2c
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: AIAnalysis
+    name: ai-rr-34d70cf37c03-d7f0cb2c
+    uid: d0bcc6b9-4832-4cd5-bb8d-92c1d0e62cff
+  resourceVersion: "25766"
+  uid: b745ee26-84dc-4897-a9b4-28c87193e97b
+spec:
+  businessCategory: standard
+  clusterName: remote-cluster
+  enrichmentResults:
+    businessClassification:
+      businessUnit: engineering
+      criticality: Medium
+      serviceOwner: backend-team
+      slaRequirement: Silver
+    kubernetesContext:
+      cluster:
+        labels:
+          environment: production
+          kubernaut.ai/managed: "true"
+      clusterID: remote-cluster
+      namespace:
+        annotations:
+          kubectl.kubernetes.io/last-applied-configuration: |
+            {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"istio-discovery":"enabled","istio-injection":"enabled","kubernaut.ai/business-unit":"engineering","kubernaut.ai/component":"web-frontend","kubernaut.ai/criticality":"high","kubernaut.ai/environment":"staging","kubernaut.ai/service-owner":"backend-team","kubernaut.ai/sla-tier":"tier-1"},"name":"demo-mesh"}}
+        labels:
+          istio-discovery: enabled
+          istio-injection: enabled
+          kubernaut.ai/business-unit: engineering
+          kubernaut.ai/component: web-frontend
+          kubernaut.ai/criticality: high
+          kubernaut.ai/environment: staging
+          kubernaut.ai/managed: "true"
+          kubernaut.ai/service-owner: backend-team
+          kubernaut.ai/sla-tier: tier-1
+          kubernetes.io/metadata.name: demo-mesh
+        name: demo-mesh
+      workload:
+        annotations:
+          deployment.kubernetes.io/revision: "1"
+          kubectl.kubernetes.io/last-applied-configuration: |
+            {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"api-server"},"name":"api-server","namespace":"demo-mesh"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"api-server"}},"template":{"metadata":{"labels":{"app":"api-server"}},"spec":{"containers":[{"env":[{"name":"CONFIG_PATH","value":"/etc/demo-http-server/config.yaml"}],"image":"quay.io/kubernaut-cicd/demo-http-server:1.0.0","livenessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":3,"periodSeconds":5},"name":"api-server","ports":[{"containerPort":8080,"name":"http"}],"readinessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":2,"periodSeconds":3},"resources":{"limits":{"cpu":"50m","memory":"64Mi"},"requests":{"cpu":"10m","memory":"32Mi"}},"volumeMounts":[{"mountPath":"/etc/demo-http-server/config.yaml","name":"config","subPath":"config.yaml"}]}],"volumes":[{"configMap":{"name":"api-server-config"},"name":"config"}]}}}}
+        kind: Deployment
+        labels:
+          app: api-server
+          kubernaut.ai/managed: "true"
+        name: api-server
+  environment: Staging
+  incidentID: ai-rr-34d70cf37c03-d7f0cb2c
+  priority: P1
+  remediationID: rr-34d70cf37c03-d7f0cb2c
+  remediationRequestRef:
+    name: rr-34d70cf37c03-d7f0cb2c
+    namespace: kubernaut-system
+  resourceKind: Deployment
+  resourceName: api-server
+  resourceNamespace: demo-mesh
+  riskTolerance: medium
+  severity: critical
+  signalAnnotations:
+    description: |
+      The istio_requests_total metric with response_code=403 is rising, indicating inbound HTTP requests are being rejected. Service-to-service communication may be unavailable.
+    summary: |
+      HTTP 403 responses detected for inbound requests in namespace demo-mesh.
+  signalMode: reactive
+  signalName: IstioHighDenyRate
+  signalSource: kubernaut
+  timesOutAt: "2026-10-02T22:17:06Z"
+status:
+  completedAt: "2026-10-02T22:07:31Z"
+  dispatchedAt: "2026-10-02T22:07:07Z"
+  phase: Completed
+  result:
+    detectedLabels:
+      cdiManaged: false
+      gitOpsManaged: false
+      helmManaged: false
+      hpaEnabled: false
+      liveMigratable: false
+      networkIsolated: false
+      pdbProtected: false
+      resourceQuotaConstrained: false
+      stateful: false
+      virtualMachine: false
+    humanReviewReason: rca_incomplete
+    incidentID: ai-rr-34d70cf37c03-d7f0cb2c
+    needsHumanReview: true
+    rootCauseAnalysis:
+      remediationTarget:
+        kind: Deployment
+        name: api-server
+        namespace: demo-mesh
+      severity: critical
+      total_llm_turns: 3
+      total_tool_calls: 31
+    timestamp: "2026-10-02T22:07:31Z"
+    warnings:
+    - 'Human review required: tool budget exhausted during RCA (maxTurns=40)'
+  sessionID: cb3ec9b7-3b44-4a3d-a84a-f05e36497927

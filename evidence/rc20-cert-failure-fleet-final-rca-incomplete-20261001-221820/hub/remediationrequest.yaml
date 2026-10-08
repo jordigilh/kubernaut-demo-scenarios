@@ -1,0 +1,133 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationRequest
+metadata:
+  annotations:
+    kubernaut.ai/created-at: "2026-10-02T02:16:03Z"
+  creationTimestamp: "2026-10-02T02:16:03Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/component: remediation
+    app.kubernetes.io/managed-by: gateway-service
+  name: rr-7ab571754c3f-4fe01132
+  namespace: kubernaut-system
+  resourceVersion: "67447"
+  uid: 8e412843-a27b-4a8f-a2de-54491e8a9521
+spec:
+  clusterID: remote-cluster
+  firingTime: "2026-10-02T02:16:02Z"
+  originalPayload: |
+    {"receiver":"gateway-webhook","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"CertManagerCertNotReady","cluster":"remote-cluster","condition":"True","container":"cert-manager-controller","deployment":"demo-app","endpoint":"http-metrics","exported_namespace":"demo-portal","instance":"10.244.0.13:9402","issuer_kind":"ClusterIssuer","issuer_name":"demo-selfsigned-ca","job":"cert-manager","name":"demo-app-cert","namespace":"demo-portal","pod":"cert-manager-54b7dc69c4-r8q2h","prometheus":"monitoring/fleet-spoke","service":"cert-manager","severity":"critical"},"annotations":{"description":"The demo-app-cert Certificate in namespace cert-manager has been in a non-ready state for an extended period. TLS-protected service endpoints may be unavailable or degraded.\n","summary":"Certificate demo-app-cert in namespace cert-manager is not ready.\n"},"startsAt":"2026-10-02T02:16:02.045Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=certmanager_certificate_ready_status%7Bcondition%3D%22True%22%2Cexported_namespace%3D%22demo-portal%22%2Cname%3D%22demo-app-cert%22%7D+%3D%3D+0\u0026g0.tab=1","fingerprint":"75e6beb033e15188"},{"status":"firing","labels":{"alertname":"ContainerOOMKilling","cluster":"remote-cluster","container":"worker","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-analytics","pod":"analytics-worker-776f4b975b-kxg8w","prometheus":"monitoring/fleet-spoke","reason":"OOMKilled","service":"kube-state-metrics","severity":"critical","uid":"3ed5259b-f96a-4541-b41c-6c7d1c7fd9ad"},"annotations":{"description":"A container in namespace demo-analytics was terminated due to exceeding memory limits.","summary":"Container worker in pod analytics-worker-776f4b975b-kxg8w was OOMKilled."},"startsAt":"2026-10-02T00:00:29.963Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=kube_pod_container_status_last_terminated_reason%7Bnamespace%3D%22demo-analytics%22%2Creason%3D%22OOMKilled%22%7D+%3E+0\u0026g0.tab=1","fingerprint":"103f9e2beb830951"},{"status":"firing","labels":{"alertname":"KubeDeploymentRolloutStuck","cluster":"remote-cluster","condition":"Progressing","container":"kube-state-metrics","deployment":"checkout-api","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-shipping","pod":"kube-state-metrics-78f5b5f8f9-6jj6k","prometheus":"monitoring/fleet-spoke","service":"kube-state-metrics","severity":"critical","status":"false"},"annotations":{"description":"A deployment rollout in namespace demo-shipping has stalled. New pods are not reaching Ready state.\n","summary":"Deployment checkout-api in namespace demo-shipping rollout is not progressing.\n"},"startsAt":"2026-10-02T00:00:23.285Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=kube_deployment_status_condition%7Bcondition%3D%22Progressing%22%2Cdeployment%3D%22checkout-api%22%2Cnamespace%3D%22demo-shipping%22%2Cstatus%3D%22false%22%7D+%3D%3D+1\u0026g0.tab=1","fingerprint":"c60f8b2a2b9428f9"}],"notification_reason":"new alerts added","groupLabels":{},"commonLabels":{"cluster":"remote-cluster","endpoint":"http-metrics","prometheus":"monitoring/fleet-spoke","severity":"critical"},"commonAnnotations":{},"routeLabels":{},"externalURL":"http://alertmanager-79c7f74c47-cjwgb:9093","version":"4","groupKey":"{}:{}","truncatedAlerts":0}
+  providerData: '{"labels":{"alertname":"CertManagerCertNotReady","cluster":"remote-cluster","condition":"True","container":"cert-manager-controller","deployment":"demo-app","endpoint":"http-metrics","exported_namespace":"demo-portal","instance":"10.244.0.13:9402","issuer_kind":"ClusterIssuer","issuer_name":"demo-selfsigned-ca","job":"cert-manager","name":"demo-app-cert","namespace":"demo-portal","pod":"cert-manager-54b7dc69c4-r8q2h","prometheus":"monitoring/fleet-spoke","service":"cert-manager","severity":"critical"},"namespace":"demo-portal"}'
+  receivedTime: "2026-10-02T02:16:02Z"
+  severity: critical
+  signalAnnotations:
+    description: |
+      The demo-app-cert Certificate in namespace cert-manager has been in a non-ready state for an extended period. TLS-protected service endpoints may be unavailable or degraded.
+    summary: |
+      Certificate demo-app-cert in namespace cert-manager is not ready.
+  signalFingerprint: 7ab571754c3f303c99d1fa5c8c977d3c8167cd8641cbc9d389c7df9fd26f0ea4
+  signalLabels:
+    alertname: CertManagerCertNotReady
+    cluster: remote-cluster
+    condition: "True"
+    container: cert-manager-controller
+    deployment: demo-app
+    endpoint: http-metrics
+    exported_namespace: demo-portal
+    instance: 10.244.0.13:9402
+    issuer_kind: ClusterIssuer
+    issuer_name: demo-selfsigned-ca
+    job: cert-manager
+    name: demo-app-cert
+    namespace: demo-portal
+    pod: cert-manager-54b7dc69c4-r8q2h
+    prometheus: monitoring/fleet-spoke
+    service: cert-manager
+    severity: critical
+  signalName: CertManagerCertNotReady
+  signalSource: prometheus
+  signalType: alert
+  targetResource:
+    kind: Deployment
+    name: demo-app
+    namespace: demo-portal
+  targetType: kubernetes
+status:
+  completedAt: "2026-10-02T02:16:56Z"
+  completionStatus:
+    notificationRequestRefs:
+    - apiVersion: notification.kubernaut.ai/v1alpha1
+      kind: NotificationRequest
+      name: nr-manual-review-rr-7ab571754c3f-4fe01132
+      namespace: kubernaut-system
+    notificationStatus: Sent
+    outcome: ManualReviewRequired
+    requiresManualReview: true
+  conditions:
+  - lastTransitionTime: "2026-10-02T02:16:03Z"
+    message: SignalProcessing CRD sp-rr-7ab571754c3f-4fe01132 created successfully
+    observedGeneration: 1
+    reason: SignalProcessingCreated
+    status: "True"
+    type: SignalProcessingReady
+  - lastTransitionTime: "2026-10-02T02:16:56Z"
+    message: Manual review required
+    observedGeneration: 1
+    reason: ManualReviewRequired
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-10-02T02:16:03Z"
+    message: AIAnalysis CRD ai-rr-7ab571754c3f-4fe01132 created successfully
+    observedGeneration: 1
+    reason: AIAnalysisCreated
+    status: "True"
+    type: AIAnalysisReady
+  - lastTransitionTime: "2026-10-02T02:16:03Z"
+    message: SignalProcessing completed successfully
+    observedGeneration: 1
+    reason: SignalProcessingSucceeded
+    status: "True"
+    type: SignalProcessingComplete
+  - lastTransitionTime: "2026-10-02T02:16:56Z"
+    message: AIAnalysis failed
+    observedGeneration: 1
+    reason: AIAnalysisFailed
+    status: "False"
+    type: AIAnalysisComplete
+  - lastTransitionTime: "2026-10-02T02:16:56Z"
+    message: Notification delivered successfully
+    observedGeneration: 1
+    reason: DeliverySucceeded
+    status: "True"
+    type: NotificationDelivered
+  deduplication:
+    firstSeenAt: "2026-10-02T02:16:03Z"
+    lastSeenAt: "2026-10-02T02:16:03Z"
+    occurrenceCount: 1
+  observedGeneration: 1
+  operatorAudit:
+    lastModifiedAt: "2026-10-02T02:16:03Z"
+    lastModifiedBy: system:serviceaccount:kubernaut-system:remediationorchestrator-controller
+  overallPhase: Completed
+  phaseProgress:
+    aiAnalysisRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: AIAnalysis
+      name: ai-rr-7ab571754c3f-4fe01132
+      namespace: kubernaut-system
+    analyzingStartTime: "2026-10-02T02:16:03Z"
+    processingStartTime: "2026-10-02T02:16:03Z"
+    signalProcessingRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: SignalProcessing
+      name: sp-rr-7ab571754c3f-4fe01132
+      namespace: kubernaut-system
+  retentionExpiryTime: "2026-10-03T02:16:56Z"
+  routingStatus:
+    nextAllowedExecution: "2026-10-03T02:16:56Z"
+  startTime: "2026-10-02T02:16:03Z"
+  timeoutConfig:
+    analyzing: 10m0s
+    executing: 30m0s
+    global: 1h0m0s
+    processing: 5m0s

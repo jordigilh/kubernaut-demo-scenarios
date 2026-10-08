@@ -1,0 +1,18 @@
+- app_version: 1.0.0
+  chart: demo-storefront-0.1.0
+  description: Install complete
+  revision: 1
+  status: superseded
+  updated: "2026-10-01T16:10:01.938194-04:00"
+- app_version: 1.0.0
+  chart: demo-storefront-0.1.0
+  description: Upgrade complete
+  revision: 2
+  status: superseded
+  updated: "2026-10-01T16:10:28.724971-04:00"
+- app_version: 1.0.0
+  chart: demo-storefront-0.1.0
+  description: Rollback to 1
+  revision: 3
+  status: deployed
+  updated: "2026-10-01T20:12:07.358243372Z"

@@ -1,0 +1,19 @@
+LAST SEEN   TYPE      REASON              OBJECT                         MESSAGE
+9m35s       Normal    Scheduled           pod/worker-68f8898c86-ndgqv    Successfully assigned demo-workers/worker-68f8898c86-ndgqv to kubernaut-remote-cluster-control-plane
+9m35s       Normal    ScalingReplicaSet   deployment/worker              Scaled up replica set worker-68f8898c86 from 0 to 2
+9m35s       Normal    SuccessfulCreate    replicaset/worker-68f8898c86   Created pod: worker-68f8898c86-r78mq
+9m35s       Normal    SuccessfulCreate    replicaset/worker-68f8898c86   Created pod: worker-68f8898c86-ndgqv
+9m35s       Normal    Scheduled           pod/worker-68f8898c86-r78mq    Successfully assigned demo-workers/worker-68f8898c86-r78mq to kubernaut-remote-cluster-control-plane
+9m34s       Normal    Created             pod/worker-68f8898c86-r78mq    Container created
+9m34s       Normal    Pulled              pod/worker-68f8898c86-ndgqv    Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already present on machine and can be accessed by the pod
+9m34s       Normal    Created             pod/worker-68f8898c86-ndgqv    Container created
+9m34s       Normal    Pulled              pod/worker-68f8898c86-r78mq    Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already present on machine and can be accessed by the pod
+9m33s       Normal    Started             pod/worker-68f8898c86-ndgqv    Container started
+9m33s       Normal    Started             pod/worker-68f8898c86-r78mq    Container started
+9m10s       Normal    SuccessfulCreate    replicaset/worker-5bdbf847dd   Created pod: worker-5bdbf847dd-qqps9
+9m10s       Normal    ScalingReplicaSet   deployment/worker              Scaled up replica set worker-5bdbf847dd from 0 to 1
+9m9s        Normal    Scheduled           pod/worker-5bdbf847dd-qqps9    Successfully assigned demo-workers/worker-5bdbf847dd-qqps9 to kubernaut-remote-cluster-control-plane
+3m18s       Normal    Created             pod/worker-5bdbf847dd-qqps9    Container created
+3m18s       Normal    Pulled              pod/worker-5bdbf847dd-qqps9    Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already present on machine and can be accessed by the pod
+3m16s       Normal    Started             pod/worker-5bdbf847dd-qqps9    Container started
+43s         Warning   BackOff             pod/worker-5bdbf847dd-qqps9    Back-off restarting failed container worker in pod worker-5bdbf847dd-qqps9_demo-workers(05c8547e-ff49-4375-b856-7c3f757ec7aa)

@@ -1,0 +1,23 @@
+node/kubernaut-remote-cluster-worker-1790996710 uncordoned
+==> [spoke] Deleting scenario resources from /Users/jgil/go/src/github.com/jordigilh/kubernaut-demo-scenarios/scenarios/node-notready/manifests...
+namespace "demo-compute" deleted
+configmap "web-service-config" deleted from demo-compute namespace
+service "web-service" deleted from demo-compute namespace
+deployment.apps "web-service" deleted from demo-compute namespace
+prometheusrule.monitoring.coreos.com "demo-app-alerts" deleted from demo-compute namespace
+servicemonitor.monitoring.coreos.com "demo-app-metrics" deleted from demo-compute namespace
+==> [true] Deleting namespace demo-compute...
+==> Purging pipeline CRDs for signal namespace(s): demo-compute...
+signalprocessing.kubernaut.ai "sp-rr-427a0f3fccea-7842ed4f" deleted from kubernaut-system namespace
+aianalysis.kubernaut.ai "ai-rr-427a0f3fccea-7842ed4f" deleted from kubernaut-system namespace
+workflowexecution.kubernaut.ai "we-rr-427a0f3fccea-7842ed4f" deleted from kubernaut-system namespace
+effectivenessassessment.kubernaut.ai "ea-rr-427a0f3fccea-7842ed4f" deleted from kubernaut-system namespace
+remediationapprovalrequest.kubernaut.ai "rar-rr-427a0f3fccea-7842ed4f" deleted from kubernaut-system namespace
+notificationrequest.kubernaut.ai "nr-approval-rr-427a0f3fccea-7842ed4f" deleted from kubernaut-system namespace
+notificationrequest.kubernaut.ai "nr-completion-rr-427a0f3fccea-7842ed4f" deleted from kubernaut-system namespace
+remediationrequest.kubernaut.ai "rr-427a0f3fccea-7842ed4f" deleted from kubernaut-system namespace
+==> Restarting AlertManager to clear stale notification state...
+deployment.apps/alertmanager restarted
+Waiting for deployment "alertmanager" rollout to finish: 1 old replicas are pending termination...
+Waiting for deployment "alertmanager" rollout to finish: 1 old replicas are pending termination...
+deployment "alertmanager" successfully rolled out

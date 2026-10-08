@@ -1,0 +1,45 @@
+LAST SEEN   TYPE      REASON              OBJECT                             MESSAGE
+11m         Normal    SuccessfulCreate    replicaset/api-server-66d54bf5d7   Created pod: api-server-66d54bf5d7-4pnps
+11m         Normal    Scheduled           pod/api-server-66d54bf5d7-jvgtb    Successfully assigned demo-mesh/api-server-66d54bf5d7-jvgtb to kubernaut-remote-cluster-control-plane
+11m         Normal    ScalingReplicaSet   deployment/traffic-gen             Scaled up replica set traffic-gen-ccbbd8cb6 from 0 to 1
+11m         Normal    SuccessfulCreate    replicaset/traffic-gen-ccbbd8cb6   Created pod: traffic-gen-ccbbd8cb6-ftrgx
+11m         Normal    Scheduled           pod/traffic-gen-ccbbd8cb6-ftrgx    Successfully assigned demo-mesh/traffic-gen-ccbbd8cb6-ftrgx to kubernaut-remote-cluster-control-plane
+11m         Normal    ScalingReplicaSet   deployment/api-server              Scaled up replica set api-server-66d54bf5d7 from 0 to 2
+11m         Normal    SuccessfulCreate    replicaset/api-server-66d54bf5d7   Created pod: api-server-66d54bf5d7-jvgtb
+11m         Normal    Scheduled           pod/api-server-66d54bf5d7-4pnps    Successfully assigned demo-mesh/api-server-66d54bf5d7-4pnps to kubernaut-remote-cluster-control-plane
+11m         Normal    Pulling             pod/api-server-66d54bf5d7-4pnps    Pulling image "docker.io/istio/proxyv2:1.24.3"
+11m         Normal    Pulling             pod/api-server-66d54bf5d7-jvgtb    Pulling image "docker.io/istio/proxyv2:1.24.3"
+11m         Normal    Pulling             pod/traffic-gen-ccbbd8cb6-ftrgx    Pulling image "docker.io/istio/proxyv2:1.24.3"
+10m         Normal    Pulled              pod/api-server-66d54bf5d7-4pnps    Successfully pulled image "docker.io/istio/proxyv2:1.24.3" in 15.533s (15.533s including waiting). Image size: 88700674 bytes.
+10m         Normal    Created             pod/api-server-66d54bf5d7-4pnps    Container created
+10m         Normal    Created             pod/api-server-66d54bf5d7-4pnps    Container created
+10m         Normal    Pulled              pod/api-server-66d54bf5d7-jvgtb    Successfully pulled image "docker.io/istio/proxyv2:1.24.3" in 483ms (16.006s including waiting). Image size: 88700674 bytes.
+10m         Normal    Created             pod/api-server-66d54bf5d7-jvgtb    Container created
+10m         Normal    Started             pod/api-server-66d54bf5d7-jvgtb    Container started
+10m         Normal    Created             pod/traffic-gen-ccbbd8cb6-ftrgx    Container created
+10m         Normal    Pulled              pod/traffic-gen-ccbbd8cb6-ftrgx    Successfully pulled image "docker.io/istio/proxyv2:1.24.3" in 545ms (16.493s including waiting). Image size: 88700674 bytes.
+10m         Normal    Started             pod/api-server-66d54bf5d7-4pnps    Container started
+10m         Normal    Pulled              pod/api-server-66d54bf5d7-4pnps    Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already present on machine and can be accessed by the pod
+10m         Normal    Created             pod/api-server-66d54bf5d7-jvgtb    Container created
+10m         Normal    Pulled              pod/api-server-66d54bf5d7-4pnps    Container image "docker.io/istio/proxyv2:1.24.3" already present on machine and can be accessed by the pod
+10m         Normal    Started             pod/api-server-66d54bf5d7-4pnps    Container started
+10m         Normal    Created             pod/api-server-66d54bf5d7-4pnps    Container created
+10m         Normal    Pulled              pod/api-server-66d54bf5d7-jvgtb    Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already present on machine and can be accessed by the pod
+10m         Normal    Started             pod/traffic-gen-ccbbd8cb6-ftrgx    Container started
+10m         Normal    Pulled              pod/traffic-gen-ccbbd8cb6-ftrgx    Container image "curlimages/curl:8.12.1" already present on machine and can be accessed by the pod
+10m         Normal    Created             pod/traffic-gen-ccbbd8cb6-ftrgx    Container created
+10m         Normal    Started             pod/api-server-66d54bf5d7-4pnps    Container started
+10m         Normal    Created             pod/api-server-66d54bf5d7-jvgtb    Container created
+10m         Normal    Pulled              pod/api-server-66d54bf5d7-jvgtb    Container image "docker.io/istio/proxyv2:1.24.3" already present on machine and can be accessed by the pod
+10m         Normal    Started             pod/api-server-66d54bf5d7-jvgtb    Container started
+10m         Normal    Started             pod/api-server-66d54bf5d7-jvgtb    Container started
+10m         Normal    Started             pod/traffic-gen-ccbbd8cb6-ftrgx    Container started
+10m         Normal    Started             pod/traffic-gen-ccbbd8cb6-ftrgx    Container started
+10m         Normal    Created             pod/traffic-gen-ccbbd8cb6-ftrgx    Container created
+10m         Normal    Pulled              pod/traffic-gen-ccbbd8cb6-ftrgx    Container image "docker.io/istio/proxyv2:1.24.3" already present on machine and can be accessed by the pod
+7m12s       Normal    Killing             pod/traffic-gen-ccbbd8cb6-ftrgx    Stopping container curl-loop
+7m12s       Normal    Killing             pod/traffic-gen-ccbbd8cb6-ftrgx    Stopping container istio-proxy
+7m12s       Normal    SuccessfulDelete    replicaset/traffic-gen-ccbbd8cb6   Deleted pod: traffic-gen-ccbbd8cb6-ftrgx
+7m12s       Normal    ScalingReplicaSet   deployment/traffic-gen             Scaled down replica set traffic-gen-ccbbd8cb6 from 1 to 0
+7m8s        Warning   Unhealthy           pod/traffic-gen-ccbbd8cb6-ftrgx    Readiness probe failed: HTTP probe failed with statuscode: 503
+6m53s       Warning   Unhealthy           pod/traffic-gen-ccbbd8cb6-ftrgx    Readiness probe failed: Get "http://10.244.0.50:15021/healthz/ready": dial tcp 10.244.0.50:15021: connect: connection refused

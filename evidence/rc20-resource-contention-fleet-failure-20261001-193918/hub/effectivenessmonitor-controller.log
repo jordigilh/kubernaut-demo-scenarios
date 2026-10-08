@@ -1,0 +1,16 @@
+{"level":"info","ts":"2026-10-01T23:22:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"hub"}
+{"level":"info","ts":"2026-10-01T23:22:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"prod-east"}
+{"level":"info","ts":"2026-10-01T23:22:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"prod-west"}
+{"level":"info","ts":"2026-10-01T23:22:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"remote-cluster"}
+{"level":"info","ts":"2026-10-01T23:27:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"hub"}
+{"level":"info","ts":"2026-10-01T23:27:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"prod-east"}
+{"level":"info","ts":"2026-10-01T23:27:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"prod-west"}
+{"level":"info","ts":"2026-10-01T23:27:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"remote-cluster"}
+{"level":"info","ts":"2026-10-01T23:32:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"hub"}
+{"level":"info","ts":"2026-10-01T23:32:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"prod-east"}
+{"level":"info","ts":"2026-10-01T23:32:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"prod-west"}
+{"level":"info","ts":"2026-10-01T23:32:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"remote-cluster"}
+{"level":"info","ts":"2026-10-01T23:37:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"prod-west"}
+{"level":"info","ts":"2026-10-01T23:37:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"remote-cluster"}
+{"level":"info","ts":"2026-10-01T23:37:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"hub"}
+{"level":"info","ts":"2026-10-01T23:37:52Z","logger":"setup.fleet-mcp.crd-watcher","msg":"event channel full, dropping event","type":"Updated","cluster":"prod-east"}

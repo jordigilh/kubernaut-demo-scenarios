@@ -1,0 +1,152 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: AgentSession
+metadata:
+  creationTimestamp: "2026-10-03T00:42:29Z"
+  finalizers:
+  - apifrontend.kubernaut.ai/agentsession-terminal-close
+  - kubernautagent.kubernaut.ai/agentsession-dispatch-cleanup
+  generation: 1
+  name: as-rr-1c290d778763-4c59d6de
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: AIAnalysis
+    name: ai-rr-1c290d778763-4c59d6de
+    uid: 81310ea9-1b5a-45fb-bbad-d400895fffc1
+  resourceVersion: "50268"
+  uid: 63f2c378-6bbc-4740-b8b4-4f1d074a4531
+spec:
+  businessCategory: standard
+  clusterName: remote-cluster
+  enrichmentResults:
+    businessClassification:
+      businessUnit: engineering
+      criticality: High
+      serviceOwner: backend-team
+      slaRequirement: Gold
+    kubernetesContext:
+      cluster:
+        labels:
+          environment: production
+          kubernaut.ai/managed: "true"
+      clusterID: remote-cluster
+      namespace:
+        annotations:
+          kubectl.kubernetes.io/last-applied-configuration: |
+            {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"kubernaut.ai/business-unit":"engineering","kubernaut.ai/component":"backend-api","kubernaut.ai/criticality":"high","kubernaut.ai/environment":"production","kubernaut.ai/managed":"true","kubernaut.ai/service-owner":"backend-team","kubernaut.ai/sla-tier":"tier-1"},"name":"demo-backend"}}
+        labels:
+          kubernaut.ai/business-unit: engineering
+          kubernaut.ai/component: backend-api
+          kubernaut.ai/criticality: high
+          kubernaut.ai/environment: production
+          kubernaut.ai/managed: "true"
+          kubernaut.ai/service-owner: backend-team
+          kubernaut.ai/sla-tier: tier-1
+          kubernetes.io/metadata.name: demo-backend
+        name: demo-backend
+      workload:
+        annotations:
+          deployment.kubernetes.io/revision: "2"
+          kubectl.kubernetes.io/last-applied-configuration: |
+            {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"worker","kubernaut.ai/managed":"true"},"name":"worker","namespace":"demo-backend"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"worker"}},"template":{"metadata":{"labels":{"app":"worker"}},"spec":{"containers":[{"env":[{"name":"CONFIG_PATH","value":"/etc/demo-http-server/config.yaml"}],"image":"quay.io/kubernaut-cicd/demo-http-server:1.0.0","livenessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":3,"periodSeconds":5},"name":"worker","ports":[{"containerPort":8080,"name":"http"}],"readinessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":2,"periodSeconds":3},"resources":{"limits":{"cpu":"50m","memory":"64Mi"},"requests":{"cpu":"10m","memory":"32Mi"}},"volumeMounts":[{"mountPath":"/etc/demo-http-server/config.yaml","name":"config","subPath":"config.yaml"}]}],"volumes":[{"configMap":{"name":"worker-config"},"name":"config"}]}}}}
+        kind: Deployment
+        labels:
+          app: worker
+          kubernaut.ai/managed: "true"
+        name: worker
+  environment: Production
+  incidentID: ai-rr-1c290d778763-4c59d6de
+  priority: P0
+  remediationID: rr-1c290d778763-4c59d6de
+  remediationRequestRef:
+    name: rr-1c290d778763-4c59d6de
+    namespace: kubernaut-system
+  resourceKind: Deployment
+  resourceName: worker
+  resourceNamespace: demo-backend
+  riskTolerance: medium
+  severity: critical
+  signalAnnotations:
+    description: |
+      The worker container in namespace demo-backend is being terminated by the kernel OOM killer during startup initialization. The container's memory working set exceeds the configured 64Mi limit within seconds of starting, as the application attempts to load its full dependency graph into memory. The current memory request of 32Mi and limit of 64Mi are insufficient for this workload's startup footprint. Repeated OOMKill events are causing the pod to enter CrashLoopBackOff.
+    summary: |
+      Container worker in pod worker-cdcdddbf4-rzdr7 is in CrashLoopBackOff in namespace demo-backend.
+  signalMode: reactive
+  signalName: KubePodCrashLooping
+  signalSource: kubernaut
+  timesOutAt: "2026-10-03T00:52:29Z"
+status:
+  completedAt: "2026-10-03T00:43:33Z"
+  dispatchedAt: "2026-10-03T00:42:29Z"
+  phase: Completed
+  result:
+    analysis: Deployment revision 2 overrides the worker startup command with an intentional
+      failing shell command, causing immediate exit code 1 and CrashLoopBackOff; the
+      reported OOM diagnosis is unsupported.
+    confidence: 0.88
+    detectedLabels:
+      cdiManaged: false
+      gitOpsManaged: false
+      helmManaged: false
+      hpaEnabled: false
+      liveMigratable: false
+      networkIsolated: false
+      pdbProtected: false
+      resourceQuotaConstrained: false
+      stateful: false
+      virtualMachine: false
+    incidentID: ai-rr-1c290d778763-4c59d6de
+    isActionable: true
+    rootCauseAnalysis:
+      contributing_factors:
+      - Deployment demo-backend/worker revision 2 introduced the failing startup command
+        while retaining the existing image.
+      - The rollout is incomplete, with revision-1 pods ready and one revision-2 pod
+        failing.
+      - Kubernetes status, logs, events, and metrics show no evidence of OOM termination
+        or node memory pressure.
+      remediationTarget:
+        api_version: apps/v1
+        kind: Deployment
+        name: worker
+        namespace: demo-backend
+      severity: critical
+      signal_name: KubePodCrashLooping
+      summary: Deployment revision 2 overrides the worker startup command with an
+        intentional failing shell command, causing immediate exit code 1 and CrashLoopBackOff;
+        the reported OOM diagnosis is unsupported.
+      total_llm_turns: 7
+      total_tool_calls: 20
+    selectedWorkflow:
+      action_type: HelmRollback
+      confidence: 0.88
+      declared_parameter_names:
+        TARGET_RESOURCE_KIND: true
+        TARGET_RESOURCE_NAME: true
+        TARGET_RESOURCE_NAMESPACE: true
+      execution_bundle: quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:d7739e5bcf1270e32ec36ed7a6a528fe99e4d12a3fa2d55d9eaaddee2a107d25
+      execution_engine: job
+      parameters:
+        TARGET_RESOURCE_API_VERSION: apps/v1
+        TARGET_RESOURCE_KIND: Deployment
+        TARGET_RESOURCE_NAME: worker
+        TARGET_RESOURCE_NAMESPACE: demo-backend
+      rationale: The catalog's preferred and highest-ranked action is HelmRollback,
+        and the RCA identifies a bad revision-specific startup command introduced
+        by a deployment change with a previous revision still healthy. The workflow
+        schema requires no additional parameters. This selection assumes the Deployment
+        is Helm-managed and that the prior Helm revision is healthy, as required by
+        the workflow preconditions.
+      service_account_name: helm-rollback-v1-runner
+      version: 1.6.4
+      workflow_id: 0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24
+      workflow_name: helm-rollback-v1
+    timestamp: "2026-10-03T00:43:33Z"
+    validationAttemptsHistory:
+    - attempt: 1
+      isValid: true
+      timestamp: "2026-10-03T00:43:33Z"
+      workflowID: 0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24
+  sessionID: debb59f7-fec6-4307-8f1c-eea9ba94aea5

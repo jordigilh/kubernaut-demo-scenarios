@@ -1,0 +1,122 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationRequest
+metadata:
+  annotations:
+    kubernaut.ai/created-at: "2026-10-02T22:07:06Z"
+  creationTimestamp: "2026-10-02T22:07:06Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/component: remediation
+    app.kubernetes.io/managed-by: gateway-service
+  name: rr-34d70cf37c03-d7f0cb2c
+  namespace: kubernaut-system
+  resourceVersion: "25785"
+  uid: 03b5582b-679a-44fd-a353-e6f7d10644a7
+spec:
+  clusterID: remote-cluster
+  firingTime: "2026-10-02T21:57:38Z"
+  originalPayload: |
+    {"receiver":"gateway-webhook","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"IstioHighDenyRate","cluster":"remote-cluster","deployment":"api-server","namespace":"demo-mesh","prometheus":"monitoring/fleet-spoke","severity":"critical"},"annotations":{"description":"The istio_requests_total metric with response_code=403 is rising, indicating inbound HTTP requests are being rejected. Service-to-service communication may be unavailable.\n","summary":"HTTP 403 responses detected for inbound requests in namespace demo-mesh.\n"},"startsAt":"2026-10-02T21:57:38.567Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=sum+by+%28namespace%29+%28rate%28istio_requests_total%7Bnamespace%3D%22demo-mesh%22%2Cresponse_code%3D%22403%22%7D%5B5m%5D%29%29+%3E+0\u0026g0.tab=1","fingerprint":"2e96f446b9092310"},{"status":"firing","labels":{"alertname":"IstioRequestsUnauthorized","cluster":"remote-cluster","deployment":"api-server","namespace":"demo-mesh","prometheus":"monitoring/fleet-spoke","severity":"critical"},"annotations":{"description":"Inbound HTTP requests to workloads in namespace demo-mesh are being rejected at a sustained rate, causing service unavailability for clients.\n","summary":"Sustained HTTP 403 responses detected in namespace demo-mesh.\n"},"startsAt":"2026-10-02T21:57:38.567Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=sum+by+%28namespace%29+%28rate%28istio_requests_total%7Bnamespace%3D%22demo-mesh%22%2Cresponse_code%3D%22403%22%7D%5B2m%5D%29%29+%3E+0.1\u0026g0.tab=1","fingerprint":"33b77ab9a9ef3edc"},{"status":"firing","labels":{"alertname":"IstioHighDenyRate","cluster":"remote-cluster","deployment":"api-server","namespace":"demo-mesh","prometheus":"monitoring/fleet-spoke","retry":"chart-fix-20261002","severity":"critical"},"annotations":{"description":"The istio_requests_total metric with response_code=403 is rising, indicating inbound HTTP requests are being rejected. Service-to-service communication may be unavailable.\n","summary":"HTTP 403 responses detected for inbound requests in namespace demo-mesh.\n"},"startsAt":"2026-10-02T22:07:01.164Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=sum+by+%28namespace%29+%28rate%28istio_requests_total%7Bnamespace%3D%22demo-mesh%22%2Cresponse_code%3D%22403%22%7D%5B5m%5D%29%29+%3E+0\u0026g0.tab=1","fingerprint":"45e84c35df66a840"},{"status":"firing","labels":{"alertname":"IstioRequestsUnauthorized","cluster":"remote-cluster","deployment":"api-server","namespace":"demo-mesh","prometheus":"monitoring/fleet-spoke","retry":"chart-fix-20261002","severity":"critical"},"annotations":{"description":"Inbound HTTP requests to workloads in namespace demo-mesh are being rejected at a sustained rate, causing service unavailability for clients.\n","summary":"Sustained HTTP 403 responses detected in namespace demo-mesh.\n"},"startsAt":"2026-10-02T22:07:01.164Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=sum+by+%28namespace%29+%28rate%28istio_requests_total%7Bnamespace%3D%22demo-mesh%22%2Cresponse_code%3D%22403%22%7D%5B2m%5D%29%29+%3E+0.1\u0026g0.tab=1","fingerprint":"fe945ada4dfce34c"}],"notification_reason":"new alerts added","groupLabels":{},"commonLabels":{"cluster":"remote-cluster","deployment":"api-server","namespace":"demo-mesh","prometheus":"monitoring/fleet-spoke","severity":"critical"},"commonAnnotations":{},"routeLabels":{},"externalURL":"http://alertmanager-7d8c7db59d-bknjw:9093","version":"4","groupKey":"{}:{}","truncatedAlerts":0}
+  providerData: '{"labels":{"alertname":"IstioHighDenyRate","cluster":"remote-cluster","deployment":"api-server","namespace":"demo-mesh","prometheus":"monitoring/fleet-spoke","severity":"critical"},"namespace":"demo-mesh"}'
+  receivedTime: "2026-10-02T22:07:05Z"
+  severity: critical
+  signalAnnotations:
+    description: |
+      The istio_requests_total metric with response_code=403 is rising, indicating inbound HTTP requests are being rejected. Service-to-service communication may be unavailable.
+    summary: |
+      HTTP 403 responses detected for inbound requests in namespace demo-mesh.
+  signalFingerprint: 34d70cf37c03fefc4ebe36560d42b94db1fbab39d27ae7f83d7f12134d135d75
+  signalLabels:
+    alertname: IstioHighDenyRate
+    cluster: remote-cluster
+    deployment: api-server
+    namespace: demo-mesh
+    prometheus: monitoring/fleet-spoke
+    severity: critical
+  signalName: IstioHighDenyRate
+  signalSource: prometheus
+  signalType: alert
+  targetResource:
+    kind: Deployment
+    name: api-server
+    namespace: demo-mesh
+  targetType: kubernetes
+status:
+  completedAt: "2026-10-02T22:07:31Z"
+  completionStatus:
+    notificationRequestRefs:
+    - apiVersion: notification.kubernaut.ai/v1alpha1
+      kind: NotificationRequest
+      name: nr-manual-review-rr-34d70cf37c03-d7f0cb2c
+      namespace: kubernaut-system
+    notificationStatus: Sent
+    outcome: ManualReviewRequired
+    requiresManualReview: true
+  conditions:
+  - lastTransitionTime: "2026-10-02T22:07:06Z"
+    message: SignalProcessing CRD sp-rr-34d70cf37c03-d7f0cb2c created successfully
+    observedGeneration: 1
+    reason: SignalProcessingCreated
+    status: "True"
+    type: SignalProcessingReady
+  - lastTransitionTime: "2026-10-02T22:07:31Z"
+    message: Manual review required
+    observedGeneration: 1
+    reason: ManualReviewRequired
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-10-02T22:07:06Z"
+    message: AIAnalysis CRD ai-rr-34d70cf37c03-d7f0cb2c created successfully
+    observedGeneration: 1
+    reason: AIAnalysisCreated
+    status: "True"
+    type: AIAnalysisReady
+  - lastTransitionTime: "2026-10-02T22:07:06Z"
+    message: SignalProcessing completed successfully
+    observedGeneration: 1
+    reason: SignalProcessingSucceeded
+    status: "True"
+    type: SignalProcessingComplete
+  - lastTransitionTime: "2026-10-02T22:07:31Z"
+    message: AIAnalysis failed
+    observedGeneration: 1
+    reason: AIAnalysisFailed
+    status: "False"
+    type: AIAnalysisComplete
+  - lastTransitionTime: "2026-10-02T22:07:31Z"
+    message: Notification delivered successfully
+    observedGeneration: 1
+    reason: DeliverySucceeded
+    status: "True"
+    type: NotificationDelivered
+  deduplication:
+    firstSeenAt: "2026-10-02T22:07:06Z"
+    lastSeenAt: "2026-10-02T22:07:06Z"
+    occurrenceCount: 4
+  observedGeneration: 1
+  operatorAudit:
+    lastModifiedAt: "2026-10-02T22:07:06Z"
+    lastModifiedBy: system:serviceaccount:kubernaut-system:remediationorchestrator-controller
+  overallPhase: Completed
+  phaseProgress:
+    aiAnalysisRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: AIAnalysis
+      name: ai-rr-34d70cf37c03-d7f0cb2c
+      namespace: kubernaut-system
+    analyzingStartTime: "2026-10-02T22:07:06Z"
+    processingStartTime: "2026-10-02T22:07:06Z"
+    signalProcessingRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: SignalProcessing
+      name: sp-rr-34d70cf37c03-d7f0cb2c
+      namespace: kubernaut-system
+  retentionExpiryTime: "2026-10-03T22:07:31Z"
+  routingStatus:
+    nextAllowedExecution: "2026-10-03T22:07:31Z"
+  startTime: "2026-10-02T22:07:06Z"
+  timeoutConfig:
+    analyzing: 10m0s
+    executing: 30m0s
+    global: 1h0m0s
+    processing: 5m0s

@@ -1,0 +1,143 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: AIAnalysis
+metadata:
+  creationTimestamp: "2026-10-03T03:07:24Z"
+  finalizers:
+  - kubernaut.ai/finalizer
+  generation: 1
+  name: ai-rr-825b58c1ca42-bef00bc0
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RemediationRequest
+    name: rr-825b58c1ca42-bef00bc0
+    uid: 4d6456c2-0887-4fdf-be8e-9a36fb10d212
+  resourceVersion: "72590"
+  uid: 40be0fc4-83c9-4452-979a-97d9aee7ec1d
+spec:
+  analysisRequest:
+    analysisTypes:
+    - Investigation
+    - RootCause
+    - WorkflowSelection
+    signalContext:
+      businessPriority: P2
+      enrichmentResults:
+        businessClassification:
+          businessUnit: engineering
+          criticality: Medium
+          serviceOwner: infra-team
+          slaRequirement: Silver
+        kubernetesContext:
+          cluster:
+            labels:
+              environment: production
+              kubernaut.ai/managed: "true"
+          clusterID: remote-cluster
+          namespace:
+            annotations:
+              kubectl.kubernetes.io/last-applied-configuration: |
+                {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"kubernaut.ai/business-unit":"engineering","kubernaut.ai/component":"backend-api","kubernaut.ai/criticality":"medium","kubernaut.ai/environment":"staging","kubernaut.ai/managed":"true","kubernaut.ai/service-owner":"infra-team","kubernaut.ai/sla-tier":"tier-2"},"name":"demo-scheduler"}}
+            labels:
+              kubernaut.ai/business-unit: engineering
+              kubernaut.ai/component: backend-api
+              kubernaut.ai/criticality: medium
+              kubernaut.ai/environment: staging
+              kubernaut.ai/managed: "true"
+              kubernaut.ai/service-owner: infra-team
+              kubernaut.ai/sla-tier: tier-2
+              kubernetes.io/metadata.name: demo-scheduler
+            name: demo-scheduler
+          workload:
+            annotations:
+              deployment.kubernetes.io/revision: "1"
+              kubectl.kubernetes.io/last-applied-configuration: |
+                {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"batch-processor","kubernaut.ai/managed":"true"},"name":"batch-processor","namespace":"demo-scheduler"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"batch-processor"}},"template":{"metadata":{"labels":{"app":"batch-processor"}},"spec":{"containers":[{"env":[{"name":"CONFIG_PATH","value":"/etc/demo-http-server/config.yaml"}],"image":"quay.io/kubernaut-cicd/demo-http-server:1.0.0","livenessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":3,"periodSeconds":5},"name":"processor","ports":[{"containerPort":8080,"name":"http"}],"readinessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":2,"periodSeconds":3},"resources":{"limits":{"cpu":"50m","memory":"64Mi"},"requests":{"cpu":"10m","memory":"32Mi"}},"volumeMounts":[{"mountPath":"/etc/demo-http-server/config.yaml","name":"config","subPath":"config.yaml"}]}],"nodeSelector":{"kubernaut.ai/workload-pool":"true"},"volumes":[{"configMap":{"name":"batch-processor-config"},"name":"config"}]}}}}
+            kind: Deployment
+            labels:
+              app: batch-processor
+              kubernaut.ai/managed: "true"
+            name: batch-processor
+      environment: Staging
+      fingerprint: 825b58c1ca422c19842a3fd9989ca18d0226c34aafd140bf6b4b8a02da73c22a
+      severity: warning
+      signalAnnotations:
+        description: |
+          One or more pods in namespace demo-scheduler are in Pending state and have not been assigned to a node. Workload availability may be degraded.
+        summary: |
+          Pod batch-processor-6547d9848-wbxfp in namespace demo-scheduler has been unscheduled for an extended period.
+      signalMode: reactive
+      signalName: KubePodNotScheduled
+      targetResource:
+        kind: Deployment
+        name: batch-processor
+        namespace: demo-scheduler
+  clusterID: remote-cluster
+  remediationId: rr-825b58c1ca42-bef00bc0
+  remediationRequestRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: RemediationRequest
+    name: rr-825b58c1ca42-bef00bc0
+    namespace: kubernaut-system
+    uid: 4d6456c2-0887-4fdf-be8e-9a36fb10d212
+  timesOutAt: "2026-10-03T03:17:24Z"
+status:
+  completedAt: "2026-10-03T03:07:37Z"
+  conditions:
+  - lastTransitionTime: "2026-10-03T03:07:24Z"
+    message: AgentSession as-rr-825b58c1ca42-bef00bc0 created
+    observedGeneration: 1
+    reason: SessionCreated
+    status: "True"
+    type: InvestigationSessionReady
+  - lastTransitionTime: "2026-10-03T03:07:37Z"
+    message: |-
+      investigation failed: RCA invocation: rca LLM call turn 1: openaicompat: API error (HTTP 400): {
+        "error": {
+          "message": "Invalid value for 'content': expected a string, got null.",
+          "type": "invalid_request_error",
+          "param": "messages.[8].content",
+          "code": null
+        }
+      }
+    observedGeneration: 1
+    reason: InvestigationFailed
+    status: "False"
+    type: InvestigationComplete
+  - lastTransitionTime: "2026-10-03T03:07:37Z"
+    message: |-
+      Analysis failed: investigation failed: RCA invocation: rca LLM call turn 1: openaicompat: API error (HTTP 400): {
+        "error": {
+          "message": "Invalid value for 'content': expected a string, got null.",
+          "type": "invalid_request_error",
+          "param": "messages.[8].content",
+          "code": null
+        }
+      }
+    observedGeneration: 1
+    reason: NotReady
+    status: "False"
+    type: Ready
+  investigationMetadata: {}
+  investigationSession:
+    createdAt: "2026-10-03T03:07:24Z"
+    generation: 0
+    id: as-rr-825b58c1ca42-bef00bc0
+    lastPolled: "2026-10-03T03:07:37Z"
+    pollCount: 3
+  message: |-
+    investigation failed: RCA invocation: rca LLM call turn 1: openaicompat: API error (HTTP 400): {
+      "error": {
+        "message": "Invalid value for 'content': expected a string, got null.",
+        "type": "invalid_request_error",
+        "param": "messages.[8].content",
+        "code": null
+      }
+    }
+  observedGeneration: 1
+  phase: Failed
+  reason: APIError
+  startedAt: "2026-10-03T03:07:24Z"
+  subReason: InvestigationFailed

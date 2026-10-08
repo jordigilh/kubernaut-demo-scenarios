@@ -1,0 +1,828 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-10-03T03:45:33Z"
+    generateName: web-service-f76fdc575-
+    generation: 1
+    labels:
+      app: web-service
+      pod-template-hash: f76fdc575
+    name: web-service-f76fdc575-gfmqc
+    namespace: demo-compute
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: web-service-f76fdc575
+      uid: 24579ff3-6e90-480b-9740-5179724bf5a0
+    resourceVersion: "65579"
+    uid: 293a2b39-e0c7-4897-bc8a-71daa9829ba9
+  spec:
+    containers:
+    - env:
+      - name: CONFIG_PATH
+        value: /etc/demo-http-server/config.yaml
+      image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: web-service
+      ports:
+      - containerPort: 8080
+        name: http
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/demo-http-server/config.yaml
+        name: config
+        subPath: config.yaml
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-grgkr
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-worker-1790996710
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 30
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: web-service-config
+      name: config
+    - name: kube-api-access-grgkr
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 10m
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:34Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:33Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:40Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:40Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:33Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://72dbd1eb66d5bc45af2d31123c713479d84ce54a7a49dd1bdc2afe458e9372db
+      image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+      imageID: quay.io/kubernaut-cicd/demo-http-server@sha256:bfb8c9879b679bd436e1a940864ad318c0bea0d9bb8fc14d35652cab49020b53
+      lastState: {}
+      name: web-service
+      ready: true
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-03T03:45:34Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/demo-http-server/config.yaml
+        name: config
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-grgkr
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.17
+    hostIPs:
+    - ip: 10.89.0.17
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.1.12
+    podIPs:
+    - ip: 10.244.1.12
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        memory: 32Mi
+    startTime: "2026-10-03T03:45:33Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-10-03T03:45:33Z"
+    generateName: web-service-f76fdc575-
+    generation: 1
+    labels:
+      app: web-service
+      pod-template-hash: f76fdc575
+    name: web-service-f76fdc575-n48qc
+    namespace: demo-compute
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: web-service-f76fdc575
+      uid: 24579ff3-6e90-480b-9740-5179724bf5a0
+    resourceVersion: "64877"
+    uid: a7f5a2c4-5d35-4c72-a07a-acc79f1d6559
+  spec:
+    containers:
+    - env:
+      - name: CONFIG_PATH
+        value: /etc/demo-http-server/config.yaml
+      image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: web-service
+      ports:
+      - containerPort: 8080
+        name: http
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/demo-http-server/config.yaml
+        name: config
+        subPath: config.yaml
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-bhm86
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 30
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: web-service-config
+      name: config
+    - name: kube-api-access-bhm86
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 10m
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:34Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:33Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:40Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:40Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:33Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://827c44bb6cc97107219e014470ef4b55db78df82a8c564881cf207b8ceec1616
+      image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+      imageID: quay.io/kubernaut-cicd/demo-http-server@sha256:bfb8c9879b679bd436e1a940864ad318c0bea0d9bb8fc14d35652cab49020b53
+      lastState: {}
+      name: web-service
+      ready: true
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-03T03:45:34Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/demo-http-server/config.yaml
+        name: config
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-bhm86
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.12
+    hostIPs:
+    - ip: 10.89.0.12
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.84
+    podIPs:
+    - ip: 10.244.0.84
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        memory: 32Mi
+    startTime: "2026-10-03T03:45:33Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-10-03T03:45:33Z"
+    generateName: web-service-f76fdc575-
+    generation: 1
+    labels:
+      app: web-service
+      pod-template-hash: f76fdc575
+    name: web-service-f76fdc575-pvhmx
+    namespace: demo-compute
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: web-service-f76fdc575
+      uid: 24579ff3-6e90-480b-9740-5179724bf5a0
+    resourceVersion: "65588"
+    uid: bb0b9696-e54d-4212-8b87-d2a4512ca936
+  spec:
+    containers:
+    - env:
+      - name: CONFIG_PATH
+        value: /etc/demo-http-server/config.yaml
+      image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: web-service
+      ports:
+      - containerPort: 8080
+        name: http
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/demo-http-server/config.yaml
+        name: config
+        subPath: config.yaml
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-lsl4g
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-worker-1790996710
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 30
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: web-service-config
+      name: config
+    - name: kube-api-access-lsl4g
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 10m
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:34Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:33Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:39Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:39Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T03:45:33Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://d05868d9d8a765da768dc5c21ae3234dd57f2102ecd8e94bac80bfc515cd4686
+      image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+      imageID: quay.io/kubernaut-cicd/demo-http-server@sha256:bfb8c9879b679bd436e1a940864ad318c0bea0d9bb8fc14d35652cab49020b53
+      lastState: {}
+      name: web-service
+      ready: true
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-03T03:45:34Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/demo-http-server/config.yaml
+        name: config
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-lsl4g
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.17
+    hostIPs:
+    - ip: 10.89.0.17
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.1.13
+    podIPs:
+    - ip: 10.244.1.13
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        memory: 32Mi
+    startTime: "2026-10-03T03:45:33Z"
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"web-service","kubernaut.ai/managed":"true","kubernaut.ai/metrics":"true"},"name":"web-service","namespace":"demo-compute"},"spec":{"ports":[{"name":"http","port":8080,"targetPort":8080}],"selector":{"app":"web-service"},"type":"ClusterIP"}}
+    creationTimestamp: "2026-10-03T03:45:33Z"
+    labels:
+      app: web-service
+      kubernaut.ai/managed: "true"
+      kubernaut.ai/metrics: "true"
+    name: web-service
+    namespace: demo-compute
+    resourceVersion: "64798"
+    uid: af740fcd-e563-4ba0-a5d3-0f899e3b662c
+  spec:
+    clusterIP: 10.96.74.14
+    clusterIPs:
+    - 10.96.74.14
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: web-service
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"web-service","kubernaut.ai/managed":"true"},"name":"web-service","namespace":"demo-compute"},"spec":{"replicas":3,"selector":{"matchLabels":{"app":"web-service"}},"template":{"metadata":{"labels":{"app":"web-service"}},"spec":{"containers":[{"env":[{"name":"CONFIG_PATH","value":"/etc/demo-http-server/config.yaml"}],"image":"quay.io/kubernaut-cicd/demo-http-server:1.0.0","livenessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":5,"periodSeconds":10},"name":"web-service","ports":[{"containerPort":8080,"name":"http"}],"readinessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":3,"periodSeconds":5},"resources":{"limits":{"cpu":"50m","memory":"64Mi"},"requests":{"cpu":"10m","memory":"32Mi"}},"volumeMounts":[{"mountPath":"/etc/demo-http-server/config.yaml","name":"config","subPath":"config.yaml"}]}],"tolerations":[{"effect":"NoExecute","key":"node.kubernetes.io/not-ready","operator":"Exists","tolerationSeconds":30}],"volumes":[{"configMap":{"name":"web-service-config"},"name":"config"}]}}}}
+    creationTimestamp: "2026-10-03T03:45:33Z"
+    generation: 1
+    labels:
+      app: web-service
+      kubernaut.ai/managed: "true"
+    name: web-service
+    namespace: demo-compute
+    resourceVersion: "65593"
+    uid: 0977dd26-599c-48f7-aeeb-b5ffafd65fcc
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 3
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: web-service
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        labels:
+          app: web-service
+      spec:
+        containers:
+        - env:
+          - name: CONFIG_PATH
+            value: /etc/demo-http-server/config.yaml
+          image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: web-service
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 50m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /etc/demo-http-server/config.yaml
+            name: config
+            subPath: config.yaml
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        tolerations:
+        - effect: NoExecute
+          key: node.kubernetes.io/not-ready
+          operator: Exists
+          tolerationSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: web-service-config
+          name: config
+  status:
+    availableReplicas: 3
+    conditions:
+    - lastTransitionTime: "2026-10-03T03:45:33Z"
+      lastUpdateTime: "2026-10-03T03:45:40Z"
+      message: ReplicaSet "web-service-f76fdc575" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2026-10-03T03:50:55Z"
+      lastUpdateTime: "2026-10-03T03:50:55Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    observedGeneration: 1
+    readyReplicas: 3
+    replicas: 3
+    terminatingReplicas: 0
+    updatedReplicas: 3
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "3"
+      deployment.kubernetes.io/max-replicas: "4"
+      deployment.kubernetes.io/revision: "1"
+    creationTimestamp: "2026-10-03T03:45:33Z"
+    generation: 1
+    labels:
+      app: web-service
+      pod-template-hash: f76fdc575
+    name: web-service-f76fdc575
+    namespace: demo-compute
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: web-service
+      uid: 0977dd26-599c-48f7-aeeb-b5ffafd65fcc
+    resourceVersion: "65591"
+    uid: 24579ff3-6e90-480b-9740-5179724bf5a0
+  spec:
+    replicas: 3
+    selector:
+      matchLabels:
+        app: web-service
+        pod-template-hash: f76fdc575
+    template:
+      metadata:
+        labels:
+          app: web-service
+          pod-template-hash: f76fdc575
+      spec:
+        containers:
+        - env:
+          - name: CONFIG_PATH
+            value: /etc/demo-http-server/config.yaml
+          image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: web-service
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 50m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /etc/demo-http-server/config.yaml
+            name: config
+            subPath: config.yaml
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        tolerations:
+        - effect: NoExecute
+          key: node.kubernetes.io/not-ready
+          operator: Exists
+          tolerationSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: web-service-config
+          name: config
+  status:
+    availableReplicas: 3
+    fullyLabeledReplicas: 3
+    observedGeneration: 1
+    readyReplicas: 3
+    replicas: 3
+    terminatingReplicas: 0
+kind: List
+metadata:
+  resourceVersion: ""

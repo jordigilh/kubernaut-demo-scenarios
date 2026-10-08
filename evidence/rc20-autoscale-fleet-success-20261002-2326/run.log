@@ -1,0 +1,71 @@
+==> [spoke=/Users/jgil/.kube/kubernaut-remote-cluster-config] Deploying scenario resources...
+==> [fleet] Deploying workload manifests to spoke (skipping operator monitoring kinds -- see fleet_deploy_monitoring)...
+    namespace/demo-loadtest created
+    configmap/web-cluster-config created
+    service/web-cluster created
+    deployment.apps/web-cluster created
+  Applied 4 document(s) to spoke, skipped 2 (monitoring kinds).
+  [fleet] kube-state-metrics already deployed on spoke.
+==> [fleet] Deploying monitoring CRDs to spoke (operator-native, no config surgery)...
+    prometheusrule.monitoring.coreos.com/demo-app-alerts created
+    Set cluster=remote-cluster on alert rules in doc-4.yaml.
+    servicemonitor.monitoring.coreos.com/demo-app-metrics created
+  Applied 2 monitoring document(s) to spoke, skipped 4 (workload kinds).
+deployment.apps/web-cluster condition met
+==> [spoke] Starting the host-side provisioner against the spoke...
+  Provisioner PID: 89188
+[provisioner] Watching for ScaleRequest in kubernaut-system... [timeout: 1800s]
+==> [spoke] Scaling web-cluster to 14 replicas to create Pending pods...
+deployment.apps/web-cluster scaled
+NAME                           READY   STATUS    RESTARTS   AGE   IP            NODE                                         NOMINATED NODE   READINESS GATES
+web-cluster-56c7c6856b-57crw   1/1     Running   0          22s   10.244.1.5    kubernaut-remote-cluster-worker-1790996710   <none>           <none>
+web-cluster-56c7c6856b-58vcb   1/1     Running   0          15s   10.244.0.81   kubernaut-remote-cluster-control-plane       <none>           <none>
+web-cluster-56c7c6856b-6lhg2   1/1     Running   0          15s   10.244.0.82   kubernaut-remote-cluster-control-plane       <none>           <none>
+web-cluster-56c7c6856b-9hw2k   1/1     Running   0          15s   10.244.1.7    kubernaut-remote-cluster-worker-1790996710   <none>           <none>
+web-cluster-56c7c6856b-dscmx   1/1     Running   0          15s   10.244.1.8    kubernaut-remote-cluster-worker-1790996710   <none>           <none>
+web-cluster-56c7c6856b-fjdvj   1/1     Running   0          15s   10.244.1.9    kubernaut-remote-cluster-worker-1790996710   <none>           <none>
+web-cluster-56c7c6856b-jljvg   1/1     Running   0          22s   10.244.0.79   kubernaut-remote-cluster-control-plane       <none>           <none>
+web-cluster-56c7c6856b-pgprw   1/1     Running   0          15s   10.244.0.83   kubernaut-remote-cluster-control-plane       <none>           <none>
+web-cluster-56c7c6856b-qkwzs   0/1     Pending   0          15s   <none>        <none>                                       <none>           <none>
+web-cluster-56c7c6856b-vjqsn   1/1     Running   0          15s   10.244.0.80   kubernaut-remote-cluster-control-plane       <none>           <none>
+web-cluster-56c7c6856b-wbvhl   1/1     Running   0          15s   10.244.1.6    kubernaut-remote-cluster-worker-1790996710   <none>           <none>
+web-cluster-56c7c6856b-wf8d6   0/1     Pending   0          15s   <none>        <none>                                       <none>           <none>
+web-cluster-56c7c6856b-wxdnx   0/1     Pending   0          15s   <none>        <none>                                       <none>           <none>
+web-cluster-56c7c6856b-xtscz   1/1     Running   0          15s   10.244.1.10   kubernaut-remote-cluster-worker-1790996710   <none>           <none>
+==> [fleet] Waiting for alert 'KubePodSchedulingFailed' (namespace=demo-loadtest, cluster=remote-cluster) on hub Alertmanager (timeout 600s)...
+  alert 'KubePodSchedulingFailed' (namespace=demo-loadtest, cluster=remote-cluster) is firing.
+==> [fleet] Waiting for alert 'KubePodSchedulingFailed' (namespace=demo-loadtest, cluster=remote-cluster) on hub Alertmanager (timeout 600s)...
+  alert 'KubePodSchedulingFailed' (namespace=demo-loadtest, cluster=remote-cluster) is firing.
+[23:19:49] Waiting for RemediationRequest (target: demo-loadtest)...
+[23:19:49] RemediationRequest rr-157ae5efb2f2-fd846b3b created -> Phase: Analyzing
+[23:19:49] Polling pipeline (timeout: 600s, approval: --auto-approve)...
+[23:19:49] AI Analysis in progress...
+[23:21:32] Phase: Analyzing -> Executing
+
+           AI Analysis
+           ──────────────────────────────────────────
+           Root Cause:    Three web-cluster replicas are Pending because Deployment/web-cluster requests 14 replicas at 2Gi memory each, exceeding the two matching nodes' schedulable memory capacity.
+           Severity:      critical
+           Target:        Deployment/web-cluster (ns: demo-loadtest)
+           Workflow:      4841e667-eac3-5974-9a75-88f17de6ceae (quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:8e7ce7de50a2115bb9d1f0a74ad27bf13f201ceb8cb98285edce9166f894f125)
+           Confidence:    0.95
+           Rationale:     The catalog's higher-ranked capacity workflow, ProvisionNode, was cons...
+           Approval:      not required
+
+[23:21:32] WorkflowExecution running...
+           WFE Phase: Running
+[23:21:43] Phase: Executing -> Verifying
+[23:21:43] EffectivenessAssessment verification in progress...
+[23:26:39] Phase: Verifying -> Completed
+[23:26:39] Pipeline completed (outcome: Remediated)
+[23:26:39] Waiting for EffectivenessAssessment to complete...
+
+           Effectiveness Assessment
+           ──────────────────────────────────────────
+           Phase:         Completed
+           Reason:        Full
+           Message:       Assessment completed: Full
+           Alert Score:   1
+           Health Score:  1
+           Metrics Score: 0.25
+

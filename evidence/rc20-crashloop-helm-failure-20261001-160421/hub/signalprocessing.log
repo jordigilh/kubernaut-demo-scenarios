@@ -1,0 +1,46 @@
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"Starting SignalProcessing Controller","version":"1.6.0-rc20","gitCommit":"d09bacc45c7f82e4aded7eb70e5f3c0ac23362a8","buildDate":"2026-10-01T18:20:02Z"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"Configuration loaded successfully","configPath":"/etc/signalprocessing/config.yaml"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"Log level configured from config file","level":"INFO"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"SignalProcessing controller configuration","metricsAddr":":9090","healthProbeAddr":":8081","enrichmentTimeout":10,"dataStorageURL":"https://data-storage-service.kubernaut-system.svc.cluster.local:8080"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"ambient CA trust injected","caFile":"/etc/tls-ca/ca.crt","sslCertFile":"/tmp/kubernaut-ambient-ca-1477148796.pem"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"configuring audit client","dataStorageURL":"https://data-storage-service.kubernaut-system.svc.cluster.local:8080"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"audit","msg":"Audit store initialized","service":"signalprocessing","buffer_size":10000,"batch_size":100,"flush_interval":1,"max_retries":3}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"Audit store initialized","dataStorageURL":"https://data-storage-service.kubernaut-system.svc.cluster.local:8080","bufferSize":10000,"batchSize":100,"flushInterval":1}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"audit client configured successfully"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"audit.audit-store","msg":"🚀 Audit background writer started","flush_interval":1,"batch_size":100,"buffer_size":10000,"start_time":"2026-10-01T19:56:12.058053495Z"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"evaluator.evaluator","msg":"Policy loaded","policySize":4644}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"evaluator.evaluator","msg":"Policy hot-reloaded","hash":""}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"evaluator.evaluator.file-watcher","msg":"Initial content loaded","path":"/etc/signalprocessing/policies/policy.rego","hash":"ddc50589cc4a08e08af9d5cdd3a1b2738a00f2061ca53673702810dbda35a66c","size":4644}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"evaluator.evaluator.file-watcher","msg":"File watcher started","path":"/etc/signalprocessing/policies/policy.rego","hash":"ddc50589cc4a08e08af9d5cdd3a1b2738a00f2061ca53673702810dbda35a66c","directory":"/etc/signalprocessing/policies"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"Unified policy evaluator started","policyPath":"/etc/signalprocessing/policies/policy.rego","policyHash":"ddc50589cc4a08e08af9d5cdd3a1b2738a00f2061ca53673702810dbda35a66c"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"classifier.signalmode.signalmode","msg":"Signal mode config loaded","mappings":0,"path":"/etc/signalprocessing/proactive-signal-mappings.yaml"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"signal mode classifier configured successfully","configPath":"/etc/signalprocessing/proactive-signal-mappings.yaml"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"signalprocessing metrics configured"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"k8s enricher configured","enrichmentTimeout":10,"cacheTTL":300}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"Fleet MCP Gateway configured, connecting...","endpoint":"http://envoy-mcp-system-mcp-gateway-7ead7c3d.envoy-gateway-system.svc.cluster.local:8080/mcp","oauth2Enabled":true}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"fleet OAuth2 authentication configured (hot-reloadable)","tokenURL":"https://keycloak.idp.svc.cluster.local:8443/realms/kubernaut-demo/protocol/openid-connect/token","secretPath":"/etc/signalprocessing/fleet-oauth2-creds"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"fleet-client.reloadable-oauth2","msg":"OAuth2 TokenSource rebuilt","clientID":"kubernaut-fleet-read","tokenURL":"https://keycloak.idp.svc.cluster.local:8443/realms/kubernaut-demo/protocol/openid-connect/token"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"fleet-client.resilient-mcp-client","msg":"MCP Gateway connection established","endpoint":"http://envoy-mcp-system-mcp-gateway-7ead7c3d.envoy-gateway-system.svc.cluster.local:8080/mcp"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"Fleet MCP Gateway connected, remote enrichment enabled","endpoint":"http://envoy-mcp-system-mcp-gateway-7ead7c3d.envoy-gateway-system.svc.cluster.local:8080/mcp"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"cluster-registry.crd-watcher","msg":"cluster added","id":"remote-cluster","endpoint":""}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"cluster-registry.crd-watcher","msg":"cluster added","id":"hub","endpoint":""}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"cluster-registry.crd-watcher","msg":"cluster added","id":"prod-east","endpoint":""}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"cluster-registry.crd-watcher","msg":"cluster added","id":"prod-west","endpoint":""}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"cluster-registry.crd-watcher","msg":"EAIGWRegistry started and synced","clusters":4}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"Cluster registry started, cluster classification labels enabled","gatewayType":"eaigw","namespace":"mcp-system"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"Fleet readiness gate started","prober_count":2,"ready":true}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"DataStorage readiness gate started","ready":true}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"SignalProcessing status manager initialized (DD-PERF-001 + SP-CACHE-001)"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"SignalProcessing audit manager initialized (Phase 3 refactoring)"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup.ca-reloader.file-watcher","msg":"Initial content loaded","path":"/etc/tls-ca/ca.crt","hash":"8fe5c64b5b0ca711cff32a763191b7a56d30e92facc567f612efe8ac489cb67b","size":554}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup.ca-reloader.file-watcher","msg":"File watcher started","path":"/etc/tls-ca/ca.crt","hash":"8fe5c64b5b0ca711cff32a763191b7a56d30e92facc567f612efe8ac489cb67b","directory":"/etc/tls-ca"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup.log-level-watcher.file-watcher","msg":"Initial content loaded","path":"/etc/signalprocessing/config.yaml","hash":"ff0d97964fd47de3cd8542352684877b19ee4b7486760c8b2d03ef09156de20a","size":1520}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup.log-level-watcher.file-watcher","msg":"File watcher started","path":"/etc/signalprocessing/config.yaml","hash":"ff0d97964fd47de3cd8542352684877b19ee4b7486760c8b2d03ef09156de20a","directory":"/etc/signalprocessing"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"Log level hot-reload watcher started","path":"/etc/signalprocessing/config.yaml"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"setup","msg":"starting manager"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"controller-runtime.metrics","msg":"Starting metrics server"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","logger":"controller-runtime.metrics","msg":"Serving metrics server","bindAddress":":9090","secure":false}
+{"level":"info","ts":"2026-10-01T19:56:12Z","msg":"starting server","name":"health probe","addr":"[::]:8081"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","msg":"Starting EventSource","controller":"signalprocessing-controller","controllerGroup":"kubernaut.ai","controllerKind":"SignalProcessing","source":"kind source: *v1alpha1.SignalProcessing"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","msg":"Starting Controller","controller":"signalprocessing-controller","controllerGroup":"kubernaut.ai","controllerKind":"SignalProcessing"}
+{"level":"info","ts":"2026-10-01T19:56:12Z","msg":"Starting workers","controller":"signalprocessing-controller","controllerGroup":"kubernaut.ai","controllerKind":"SignalProcessing","worker count":1}

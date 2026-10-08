@@ -1,0 +1,168 @@
+time=2026-10-03T16:35:15.126Z level=INFO source=app.go:194 msg="Starting Alertmanager" version="(version=0.34.1, branch=HEAD, revision=73c6bfe7393929211294c1954f30d8ed78e4d0ad)"
+time=2026-10-03T16:35:15.126Z level=INFO source=app.go:196 msg="Build context" build_context="(go=go1.26.8, platform=linux/arm64, user=root@d3b71085e163, date=20260917-07:45:14, tags=netgo)"
+time=2026-10-03T16:35:15.127Z level=DEBUG source=cluster.go:180 msg="resolved peers to following addresses" component=cluster peers=""
+time=2026-10-03T16:35:15.127Z level=INFO source=cluster.go:192 msg="setting advertise address explicitly" component=cluster addr=10.244.0.101 port=9094
+time=2026-10-03T16:35:15.128Z level=DEBUG source=delegate.go:246 msg=NotifyJoin component=cluster node=01M419XAHQYQ0PSDQ6P7X2DEYX addr=10.244.0.101:9094
+time=2026-10-03T16:35:15.129Z level=DEBUG source=nflog.go:363 msg="notification log snapshot file doesn't exist" component=nflog err="open data/nflog: no such file or directory"
+time=2026-10-03T16:35:15.129Z level=DEBUG source=silence.go:553 msg="silences snapshot file doesn't exist" component=silences err="open data/silences: no such file or directory"
+time=2026-10-03T16:35:15.129Z level=DEBUG source=cluster.go:276 msg="joined cluster" component=cluster peers=0
+time=2026-10-03T16:35:15.129Z level=INFO source=cluster.go:682 msg="Waiting for gossip to settle..." component=cluster interval=2s
+time=2026-10-03T16:35:15.214Z level=DEBUG source=app.go:439 msg="app setup" external_url=http://alertmanager-585bc8bd58-ngrnx:9093
+time=2026-10-03T16:35:15.216Z level=DEBUG source=dispatch.go:161 msg="preparing to start" component=dispatcher startTime=2026-10-03T16:35:15.126Z
+time=2026-10-03T16:35:15.216Z level=DEBUG source=dispatch.go:163 msg="setting state" component=dispatcher state=waiting_to_start
+time=2026-10-03T16:35:15.216Z level=DEBUG source=dispatch.go:223 msg="starting alert ingestion worker" component=dispatcher workerID=1
+time=2026-10-03T16:35:15.216Z level=DEBUG source=app.go:514 msg="app setup" route_prefix=/
+time=2026-10-03T16:35:15.216Z level=DEBUG source=dispatch.go:206 msg=started component=dispatcher state=running
+time=2026-10-03T16:35:15.216Z level=DEBUG source=dispatch.go:207 msg="Starting all existing aggregation groups" component=dispatcher
+time=2026-10-03T16:35:15.216Z level=DEBUG source=dispatch.go:223 msg="starting alert ingestion worker" component=dispatcher workerID=0
+time=2026-10-03T16:35:15.216Z level=INFO source=tls_config.go:372 msg="Listening on" address=[::]:9093
+time=2026-10-03T16:35:15.217Z level=INFO source=tls_config.go:375 msg="TLS is disabled." http2=false address=[::]:9093
+time=2026-10-03T16:35:17.130Z level=INFO source=cluster.go:707 msg="gossip not settled" component=cluster polls=0 before=0 now=1 elapsed=2.000299546s
+time=2026-10-03T16:35:19.130Z level=DEBUG source=cluster.go:704 msg="gossip looks settled" component=cluster elapsed=4.000805927s
+time=2026-10-03T16:35:21.130Z level=DEBUG source=cluster.go:704 msg="gossip looks settled" component=cluster elapsed=6.000992598s
+time=2026-10-03T16:35:23.132Z level=DEBUG source=cluster.go:704 msg="gossip looks settled" component=cluster elapsed=8.002839865s
+time=2026-10-03T16:35:25.133Z level=INFO source=cluster.go:699 msg="gossip settled; proceeding" component=cluster elapsed=10.00343158s
+time=2026-10-03T16:35:43.779Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubePodCrashLooping[fbbf243][active]
+time=2026-10-03T16:35:43.780Z level=DEBUG source=dispatch.go:554 msg="Alert is old enough for immediate flush, resetting timer to zero" component=dispatcher aggrGroup={}:{} alert=KubePodCrashLooping fingerprint=fbbf24360f6af798 startsAt=2026-10-03T16:23:13.767Z
+time=2026-10-03T16:35:43.780Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=1 alerts="KubePodCrashLooping: 1"
+time=2026-10-03T16:35:43.780Z level=DEBUG source=webhook.go:89 msg="extracted group key" integration=webhook group_key={}:{}
+time=2026-10-03T16:35:44.142Z level=DEBUG source=retry_stage.go:178 msg="Notify success" component=dispatcher receiver=gateway-webhook integration=webhook[0] aggrGroup={}:{} attempts=1 duration=361.258796ms numAlerts=1 alerts="KubePodCrashLooping: 1"
+time=2026-10-03T16:35:48.780Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=1 alerts="KubePodCrashLooping: 1"
+time=2026-10-03T16:35:49.546Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubeNodeNotReady[c4a7dae][active]
+time=2026-10-03T16:35:53.781Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=2 alerts="KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:35:53.781Z level=DEBUG source=webhook.go:89 msg="extracted group key" integration=webhook group_key={}:{}
+time=2026-10-03T16:35:54.365Z level=DEBUG source=retry_stage.go:178 msg="Notify success" component=dispatcher receiver=gateway-webhook integration=webhook[0] aggrGroup={}:{} attempts=1 duration=583.798511ms numAlerts=2 alerts="KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:35:56.773Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[85cc95e][active]
+time=2026-10-03T16:35:58.781Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=3 alerts="EtcdHighFragmentationRatio: 1, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:35:58.782Z level=DEBUG source=webhook.go:89 msg="extracted group key" integration=webhook group_key={}:{}
+time=2026-10-03T16:35:59.497Z level=DEBUG source=retry_stage.go:178 msg="Notify success" component=dispatcher receiver=gateway-webhook integration=webhook[0] aggrGroup={}:{} attempts=1 duration=714.971155ms numAlerts=3 alerts="EtcdHighFragmentationRatio: 1, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:03.782Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=3 alerts="EtcdHighFragmentationRatio: 1, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:08.782Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=3 alerts="EtcdHighFragmentationRatio: 1, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:11.772Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[5965aea][active]
+time=2026-10-03T16:36:11.772Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[c83d84e][active]
+time=2026-10-03T16:36:13.783Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:13.783Z level=DEBUG source=webhook.go:89 msg="extracted group key" integration=webhook group_key={}:{}
+time=2026-10-03T16:36:14.967Z level=DEBUG source=retry_stage.go:178 msg="Notify success" component=dispatcher receiver=gateway-webhook integration=webhook[0] aggrGroup={}:{} attempts=1 duration=1.183413692s numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:18.784Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:23.785Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:28.786Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:33.786Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:38.786Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:43.787Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:48.788Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:53.789Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:36:58.778Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubePodCrashLooping[fbbf243][active]
+time=2026-10-03T16:36:58.789Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:03.790Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:04.547Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubeNodeNotReady[c4a7dae][active]
+time=2026-10-03T16:37:08.790Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:11.774Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[85cc95e][active]
+time=2026-10-03T16:37:13.791Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:18.792Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:23.792Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:26.773Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[5965aea][active]
+time=2026-10-03T16:37:26.773Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[c83d84e][active]
+time=2026-10-03T16:37:28.793Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:33.794Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:38.795Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:43.796Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:48.797Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:53.798Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:37:58.799Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:38:03.799Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:38:04.547Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubeNodeNotReady[c4a7dae][resolved]
+time=2026-10-03T16:38:08.800Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:38:13.777Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubePodCrashLooping[fbbf243][active]
+time=2026-10-03T16:38:13.801Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:38:18.801Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:38:23.802Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:38:26.772Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[85cc95e][active]
+time=2026-10-03T16:38:28.803Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:38:33.804Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:38:38.805Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:38:41.772Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[5965aea][active]
+time=2026-10-03T16:38:41.772Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[c83d84e][active]
+time=2026-10-03T16:38:43.806Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:38:48.806Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:38:53.807Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:38:58.808Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:03.808Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:08.809Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:13.810Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:18.811Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:19.546Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubeNodeNotReady[c4a7dae][resolved]
+time=2026-10-03T16:39:23.811Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:39:28.777Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubePodCrashLooping[fbbf243][active]
+time=2026-10-03T16:39:28.812Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:33.812Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:38.813Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:41.772Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[85cc95e][active]
+time=2026-10-03T16:39:43.814Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:48.814Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:53.815Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:39:56.775Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[c83d84e][active]
+time=2026-10-03T16:39:56.775Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[5965aea][active]
+time=2026-10-03T16:39:58.816Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:03.816Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:08.817Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:13.818Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:18.819Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:23.820Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:28.821Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:33.822Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:34.546Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubeNodeNotReady[c4a7dae][resolved]
+time=2026-10-03T16:40:38.823Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:40:43.779Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubePodCrashLooping[fbbf243][active]
+time=2026-10-03T16:40:43.824Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:48.824Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:53.825Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:40:56.773Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[85cc95e][active]
+time=2026-10-03T16:40:58.826Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:03.827Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:08.828Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:11.771Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[5965aea][active]
+time=2026-10-03T16:41:11.771Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[c83d84e][active]
+time=2026-10-03T16:41:13.829Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:18.829Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:23.831Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:28.831Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:33.832Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:38.834Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:43.834Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:48.835Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:41:49.546Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubeNodeNotReady[c4a7dae][resolved]
+time=2026-10-03T16:41:53.836Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:41:58.779Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubePodCrashLooping[fbbf243][active]
+time=2026-10-03T16:41:58.836Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:03.837Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:08.838Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:11.773Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[85cc95e][active]
+time=2026-10-03T16:42:13.838Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:17.206Z level=DEBUG source=parse.go:120 msg="Parsing with UTF-8 matchers parser, with fallback to classic matchers parser" input="alertname=\"KubeNodeNotReady\"" origin=api
+time=2026-10-03T16:42:17.206Z level=DEBUG source=parse.go:120 msg="Parsing with UTF-8 matchers parser, with fallback to classic matchers parser" input="namespace=\"demo-compute\"" origin=api
+time=2026-10-03T16:42:17.206Z level=DEBUG source=parse.go:120 msg="Parsing with UTF-8 matchers parser, with fallback to classic matchers parser" input="cluster=\"remote-cluster\"" origin=api
+time=2026-10-03T16:42:18.839Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:23.840Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:26.773Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[c83d84e][active]
+time=2026-10-03T16:42:26.772Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[5965aea][active]
+time=2026-10-03T16:42:28.841Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:33.841Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:38.842Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:43.843Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:48.844Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:53.844Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:42:58.844Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:43:03.846Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:43:04.546Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubeNodeNotReady[c4a7dae][resolved]
+time=2026-10-03T16:43:08.846Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=5 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1, KubeNodeNotReady: 1"
+time=2026-10-03T16:43:13.778Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=KubePodCrashLooping[fbbf243][active]
+time=2026-10-03T16:43:13.847Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:43:18.848Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:43:23.849Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:43:26.773Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[85cc95e][active]
+time=2026-10-03T16:43:28.850Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:43:33.850Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:43:38.850Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"
+time=2026-10-03T16:43:41.772Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[5965aea][active]
+time=2026-10-03T16:43:41.773Z level=DEBUG source=dispatch.go:259 msg="Received alert" component=dispatcher alert=EtcdHighFragmentationRatio[c83d84e][active]
+time=2026-10-03T16:43:43.850Z level=DEBUG source=dispatch.go:934 msg=flushing component=dispatcher aggrGroup={}:{} numAlerts=4 alerts="EtcdHighFragmentationRatio: 3, KubePodCrashLooping: 1"

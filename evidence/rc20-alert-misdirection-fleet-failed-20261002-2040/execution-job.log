@@ -1,0 +1,10 @@
+=== Phase 0: Discover Helm release ===
+Target: Deployment/worker in demo-backend
+Label app.kubernetes.io/instance not found on Deployment/worker.
+Falling back to helm list...
+/scripts/remediate.sh: line 33: [: 0
+0: integer expression expected
+/scripts/remediate.sh: line 36: [: 0
+0: integer expression expected
+ERROR: Multiple Helm releases in demo-backend, cannot auto-select:
+

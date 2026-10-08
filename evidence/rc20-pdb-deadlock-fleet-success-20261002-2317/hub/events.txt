@@ -1,0 +1,56 @@
+LAST SEEN   TYPE      REASON                           OBJECT                                                          MESSAGE
+10m         Normal    PhaseTransition                  signalprocessing/sp-rr-825b58c1ca42-bef00bc0                    Phase transition: Pending → Enriching
+10m         Normal    RemediationCreated               remediationrequest/rr-825b58c1ca42-bef00bc0                     RemediationRequest accepted for signal KubePodNotScheduled
+10m         Normal    PhaseTransition                  remediationrequest/rr-825b58c1ca42-bef00bc0                     Phase transition: Pending → Processing
+10m         Normal    PhaseTransition                  aianalysis/ai-rr-825b58c1ca42-bef00bc0                          Phase transition: Pending → Investigating
+10m         Normal    PhaseTransition                  remediationrequest/rr-825b58c1ca42-bef00bc0                     Phase transition: Processing → Analyzing
+10m         Normal    SignalEnriched                   signalprocessing/sp-rr-825b58c1ca42-bef00bc0                    K8s context enriched: Deployment demo-scheduler/batch-processor
+10m         Normal    PhaseTransition                  signalprocessing/sp-rr-825b58c1ca42-bef00bc0                    Phase transition: Classifying → Categorizing
+10m         Normal    AIAnalysisCreated                aianalysis/ai-rr-825b58c1ca42-bef00bc0                          AIAnalysis processing started
+10m         Normal    SignalProcessed                  signalprocessing/sp-rr-825b58c1ca42-bef00bc0                    Signal processed successfully in 1.07s: P2 Staging alert ready for remediation
+10m         Normal    SessionCreated                   aianalysis/ai-rr-825b58c1ca42-bef00bc0                          AgentSession as-rr-825b58c1ca42-bef00bc0 created
+10m         Normal    PhaseTransition                  signalprocessing/sp-rr-825b58c1ca42-bef00bc0                    Phase transition: Categorizing → Completed
+10m         Normal    PhaseTransition                  signalprocessing/sp-rr-825b58c1ca42-bef00bc0                    Phase transition: Enriching → Classifying
+10m         Warning   RemediationFailed                remediationrequest/rr-825b58c1ca42-bef00bc0                     Remediation failed during AIAnalysis: AIAnalysis failed: investigation failed: RCA invocation: rca LLM call turn 1: openaicompat: API error (HTTP 400): {...
+10m         Normal    PhaseTransition                  aianalysis/ai-rr-825b58c1ca42-bef00bc0                          Phase transition: Investigating → Failed
+10m         Warning   AnalysisFailed                   aianalysis/ai-rr-825b58c1ca42-bef00bc0                          Analysis failed during investigation: investigation failed: RCA invocation: rca LLM call turn 1: openaicompat: API error (HTTP 400): {...
+10m         Normal    ReconcileStarted                 notificationrequest/nr-manual-review-rr-825b58c1ca42-bef00bc0   Started reconciling notification nr-manual-review-rr-825b58c1ca42-bef00bc0
+10m         Normal    NotificationSent                 notificationrequest/nr-manual-review-rr-825b58c1ca42-bef00bc0   Successfully delivered to channel console
+10m         Normal    PhaseTransition                  notificationrequest/nr-manual-review-rr-825b58c1ca42-bef00bc0   Transitioned to Sending phase
+6m44s       Normal    PhaseTransition                  signalprocessing/sp-rr-7e2b686ca561-ca34b5f8                    Phase transition: Enriching → Classifying
+6m44s       Normal    PhaseTransition                  signalprocessing/sp-rr-7e2b686ca561-ca34b5f8                    Phase transition: Pending → Enriching
+6m44s       Normal    PhaseTransition                  aianalysis/ai-rr-7e2b686ca561-ca34b5f8                          Phase transition: Pending → Investigating
+6m44s       Normal    SessionCreated                   aianalysis/ai-rr-7e2b686ca561-ca34b5f8                          AgentSession as-rr-7e2b686ca561-ca34b5f8 created
+6m44s       Normal    SignalProcessed                  signalprocessing/sp-rr-7e2b686ca561-ca34b5f8                    Signal processed successfully in 0.35s: P3 Production alert ready for remediation
+6m44s       Normal    PhaseTransition                  signalprocessing/sp-rr-7e2b686ca561-ca34b5f8                    Phase transition: Categorizing → Completed
+6m44s       Normal    PhaseTransition                  signalprocessing/sp-rr-7e2b686ca561-ca34b5f8                    Phase transition: Classifying → Categorizing
+6m44s       Normal    AIAnalysisCreated                aianalysis/ai-rr-7e2b686ca561-ca34b5f8                          AIAnalysis processing started
+6m44s       Normal    RemediationCreated               remediationrequest/rr-7e2b686ca561-ca34b5f8                     RemediationRequest accepted for signal KubePodDisruptionBudgetAtLimit
+6m44s       Normal    PhaseTransition                  remediationrequest/rr-7e2b686ca561-ca34b5f8                     Phase transition: Pending → Processing
+6m44s       Normal    PhaseTransition                  remediationrequest/rr-7e2b686ca561-ca34b5f8                     Phase transition: Processing → Analyzing
+6m44s       Warning   EnrichmentDegraded               signalprocessing/sp-rr-7e2b686ca561-ca34b5f8                    Enrichment completed in degraded mode: PodDisruptionBudget demo-payments/payment-service-pdb (K8s API unavailable)
+5m46s       Normal    PhaseTransition                  remediationrequest/rr-7e2b686ca561-ca34b5f8                     Phase transition: Analyzing → Executing
+5m46s       Normal    PhaseTransition                  aianalysis/ai-rr-7e2b686ca561-ca34b5f8                          Phase transition: Analyzing → Completed
+5m46s       Normal    PhaseTransition                  aianalysis/ai-rr-7e2b686ca561-ca34b5f8                          Phase transition: Investigating → Analyzing
+5m46s       Normal    InvestigationComplete            aianalysis/ai-rr-7e2b686ca561-ca34b5f8                          Investigation completed successfully, transitioning to Analyzing
+5m46s       Normal    AnalysisCompleted                aianalysis/ai-rr-7e2b686ca561-ca34b5f8                          Analysis completed successfully
+5m45s       Normal    WorkflowValidated                workflowexecution/we-rr-7e2b686ca561-ca34b5f8                   Workflow spec validated: 30d56add-47c3-5735-bdc9-e09c7e9bb2bf (target: demo-payments/Deployment/payment-service)
+5m45s       Normal    PhaseTransition                  workflowexecution/we-rr-7e2b686ca561-ca34b5f8                   Phase transition: Pending → Running
+5m45s       Normal    ExecutionCreated                 workflowexecution/we-rr-7e2b686ca561-ca34b5f8                   Created job execution resource kubernaut-workflows/wfe-23149e6e52c95435
+5m25s       Normal    WorkflowCompleted                workflowexecution/we-rr-7e2b686ca561-ca34b5f8                   Workflow 30d56add-47c3-5735-bdc9-e09c7e9bb2bf completed successfully in &Duration{Duration:21s,}
+5m25s       Normal    PhaseTransition                  workflowexecution/we-rr-7e2b686ca561-ca34b5f8                   Phase transition: Running → Completed
+5m25s       Normal    RemediationCompleted             remediationrequest/rr-7e2b686ca561-ca34b5f8                     Remediation succeeded, entering verification phase (#280)
+5m25s       Normal    EffectivenessAssessmentCreated   remediationrequest/rr-7e2b686ca561-ca34b5f8                     Created EffectivenessAssessment ea-rr-7e2b686ca561-ca34b5f8 (correlationID: rr-7e2b686ca561-ca34b5f8)
+5m24s       Normal    AssessmentScheduled              effectivenessassessment/ea-rr-7e2b686ca561-ca34b5f8             Assessment scheduled for correlation rr-7e2b686ca561-ca34b5f8 (deadline: 03:19:42)
+4m24s       Normal    LockReleased                     workflowexecution/we-rr-7e2b686ca561-ca34b5f8                   Lock released for demo-payments/Deployment/payment-service after cooldown
+25s         Normal    NotificationSent                 notificationrequest/nr-completion-rr-7e2b686ca561-ca34b5f8      Successfully delivered to channel console
+25s         Normal    AssessmentStarted                effectivenessassessment/ea-rr-7e2b686ca561-ca34b5f8             Assessment started for correlation rr-7e2b686ca561-ca34b5f8
+25s         Normal    ComponentAssessed                effectivenessassessment/ea-rr-7e2b686ca561-ca34b5f8             Component metrics assessed (score: 0.25)
+25s         Normal    PhaseTransition                  notificationrequest/nr-completion-rr-7e2b686ca561-ca34b5f8      Transitioned to Sending phase
+25s         Normal    ReconcileStarted                 notificationrequest/nr-completion-rr-7e2b686ca561-ca34b5f8      Started reconciling notification nr-completion-rr-7e2b686ca561-ca34b5f8
+25s         Normal    ComponentAssessed                effectivenessassessment/ea-rr-7e2b686ca561-ca34b5f8             Component alert assessed (score: 1.00)
+25s         Normal    EffectivenessAssessed            effectivenessassessment/ea-rr-7e2b686ca561-ca34b5f8             Assessment completed: Full (correlation: rr-7e2b686ca561-ca34b5f8)
+25s         Warning   ValidityWindowExtended           effectivenessassessment/ea-rr-7e2b686ca561-ca34b5f8             StabilizationWindow (5m0s) >= ValidityWindow (2m0s); extended deadline to 2026-10-03 03:19:42 +0000 UTC
+25s         Normal    ComponentAssessed                effectivenessassessment/ea-rr-7e2b686ca561-ca34b5f8             Component hash computed (match: 0x70ba73d1c37e)
+25s         Normal    ComponentAssessed                effectivenessassessment/ea-rr-7e2b686ca561-ca34b5f8             Component health assessed (score: 1.00)
+25s         Normal    NotificationCreated              remediationrequest/rr-7e2b686ca561-ca34b5f8                     Completion notification created: nr-completion-rr-7e2b686ca561-ca34b5f8

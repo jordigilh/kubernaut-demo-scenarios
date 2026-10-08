@@ -1,0 +1,51 @@
+Name:                   checkout-api
+Namespace:              demo-shipping
+CreationTimestamp:      Thu, 01 Oct 2026 18:35:21 -0400
+Labels:                 app=checkout-api
+                        kubernaut.ai/managed=true
+Annotations:            deployment.kubernetes.io/revision: 2
+Selector:               app=checkout-api
+Replicas:               3 desired | 2 updated | 4 total | 2 available | 2 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  1 max unavailable, 1 max surge
+Pod Template:
+  Labels:  app=checkout-api
+  Containers:
+   api:
+    Image:      quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist
+    Port:       8080/TCP (http)
+    Host Port:  0/TCP (http)
+    Limits:
+      cpu:     50m
+      memory:  64Mi
+    Requests:
+      cpu:      10m
+      memory:   32Mi
+    Liveness:   http-get http://:8080/healthz delay=3s timeout=1s period=5s #success=1 #failure=3
+    Readiness:  http-get http://:8080/healthz delay=2s timeout=1s period=3s #success=1 #failure=3
+    Environment:
+      CONFIG_PATH:  /etc/demo-http-server/config.yaml
+    Mounts:
+      /etc/demo-http-server/config.yaml from config (rw,path="config.yaml")
+  Volumes:
+   config:
+    Type:          ConfigMap (a volume populated by a ConfigMap)
+    Name:          checkout-api-config
+    Optional:      false
+  Node-Selectors:  <none>
+  Tolerations:     <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      True    MinimumReplicasAvailable
+  Progressing    False   ProgressDeadlineExceeded
+OldReplicaSets:  checkout-api-5fbd59b477 (2/2 replicas created)
+NewReplicaSet:   checkout-api-7bf8fbd474 (2/2 replicas created)
+Events:
+  Type    Reason             Age    From                   Message
+  ----    ------             ----   ----                   -------
+  Normal  ScalingReplicaSet  5m     deployment-controller  Scaled up replica set checkout-api-5fbd59b477 from 0 to 3
+  Normal  ScalingReplicaSet  4m35s  deployment-controller  Scaled up replica set checkout-api-7bf8fbd474 from 0 to 1
+  Normal  ScalingReplicaSet  4m34s  deployment-controller  Scaled down replica set checkout-api-5fbd59b477 from 3 to 2
+  Normal  ScalingReplicaSet  4m34s  deployment-controller  Scaled up replica set checkout-api-7bf8fbd474 from 1 to 2

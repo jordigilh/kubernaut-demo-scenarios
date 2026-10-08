@@ -1,0 +1,19 @@
+=== Phase 0: Resolve PDB ===
+Target is Deployment/payment-service — locating PDB in namespace demo-payments...
+Resolved PDB: payment-service-pdb
+=== Phase 1: Validate ===
+Checking PDB payment-service-pdb status...
+Current minAvailable: 2
+Disruptions allowed: 0
+Healthy/Expected: 2/2
+Validated: will reduce minAvailable from 2 to 1
+=== Phase 2: Action ===
+Patching PDB payment-service-pdb minAvailable to 1...
+poddisruptionbudget.policy/payment-service-pdb patched
+Waiting for disruption budget to update (10s)...
+=== Phase 3: Verify ===
+New minAvailable: 1
+New disruptions allowed: 1
+Current healthy pods: 2
+=== SUCCESS: PDB relaxed (minAvailable 2 -> 1) ===
+Disruptions now allowed: 1

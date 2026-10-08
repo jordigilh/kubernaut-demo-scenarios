@@ -1,0 +1,140 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationRequest
+metadata:
+  annotations:
+    kubernaut.ai/created-at: "2026-10-03T03:07:23Z"
+  creationTimestamp: "2026-10-03T03:07:23Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/component: remediation
+    app.kubernetes.io/managed-by: gateway-service
+  name: rr-825b58c1ca42-bef00bc0
+  namespace: kubernaut-system
+  resourceVersion: "72609"
+  uid: 4d6456c2-0887-4fdf-be8e-9a36fb10d212
+spec:
+  clusterID: remote-cluster
+  firingTime: "2026-10-03T03:07:20Z"
+  originalPayload: |
+    {"receiver":"gateway-webhook","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","instance":"10.244.0.61:2381","job":"etcd-headless","namespace":"demo-datastore","pod":"etcd-1","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"annotations":{"description":"Total allocated storage on etcd-1 is significantly larger than the storage currently holding live data. This gap may indicate stale space that has not yet been reclaimed.\n","summary":"Pod etcd-1 in namespace demo-datastore shows on-disk storage far exceeding active data size.\n"},"startsAt":"2026-10-02T22:46:56.768Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=%28etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+-+etcd_mvcc_db_total_size_in_use_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D%29+%2F+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+0.15+and+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+1048576\u0026g0.tab=1","fingerprint":"85cc95ea67d9c618"},{"status":"firing","labels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","instance":"10.244.0.62:2381","job":"etcd-headless","namespace":"demo-datastore","pod":"etcd-0","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"annotations":{"description":"Total allocated storage on etcd-0 is significantly larger than the storage currently holding live data. This gap may indicate stale space that has not yet been reclaimed.\n","summary":"Pod etcd-0 in namespace demo-datastore shows on-disk storage far exceeding active data size.\n"},"startsAt":"2026-10-02T22:46:56.768Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=%28etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+-+etcd_mvcc_db_total_size_in_use_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D%29+%2F+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+0.15+and+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+1048576\u0026g0.tab=1","fingerprint":"c83d84e9049d4c1c"},{"status":"firing","labels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","instance":"10.244.0.63:2381","job":"etcd-headless","namespace":"demo-datastore","pod":"etcd-2","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"annotations":{"description":"Total allocated storage on etcd-2 is significantly larger than the storage currently holding live data. This gap may indicate stale space that has not yet been reclaimed.\n","summary":"Pod etcd-2 in namespace demo-datastore shows on-disk storage far exceeding active data size.\n"},"startsAt":"2026-10-02T22:47:11.768Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=%28etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+-+etcd_mvcc_db_total_size_in_use_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D%29+%2F+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+0.15+and+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+1048576\u0026g0.tab=1","fingerprint":"5965aeabd831c951"},{"status":"firing","labels":{"alertname":"KubePodNotScheduled","cluster":"remote-cluster","container":"kube-state-metrics","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-scheduler","phase":"Pending","pod":"batch-processor-6547d9848-wbxfp","prometheus":"monitoring/fleet-spoke","service":"kube-state-metrics","severity":"warning","uid":"6edd4a9d-bc57-44d3-9f58-905ffbfedb10"},"annotations":{"description":"One or more pods in namespace demo-scheduler are in Pending state and have not been assigned to a node. Workload availability may be degraded.\n","summary":"Pod batch-processor-6547d9848-wbxfp in namespace demo-scheduler has been unscheduled for an extended period.\n"},"startsAt":"2026-10-03T03:07:20.905Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=kube_pod_status_phase%7Bnamespace%3D%22demo-scheduler%22%2Cphase%3D%22Pending%22%7D+%3D%3D+1\u0026g0.tab=1","fingerprint":"7b7cd478e17cdd31"},{"status":"firing","labels":{"alertname":"KubePodNotScheduled","cluster":"remote-cluster","container":"kube-state-metrics","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-scheduler","phase":"Pending","pod":"batch-processor-6547d9848-xwgvd","prometheus":"monitoring/fleet-spoke","service":"kube-state-metrics","severity":"warning","uid":"4507b07e-6d3e-4bc4-b6f9-c876761b525e"},"annotations":{"description":"One or more pods in namespace demo-scheduler are in Pending state and have not been assigned to a node. Workload availability may be degraded.\n","summary":"Pod batch-processor-6547d9848-xwgvd in namespace demo-scheduler has been unscheduled for an extended period.\n"},"startsAt":"2026-10-03T03:07:20.905Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=kube_pod_status_phase%7Bnamespace%3D%22demo-scheduler%22%2Cphase%3D%22Pending%22%7D+%3D%3D+1\u0026g0.tab=1","fingerprint":"cc2d42ab8789a620"}],"notification_reason":"new alerts added","groupLabels":{},"commonLabels":{"cluster":"remote-cluster","prometheus":"monitoring/fleet-spoke"},"commonAnnotations":{},"routeLabels":{},"externalURL":"http://alertmanager-566cd8d6fb-5fshl:9093","version":"4","groupKey":"{}:{}","truncatedAlerts":0}
+  providerData: '{"labels":{"alertname":"KubePodNotScheduled","cluster":"remote-cluster","container":"kube-state-metrics","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-scheduler","phase":"Pending","pod":"batch-processor-6547d9848-wbxfp","prometheus":"monitoring/fleet-spoke","service":"kube-state-metrics","severity":"warning","uid":"6edd4a9d-bc57-44d3-9f58-905ffbfedb10"},"namespace":"demo-scheduler"}'
+  receivedTime: "2026-10-03T03:07:22Z"
+  severity: warning
+  signalAnnotations:
+    description: |
+      One or more pods in namespace demo-scheduler are in Pending state and have not been assigned to a node. Workload availability may be degraded.
+    summary: |
+      Pod batch-processor-6547d9848-wbxfp in namespace demo-scheduler has been unscheduled for an extended period.
+  signalFingerprint: 825b58c1ca422c19842a3fd9989ca18d0226c34aafd140bf6b4b8a02da73c22a
+  signalLabels:
+    alertname: KubePodNotScheduled
+    cluster: remote-cluster
+    container: kube-state-metrics
+    endpoint: http-metrics
+    instance: 10.244.0.9:8080
+    job: kube-state-metrics
+    namespace: demo-scheduler
+    phase: Pending
+    pod: batch-processor-6547d9848-wbxfp
+    prometheus: monitoring/fleet-spoke
+    service: kube-state-metrics
+    severity: warning
+    uid: 6edd4a9d-bc57-44d3-9f58-905ffbfedb10
+  signalName: KubePodNotScheduled
+  signalSource: prometheus
+  signalType: alert
+  targetResource:
+    kind: Deployment
+    name: batch-processor
+    namespace: demo-scheduler
+  targetType: kubernetes
+status:
+  completedAt: "2026-10-03T03:07:37Z"
+  completionStatus:
+    failurePhase: AIAnalysis
+    failureReason: |-
+      AIAnalysis failed: investigation failed: RCA invocation: rca LLM call turn 1: openaicompat: API error (HTTP 400): {
+        "error": {
+          "message": "Invalid value for 'content': expected a string, got null.",
+          "type": "invalid_request_error",
+          "param": "messages.[8].content",
+          "code": null
+        }
+      }
+    notificationRequestRefs:
+    - apiVersion: notification.kubernaut.ai/v1alpha1
+      kind: NotificationRequest
+      name: nr-manual-review-rr-825b58c1ca42-bef00bc0
+      namespace: kubernaut-system
+    notificationStatus: Sent
+    outcome: ManualReviewRequired
+    requiresManualReview: true
+  conditions:
+  - lastTransitionTime: "2026-10-03T03:07:23Z"
+    message: SignalProcessing CRD sp-rr-825b58c1ca42-bef00bc0 created successfully
+    observedGeneration: 1
+    reason: SignalProcessingCreated
+    status: "True"
+    type: SignalProcessingReady
+  - lastTransitionTime: "2026-10-03T03:07:23Z"
+    message: Remediation failed
+    observedGeneration: 1
+    reason: RemediationFailed
+    status: "False"
+    type: Ready
+  - lastTransitionTime: "2026-10-03T03:07:24Z"
+    message: AIAnalysis CRD ai-rr-825b58c1ca42-bef00bc0 created successfully
+    observedGeneration: 1
+    reason: AIAnalysisCreated
+    status: "True"
+    type: AIAnalysisReady
+  - lastTransitionTime: "2026-10-03T03:07:24Z"
+    message: SignalProcessing completed successfully
+    observedGeneration: 1
+    reason: SignalProcessingSucceeded
+    status: "True"
+    type: SignalProcessingComplete
+  - lastTransitionTime: "2026-10-03T03:07:37Z"
+    message: AIAnalysis failed
+    observedGeneration: 1
+    reason: AIAnalysisFailed
+    status: "False"
+    type: AIAnalysisComplete
+  - lastTransitionTime: "2026-10-03T03:07:37Z"
+    message: Notification delivered successfully
+    observedGeneration: 1
+    reason: DeliverySucceeded
+    status: "True"
+    type: NotificationDelivered
+  deduplication:
+    firstSeenAt: "2026-10-03T03:07:23Z"
+    lastSeenAt: "2026-10-03T03:07:23Z"
+    occurrenceCount: 2
+  observedGeneration: 1
+  operatorAudit:
+    lastModifiedAt: "2026-10-03T03:07:23Z"
+    lastModifiedBy: system:serviceaccount:kubernaut-system:remediationorchestrator-controller
+  overallPhase: Failed
+  phaseProgress:
+    aiAnalysisRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: AIAnalysis
+      name: ai-rr-825b58c1ca42-bef00bc0
+      namespace: kubernaut-system
+    analyzingStartTime: "2026-10-03T03:07:24Z"
+    processingStartTime: "2026-10-03T03:07:23Z"
+    signalProcessingRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: SignalProcessing
+      name: sp-rr-825b58c1ca42-bef00bc0
+      namespace: kubernaut-system
+  retentionExpiryTime: "2026-10-04T03:07:37Z"
+  routingStatus:
+    consecutiveFailureCount: 1
+    nextAllowedExecution: "2026-10-03T03:08:40Z"
+  startTime: "2026-10-03T03:07:23Z"
+  timeoutConfig:
+    analyzing: 10m0s
+    executing: 30m0s
+    global: 1h0m0s
+    processing: 5m0s

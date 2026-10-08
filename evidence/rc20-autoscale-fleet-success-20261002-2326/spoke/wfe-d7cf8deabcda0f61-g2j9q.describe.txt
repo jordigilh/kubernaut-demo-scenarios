@@ -1,0 +1,73 @@
+Name:             wfe-d7cf8deabcda0f61-g2j9q
+Namespace:        kubernaut-workflows
+Priority:         0
+Service Account:  scale-replicas-v1-runner
+Node:             kubernaut-remote-cluster-worker-1790996710/10.89.0.17
+Start Time:       Fri, 02 Oct 2026 23:21:23 -0400
+Labels:           batch.kubernetes.io/controller-uid=bc8c0afa-8223-4fac-80ec-179c91eaa1e3
+                  batch.kubernetes.io/job-name=wfe-d7cf8deabcda0f61
+                  controller-uid=bc8c0afa-8223-4fac-80ec-179c91eaa1e3
+                  job-name=wfe-d7cf8deabcda0f61
+                  kubernaut.ai/execution-engine=job
+                  kubernaut.ai/workflow-execution=we-rr-157ae5efb2f2-fd846b3b
+Annotations:      <none>
+Status:           Succeeded
+SeccompProfile:   RuntimeDefault
+IP:               10.244.1.11
+IPs:
+  IP:  10.244.1.11
+Containers:
+  workflow:
+    Container ID:   containerd://b47ee13557b6b190f186ad4abbe312119017202d0d13ed0e9886435cec972891
+    Image:          quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:8e7ce7de50a2115bb9d1f0a74ad27bf13f201ceb8cb98285edce9166f894f125
+    Image ID:       quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:8e7ce7de50a2115bb9d1f0a74ad27bf13f201ceb8cb98285edce9166f894f125
+    Port:           <none>
+    Host Port:      <none>
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Fri, 02 Oct 2026 23:21:25 -0400
+      Finished:     Fri, 02 Oct 2026 23:21:26 -0400
+    Ready:          False
+    Restart Count:  0
+    Environment:
+      TARGET_RESOURCE:            demo-loadtest/Deployment/web-cluster
+      SCALE_REPLICAS:             11
+      TARGET_RESOURCE_KIND:       Deployment
+      TARGET_RESOURCE_NAME:       web-cluster
+      TARGET_RESOURCE_NAMESPACE:  demo-loadtest
+      HOME:                       /tmp
+      TMPDIR:                     /tmp
+    Mounts:
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-dpskt (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  tmp:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  kube-api-access-dpskt:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  32m   default-scheduler  Successfully assigned kubernaut-workflows/wfe-d7cf8deabcda0f61-g2j9q to kubernaut-remote-cluster-worker-1790996710
+  Normal  Pulling    32m   kubelet            spec.containers{workflow}: Pulling image "quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:8e7ce7de50a2115bb9d1f0a74ad27bf13f201ceb8cb98285edce9166f894f125"
+  Normal  Pulled     32m   kubelet            spec.containers{workflow}: Successfully pulled image "quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:8e7ce7de50a2115bb9d1f0a74ad27bf13f201ceb8cb98285edce9166f894f125" in 1.208s (1.208s including waiting). Image size: 55115320 bytes.
+  Normal  Created    32m   kubelet            spec.containers{workflow}: Container created
+  Normal  Started    32m   kubelet            spec.containers{workflow}: Container started

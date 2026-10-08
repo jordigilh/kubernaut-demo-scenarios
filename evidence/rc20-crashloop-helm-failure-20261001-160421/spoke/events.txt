@@ -1,0 +1,29 @@
+LAST SEEN   TYPE      REASON              OBJECT                         MESSAGE
+16m         Normal    SuccessfulCreate    replicaset/worker-55f949bcdf   Created pod: worker-55f949bcdf-kmzfl
+16m         Normal    Scheduled           pod/worker-55f949bcdf-kmzfl    Successfully assigned demo-storefront/worker-55f949bcdf-kmzfl to kubernaut-remote-cluster-control-plane
+16m         Normal    ScalingReplicaSet   deployment/worker              Scaled up replica set worker-55f949bcdf from 0 to 2
+16m         Normal    SuccessfulCreate    replicaset/worker-55f949bcdf   Created pod: worker-55f949bcdf-wfrqz
+16m         Normal    Scheduled           pod/worker-55f949bcdf-wfrqz    Successfully assigned demo-storefront/worker-55f949bcdf-wfrqz to kubernaut-remote-cluster-control-plane
+16m         Normal    Pulling             pod/worker-55f949bcdf-kmzfl    Pulling image "nginx:1.27-alpine"
+16m         Normal    Pulling             pod/worker-55f949bcdf-wfrqz    Pulling image "nginx:1.27-alpine"
+16m         Normal    Created             pod/worker-55f949bcdf-kmzfl    Container created
+16m         Normal    Pulled              pod/worker-55f949bcdf-kmzfl    Successfully pulled image "nginx:1.27-alpine" in 6.596s (6.596s including waiting). Image size: 21832241 bytes.
+16m         Normal    Created             pod/worker-55f949bcdf-wfrqz    Container created
+16m         Normal    Started             pod/worker-55f949bcdf-wfrqz    Container started
+16m         Normal    Pulled              pod/worker-55f949bcdf-wfrqz    Successfully pulled image "nginx:1.27-alpine" in 333ms (6.92s including waiting). Image size: 21832241 bytes.
+16m         Normal    Started             pod/worker-55f949bcdf-kmzfl    Container started
+16m         Normal    Scheduled           pod/worker-7db6dfdc68-gmmn9    Successfully assigned demo-storefront/worker-7db6dfdc68-gmmn9 to kubernaut-remote-cluster-control-plane
+16m         Normal    SuccessfulCreate    replicaset/worker-7db6dfdc68   Created pod: worker-7db6dfdc68-gmmn9
+10m         Normal    Created             pod/worker-7db6dfdc68-gmmn9    Container created
+10m         Normal    Pulled              pod/worker-7db6dfdc68-gmmn9    Container image "nginx:1.27-alpine" already present on machine and can be accessed by the pod
+10m         Normal    Started             pod/worker-7db6dfdc68-gmmn9    Container started
+8m56s       Warning   BackOff             pod/worker-7db6dfdc68-gmmn9    Back-off restarting failed container worker in pod worker-7db6dfdc68-gmmn9_demo-storefront(3c150805-a38d-4939-a725-1d5792625378)
+7m45s       Normal    SuccessfulDelete    replicaset/worker-7db6dfdc68   Deleted pod: worker-7db6dfdc68-gmmn9
+7m45s       Normal    ScalingReplicaSet   deployment/worker              Scaled down replica set worker-7db6dfdc68 from 1 to 0
+6m54s       Normal    Scheduled           pod/worker-7db6dfdc68-hj7bv    Successfully assigned demo-storefront/worker-7db6dfdc68-hj7bv to kubernaut-remote-cluster-control-plane
+6m54s       Normal    SuccessfulCreate    replicaset/worker-7db6dfdc68   Created pod: worker-7db6dfdc68-hj7bv
+6m54s       Normal    ScalingReplicaSet   deployment/worker              Scaled up replica set worker-7db6dfdc68 from 0 to 1
+56s         Normal    Pulled              pod/worker-7db6dfdc68-hj7bv    Container image "nginx:1.27-alpine" already present on machine and can be accessed by the pod
+56s         Normal    Created             pod/worker-7db6dfdc68-hj7bv    Container created
+55s         Normal    Started             pod/worker-7db6dfdc68-hj7bv    Container started
+53s         Warning   BackOff             pod/worker-7db6dfdc68-hj7bv    Back-off restarting failed container worker in pod worker-7db6dfdc68-hj7bv_demo-storefront(607b9768-48c8-4d2e-96ab-e8850dede715)

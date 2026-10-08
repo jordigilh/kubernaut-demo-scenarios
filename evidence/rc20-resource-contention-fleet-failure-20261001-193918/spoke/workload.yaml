@@ -1,0 +1,394 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-10-01T23:36:08Z"
+    generateName: analytics-worker-776f4b975b-
+    generation: 1
+    labels:
+      app: analytics-worker
+      pod-template-hash: 776f4b975b
+    name: analytics-worker-776f4b975b-kxg8w
+    namespace: demo-analytics
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: analytics-worker-776f4b975b
+      uid: eb681954-affa-4381-ac31-bacc0df3daed
+    resourceVersion: "34322"
+    uid: 3ed5259b-f96a-4541-b41c-6c7d1c7fd9ad
+  spec:
+    containers:
+    - args:
+      - --vm
+      - "1"
+      - --vm-bytes
+      - 64M
+      - --vm-hang
+      - "0"
+      command:
+      - stress
+      image: polinux/stress
+      imagePullPolicy: Always
+      name: worker
+      resources:
+        limits:
+          memory: 64Mi
+        requests:
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-2q9pl
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-2q9pl
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T23:36:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T23:36:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T23:39:06Z"
+      message: 'containers with unready status: [worker]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T23:39:06Z"
+      message: 'containers with unready status: [worker]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-01T23:36:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        memory: 32Mi
+      containerID: containerd://e91e977080be55b7dcc996301a185407da411c25567557d2e53691edcac528e5
+      image: docker.io/polinux/stress:latest
+      imageID: docker.io/polinux/stress@sha256:b6144f84f9c15dac80deb48d3a646b55c7043ab1d83ea0a697c09097aaad21aa
+      lastState:
+        terminated:
+          containerID: containerd://04421c9de7f7e4627f6361d4a1b46adeca427559887550424add517180d66861
+          exitCode: 137
+          finishedAt: "2026-10-01T23:37:41Z"
+          reason: OOMKilled
+          startedAt: "2026-10-01T23:37:41Z"
+      name: worker
+      ready: false
+      resources:
+        limits:
+          memory: 64Mi
+        requests:
+          memory: 32Mi
+      restartCount: 5
+      started: false
+      state:
+        terminated:
+          containerID: containerd://e91e977080be55b7dcc996301a185407da411c25567557d2e53691edcac528e5
+          exitCode: 137
+          finishedAt: "2026-10-01T23:39:05Z"
+          reason: OOMKilled
+          startedAt: "2026-10-01T23:39:05Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 6
+          - 10
+          - 11
+          - 20
+          - 26
+          - 27
+          uid: 0
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-2q9pl
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.5
+    hostIPs:
+    - ip: 10.89.0.5
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.51
+    podIPs:
+    - ip: 10.244.0.51
+    qosClass: Burstable
+    resources:
+      limits:
+        memory: 64Mi
+      requests:
+        memory: 32Mi
+    startTime: "2026-10-01T23:36:08Z"
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"analytics-worker","kubernaut.ai/managed":"true"},"name":"analytics-worker","namespace":"demo-analytics"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"analytics-worker"}},"template":{"metadata":{"labels":{"app":"analytics-worker"}},"spec":{"containers":[{"args":["--vm","1","--vm-bytes","64M","--vm-hang","0"],"command":["stress"],"image":"polinux/stress","name":"worker","resources":{"limits":{"memory":"64Mi"},"requests":{"memory":"32Mi"}}}]}}}}
+    creationTimestamp: "2026-10-01T23:36:08Z"
+    generation: 1
+    labels:
+      app: analytics-worker
+      kubernaut.ai/managed: "true"
+    name: analytics-worker
+    namespace: demo-analytics
+    resourceVersion: "34324"
+    uid: d261bf7d-e37f-4534-8392-de3eb4dbfe57
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: analytics-worker
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        labels:
+          app: analytics-worker
+      spec:
+        containers:
+        - args:
+          - --vm
+          - "1"
+          - --vm-bytes
+          - 64M
+          - --vm-hang
+          - "0"
+          command:
+          - stress
+          image: polinux/stress
+          imagePullPolicy: Always
+          name: worker
+          resources:
+            limits:
+              memory: 64Mi
+            requests:
+              memory: 32Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    conditions:
+    - lastTransitionTime: "2026-10-01T23:36:08Z"
+      lastUpdateTime: "2026-10-01T23:36:11Z"
+      message: ReplicaSet "analytics-worker-776f4b975b" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2026-10-01T23:39:06Z"
+      lastUpdateTime: "2026-10-01T23:39:06Z"
+      message: Deployment does not have minimum availability.
+      reason: MinimumReplicasUnavailable
+      status: "False"
+      type: Available
+    observedGeneration: 1
+    replicas: 1
+    terminatingReplicas: 0
+    unavailableReplicas: 1
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "2"
+      deployment.kubernetes.io/revision: "1"
+    creationTimestamp: "2026-10-01T23:36:08Z"
+    generation: 1
+    labels:
+      app: analytics-worker
+      pod-template-hash: 776f4b975b
+    name: analytics-worker-776f4b975b
+    namespace: demo-analytics
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: analytics-worker
+      uid: d261bf7d-e37f-4534-8392-de3eb4dbfe57
+    resourceVersion: "34323"
+    uid: eb681954-affa-4381-ac31-bacc0df3daed
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: analytics-worker
+        pod-template-hash: 776f4b975b
+    template:
+      metadata:
+        labels:
+          app: analytics-worker
+          pod-template-hash: 776f4b975b
+      spec:
+        containers:
+        - args:
+          - --vm
+          - "1"
+          - --vm-bytes
+          - 64M
+          - --vm-hang
+          - "0"
+          command:
+          - stress
+          image: polinux/stress
+          imagePullPolicy: Always
+          name: worker
+          resources:
+            limits:
+              memory: 64Mi
+            requests:
+              memory: 32Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    fullyLabeledReplicas: 1
+    observedGeneration: 1
+    replicas: 1
+    terminatingReplicas: 0
+- apiVersion: v1
+  data:
+    root-cert.pem: |
+      -----BEGIN CERTIFICATE-----
+      MIIC/TCCAeWgAwIBAgIRAO4un7nw1fWDaimNGZFxs5wwDQYJKoZIhvcNAQELBQAw
+      GDEWMBQGA1UEChMNY2x1c3Rlci5sb2NhbDAeFw0yNjEwMDExOTQxNDRaFw0zNjA5
+      MjgxOTQxNDRaMBgxFjAUBgNVBAoTDWNsdXN0ZXIubG9jYWwwggEiMA0GCSqGSIb3
+      DQEBAQUAA4IBDwAwggEKAoIBAQDOr7LTMTexYC7D/tA8Xwa+lp8sWrLhrvIf08Rv
+      SQseCrn7Au2deunYvxbjCzFiI3WDLivgZzlHm2qdvXQTO3YJyXbaBEQaxbBUIVkW
+      TEbqa3U9ceFFRctkH5WAvVWvQEMFku1hxJTHQSt+X5lCRnHLz7p7X5TLAaurOXSo
+      FgQRub82iiPfHVxX1QS0iuLvIokaUxSX/0SeWsW+l7uXwmk9sO5ktPEDGBqmNfgm
+      nRhs7KNXY70MJJVbA6j0hqu8+VWzXTVBS6Y6Ybm5f7e1I8K62KdANoh1xKDiaMG6
+      odMgKi4ZoQTEFkK3AsD3Tamk7oc02l4pDLgGd19/YnKjff39AgMBAAGjQjBAMA4G
+      A1UdDwEB/wQEAwICBDAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQtNjKBUBCL
+      V5PmiOy4yIrVQqD47jANBgkqhkiG9w0BAQsFAAOCAQEABMk5hn9ugn4lcIw76/P5
+      djQ/wDkc6uRKXgzQnjZEtCwPjRtm2GQro2XSm7Gf2nc+3j4pRrGeEY1Kkvd97doR
+      tdPurJVrkoceRnYY/ojtR+o40AJ7jN5qOHa9gN4U0O7ezwTssQjJ7O04ZL1vfB6T
+      DwXijVeu7CVq9ys7eRJtjoVWpFOqGKmOdHXm0H+XoXfsgn8rQIuWnqirTV0ChwJr
+      tujqpo6gtom7u26SX7dx4Nc3CG0PLUJA/byDBqMSX9aIfXdh+vewWIymXmMxxx6O
+      YfQNBlSxeJ8dGyAUT9feOwihCU0zFBcI8+XnbDGZEVhzin0/eANo1VA9r2EEggXS
+      Qg==
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    creationTimestamp: "2026-10-01T23:36:08Z"
+    labels:
+      istio.io/config: "true"
+    name: istio-ca-root-cert
+    namespace: demo-analytics
+    resourceVersion: "33854"
+    uid: 105c669e-d428-4410-beb9-28fcf3d920cc
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDBTCCAe2gAwIBAgIIY8tfM6a43JcwDQYJKoZIhvcNAQELBQAwFTETMBEGA1UE
+      AxMKa3ViZXJuZXRlczAeFw0yNjEwMDExOTI1MTRaFw0zNjA5MjgxOTMwMTRaMBUx
+      EzARBgNVBAMTCmt1YmVybmV0ZXMwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK
+      AoIBAQC/QJW1PJE47mZ0taKaK2+BVcWheb1zrLOCMjbZX7Rj01HhhtVNI3Y1Q0xh
+      VoRfzWgoR7C5oP6kzTs0dpo8zuUgI/vAfN+lMe/s0NBTc4qREsbU5aupp+Gk4vOP
+      E5uBkCENu1jTyk/YY7J9UI6BOAZwG89hwyrq5m2cWxk3CF33KYoQ12kN0BeszwRK
+      Q5rrhcF59zFidUatjIIFQISdEOMqcHdKv5Xfx6rCEk2F6AnoeOFZ2si7SDXWnj2t
+      JoS0ybVxTQMbUL+da5n1kKWcobcspkxlSF0KawMScCjUXFJdITPUrp35JLyWoCW3
+      k5xJ0ZBc+85PHEG4SWuim0Ym9kATAgMBAAGjWTBXMA4GA1UdDwEB/wQEAwICpDAP
+      BgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBQY2IXfpGLwBzyaIot1JCTdwH5xwjAV
+      BgNVHREEDjAMggprdWJlcm5ldGVzMA0GCSqGSIb3DQEBCwUAA4IBAQA+yIT3l/Og
+      Hdza2N+q96ZHwuqT0NmHAMqDoFFz2Ci08ZOyPFhiPOe0kwROJXgIR/JWmuojva9H
+      sid0wBPkQvOikE513ZOpVrUvdhNDBpSEqkWDFgZYMDWw2aL/J7IB+wiw+HJ/5CkO
+      pAfa1WEZkMh5rIdPX/Dcwyrvm6+fvYic+ykSMXkOxCP7J29yW4n9vDu4tVR1Gabe
+      cQqlVxRwE7KTbVmgXDjwn8M6buiYbEaCFW8spbzb7qY0MphpQTQG+lfv7ocaieet
+      ViUl2/tgi0pvXJp6HlzAvTxn8DpnIaxlvjvadizC1mt1OFHvDdJ4WQ8VNgX9xcRC
+      gPNE8oGyuFGc
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2026-10-01T23:36:08Z"
+    name: kube-root-ca.crt
+    namespace: demo-analytics
+    resourceVersion: "33855"
+    uid: 2110432c-d9b5-4c47-a0ad-9acc04d42010
+kind: List
+metadata:
+  resourceVersion: ""

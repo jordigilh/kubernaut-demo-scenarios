@@ -1,0 +1,4 @@
+ERROR: image-pull-failure Fleet mode requires an authenticated private registry.
+The existing fixture uses the OpenShift internal registry; a Kind spoke has no
+credential-gated registry configured by this repository, so refusing to create
+a false-positive public-image pull failure.

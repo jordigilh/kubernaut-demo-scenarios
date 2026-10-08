@@ -1,0 +1,177 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationRequest
+metadata:
+  annotations:
+    kubernaut.ai/created-at: "2026-10-02T18:53:18Z"
+  creationTimestamp: "2026-10-02T18:53:18Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/component: remediation
+    app.kubernetes.io/managed-by: gateway-service
+  name: rr-9d7638a122e2-dd1813f9
+  namespace: kubernaut-system
+  resourceVersion: "15321"
+  uid: 023923a2-18f9-4a4b-b26b-3cfd59e6ea98
+spec:
+  clusterID: remote-cluster
+  firingTime: "2026-10-02T18:53:12Z"
+  originalPayload: |
+    {"receiver":"gateway-webhook","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"KubeDeploymentReplicasMismatch","cluster":"remote-cluster","container":"kube-state-metrics","deployment":"traffic-gen","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-frontend","pod":"kube-state-metrics-78f5b5f8f9-msdfl","prometheus":"monitoring/fleet-spoke","service":"kube-state-metrics","severity":"critical"},"annotations":{"description":"Pods in deployment traffic-gen are not passing readiness checks. Service traffic may not be reaching healthy endpoints.\n","summary":"Deployment traffic-gen in namespace demo-frontend has unavailable replicas.\n"},"startsAt":"2026-10-02T18:53:12.707Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=kube_deployment_status_replicas_unavailable%7Bdeployment%3D%22traffic-gen%22%2Cnamespace%3D%22demo-frontend%22%7D+%3E+0\u0026g0.tab=1","fingerprint":"13f9c7d0d702abe2"}],"notification_reason":"first notification","groupLabels":{},"commonLabels":{"alertname":"KubeDeploymentReplicasMismatch","cluster":"remote-cluster","container":"kube-state-metrics","deployment":"traffic-gen","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-frontend","pod":"kube-state-metrics-78f5b5f8f9-msdfl","prometheus":"monitoring/fleet-spoke","service":"kube-state-metrics","severity":"critical"},"commonAnnotations":{"description":"Pods in deployment traffic-gen are not passing readiness checks. Service traffic may not be reaching healthy endpoints.\n","summary":"Deployment traffic-gen in namespace demo-frontend has unavailable replicas.\n"},"routeLabels":{},"externalURL":"http://alertmanager-7d8c7db59d-bknjw:9093","version":"4","groupKey":"{}:{}","truncatedAlerts":0}
+  providerData: '{"labels":{"alertname":"KubeDeploymentReplicasMismatch","cluster":"remote-cluster","container":"kube-state-metrics","deployment":"traffic-gen","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-frontend","pod":"kube-state-metrics-78f5b5f8f9-msdfl","prometheus":"monitoring/fleet-spoke","service":"kube-state-metrics","severity":"critical"},"namespace":"demo-frontend"}'
+  receivedTime: "2026-10-02T18:53:18Z"
+  severity: critical
+  signalAnnotations:
+    description: |
+      Pods in deployment traffic-gen are not passing readiness checks. Service traffic may not be reaching healthy endpoints.
+    summary: |
+      Deployment traffic-gen in namespace demo-frontend has unavailable replicas.
+  signalFingerprint: 9d7638a122e2ee6b3d8543c4889e183d8120b1adc40c20d6c3d2c63fccafd708
+  signalLabels:
+    alertname: KubeDeploymentReplicasMismatch
+    cluster: remote-cluster
+    container: kube-state-metrics
+    deployment: traffic-gen
+    endpoint: http-metrics
+    instance: 10.244.0.9:8080
+    job: kube-state-metrics
+    namespace: demo-frontend
+    pod: kube-state-metrics-78f5b5f8f9-msdfl
+    prometheus: monitoring/fleet-spoke
+    service: kube-state-metrics
+    severity: critical
+  signalName: KubeDeploymentReplicasMismatch
+  signalSource: prometheus
+  signalType: alert
+  targetResource:
+    kind: Deployment
+    name: traffic-gen
+    namespace: demo-frontend
+  targetType: kubernetes
+status:
+  completedAt: "2026-10-02T19:02:21Z"
+  completionStatus:
+    notificationRequestRefs:
+    - apiVersion: notification.kubernaut.ai/v1alpha1
+      kind: NotificationRequest
+      name: nr-completion-rr-9d7638a122e2-dd1813f9
+      namespace: kubernaut-system
+    notificationStatus: Sent
+    outcome: VerificationTimedOut
+  conditions:
+  - lastTransitionTime: "2026-10-02T18:53:18Z"
+    message: SignalProcessing CRD sp-rr-9d7638a122e2-dd1813f9 created successfully
+    observedGeneration: 1
+    reason: SignalProcessingCreated
+    status: "True"
+    type: SignalProcessingReady
+  - lastTransitionTime: "2026-10-02T18:54:50Z"
+    message: Remediation completed, verifying effectiveness
+    observedGeneration: 1
+    reason: Verifying
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-10-02T18:53:18Z"
+    message: AIAnalysis CRD ai-rr-9d7638a122e2-dd1813f9 created successfully
+    observedGeneration: 1
+    reason: AIAnalysisCreated
+    status: "True"
+    type: AIAnalysisReady
+  - lastTransitionTime: "2026-10-02T18:53:18Z"
+    message: SignalProcessing completed successfully
+    observedGeneration: 1
+    reason: SignalProcessingSucceeded
+    status: "True"
+    type: SignalProcessingComplete
+  - lastTransitionTime: "2026-10-02T18:54:18Z"
+    message: AIAnalysis completed successfully
+    observedGeneration: 1
+    reason: AIAnalysisSucceeded
+    status: "True"
+    type: AIAnalysisComplete
+  - lastTransitionTime: "2026-10-02T18:54:19Z"
+    message: Pre-remediation hash captured
+    observedGeneration: 1
+    reason: HashCaptured
+    status: "True"
+    type: PreRemediationHashCaptured
+  - lastTransitionTime: "2026-10-02T18:54:19Z"
+    message: WorkflowExecution CRD we-rr-9d7638a122e2-dd1813f9 created successfully
+    observedGeneration: 1
+    reason: WorkflowExecutionCreated
+    status: "True"
+    type: WorkflowExecutionReady
+  - lastTransitionTime: "2026-10-02T18:54:50Z"
+    message: WorkflowExecution completed successfully
+    observedGeneration: 1
+    reason: WorkflowSucceeded
+    status: "True"
+    type: WorkflowExecutionComplete
+  - lastTransitionTime: "2026-10-02T19:02:38Z"
+    message: 'Effectiveness assessment completed (reason: Expired)'
+    observedGeneration: 1
+    reason: AssessmentExpired
+    status: "True"
+    type: EffectivenessAssessed
+  - lastTransitionTime: "2026-10-02T19:02:21Z"
+    message: Notification delivered successfully
+    observedGeneration: 1
+    reason: DeliverySucceeded
+    status: "True"
+    type: NotificationDelivered
+  deduplication:
+    firstSeenAt: "2026-10-02T18:53:18Z"
+    lastSeenAt: "2026-10-02T18:53:18Z"
+    occurrenceCount: 1
+  observedGeneration: 1
+  operatorAudit:
+    lastModifiedAt: "2026-10-02T18:53:18Z"
+    lastModifiedBy: system:serviceaccount:kubernaut-system:remediationorchestrator-controller
+    preRemediationSpecHash: sha256:5aca3f8cf305daf0660e32973926d8f64a16b7cbd23abdb097358a345ad44b67
+  overallPhase: Completed
+  phaseProgress:
+    aiAnalysisRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: AIAnalysis
+      name: ai-rr-9d7638a122e2-dd1813f9
+      namespace: kubernaut-system
+    analyzingStartTime: "2026-10-02T18:53:18Z"
+    effectivenessAssessmentRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: EffectivenessAssessment
+      name: ea-rr-9d7638a122e2-dd1813f9
+      namespace: kubernaut-system
+    executingStartTime: "2026-10-02T18:54:19Z"
+    processingStartTime: "2026-10-02T18:53:18Z"
+    signalProcessingRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: SignalProcessing
+      name: sp-rr-9d7638a122e2-dd1813f9
+      namespace: kubernaut-system
+    verificationDeadline: "2026-10-02T19:02:20Z"
+    workflowExecutionRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: WorkflowExecution
+      name: we-rr-9d7638a122e2-dd1813f9
+      namespace: kubernaut-system
+  retentionExpiryTime: "2026-10-03T19:02:21Z"
+  routingStatus: {}
+  startTime: "2026-10-02T18:53:18Z"
+  timeoutConfig:
+    analyzing: 10m0s
+    executing: 30m0s
+    global: 1h0m0s
+    processing: 5m0s
+  workflowSelection:
+    confidence: "0.70"
+    remediationTarget:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: traffic-gen
+      namespace: demo-frontend
+    selectedWorkflowRef:
+      executionBundle: quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:b74f1c96d5db04cc6273b486bc9efcd241618e75e695bc297a64f58081e8a2e2
+      version: 1.6.3
+      workflowId: 929f4c44-33ab-58fa-849b-df6938aa0b7f
+    signalTargetDisplay: Deployment/traffic-gen
+    targetDisplay: Deployment/traffic-gen
+    workflowDisplayName: FixNetworkPolicy/fix-network-policy-v1

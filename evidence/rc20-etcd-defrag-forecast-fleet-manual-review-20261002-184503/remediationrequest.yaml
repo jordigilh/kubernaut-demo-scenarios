@@ -1,0 +1,132 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationRequest
+metadata:
+  annotations:
+    kubernaut.ai/created-at: "2026-10-02T22:47:03Z"
+  creationTimestamp: "2026-10-02T22:47:03Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/component: remediation
+    app.kubernetes.io/managed-by: gateway-service
+  name: rr-5141270197ec-bcaf6130
+  namespace: kubernaut-system
+  resourceVersion: "31985"
+  uid: b61a6bbd-43bf-4601-b4d9-72b404541909
+spec:
+  clusterID: remote-cluster
+  firingTime: "2026-10-02T22:46:56Z"
+  originalPayload: |
+    {"receiver":"gateway-webhook","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","instance":"10.244.0.61:2381","job":"etcd-headless","namespace":"demo-datastore","pod":"etcd-1","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"annotations":{"description":"Total allocated storage on etcd-1 is significantly larger than the storage currently holding live data. This gap may indicate stale space that has not yet been reclaimed.\n","summary":"Pod etcd-1 in namespace demo-datastore shows on-disk storage far exceeding active data size.\n"},"startsAt":"2026-10-02T22:46:56.768Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=%28etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+-+etcd_mvcc_db_total_size_in_use_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D%29+%2F+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+0.15+and+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+1048576\u0026g0.tab=1","fingerprint":"85cc95ea67d9c618"},{"status":"firing","labels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","instance":"10.244.0.62:2381","job":"etcd-headless","namespace":"demo-datastore","pod":"etcd-0","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"annotations":{"description":"Total allocated storage on etcd-0 is significantly larger than the storage currently holding live data. This gap may indicate stale space that has not yet been reclaimed.\n","summary":"Pod etcd-0 in namespace demo-datastore shows on-disk storage far exceeding active data size.\n"},"startsAt":"2026-10-02T22:46:56.768Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=%28etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+-+etcd_mvcc_db_total_size_in_use_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D%29+%2F+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+0.15+and+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+1048576\u0026g0.tab=1","fingerprint":"c83d84e9049d4c1c"}],"notification_reason":"first notification","groupLabels":{},"commonLabels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","job":"etcd-headless","namespace":"demo-datastore","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"commonAnnotations":{},"routeLabels":{},"externalURL":"http://alertmanager-7d8c7db59d-bknjw:9093","version":"4","groupKey":"{}:{}","truncatedAlerts":0}
+  providerData: '{"labels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","instance":"10.244.0.61:2381","job":"etcd-headless","namespace":"demo-datastore","pod":"etcd-1","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"namespace":"demo-datastore"}'
+  receivedTime: "2026-10-02T22:47:03Z"
+  severity: critical
+  signalAnnotations:
+    description: |
+      Total allocated storage on etcd-1 is significantly larger than the storage currently holding live data. This gap may indicate stale space that has not yet been reclaimed.
+    summary: |
+      Pod etcd-1 in namespace demo-datastore shows on-disk storage far exceeding active data size.
+  signalFingerprint: 5141270197ec008a2cd1b30d1c60eb89a50afe58a802485de097f0f1a785234b
+  signalLabels:
+    alertname: EtcdHighFragmentationRatio
+    cluster: remote-cluster
+    container: etcd
+    endpoint: metrics
+    instance: 10.244.0.61:2381
+    job: etcd-headless
+    namespace: demo-datastore
+    pod: etcd-1
+    prometheus: monitoring/fleet-spoke
+    service: etcd-headless
+    severity: critical
+  signalName: EtcdHighFragmentationRatio
+  signalSource: prometheus
+  signalType: alert
+  targetResource:
+    kind: StatefulSet
+    name: etcd
+    namespace: demo-datastore
+  targetType: kubernetes
+status:
+  completedAt: "2026-10-02T22:47:51Z"
+  completionStatus:
+    notificationRequestRefs:
+    - apiVersion: notification.kubernaut.ai/v1alpha1
+      kind: NotificationRequest
+      name: nr-manual-review-rr-5141270197ec-bcaf6130
+      namespace: kubernaut-system
+    - apiVersion: notification.kubernaut.ai/v1alpha1
+      kind: NotificationRequest
+      name: nr-manual-review-rr-5141270197ec-bcaf6130
+      namespace: kubernaut-system
+      uid: 929cc14f-6fd9-4ab6-b727-f10507bce4a5
+    notificationStatus: Sent
+    outcome: ManualReviewRequired
+    requiresManualReview: true
+  conditions:
+  - lastTransitionTime: "2026-10-02T22:47:04Z"
+    message: SignalProcessing CRD sp-rr-5141270197ec-bcaf6130 created successfully
+    observedGeneration: 1
+    reason: SignalProcessingCreated
+    status: "True"
+    type: SignalProcessingReady
+  - lastTransitionTime: "2026-10-02T22:47:51Z"
+    message: Manual review required
+    observedGeneration: 1
+    reason: ManualReviewRequired
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-10-02T22:47:07Z"
+    message: AIAnalysis CRD ai-rr-5141270197ec-bcaf6130 created successfully
+    observedGeneration: 1
+    reason: AIAnalysisCreated
+    status: "True"
+    type: AIAnalysisReady
+  - lastTransitionTime: "2026-10-02T22:47:07Z"
+    message: SignalProcessing completed successfully
+    observedGeneration: 1
+    reason: SignalProcessingSucceeded
+    status: "True"
+    type: SignalProcessingComplete
+  - lastTransitionTime: "2026-10-02T22:47:50Z"
+    message: AIAnalysis failed
+    observedGeneration: 1
+    reason: AIAnalysisFailed
+    status: "False"
+    type: AIAnalysisComplete
+  - lastTransitionTime: "2026-10-02T22:47:51Z"
+    message: Notification delivered successfully
+    observedGeneration: 1
+    reason: DeliverySucceeded
+    status: "True"
+    type: NotificationDelivered
+  deduplication:
+    firstSeenAt: "2026-10-02T22:47:03Z"
+    lastSeenAt: "2026-10-02T22:47:14Z"
+    occurrenceCount: 5
+  observedGeneration: 1
+  operatorAudit:
+    lastModifiedAt: "2026-10-02T22:47:04Z"
+    lastModifiedBy: system:serviceaccount:kubernaut-system:remediationorchestrator-controller
+  overallPhase: Completed
+  phaseProgress:
+    aiAnalysisRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: AIAnalysis
+      name: ai-rr-5141270197ec-bcaf6130
+      namespace: kubernaut-system
+    analyzingStartTime: "2026-10-02T22:47:08Z"
+    processingStartTime: "2026-10-02T22:47:04Z"
+    signalProcessingRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: SignalProcessing
+      name: sp-rr-5141270197ec-bcaf6130
+      namespace: kubernaut-system
+  retentionExpiryTime: "2026-10-03T22:47:51Z"
+  routingStatus:
+    nextAllowedExecution: "2026-10-03T22:47:51Z"
+  startTime: "2026-10-02T22:47:03Z"
+  timeoutConfig:
+    analyzing: 10m0s
+    executing: 30m0s
+    global: 1h0m0s
+    processing: 5m0s

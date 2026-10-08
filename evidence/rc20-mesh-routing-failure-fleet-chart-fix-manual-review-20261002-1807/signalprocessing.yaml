@@ -1,0 +1,140 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: SignalProcessing
+metadata:
+  creationTimestamp: "2026-10-02T22:07:06Z"
+  generation: 1
+  name: sp-rr-34d70cf37c03-d7f0cb2c
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RemediationRequest
+    name: rr-34d70cf37c03-d7f0cb2c
+    uid: 03b5582b-679a-44fd-a353-e6f7d10644a7
+  resourceVersion: "25681"
+  uid: d83174e1-64fb-415b-97ff-9a4c7c1bad72
+spec:
+  enrichmentConfig: {}
+  remediationRequestRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: RemediationRequest
+    name: rr-34d70cf37c03-d7f0cb2c
+    namespace: kubernaut-system
+    uid: 03b5582b-679a-44fd-a353-e6f7d10644a7
+  signal:
+    annotations:
+      description: |
+        The istio_requests_total metric with response_code=403 is rising, indicating inbound HTTP requests are being rejected. Service-to-service communication may be unavailable.
+      summary: |
+        HTTP 403 responses detected for inbound requests in namespace demo-mesh.
+    clusterID: remote-cluster
+    fingerprint: 34d70cf37c03fefc4ebe36560d42b94db1fbab39d27ae7f83d7f12134d135d75
+    firingTime: "2026-10-02T21:57:38Z"
+    labels:
+      alertname: IstioHighDenyRate
+      cluster: remote-cluster
+      deployment: api-server
+      namespace: demo-mesh
+      prometheus: monitoring/fleet-spoke
+      severity: critical
+    name: IstioHighDenyRate
+    providerData: '{"labels":{"alertname":"IstioHighDenyRate","cluster":"remote-cluster","deployment":"api-server","namespace":"demo-mesh","prometheus":"monitoring/fleet-spoke","severity":"critical"},"namespace":"demo-mesh"}'
+    receivedTime: "2026-10-02T22:07:05Z"
+    severity: critical
+    source: prometheus
+    targetResource:
+      kind: Deployment
+      name: api-server
+      namespace: demo-mesh
+    targetType: kubernetes
+    type: alert
+  timesOutAt: "2026-10-02T22:12:06Z"
+status:
+  businessClassification:
+    businessUnit: engineering
+    criticality: Medium
+    serviceOwner: backend-team
+    slaRequirement: Silver
+  completionTime: "2026-10-02T22:07:06Z"
+  conditions:
+  - lastTransitionTime: "2026-10-02T22:07:06Z"
+    message: 'K8s context enriched: Deployment demo-mesh/api-server'
+    observedGeneration: 1
+    reason: EnrichmentSucceeded
+    status: "True"
+    type: EnrichmentComplete
+  - lastTransitionTime: "2026-10-02T22:07:06Z"
+    message: 'Classified: environment=Staging (source=namespace-labels), priority=P1
+      (source=rego-policy), severity=critical (source=rego-policy)'
+    observedGeneration: 1
+    reason: ClassificationSucceeded
+    status: "True"
+    type: ClassificationComplete
+  - lastTransitionTime: "2026-10-02T22:07:06Z"
+    message: 'Categorized: businessUnit=engineering, criticality=Medium, sla=Silver'
+    observedGeneration: 1
+    reason: CategorizationSucceeded
+    status: "True"
+    type: CategorizationComplete
+  - lastTransitionTime: "2026-10-02T22:07:06Z"
+    message: 'Signal processed successfully in 0.75s: P1 Staging alert ready for remediation'
+    observedGeneration: 1
+    reason: ProcessingSucceeded
+    status: "True"
+    type: ProcessingComplete
+  - lastTransitionTime: "2026-10-02T22:07:06Z"
+    message: Signal processing completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  environmentClassification:
+    classifiedAt: "2026-10-02T22:07:06Z"
+    environment: Staging
+    source: namespace-labels
+  kubernetesContext:
+    cluster:
+      labels:
+        environment: production
+        kubernaut.ai/managed: "true"
+    clusterID: remote-cluster
+    namespace:
+      annotations:
+        kubectl.kubernetes.io/last-applied-configuration: |
+          {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"istio-discovery":"enabled","istio-injection":"enabled","kubernaut.ai/business-unit":"engineering","kubernaut.ai/component":"web-frontend","kubernaut.ai/criticality":"high","kubernaut.ai/environment":"staging","kubernaut.ai/service-owner":"backend-team","kubernaut.ai/sla-tier":"tier-1"},"name":"demo-mesh"}}
+      labels:
+        istio-discovery: enabled
+        istio-injection: enabled
+        kubernaut.ai/business-unit: engineering
+        kubernaut.ai/component: web-frontend
+        kubernaut.ai/criticality: high
+        kubernaut.ai/environment: staging
+        kubernaut.ai/managed: "true"
+        kubernaut.ai/service-owner: backend-team
+        kubernaut.ai/sla-tier: tier-1
+        kubernetes.io/metadata.name: demo-mesh
+      name: demo-mesh
+    workload:
+      annotations:
+        deployment.kubernetes.io/revision: "1"
+        kubectl.kubernetes.io/last-applied-configuration: |
+          {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"api-server"},"name":"api-server","namespace":"demo-mesh"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"api-server"}},"template":{"metadata":{"labels":{"app":"api-server"}},"spec":{"containers":[{"env":[{"name":"CONFIG_PATH","value":"/etc/demo-http-server/config.yaml"}],"image":"quay.io/kubernaut-cicd/demo-http-server:1.0.0","livenessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":3,"periodSeconds":5},"name":"api-server","ports":[{"containerPort":8080,"name":"http"}],"readinessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":2,"periodSeconds":3},"resources":{"limits":{"cpu":"50m","memory":"64Mi"},"requests":{"cpu":"10m","memory":"32Mi"}},"volumeMounts":[{"mountPath":"/etc/demo-http-server/config.yaml","name":"config","subPath":"config.yaml"}]}],"volumes":[{"configMap":{"name":"api-server-config"},"name":"config"}]}}}}
+      kind: Deployment
+      labels:
+        app: api-server
+        kubernaut.ai/managed: "true"
+      name: api-server
+  observedGeneration: 1
+  phase: Completed
+  priorityAssignment:
+    assignedAt: "2026-10-02T22:07:06Z"
+    policyName: staging-critical
+    priority: P1
+    source: rego-policy
+  signalClassification:
+    policyHash: ddc50589cc4a08e08af9d5cdd3a1b2738a00f2061ca53673702810dbda35a66c
+    severity: critical
+    signalMode: reactive
+    signalName: IstioHighDenyRate
+  startTime: "2026-10-02T22:07:06Z"

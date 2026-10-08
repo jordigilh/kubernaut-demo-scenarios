@@ -1,0 +1,30 @@
+NAMESPACE                 LAST SEEN   TYPE      REASON                             OBJECT                                                          MESSAGE
+envoy-ai-gateway-system   24m         Warning   Unhealthy                          pod/ai-gateway-controller-765b9d6bc5-668z9                      Readiness probe failed: timeout: health rpc did not complete within 1s
+default                   3m50s       Warning   FailedNodeAllocatableEnforcement   node/kubernaut-hub-control-plane                                Failed to update Node Allocatable Limits ["kubelet" "kubepods"]: openat2 /sys/fs/cgroup/kubelet.slice/kubelet-kubepods.slice/cpuset.cpus: no such file or directory
+kubernaut-system          97s         Normal    RemediationCreated                 remediationrequest/rr-2bf3a5781f9d-3dc16f2b                     RemediationRequest accepted for signal KubeDeploymentRolloutStuck
+kubernaut-system          97s         Normal    PhaseTransition                    signalprocessing/sp-rr-2bf3a5781f9d-3dc16f2b                    Phase transition: Pending → Enriching
+kubernaut-system          96s         Normal    PhaseTransition                    signalprocessing/sp-rr-2bf3a5781f9d-3dc16f2b                    Phase transition: Classifying → Categorizing
+kubernaut-system          96s         Normal    SignalProcessed                    signalprocessing/sp-rr-2bf3a5781f9d-3dc16f2b                    Signal processed successfully in 1.54s: P0 Production alert ready for remediation
+kubernaut-system          96s         Normal    AIAnalysisCreated                  aianalysis/ai-rr-2bf3a5781f9d-3dc16f2b                          AIAnalysis processing started
+kubernaut-system          96s         Normal    PhaseTransition                    signalprocessing/sp-rr-2bf3a5781f9d-3dc16f2b                    Phase transition: Enriching → Classifying
+kubernaut-system          96s         Normal    SignalEnriched                     signalprocessing/sp-rr-2bf3a5781f9d-3dc16f2b                    K8s context enriched: Deployment demo-shipping/checkout-api
+kubernaut-system          96s         Normal    PhaseTransition                    aianalysis/ai-rr-2bf3a5781f9d-3dc16f2b                          Phase transition: Pending → Investigating
+kubernaut-system          96s         Normal    PhaseTransition                    signalprocessing/sp-rr-2bf3a5781f9d-3dc16f2b                    Phase transition: Categorizing → Completed
+kubernaut-system          96s         Normal    PhaseTransition                    remediationrequest/rr-2bf3a5781f9d-3dc16f2b                     Phase transition: Processing → Analyzing
+kubernaut-system          96s         Normal    SessionCreated                     aianalysis/ai-rr-2bf3a5781f9d-3dc16f2b                          AgentSession as-rr-2bf3a5781f9d-3dc16f2b created
+kubernaut-system          96s         Normal    PhaseTransition                    remediationrequest/rr-2bf3a5781f9d-3dc16f2b                     Phase transition: Pending → Processing
+kubernaut-system          42s         Normal    InvestigationComplete              aianalysis/ai-rr-2bf3a5781f9d-3dc16f2b                          Investigation completed successfully, transitioning to Analyzing
+kubernaut-system          42s         Normal    PhaseTransition                    aianalysis/ai-rr-2bf3a5781f9d-3dc16f2b                          Phase transition: Analyzing → Completed
+kubernaut-system          42s         Normal    AnalysisCompleted                  aianalysis/ai-rr-2bf3a5781f9d-3dc16f2b                          Analysis completed successfully
+kubernaut-system          42s         Normal    PhaseTransition                    aianalysis/ai-rr-2bf3a5781f9d-3dc16f2b                          Phase transition: Investigating → Analyzing
+kubernaut-system          41s         Normal    PhaseTransition                    remediationrequest/rr-2bf3a5781f9d-3dc16f2b                     Phase transition: Analyzing → Executing
+kubernaut-system          41s         Normal    WorkflowValidated                  workflowexecution/we-rr-2bf3a5781f9d-3dc16f2b                   Workflow spec validated: 45c70620-7fc4-5150-9165-ddc643b9281f (target: demo-shipping/Deployment/checkout-api)
+kubernaut-system          41s         Normal    ExecutionCreated                   workflowexecution/we-rr-2bf3a5781f9d-3dc16f2b                   Created job execution resource kubernaut-workflows/wfe-45417cd8e5b0d1ea
+kubernaut-system          41s         Normal    PhaseTransition                    workflowexecution/we-rr-2bf3a5781f9d-3dc16f2b                   Phase transition: Pending → Running
+kubernaut-system          30s         Normal    NotificationSent                   notificationrequest/nr-manual-review-rr-2bf3a5781f9d-3dc16f2b   Successfully delivered to channel console
+kubernaut-system          30s         Warning   RemediationFailed                  remediationrequest/rr-2bf3a5781f9d-3dc16f2b                     Remediation failed during WorkflowExecution: WorkflowExecution failed
+kubernaut-system          30s         Normal    NotificationCreated                remediationrequest/rr-2bf3a5781f9d-3dc16f2b                     ManualReview notification created for WFE failure: nr-manual-review-rr-2bf3a5781f9d-3dc16f2b
+kubernaut-system          30s         Normal    PhaseTransition                    notificationrequest/nr-manual-review-rr-2bf3a5781f9d-3dc16f2b   Transitioned to Sending phase
+kubernaut-system          30s         Normal    ReconcileStarted                   notificationrequest/nr-manual-review-rr-2bf3a5781f9d-3dc16f2b   Started reconciling notification nr-manual-review-rr-2bf3a5781f9d-3dc16f2b
+kubernaut-system          30s         Warning   WorkflowFailed                     workflowexecution/we-rr-2bf3a5781f9d-3dc16f2b                   Workflow 45c70620-7fc4-5150-9165-ddc643b9281f failed: Unknown - Job has reached the specified backoff limit
+kubernaut-system          30s         Normal    PhaseTransition                    workflowexecution/we-rr-2bf3a5781f9d-3dc16f2b                   Phase transition: Running → Failed

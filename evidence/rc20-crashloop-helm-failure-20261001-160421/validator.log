@@ -1,0 +1,48 @@
+[16:03:38] Waiting for KubePodCrashLooping alert (timeout: 900s)...
+[16:03:39] Alert KubePodCrashLooping fired in AlertManager
+[16:03:39] Waiting for RemediationRequest (target: demo-storefront)...
+[16:03:39] RemediationRequest rr-7f1635052972-0a08bdf0 created -> Phase: Completed
+[16:03:39] Polling pipeline (timeout: 600s, approval: --auto-approve)...
+
+           AI Analysis
+           ──────────────────────────────────────────
+           Root Cause:    The worker container crashes because the Helm-managed ConfigMap demo-storefront/worker-config contains the invalid nginx directive invalid_directive_that_breaks_nginx at line 11, causing nginx to exit with code 1. The failing deployment revision is unhealthy while the previous revision's pods are healthy.
+           Severity:      critical
+           Target:        ConfigMap/worker-config (ns: demo-storefront)
+           Workflow:      0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24 (quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:d7739e5bcf1270e32ec36ed7a6a528fe99e4d12a3fa2d55d9eaaddee2a107d25)
+           Confidence:    0.94
+           Rationale:     HelmRollback is the catalog-preferred action because helmManaged=true....
+           Approval:      not required
+
+[16:03:40] Pipeline completed (outcome: Inconclusive)
+[16:03:41] Waiting for EffectivenessAssessment to complete...
+
+           Effectiveness Assessment
+           ──────────────────────────────────────────
+           Phase:         Completed
+           Reason:        Full
+           Message:       Assessment completed: Full
+           Alert Score:   0
+           Health Score:  pending
+           Metrics Score: 0
+
+[16:03:42] Running assertions...
+           [PASS] RR phase = Completed
+           [FAIL] RR outcome = Inconclusive (expected: Remediated)
+           [PASS] SP phase = Completed
+           [PASS] AA phase = Completed
+           [PASS] AA selected a workflow = 0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24 (not )
+           [PASS] AA selected correct workflow contains "helm-rollback-job"
+           [PASS] WFE phase = Completed
+           [PASS] EA phase = Completed
+           [PASS] Helm release status = deployed
+           [FAIL] Helm last revision is a rollback = Upgrade complete (expected: Rollback to 1)
+           [PASS] All worker replicas ready = 2
+
+           Scenario Assertions
+           ──────────────────────────────────────────
+
+           ============================================
+            RESULT: FAIL (9/11 passed, 2 failed)
+           ============================================
+

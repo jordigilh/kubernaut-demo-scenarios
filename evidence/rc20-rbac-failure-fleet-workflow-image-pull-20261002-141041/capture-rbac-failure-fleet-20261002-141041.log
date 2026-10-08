@@ -1,0 +1,16 @@
+==> Capturing eval transcript for RR: rr-220b295e549b-0016b3e9
+  Waiting for RR to reach terminal phase...
+  RR phase: Completed
+  Waiting for audit flush (3s)...
+  Audit events: 10 LLM request(s)
+  Session ID: as-rr-220b295e549b-0016b3e9
+  Extracting LLM trace from audit_events...
+
+==> Eval transcript saved to: /Users/jgil/go/src/github.com/jordigilh/kubernaut-demo-scenarios/scripts/../golden-transcripts/rbac-failure-rbacpolicydenied.json
+    Scenario:    rbac-failure
+    Signal:      RBACPolicyDenied
+    RR:          rr-220b295e549b-0016b3e9 (Completed / Remediated)
+    Model:       gpt-5.6-luna
+    Tokens:      60004
+    LLM turns:   10
+    Tool calls:  17

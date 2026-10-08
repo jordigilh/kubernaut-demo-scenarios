@@ -1,0 +1,90 @@
+=============================================
+ Helm CrashLoopBackOff Remediation Demo (#135)
+=============================================
+
+==> [spoke=/Users/jgil/.kube/kubernaut-remote-cluster-config] Deploying namespace and alerting rules...
+==> [fleet] Deploying workload manifests to spoke (skipping operator monitoring kinds -- see fleet_deploy_monitoring)...
+    namespace/demo-storefront unchanged
+  Applied 1 document(s) to spoke, skipped 1 (monitoring kinds).
+  [fleet] kube-state-metrics already deployed on spoke.
+==> [fleet] Deploying monitoring CRDs to spoke (operator-native, no config surgery)...
+    prometheusrule.monitoring.coreos.com/demo-app-alerts configured
+    Set cluster=remote-cluster on alert rules in doc-1.yaml.
+  Applied 1 monitoring document(s) to spoke, skipped 1 (workload kinds).
+==> [spoke] Installing workload via Helm chart...
+Release "demo-storefront" has been upgraded. Happy Helming!
+NAME: demo-storefront
+LAST DEPLOYED: Thu Oct  1 15:57:08 2026
+NAMESPACE: demo-storefront
+STATUS: deployed
+REVISION: 4
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+  Helm release installed. Deployment has app.kubernetes.io/managed-by: Helm label.
+NAME                      READY   STATUS    RESTARTS   AGE
+worker-55f949bcdf-kmzfl   1/1     Running   0          9m33s
+worker-55f949bcdf-wfrqz   1/1     Running   0          9m33s
+
+==> [spoke] Establishing healthy baseline (20s)...
+  Baseline established.
+
+==> [spoke] Injecting invalid nginx config via helm upgrade...
+==> Upgrading Helm release with bad nginx config...
+Release "demo-storefront" has been upgraded. Happy Helming!
+NAME: demo-storefront
+LAST DEPLOYED: Thu Oct  1 15:57:29 2026
+NAMESPACE: demo-storefront
+STATUS: deployed
+REVISION: 5
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+==> Bad config injected via helm upgrade. Pods will crash on startup with:
+     nginx: [emerg] unknown directive "invalid_directive_that_breaks_nginx"
+==> Helm history: helm history demo-storefront -n demo-storefront
+
+  Waiting for pods to start crashing...
+NAME                      READY   STATUS             RESTARTS     AGE
+worker-55f949bcdf-kmzfl   1/1     Running            0            10m
+worker-55f949bcdf-wfrqz   1/1     Running            0            10m
+worker-7db6dfdc68-hj7bv   0/1     CrashLoopBackOff   1 (6s ago)   11s
+
+==> [spoke] Fault injected. Run fleet/hub.sh (or ../run.sh) to confirm the alert on the hub.
+
+==> [hub=/Users/jgil/.kube/kubernaut-hub-config] Waiting for alert...
+==> [fleet] Waiting for alert 'KubePodCrashLooping' (namespace=demo-storefront, cluster=remote-cluster) on hub Alertmanager (timeout 900s)...
+  alert 'KubePodCrashLooping' (namespace=demo-storefront, cluster=remote-cluster) is firing.
+
+==> Alert is firing. Driving full remediation pipeline on the hub (--auto-approve)...
+==> [hub=/Users/jgil/.kube/kubernaut-hub-config] Waiting for alert...
+==> [fleet] Waiting for alert 'KubePodCrashLooping' (namespace=demo-storefront, cluster=remote-cluster) on hub Alertmanager (timeout 900s)...
+  alert 'KubePodCrashLooping' (namespace=demo-storefront, cluster=remote-cluster) is firing.
+
+==> Alert is firing. Driving full remediation pipeline on the hub (--auto-approve)...
+[15:57:42] Waiting for RemediationRequest (target: demo-storefront)...
+[15:57:42] RemediationRequest rr-7f1635052972-0a08bdf0 created -> Phase: Verifying
+[15:57:42] Polling pipeline (timeout: 600s, approval: --auto-approve)...
+[15:57:42] EffectivenessAssessment verification in progress...
+[16:01:57] Phase: Verifying -> Completed
+
+           AI Analysis
+           ──────────────────────────────────────────
+           Root Cause:    The worker container crashes because the Helm-managed ConfigMap demo-storefront/worker-config contains the invalid nginx directive invalid_directive_that_breaks_nginx at line 11, causing nginx to exit with code 1. The failing deployment revision is unhealthy while the previous revision's pods are healthy.
+           Severity:      critical
+           Target:        ConfigMap/worker-config (ns: demo-storefront)
+           Workflow:      0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24 (quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:d7739e5bcf1270e32ec36ed7a6a528fe99e4d12a3fa2d55d9eaaddee2a107d25)
+           Confidence:    0.94
+           Rationale:     HelmRollback is the catalog-preferred action because helmManaged=true....
+           Approval:      not required
+
+[16:01:58] Pipeline completed (outcome: Inconclusive)
+[16:01:58] Waiting for EffectivenessAssessment to complete...
+
+           Effectiveness Assessment
+           ──────────────────────────────────────────
+           Phase:         Completed
+           Reason:        Full
+           Message:       Assessment completed: Full
+           Alert Score:   0
+           Health Score:  pending
+           Metrics Score: 0
+

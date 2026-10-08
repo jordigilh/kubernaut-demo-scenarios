@@ -1,0 +1,96 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: WorkflowExecution
+metadata:
+  creationTimestamp: "2026-10-03T03:12:21Z"
+  finalizers:
+  - workflowexecution.kubernaut.ai/workflowexecution-cleanup
+  generation: 1
+  name: we-rr-7e2b686ca561-ca34b5f8
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RemediationRequest
+    name: rr-7e2b686ca561-ca34b5f8
+    uid: 0acebc36-a2c6-4d51-9219-3e0572eab514
+  resourceVersion: "73451"
+  uid: 01d6f7f8-f449-4571-b09f-17777d624c56
+spec:
+  clusterID: remote-cluster
+  confidence: 0.93
+  parameters:
+    TARGET_RESOURCE_API_VERSION: apps/v1
+    TARGET_RESOURCE_KIND: Deployment
+    TARGET_RESOURCE_NAME: payment-service
+    TARGET_RESOURCE_NAMESPACE: demo-payments
+  rationale: 'The catalog-preferred RelaxPDB action matches the pdbProtected label
+    and its guidance exactly: healthy pods are present, minAvailable equals replica
+    count, and zero voluntary disruptions may block maintenance. The workflow temporarily
+    relaxes the PDB; increasing replicas is a longer-term capacity/configuration change
+    and is not an available catalog workflow.'
+  remediationRequestRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: RemediationRequest
+    name: rr-7e2b686ca561-ca34b5f8
+    namespace: kubernaut-system
+    uid: 0acebc36-a2c6-4d51-9219-3e0572eab514
+  targetResource: demo-payments/Deployment/payment-service
+  timesOutAt: "2026-10-03T03:42:21Z"
+  workflowRef:
+    actionType: RelaxPDB
+    declaredParameterNames:
+      TARGET_RESOURCE_KIND: true
+      TARGET_RESOURCE_NAME: true
+      TARGET_RESOURCE_NAMESPACE: true
+    executionBundle: quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:ab38364edf3a3ae99fb424d1aae26ed34dec104cbba45c5e8857745a28028538
+    executionEngine: job
+    serviceAccountName: relax-pdb-v1-runner
+    version: 1.6.3
+    workflowId: 30d56add-47c3-5735-bdc9-e09c7e9bb2bf
+    workflowName: relax-pdb-v1
+status:
+  completionTime: "2026-10-03T03:12:42Z"
+  conditions:
+  - lastTransitionTime: "2026-10-03T03:12:22Z"
+    message: Audit event workflow.completed recorded to DataStorage
+    observedGeneration: 1
+    reason: AuditSucceeded
+    status: "True"
+    type: AuditRecorded
+  - lastTransitionTime: "2026-10-03T03:12:22Z"
+    message: job execution resource wfe-23149e6e52c95435 created in kubernaut-workflows
+      namespace
+    observedGeneration: 1
+    reason: ExecutionCreated
+    status: "True"
+    type: ExecutionCreated
+  - lastTransitionTime: "2026-10-03T03:12:32Z"
+    message: 'Execution running (job: Running)'
+    observedGeneration: 1
+    reason: ExecutionStarted
+    status: "True"
+    type: ExecutionRunning
+  - lastTransitionTime: "2026-10-03T03:12:42Z"
+    message: All tasks completed successfully in &Duration{Duration:21s,}
+    observedGeneration: 1
+    reason: ExecutionSucceeded
+    status: "True"
+    type: ExecutionComplete
+  - lastTransitionTime: "2026-10-03T03:12:42Z"
+    message: Workflow execution completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  duration: 21s
+  executionRef:
+    name: wfe-23149e6e52c95435
+  executionStatus:
+    completedTasks: 1
+    reason: Succeeded
+    status: "True"
+    totalTasks: 1
+  observedGeneration: 1
+  phase: Completed
+  startTime: "2026-10-03T03:12:22Z"

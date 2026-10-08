@@ -1,0 +1,50 @@
+LAST SEEN   TYPE      REASON                           OBJECT                                                       MESSAGE
+56m         Warning   Unhealthy                        pod/console-756d955c66-jwqf4                                 Liveness probe failed: Get "http://10.244.0.37:4180/oauth2/ping": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+56m         Warning   Unhealthy                        pod/console-756d955c66-jwqf4                                 Readiness probe failed: Get "http://10.244.0.37:4180/oauth2/ping": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+19m         Normal    KeyPairVerified                  issuer/demo-console-ca                                       Signing CA verified
+13m         Normal    ScalingReplicaSet                deployment/kubernaut-agent                                   Scaled up replica set kubernaut-agent-8478d8847 from 0 to 1
+13m         Normal    SuccessfulCreate                 replicaset/kubernaut-agent-8478d8847                         Created pod: kubernaut-agent-8478d8847-swdgr
+13m         Normal    Created                          pod/kubernaut-agent-8478d8847-swdgr                          Container created
+13m         Normal    Pulled                           pod/kubernaut-agent-8478d8847-swdgr                          Container image "localhost/kubernautagent:pr-2483-arm64" already present on machine and can be accessed by the pod
+13m         Normal    Scheduled                        pod/kubernaut-agent-8478d8847-swdgr                          Successfully assigned kubernaut-system/kubernaut-agent-8478d8847-swdgr to kubernaut-hub-control-plane
+13m         Normal    Started                          pod/kubernaut-agent-8478d8847-swdgr                          Container started
+13m         Normal    Killing                          pod/kubernaut-agent-5d495d7fc-f826r                          Stopping container kubernaut-agent
+13m         Normal    SuccessfulDelete                 replicaset/kubernaut-agent-5d495d7fc                         Deleted pod: kubernaut-agent-5d495d7fc-f826r
+13m         Normal    ScalingReplicaSet                deployment/kubernaut-agent                                   Scaled down replica set kubernaut-agent-5d495d7fc from 1 to 0
+11m         Normal    PhaseTransition                  signalprocessing/sp-rr-825b58c1ca42-ffa5cb04                 Phase transition: Pending → Enriching
+11m         Normal    PhaseTransition                  remediationrequest/rr-825b58c1ca42-ffa5cb04                  Phase transition: Pending → Processing
+11m         Normal    RemediationCreated               remediationrequest/rr-825b58c1ca42-ffa5cb04                  RemediationRequest accepted for signal KubePodNotScheduled
+11m         Normal    SessionCreated                   aianalysis/ai-rr-825b58c1ca42-ffa5cb04                       AgentSession as-rr-825b58c1ca42-ffa5cb04 created
+11m         Normal    AIAnalysisCreated                aianalysis/ai-rr-825b58c1ca42-ffa5cb04                       AIAnalysis processing started
+11m         Normal    PhaseTransition                  signalprocessing/sp-rr-825b58c1ca42-ffa5cb04                 Phase transition: Enriching → Classifying
+11m         Normal    SignalEnriched                   signalprocessing/sp-rr-825b58c1ca42-ffa5cb04                 K8s context enriched: Deployment demo-scheduler/batch-processor
+11m         Normal    PhaseTransition                  remediationrequest/rr-825b58c1ca42-ffa5cb04                  Phase transition: Processing → Analyzing
+11m         Normal    PhaseTransition                  signalprocessing/sp-rr-825b58c1ca42-ffa5cb04                 Phase transition: Classifying → Categorizing
+11m         Normal    PhaseTransition                  signalprocessing/sp-rr-825b58c1ca42-ffa5cb04                 Phase transition: Categorizing → Completed
+11m         Normal    SignalProcessed                  signalprocessing/sp-rr-825b58c1ca42-ffa5cb04                 Signal processed successfully in 1.21s: P2 Staging alert ready for remediation
+11m         Normal    PhaseTransition                  aianalysis/ai-rr-825b58c1ca42-ffa5cb04                       Phase transition: Pending → Investigating
+10m         Normal    AnalysisCompleted                aianalysis/ai-rr-825b58c1ca42-ffa5cb04                       Analysis completed successfully
+10m         Normal    PhaseTransition                  aianalysis/ai-rr-825b58c1ca42-ffa5cb04                       Phase transition: Analyzing → Completed
+10m         Normal    InvestigationComplete            aianalysis/ai-rr-825b58c1ca42-ffa5cb04                       Investigation completed successfully, transitioning to Analyzing
+10m         Normal    PhaseTransition                  aianalysis/ai-rr-825b58c1ca42-ffa5cb04                       Phase transition: Investigating → Analyzing
+9m59s       Normal    PhaseTransition                  remediationrequest/rr-825b58c1ca42-ffa5cb04                  Phase transition: Analyzing → Executing
+9m59s       Normal    ExecutionCreated                 workflowexecution/we-rr-825b58c1ca42-ffa5cb04                Created job execution resource kubernaut-workflows/wfe-c78de5380fd76cfb
+9m59s       Normal    PhaseTransition                  workflowexecution/we-rr-825b58c1ca42-ffa5cb04                Phase transition: Pending → Running
+9m59s       Normal    WorkflowValidated                workflowexecution/we-rr-825b58c1ca42-ffa5cb04                Workflow spec validated: 51247c9a-179f-54b8-b2fa-ece9fb80ef17 (target: demo-scheduler/Deployment/batch-processor)
+9m17s       Normal    WorkflowCompleted                workflowexecution/we-rr-825b58c1ca42-ffa5cb04                Workflow 51247c9a-179f-54b8-b2fa-ece9fb80ef17 completed successfully in &Duration{Duration:42s,}
+9m17s       Normal    PhaseTransition                  workflowexecution/we-rr-825b58c1ca42-ffa5cb04                Phase transition: Running → Completed
+9m17s       Normal    RemediationCompleted             remediationrequest/rr-825b58c1ca42-ffa5cb04                  Remediation succeeded, entering verification phase (#280)
+9m17s       Normal    EffectivenessAssessmentCreated   remediationrequest/rr-825b58c1ca42-ffa5cb04                  Created EffectivenessAssessment ea-rr-825b58c1ca42-ffa5cb04 (correlationID: rr-825b58c1ca42-ffa5cb04)
+9m17s       Normal    AssessmentScheduled              effectivenessassessment/ea-rr-825b58c1ca42-ffa5cb04          Assessment scheduled for correlation rr-825b58c1ca42-ffa5cb04 (deadline: 11:44:26)
+8m17s       Normal    LockReleased                     workflowexecution/we-rr-825b58c1ca42-ffa5cb04                Lock released for demo-scheduler/Deployment/batch-processor after cooldown
+4m17s       Normal    ComponentAssessed                effectivenessassessment/ea-rr-825b58c1ca42-ffa5cb04          Component hash computed (match: 0x70ba73dd92d0)
+4m17s       Normal    AssessmentStarted                effectivenessassessment/ea-rr-825b58c1ca42-ffa5cb04          Assessment started for correlation rr-825b58c1ca42-ffa5cb04
+4m17s       Normal    ComponentAssessed                effectivenessassessment/ea-rr-825b58c1ca42-ffa5cb04          Component alert assessed (score: 0.00)
+4m17s       Normal    ComponentAssessed                effectivenessassessment/ea-rr-825b58c1ca42-ffa5cb04          Component health assessed (score: 0.00)
+4m17s       Warning   ValidityWindowExtended           effectivenessassessment/ea-rr-825b58c1ca42-ffa5cb04          StabilizationWindow (5m0s) >= ValidityWindow (2m0s); extended deadline to 2026-10-03 11:44:26 +0000 UTC
+2m17s       Normal    NotificationCreated              remediationrequest/rr-825b58c1ca42-ffa5cb04                  Completion notification created: nr-completion-rr-825b58c1ca42-ffa5cb04
+2m17s       Normal    NotificationSent                 notificationrequest/nr-completion-rr-825b58c1ca42-ffa5cb04   Successfully delivered to channel console
+2m17s       Normal    PhaseTransition                  notificationrequest/nr-completion-rr-825b58c1ca42-ffa5cb04   Transitioned to Sending phase
+2m17s       Normal    ReconcileStarted                 notificationrequest/nr-completion-rr-825b58c1ca42-ffa5cb04   Started reconciling notification nr-completion-rr-825b58c1ca42-ffa5cb04
+2m17s       Normal    EffectivenessAssessed            effectivenessassessment/ea-rr-825b58c1ca42-ffa5cb04          Assessment completed: MetricsTimedOut (correlation: rr-825b58c1ca42-ffa5cb04)
+2m17s       Warning   AssessmentExpired                effectivenessassessment/ea-rr-825b58c1ca42-ffa5cb04          Validity window expired for correlation rr-825b58c1ca42-ffa5cb04; completing with available data

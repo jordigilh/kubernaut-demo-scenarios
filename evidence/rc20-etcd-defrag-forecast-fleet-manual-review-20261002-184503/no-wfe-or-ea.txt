@@ -1,0 +1,11 @@
+NAME                                                         PHASE       WORKFLOW                 WORKFLOWID                             TARGET                                                DURATION   REASON   AGE
+workflowexecution.kubernaut.ai/we-rr-10a3e3419019-f32ca31b   Completed   fix-statefulset-pvc-v1   07ae06ef-0486-5a2b-823b-ba6790bf091b   demo-keystore/PersistentVolumeClaim/data-kv-store-2   1m3s       Ready    4h6m
+workflowexecution.kubernaut.ai/we-rr-220b295e549b-0016b3e9   Completed   restore-rolebinding-v1   fb6a832d-510d-54a2-b512-cc2a52e31786   demo-monitoring/Deployment/metrics-collector          11m37s     Ready    4h36m
+workflowexecution.kubernaut.ai/we-rr-4309bc63be09-2aadfaa5   Completed   hotfix-config-v1         e8507cdf-73db-5ef4-b056-2203fd4f472d   demo-ingress/ConfigMap/gateway-config-bad             21s        Ready    4h16m
+workflowexecution.kubernaut.ai/we-rr-9d7638a122e2-dd1813f9   Completed   fix-network-policy-v1    929f4c44-33ab-58fa-849b-df6938aa0b7f   demo-frontend/Deployment/traffic-gen                  32s        Ready    3h57m
+
+NAME                                                               PHASE       REASON    CORRELATIONID              READYREASON   AGE
+effectivenessassessment.kubernaut.ai/ea-rr-10a3e3419019-f32ca31b   Completed   Full      rr-10a3e3419019-f32ca31b   Ready         4h5m
+effectivenessassessment.kubernaut.ai/ea-rr-220b295e549b-0016b3e9   Completed   Full      rr-220b295e549b-0016b3e9   Ready         4h25m
+effectivenessassessment.kubernaut.ai/ea-rr-4309bc63be09-2aadfaa5   Completed   Full      rr-4309bc63be09-2aadfaa5   Ready         4h15m
+effectivenessassessment.kubernaut.ai/ea-rr-9d7638a122e2-dd1813f9   Completed   Expired   rr-9d7638a122e2-dd1813f9   Ready         3h56m

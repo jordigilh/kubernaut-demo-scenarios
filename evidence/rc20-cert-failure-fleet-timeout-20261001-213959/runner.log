@@ -1,0 +1,73 @@
+  Operator-managed Prometheus is installed.
+==> Default preflight: metrics-pipeline...
+  Preflight [metrics-pipeline]: checking kube-state-metrics...
+  Preflight [metrics-pipeline]: OK (1 series)
+==> Seeding ActionType CRDs...
+==> Seeding RemediationWorkflow CRDs (namespace: kubernaut-system)...
+    SKIP disk-pressure-emptydir.yaml (engine: ansible — no AWX/AAP found)
+    Applied 33 workflow(s), skipped 1, failed 0.
+[21:29:50] Starting DataStorage port-forward (localhost:30081 -> svc/data-storage-service:8081)...
+[21:29:51] DataStorage port-forward ready
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    Scenario: cert-failure
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[21:29:51] Running cert-failure/run.sh...
+=============================================
+ cert-manager Certificate Failure Demo (#133)
+=============================================
+
+==> [spoke] Generating self-signed CA key pair...
+secret/demo-ca-key-pair created
+  CA Secret created in cert-manager namespace on spoke.
+==> [spoke=/Users/jgil/.kube/kubernaut-remote-cluster-config] Deploying scenario resources...
+==> [fleet] Deploying workload manifests to spoke (skipping operator monitoring kinds -- see fleet_deploy_monitoring)...
+    namespace/demo-portal created
+    service/demo-app created
+    deployment.apps/demo-app created
+    certificate.cert-manager.io/demo-app-cert created
+    clusterissuer.cert-manager.io/demo-selfsigned-ca created
+  Applied 5 document(s) to spoke, skipped 2 (monitoring kinds).
+  [fleet] kube-state-metrics already deployed on spoke.
+==> [fleet] Deploying monitoring CRDs to spoke (operator-native, no config surgery)...
+    prometheusrule.monitoring.coreos.com/demo-app-alerts created
+    Set cluster=remote-cluster on alert rules in doc-5.yaml.
+    servicemonitor.monitoring.coreos.com/kubernaut-cert-manager-demo created
+  Applied 2 monitoring document(s) to spoke, skipped 5 (workload kinds).
+==> [spoke] Waiting for Certificate to become Ready...
+  Certificate is Ready.
+NAME            READY   SECRET         AGE
+demo-app-cert   True    demo-app-tls   1s
+
+==> [spoke] Establishing healthy baseline (20s)...
+
+==> [spoke] Injecting failure (deleting CA Secret)...
+==> Deleting CA Secret that backs the ClusterIssuer...
+secret "demo-ca-key-pair" deleted from cert-manager namespace
+==> Triggering certificate re-issuance to force failure detection...
+secret "demo-app-tls" deleted from demo-portal namespace
+==> Renewing certificate to trigger immediate re-issuance attempt...
+certificate.cert-manager.io/demo-app-cert annotated
+==> CA Secret deleted. cert-manager will fail to issue demo-app-cert.
+    ClusterIssuer 'demo-selfsigned-ca' can no longer sign certificates.
+==> Watch: kubectl get certificate -n demo-portal -w
+
+==> [spoke] Fault injected. Run fleet/hub.sh (or ../run.sh) to confirm the alert on the hub.
+
+==> [hub=/Users/jgil/.kube/kubernaut-hub-config] Waiting for alert...
+==> [fleet] Waiting for alert 'CertManagerCertNotReady' (namespace=demo-portal, cluster=remote-cluster) on hub Alertmanager (timeout 480s)...
+  WARNING: alert 'CertManagerCertNotReady' (namespace=demo-portal, cluster=remote-cluster) did not fire within 480s.
+[21:39:35] run.sh failed for cert-failure
+[21:39:35] Preserving cert-failure resources after failure for RCA (cleanup skipped)
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    Summary
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Scenario                        Result    Duration
+  ──────────────────────────────  ────────  ────────
+  cert-failure                    FAIL      9m 44s
+
+  Total: 9m 45s | 0 passed, 1 failed
+

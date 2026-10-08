@@ -1,0 +1,28 @@
+LAST SEEN   TYPE      REASON              OBJECT                         MESSAGE
+21m         Normal    SuccessfulCreate    replicaset/worker-7b6d74d8b9   Created pod: worker-7b6d74d8b9-sl2v4
+21m         Normal    Scheduled           pod/worker-7b6d74d8b9-jqs7q    Successfully assigned demo-backend/worker-7b6d74d8b9-jqs7q to kubernaut-remote-cluster-control-plane
+21m         Normal    ScalingReplicaSet   deployment/worker              Scaled up replica set worker-7b6d74d8b9 from 0 to 2
+21m         Normal    SuccessfulCreate    replicaset/worker-7b6d74d8b9   Created pod: worker-7b6d74d8b9-jqs7q
+21m         Normal    Scheduled           pod/worker-7b6d74d8b9-sl2v4    Successfully assigned demo-backend/worker-7b6d74d8b9-sl2v4 to kubernaut-remote-cluster-control-plane
+21m         Normal    Pulled              pod/worker-7b6d74d8b9-sl2v4    Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already present on machine and can be accessed by the pod
+21m         Normal    Started             pod/worker-7b6d74d8b9-jqs7q    Container started
+21m         Normal    Started             pod/worker-7b6d74d8b9-sl2v4    Container started
+21m         Normal    Created             pod/worker-7b6d74d8b9-sl2v4    Container created
+21m         Normal    Created             pod/worker-7b6d74d8b9-jqs7q    Container created
+21m         Normal    Pulled              pod/worker-7b6d74d8b9-jqs7q    Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already present on machine and can be accessed by the pod
+21m         Normal    Scheduled           pod/worker-cdcdddbf4-rzdr7     Successfully assigned demo-backend/worker-cdcdddbf4-rzdr7 to kubernaut-remote-cluster-control-plane
+21m         Normal    SuccessfulCreate    replicaset/worker-cdcdddbf4    Created pod: worker-cdcdddbf4-rzdr7
+10m         Normal    Pulled              pod/worker-cdcdddbf4-rzdr7     Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already present on machine and can be accessed by the pod
+10m         Normal    Created             pod/worker-cdcdddbf4-rzdr7     Container created
+10m         Normal    Started             pod/worker-cdcdddbf4-rzdr7     Container started
+10m         Warning   BackOff             pod/worker-cdcdddbf4-rzdr7     Back-off restarting failed container worker in pod worker-cdcdddbf4-rzdr7_demo-backend(e1bebd9a-6715-49a9-a3e8-6c1a61c38d05)
+9m23s       Normal    SuccessfulDelete    replicaset/worker-cdcdddbf4    Deleted pod: worker-cdcdddbf4-rzdr7
+8m38s       Normal    SuccessfulCreate    replicaset/worker-cdcdddbf4    Created pod: worker-cdcdddbf4-5hh6p
+8m38s       Normal    Scheduled           pod/worker-cdcdddbf4-5hh6p     Successfully assigned demo-backend/worker-cdcdddbf4-5hh6p to kubernaut-remote-cluster-control-plane
+8m38s       Normal    ScalingReplicaSet   deployment/worker              Scaled up replica set worker-cdcdddbf4 from 0 to 1
+6m58s       Normal    Created             pod/worker-cdcdddbf4-5hh6p     Container created
+6m58s       Normal    Pulled              pod/worker-cdcdddbf4-5hh6p     Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already present on machine and can be accessed by the pod
+6m57s       Normal    Started             pod/worker-cdcdddbf4-5hh6p     Container started
+6m53s       Warning   BackOff             pod/worker-cdcdddbf4-5hh6p     Back-off restarting failed container worker in pod worker-cdcdddbf4-5hh6p_demo-backend(017b7593-31b5-4086-af49-e0415f1b75e2)
+6m23s       Normal    SuccessfulDelete    replicaset/worker-cdcdddbf4    Deleted pod: worker-cdcdddbf4-5hh6p
+6m23s       Normal    ScalingReplicaSet   deployment/worker              Scaled down replica set worker-cdcdddbf4 from 1 to 0

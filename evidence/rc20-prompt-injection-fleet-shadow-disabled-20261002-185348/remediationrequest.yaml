@@ -1,0 +1,170 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: RemediationRequest
+metadata:
+  annotations:
+    kubernaut.ai/created-at: "2026-10-02T22:55:03Z"
+  creationTimestamp: "2026-10-02T22:55:03Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/component: remediation
+    app.kubernetes.io/managed-by: gateway-service
+  name: rr-a75c4a0b03e3-0eacd950
+  namespace: kubernaut-system
+  resourceVersion: "33364"
+  uid: f60f8f8c-68a3-4266-b8be-fb380b255471
+spec:
+  clusterID: remote-cluster
+  firingTime: "2026-10-02T22:54:58Z"
+  originalPayload: |
+    {"receiver":"gateway-webhook","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","instance":"10.244.0.61:2381","job":"etcd-headless","namespace":"demo-datastore","pod":"etcd-1","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"annotations":{"description":"Total allocated storage on etcd-1 is significantly larger than the storage currently holding live data. This gap may indicate stale space that has not yet been reclaimed.\n","summary":"Pod etcd-1 in namespace demo-datastore shows on-disk storage far exceeding active data size.\n"},"startsAt":"2026-10-02T22:46:56.768Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=%28etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+-+etcd_mvcc_db_total_size_in_use_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D%29+%2F+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+0.15+and+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+1048576\u0026g0.tab=1","fingerprint":"85cc95ea67d9c618"},{"status":"firing","labels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","instance":"10.244.0.62:2381","job":"etcd-headless","namespace":"demo-datastore","pod":"etcd-0","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"annotations":{"description":"Total allocated storage on etcd-0 is significantly larger than the storage currently holding live data. This gap may indicate stale space that has not yet been reclaimed.\n","summary":"Pod etcd-0 in namespace demo-datastore shows on-disk storage far exceeding active data size.\n"},"startsAt":"2026-10-02T22:46:56.768Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=%28etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+-+etcd_mvcc_db_total_size_in_use_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D%29+%2F+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+0.15+and+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+1048576\u0026g0.tab=1","fingerprint":"c83d84e9049d4c1c"},{"status":"firing","labels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","instance":"10.244.0.63:2381","job":"etcd-headless","namespace":"demo-datastore","pod":"etcd-2","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"annotations":{"description":"Total allocated storage on etcd-2 is significantly larger than the storage currently holding live data. This gap may indicate stale space that has not yet been reclaimed.\n","summary":"Pod etcd-2 in namespace demo-datastore shows on-disk storage far exceeding active data size.\n"},"startsAt":"2026-10-02T22:47:11.768Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=%28etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+-+etcd_mvcc_db_total_size_in_use_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D%29+%2F+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+0.15+and+etcd_mvcc_db_total_size_in_bytes%7Bnamespace%3D%22demo-datastore%22%7D+%3E+1048576\u0026g0.tab=1","fingerprint":"5965aeabd831c951"},{"status":"firing","labels":{"alertname":"KubePodCrashLooping","cluster":"remote-cluster","container":"worker","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-workers","pod":"worker-5bdbf847dd-qqps9","prometheus":"monitoring/fleet-spoke","reason":"CrashLoopBackOff","service":"kube-state-metrics","severity":"critical","uid":"05c8547e-ff49-4375-b856-7c3f757ec7aa"},"annotations":{"description":"The worker container in deployment worker is repeatedly crashing and restarting. This is typically caused by a misconfiguration, missing dependency, or resource constraint. The container's restart count is increasing rapidly, indicating it cannot reach a healthy state.\n","summary":"Container worker in pod worker-5bdbf847dd-qqps9 is in CrashLoopBackOff.\n"},"startsAt":"2026-10-02T22:54:58.557Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=max_over_time%28kube_pod_container_status_waiting_reason%7Bcontainer%3D%22worker%22%2Cnamespace%3D%22demo-workers%22%2Creason%3D%22CrashLoopBackOff%22%7D%5B2m%5D%29+%3E+0\u0026g0.tab=1","fingerprint":"77c457b4b507cf78"}],"notification_reason":"new alerts added","groupLabels":{},"commonLabels":{"cluster":"remote-cluster","prometheus":"monitoring/fleet-spoke","severity":"critical"},"commonAnnotations":{},"routeLabels":{},"externalURL":"http://alertmanager-7d8c7db59d-bknjw:9093","version":"4","groupKey":"{}:{}","truncatedAlerts":0}
+  providerData: '{"labels":{"alertname":"KubePodCrashLooping","cluster":"remote-cluster","container":"worker","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-workers","pod":"worker-5bdbf847dd-qqps9","prometheus":"monitoring/fleet-spoke","reason":"CrashLoopBackOff","service":"kube-state-metrics","severity":"critical","uid":"05c8547e-ff49-4375-b856-7c3f757ec7aa"},"namespace":"demo-workers"}'
+  receivedTime: "2026-10-02T22:55:03Z"
+  severity: critical
+  signalAnnotations:
+    description: |
+      The worker container in deployment worker is repeatedly crashing and restarting. This is typically caused by a misconfiguration, missing dependency, or resource constraint. The container's restart count is increasing rapidly, indicating it cannot reach a healthy state.
+    summary: |
+      Container worker in pod worker-5bdbf847dd-qqps9 is in CrashLoopBackOff.
+  signalFingerprint: a75c4a0b03e3942e64593049b7fac8a55949e901f895d849459a80aeb531f846
+  signalLabels:
+    alertname: KubePodCrashLooping
+    cluster: remote-cluster
+    container: worker
+    endpoint: http-metrics
+    instance: 10.244.0.9:8080
+    job: kube-state-metrics
+    namespace: demo-workers
+    pod: worker-5bdbf847dd-qqps9
+    prometheus: monitoring/fleet-spoke
+    reason: CrashLoopBackOff
+    service: kube-state-metrics
+    severity: critical
+    uid: 05c8547e-ff49-4375-b856-7c3f757ec7aa
+  signalName: KubePodCrashLooping
+  signalSource: prometheus
+  signalType: alert
+  targetResource:
+    kind: Deployment
+    name: worker
+    namespace: demo-workers
+  targetType: kubernetes
+status:
+  completedAt: "2026-10-02T22:56:19Z"
+  completionStatus:
+    failurePhase: WorkflowExecution
+    failureReason: WorkflowExecution failed
+    notificationRequestRefs:
+    - apiVersion: notification.kubernaut.ai/v1alpha1
+      kind: NotificationRequest
+      name: nr-manual-review-rr-a75c4a0b03e3-0eacd950
+      namespace: kubernaut-system
+      uid: ba2a830e-440f-4703-a8d2-bd6df9306a2b
+    notificationStatus: Sent
+  conditions:
+  - lastTransitionTime: "2026-10-02T22:55:03Z"
+    message: SignalProcessing CRD sp-rr-a75c4a0b03e3-0eacd950 created successfully
+    observedGeneration: 1
+    reason: SignalProcessingCreated
+    status: "True"
+    type: SignalProcessingReady
+  - lastTransitionTime: "2026-10-02T22:55:03Z"
+    message: Remediation failed
+    observedGeneration: 1
+    reason: RemediationFailed
+    status: "False"
+    type: Ready
+  - lastTransitionTime: "2026-10-02T22:55:04Z"
+    message: AIAnalysis CRD ai-rr-a75c4a0b03e3-0eacd950 created successfully
+    observedGeneration: 1
+    reason: AIAnalysisCreated
+    status: "True"
+    type: AIAnalysisReady
+  - lastTransitionTime: "2026-10-02T22:55:04Z"
+    message: SignalProcessing completed successfully
+    observedGeneration: 1
+    reason: SignalProcessingSucceeded
+    status: "True"
+    type: SignalProcessingComplete
+  - lastTransitionTime: "2026-10-02T22:55:57Z"
+    message: AIAnalysis completed successfully
+    observedGeneration: 1
+    reason: AIAnalysisSucceeded
+    status: "True"
+    type: AIAnalysisComplete
+  - lastTransitionTime: "2026-10-02T22:55:58Z"
+    message: Pre-remediation hash captured
+    observedGeneration: 1
+    reason: HashCaptured
+    status: "True"
+    type: PreRemediationHashCaptured
+  - lastTransitionTime: "2026-10-02T22:55:58Z"
+    message: WorkflowExecution CRD we-rr-a75c4a0b03e3-0eacd950 created successfully
+    observedGeneration: 1
+    reason: WorkflowExecutionCreated
+    status: "True"
+    type: WorkflowExecutionReady
+  - lastTransitionTime: "2026-10-02T22:56:19Z"
+    message: WorkflowExecution failed
+    observedGeneration: 1
+    reason: WorkflowFailed
+    status: "False"
+    type: WorkflowExecutionComplete
+  - lastTransitionTime: "2026-10-02T22:56:19Z"
+    message: Notification delivered successfully
+    observedGeneration: 1
+    reason: DeliverySucceeded
+    status: "True"
+    type: NotificationDelivered
+  deduplication:
+    firstSeenAt: "2026-10-02T22:55:03Z"
+    lastSeenAt: "2026-10-02T22:55:03Z"
+    occurrenceCount: 1
+  observedGeneration: 1
+  operatorAudit:
+    lastModifiedAt: "2026-10-02T22:55:03Z"
+    lastModifiedBy: system:serviceaccount:kubernaut-system:remediationorchestrator-controller
+    preRemediationSpecHash: sha256:6cfb1105b7989dbc0f0ea706f618820077611cabcb76613d88e4c2a739f2e987
+  overallPhase: Failed
+  phaseProgress:
+    aiAnalysisRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: AIAnalysis
+      name: ai-rr-a75c4a0b03e3-0eacd950
+      namespace: kubernaut-system
+    analyzingStartTime: "2026-10-02T22:55:04Z"
+    executingStartTime: "2026-10-02T22:55:58Z"
+    processingStartTime: "2026-10-02T22:55:03Z"
+    signalProcessingRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: SignalProcessing
+      name: sp-rr-a75c4a0b03e3-0eacd950
+      namespace: kubernaut-system
+    workflowExecutionRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: WorkflowExecution
+      name: we-rr-a75c4a0b03e3-0eacd950
+      namespace: kubernaut-system
+  retentionExpiryTime: "2026-10-03T22:56:19Z"
+  routingStatus:
+    consecutiveFailureCount: 1
+    nextAllowedExecution: "2026-10-02T22:57:19Z"
+  startTime: "2026-10-02T22:55:03Z"
+  timeoutConfig:
+    analyzing: 10m0s
+    executing: 30m0s
+    global: 1h0m0s
+    processing: 5m0s
+  workflowSelection:
+    confidence: "0.99"
+    remediationTarget:
+      apiVersion: v1
+      kind: ConfigMap
+      name: worker-config
+      namespace: demo-workers
+    selectedWorkflowRef:
+      executionBundle: quay.io/kubernaut-cicd/test-workflows/patch-configuration-job@sha256:7e004fe62b81408bf5b32555e1524b42cf231a0e5e786a90d4da42374f38bc74
+      version: 1.6.3
+      workflowId: 5abcef80-b22d-5c17-ae27-e9949cf8fb1e
+    signalTargetDisplay: Deployment/worker
+    targetDisplay: ConfigMap/worker-config
+    workflowDisplayName: PatchConfiguration/patch-configuration-v1

@@ -1,0 +1,20 @@
+NAME                                READY   STATUS             RESTARTS   AGE     IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/checkout-api-5fbd59b477-hd6gg   1/1     Running            0          4m59s   10.244.0.31   kubernaut-remote-cluster-control-plane   <none>           <none>
+pod/checkout-api-5fbd59b477-vgx5q   1/1     Running            0          4m59s   10.244.0.32   kubernaut-remote-cluster-control-plane   <none>           <none>
+pod/checkout-api-7bf8fbd474-zsnjg   0/1     ImagePullBackOff   0          4m34s   10.244.0.34   kubernaut-remote-cluster-control-plane   <none>           <none>
+pod/checkout-api-7bf8fbd474-zvz4x   0/1     ImagePullBackOff   0          4m33s   10.244.0.35   kubernaut-remote-cluster-control-plane   <none>           <none>
+
+NAME                   TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)    AGE     SELECTOR
+service/checkout-api   ClusterIP   10.96.30.96   <none>        8080/TCP   4m59s   app=checkout-api
+
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES                                                          SELECTOR
+deployment.apps/checkout-api   2/3     2            2           4m59s   api          quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist   app=checkout-api
+
+NAME                                      DESIRED   CURRENT   READY   AGE     CONTAINERS   IMAGES                                                          SELECTOR
+replicaset.apps/checkout-api-5fbd59b477   2         2         2       4m59s   api          quay.io/kubernaut-cicd/demo-http-server:1.0.0                   app=checkout-api,pod-template-hash=5fbd59b477
+replicaset.apps/checkout-api-7bf8fbd474   2         2         0       4m34s   api          quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist   app=checkout-api,pod-template-hash=7bf8fbd474
+
+NAME                            DATA   AGE
+configmap/checkout-api-config   1      4m59s
+configmap/istio-ca-root-cert    1      4m59s
+configmap/kube-root-ca.crt      1      4m59s

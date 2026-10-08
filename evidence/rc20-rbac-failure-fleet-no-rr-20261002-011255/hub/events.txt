@@ -1,0 +1,255 @@
+LAST SEEN   TYPE      REASON                           OBJECT                                                          MESSAGE
+66m         Normal    Scheduled                        pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Successfully assigned kubernaut-system/remediationorchestrator-controller-7bc6bb77cd-kmln7 to kubernaut-hub-control-plane
+73m         Normal    SignalEnriched                   signalprocessing/sp-rr-54a4d4c99584-91e7f47f                    K8s context enriched: Deployment demo-checkout/worker
+73m         Normal    RemediationCreated               remediationrequest/rr-54a4d4c99584-91e7f47f                     RemediationRequest accepted for signal KubePodCrashLooping
+73m         Normal    PhaseTransition                  remediationrequest/rr-54a4d4c99584-91e7f47f                     Phase transition: Pending → Processing
+73m         Normal    PhaseTransition                  remediationrequest/rr-54a4d4c99584-91e7f47f                     Phase transition: Processing → Analyzing
+73m         Normal    PhaseTransition                  signalprocessing/sp-rr-54a4d4c99584-91e7f47f                    Phase transition: Pending → Enriching
+73m         Normal    PhaseTransition                  signalprocessing/sp-rr-54a4d4c99584-91e7f47f                    Phase transition: Enriching → Classifying
+73m         Normal    PhaseTransition                  signalprocessing/sp-rr-54a4d4c99584-91e7f47f                    Phase transition: Classifying → Categorizing
+73m         Normal    PhaseTransition                  signalprocessing/sp-rr-54a4d4c99584-91e7f47f                    Phase transition: Categorizing → Completed
+73m         Normal    SignalProcessed                  signalprocessing/sp-rr-54a4d4c99584-91e7f47f                    Signal processed successfully in 0.74s: P0 Production alert ready for remediation
+73m         Normal    AIAnalysisCreated                aianalysis/ai-rr-54a4d4c99584-91e7f47f                          AIAnalysis processing started
+73m         Normal    SessionCreated                   aianalysis/ai-rr-54a4d4c99584-91e7f47f                          AgentSession as-rr-54a4d4c99584-91e7f47f created
+73m         Normal    PhaseTransition                  aianalysis/ai-rr-54a4d4c99584-91e7f47f                          Phase transition: Pending → Investigating
+72m         Normal    ExecutionCreated                 workflowexecution/we-rr-54a4d4c99584-91e7f47f                   Created job execution resource kubernaut-workflows/wfe-618ac7d3b8940927
+72m         Normal    WorkflowValidated                workflowexecution/we-rr-54a4d4c99584-91e7f47f                   Workflow spec validated: 8b477368-a095-5807-8c1e-60ddc8175956 (target: demo-checkout/Deployment/worker)
+72m         Normal    PhaseTransition                  workflowexecution/we-rr-54a4d4c99584-91e7f47f                   Phase transition: Pending → Running
+72m         Normal    PhaseTransition                  remediationrequest/rr-54a4d4c99584-91e7f47f                     Phase transition: Analyzing → Executing
+72m         Normal    InvestigationComplete            aianalysis/ai-rr-54a4d4c99584-91e7f47f                          Investigation completed successfully, transitioning to Analyzing
+72m         Normal    PhaseTransition                  aianalysis/ai-rr-54a4d4c99584-91e7f47f                          Phase transition: Investigating → Analyzing
+72m         Normal    AnalysisCompleted                aianalysis/ai-rr-54a4d4c99584-91e7f47f                          Analysis completed successfully
+72m         Normal    PhaseTransition                  aianalysis/ai-rr-54a4d4c99584-91e7f47f                          Phase transition: Analyzing → Completed
+72m         Normal    WorkflowCompleted                workflowexecution/we-rr-54a4d4c99584-91e7f47f                   Workflow 8b477368-a095-5807-8c1e-60ddc8175956 completed successfully in &Duration{Duration:11s,}
+72m         Normal    PhaseTransition                  workflowexecution/we-rr-54a4d4c99584-91e7f47f                   Phase transition: Running → Completed
+72m         Normal    AssessmentScheduled              effectivenessassessment/ea-rr-54a4d4c99584-91e7f47f             Assessment scheduled for correlation rr-54a4d4c99584-91e7f47f (deadline: 04:07:51)
+72m         Normal    EffectivenessAssessmentCreated   remediationrequest/rr-54a4d4c99584-91e7f47f                     Created EffectivenessAssessment ea-rr-54a4d4c99584-91e7f47f (correlationID: rr-54a4d4c99584-91e7f47f)
+72m         Normal    RemediationCompleted             remediationrequest/rr-54a4d4c99584-91e7f47f                     Remediation succeeded, entering verification phase (#280)
+71m         Normal    LockReleased                     workflowexecution/we-rr-54a4d4c99584-91e7f47f                   Lock released for demo-checkout/Deployment/worker after cooldown
+67m         Warning   ValidityWindowExtended           effectivenessassessment/ea-rr-54a4d4c99584-91e7f47f             StabilizationWindow (5m0s) >= ValidityWindow (2m0s); extended deadline to 2026-10-02 04:07:51 +0000 UTC
+67m         Normal    ComponentAssessed                effectivenessassessment/ea-rr-54a4d4c99584-91e7f47f             Component hash computed (match: 0x497cf02d850e)
+67m         Normal    ComponentAssessed                effectivenessassessment/ea-rr-54a4d4c99584-91e7f47f             Component health assessed (score: 1.00)
+67m         Normal    ComponentAssessed                effectivenessassessment/ea-rr-54a4d4c99584-91e7f47f             Component alert assessed (score: 1.00)
+67m         Normal    ComponentAssessed                effectivenessassessment/ea-rr-54a4d4c99584-91e7f47f             Component metrics assessed (score: 0.25)
+67m         Normal    AssessmentStarted                effectivenessassessment/ea-rr-54a4d4c99584-91e7f47f             Assessment started for correlation rr-54a4d4c99584-91e7f47f
+67m         Normal    NotificationSent                 notificationrequest/nr-completion-rr-54a4d4c99584-91e7f47f      Successfully delivered to channel console
+67m         Normal    EffectivenessAssessed            effectivenessassessment/ea-rr-54a4d4c99584-91e7f47f             Assessment completed: Full (correlation: rr-54a4d4c99584-91e7f47f)
+67m         Normal    NotificationCreated              remediationrequest/rr-54a4d4c99584-91e7f47f                     Completion notification created: nr-completion-rr-54a4d4c99584-91e7f47f
+67m         Normal    PhaseTransition                  notificationrequest/nr-completion-rr-54a4d4c99584-91e7f47f      Transitioned to Sending phase
+67m         Normal    ReconcileStarted                 notificationrequest/nr-completion-rr-54a4d4c99584-91e7f47f      Started reconciling notification nr-completion-rr-54a4d4c99584-91e7f47f
+66m         Normal    SuccessfulCreate                 replicaset/remediationorchestrator-controller-7bc6bb77cd        Created pod: remediationorchestrator-controller-7bc6bb77cd-kmln7
+66m         Normal    ScalingReplicaSet                deployment/remediationorchestrator-controller                   Scaled up replica set remediationorchestrator-controller-7bc6bb77cd from 0 to 1
+66m         Normal    Pulled                           pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Container image "quay.io/kubernaut-ai/remediationorchestrator:1.6.0-rc20" already present on machine and can be accessed by the pod
+66m         Normal    Created                          pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Container created
+66m         Normal    Started                          pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Container started
+66m         Warning   Unhealthy                        pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Startup probe failed: Get "http://10.244.0.78:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+66m         Normal    ScalingReplicaSet                deployment/remediationorchestrator-controller                   Scaled down replica set remediationorchestrator-controller-5dbcb769f5 from 1 to 0
+66m         Normal    Killing                          pod/remediationorchestrator-controller-5dbcb769f5-6h8jr         Stopping container remediationorchestrator-controller
+66m         Normal    SuccessfulDelete                 replicaset/remediationorchestrator-controller-5dbcb769f5        Deleted pod: remediationorchestrator-controller-5dbcb769f5-6h8jr
+66m         Warning   Unhealthy                        pod/remediationorchestrator-controller-5dbcb769f5-6h8jr         Readiness probe failed: Get "http://10.244.0.33:8081/readyz": dial tcp 10.244.0.33:8081: connect: connection refused
+65m         Warning   Unhealthy                        pod/remediationorchestrator-controller-5dbcb769f5-6h8jr         Readiness probe failed: Get "http://10.244.0.33:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+65m         Warning   Unhealthy                        pod/apifrontend-64dfd494b9-tccms                                Liveness probe failed: Get "http://10.244.0.31:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+65m         Warning   Unhealthy                        pod/gateway-588c9d65cc-dlzbm                                    Liveness probe failed: Get "http://10.244.0.61:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+65m         Warning   Failed                           pod/console-756d955c66-64z77                                    Error: failed to sync secret cache: timed out waiting for the condition
+64m         Warning   Unhealthy                        pod/apifrontend-64dfd494b9-tccms                                Readiness probe failed: Get "http://10.244.0.31:8081/readyz": dial tcp 10.244.0.31:8081: connect: connection refused
+64m         Warning   Unhealthy                        pod/console-756d955c66-64z77                                    Readiness probe failed: Get "http://10.244.0.37:4180/oauth2/ping": dial tcp 10.244.0.37:4180: connect: connection refused
+64m         Normal    WorkflowExecutionDeleted         workflowexecution/we-rr-54a4d4c99584-91e7f47f                   WorkflowExecution cleanup completed (phase: Completed)
+63m         Warning   Unhealthy                        pod/console-756d955c66-64z77                                    Liveness probe failed: Get "http://10.244.0.37:4180/oauth2/ping": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+59m         Normal    KeyPairVerified                  issuer/demo-console-ca                                          Signing CA verified
+46m         Warning   Unhealthy                        pod/apifrontend-64dfd494b9-tccms                                Readiness probe failed: HTTP probe failed with statuscode: 503
+44m         Warning   Unhealthy                        pod/signalprocessing-controller-5c4c69cd6f-8trbz                Liveness probe failed: Get "http://10.244.0.64:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+44m         Normal    Killing                          pod/apifrontend-64dfd494b9-tccms                                Container apifrontend failed liveness probe, will be restarted
+43m         Warning   Unhealthy                        pod/effectivenessmonitor-controller-cb7d95bb6-xmdss             Liveness probe failed: Get "http://10.244.0.30:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+41m         Warning   Unhealthy                        pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Readiness probe failed: HTTP probe failed with statuscode: 503
+41m         Warning   Unhealthy                        pod/apifrontend-64dfd494b9-tccms                                Startup probe failed: Get "http://10.244.0.31:8081/healthz": dial tcp 10.244.0.31:8081: connect: connection refused
+40m         Normal    Killing                          pod/console-756d955c66-64z77                                    Container oauth2-proxy failed liveness probe, will be restarted
+40m         Normal    Pulled                           pod/console-756d955c66-64z77                                    Container image "quay.io/oauth2-proxy/oauth2-proxy:v7.15.3" already present on machine and can be accessed by the pod
+40m         Normal    Created                          pod/console-756d955c66-64z77                                    Container created
+40m         Normal    Started                          pod/console-756d955c66-64z77                                    Container started
+39m         Warning   Unhealthy                        pod/notification-controller-5cbf768644-jn8qv                    Readiness probe failed: HTTP probe failed with statuscode: 500
+38m         Normal    Killing                          pod/apifrontend-64dfd494b9-tccms                                Container apifrontend failed startup probe, will be restarted
+38m         Warning   Unhealthy                        pod/signalprocessing-controller-5c4c69cd6f-8trbz                Readiness probe failed: Get "http://10.244.0.64:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+37m         Normal    Pulled                           pod/apifrontend-64dfd494b9-tccms                                Container image "quay.io/kubernaut-ai/apifrontend:1.6.0-rc20" already present on machine and can be accessed by the pod
+37m         Warning   Unhealthy                        pod/authwebhook-687bf89769-ncm2g                                Readiness probe failed: HTTP probe failed with statuscode: 500
+37m         Normal    Created                          pod/apifrontend-64dfd494b9-tccms                                Container created
+37m         Normal    Started                          pod/apifrontend-64dfd494b9-tccms                                Container started
+36m         Normal    PhaseTransition                  signalprocessing/sp-rr-4309bc63be09-b3625ff7                    Phase transition: Pending → Enriching
+36m         Normal    RemediationCreated               remediationrequest/rr-4309bc63be09-b3625ff7                     RemediationRequest accepted for signal KubePodCrashLooping
+36m         Normal    PhaseTransition                  remediationrequest/rr-4309bc63be09-b3625ff7                     Phase transition: Pending → Processing
+36m         Normal    SignalEnriched                   signalprocessing/sp-rr-4309bc63be09-b3625ff7                    K8s context enriched: Deployment demo-ingress/api-gateway
+36m         Normal    PhaseTransition                  signalprocessing/sp-rr-4309bc63be09-b3625ff7                    Phase transition: Enriching → Classifying
+36m         Normal    SignalProcessed                  signalprocessing/sp-rr-4309bc63be09-b3625ff7                    Signal processed successfully in 5.59s: P1 Staging alert ready for remediation
+36m         Normal    PhaseTransition                  signalprocessing/sp-rr-4309bc63be09-b3625ff7                    Phase transition: Categorizing → Completed
+36m         Normal    PhaseTransition                  signalprocessing/sp-rr-4309bc63be09-b3625ff7                    Phase transition: Classifying → Categorizing
+36m         Normal    PhaseTransition                  remediationrequest/rr-4309bc63be09-b3625ff7                     Phase transition: Processing → Analyzing
+36m         Normal    PhaseTransition                  aianalysis/ai-rr-4309bc63be09-b3625ff7                          Phase transition: Pending → Investigating
+36m         Normal    SessionCreated                   aianalysis/ai-rr-4309bc63be09-b3625ff7                          AgentSession as-rr-4309bc63be09-b3625ff7 created
+36m         Normal    AIAnalysisCreated                aianalysis/ai-rr-4309bc63be09-b3625ff7                          AIAnalysis processing started
+35m         Normal    PhaseTransition                  aianalysis/ai-rr-4309bc63be09-b3625ff7                          Phase transition: Analyzing → Completed
+35m         Normal    InvestigationComplete            aianalysis/ai-rr-4309bc63be09-b3625ff7                          Investigation completed successfully, transitioning to Analyzing
+35m         Normal    PhaseTransition                  aianalysis/ai-rr-4309bc63be09-b3625ff7                          Phase transition: Investigating → Analyzing
+35m         Normal    AnalysisCompleted                aianalysis/ai-rr-4309bc63be09-b3625ff7                          Analysis completed successfully
+35m         Normal    WorkflowValidated                workflowexecution/we-rr-4309bc63be09-b3625ff7                   Workflow spec validated: 5abcef80-b22d-5c17-ae27-e9949cf8fb1e (target: demo-ingress/ConfigMap/gateway-config-bad)
+35m         Normal    PhaseTransition                  remediationrequest/rr-4309bc63be09-b3625ff7                     Phase transition: Analyzing → Executing
+35m         Normal    ExecutionCreated                 workflowexecution/we-rr-4309bc63be09-b3625ff7                   Created job execution resource kubernaut-workflows/wfe-e549ccedd3be9d57
+35m         Normal    PhaseTransition                  workflowexecution/we-rr-4309bc63be09-b3625ff7                   Phase transition: Pending → Running
+33m         Normal    PhaseTransition                  notificationrequest/nr-manual-review-rr-4309bc63be09-b3625ff7   Transitioned to Sending phase
+33m         Warning   RemediationFailed                remediationrequest/rr-4309bc63be09-b3625ff7                     Remediation failed during WorkflowExecution: WorkflowExecution failed
+33m         Normal    ReconcileStarted                 notificationrequest/nr-manual-review-rr-4309bc63be09-b3625ff7   Started reconciling notification nr-manual-review-rr-4309bc63be09-b3625ff7
+33m         Normal    NotificationCreated              remediationrequest/rr-4309bc63be09-b3625ff7                     ManualReview notification created for WFE failure: nr-manual-review-rr-4309bc63be09-b3625ff7
+33m         Normal    PhaseTransition                  workflowexecution/we-rr-4309bc63be09-b3625ff7                   Phase transition: Running → Failed
+33m         Normal    NotificationSent                 notificationrequest/nr-manual-review-rr-4309bc63be09-b3625ff7   Successfully delivered to channel console
+33m         Warning   WorkflowFailed                   workflowexecution/we-rr-4309bc63be09-b3625ff7                   Workflow 5abcef80-b22d-5c17-ae27-e9949cf8fb1e failed: Unknown - Job has reached the specified backoff limit
+31m         Normal    SignalEnriched                   signalprocessing/sp-rr-4309bc63be09-59d3c641                    K8s context enriched: Deployment demo-ingress/api-gateway
+31m         Normal    AIAnalysisCreated                aianalysis/ai-rr-4309bc63be09-59d3c641                          AIAnalysis processing started
+31m         Normal    PhaseTransition                  remediationrequest/rr-4309bc63be09-59d3c641                     Phase transition: Pending → Processing
+31m         Normal    PhaseTransition                  signalprocessing/sp-rr-4309bc63be09-59d3c641                    Phase transition: Categorizing → Completed
+31m         Normal    PhaseTransition                  signalprocessing/sp-rr-4309bc63be09-59d3c641                    Phase transition: Classifying → Categorizing
+31m         Normal    PhaseTransition                  signalprocessing/sp-rr-4309bc63be09-59d3c641                    Phase transition: Enriching → Classifying
+31m         Normal    PhaseTransition                  aianalysis/ai-rr-4309bc63be09-59d3c641                          Phase transition: Pending → Investigating
+31m         Normal    PhaseTransition                  signalprocessing/sp-rr-4309bc63be09-59d3c641                    Phase transition: Pending → Enriching
+31m         Normal    SessionCreated                   aianalysis/ai-rr-4309bc63be09-59d3c641                          AgentSession as-rr-4309bc63be09-59d3c641 created
+31m         Normal    SignalProcessed                  signalprocessing/sp-rr-4309bc63be09-59d3c641                    Signal processed successfully in 0.44s: P1 Staging alert ready for remediation
+31m         Normal    RemediationCreated               remediationrequest/rr-4309bc63be09-59d3c641                     RemediationRequest accepted for signal KubePodCrashLooping
+31m         Normal    PhaseTransition                  remediationrequest/rr-4309bc63be09-59d3c641                     Phase transition: Processing → Analyzing
+30m         Normal    PhaseTransition                  aianalysis/ai-rr-4309bc63be09-59d3c641                          Phase transition: Analyzing → Completed
+30m         Normal    InvestigationComplete            aianalysis/ai-rr-4309bc63be09-59d3c641                          Investigation completed successfully, transitioning to Analyzing
+30m         Normal    AnalysisCompleted                aianalysis/ai-rr-4309bc63be09-59d3c641                          Analysis completed successfully
+30m         Normal    PhaseTransition                  aianalysis/ai-rr-4309bc63be09-59d3c641                          Phase transition: Investigating → Analyzing
+30m         Normal    PhaseTransition                  remediationrequest/rr-4309bc63be09-59d3c641                     Phase transition: Analyzing → Executing
+30m         Normal    PhaseTransition                  workflowexecution/we-rr-4309bc63be09-59d3c641                   Phase transition: Pending → Running
+30m         Normal    ExecutionCreated                 workflowexecution/we-rr-4309bc63be09-59d3c641                   Created job execution resource kubernaut-workflows/wfe-98a470141fcae315
+30m         Normal    WorkflowValidated                workflowexecution/we-rr-4309bc63be09-59d3c641                   Workflow spec validated: 45c70620-7fc4-5150-9165-ddc643b9281f (target: demo-ingress/Deployment/api-gateway)
+28m         Normal    ReconcileStarted                 notificationrequest/nr-manual-review-rr-4309bc63be09-59d3c641   Started reconciling notification nr-manual-review-rr-4309bc63be09-59d3c641
+28m         Warning   RemediationFailed                remediationrequest/rr-4309bc63be09-59d3c641                     Remediation failed during WorkflowExecution: WorkflowExecution failed
+28m         Normal    PhaseTransition                  workflowexecution/we-rr-4309bc63be09-59d3c641                   Phase transition: Running → Failed
+28m         Warning   WorkflowFailed                   workflowexecution/we-rr-4309bc63be09-59d3c641                   Workflow 45c70620-7fc4-5150-9165-ddc643b9281f failed: Unknown - Job has reached the specified backoff limit
+28m         Normal    NotificationSent                 notificationrequest/nr-manual-review-rr-4309bc63be09-59d3c641   Successfully delivered to channel console
+28m         Normal    PhaseTransition                  notificationrequest/nr-manual-review-rr-4309bc63be09-59d3c641   Transitioned to Sending phase
+28m         Normal    NotificationCreated              remediationrequest/rr-4309bc63be09-59d3c641                     ManualReview notification created for WFE failure: nr-manual-review-rr-4309bc63be09-59d3c641
+24m         Warning   Unhealthy                        pod/aianalysis-controller-8558694cb9-lbxks                      Readiness probe failed: Get "http://10.244.0.27:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+24m         Warning   Unhealthy                        pod/postgresql-64f6569d48-gsr68                                 Readiness probe failed: command timed out: "pg_isready -U slm_user -d action_history" timed out after 3s
+24m         Warning   Unhealthy                        pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Liveness probe failed: Get "http://10.244.0.40:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+23m         Warning   Unhealthy                        pod/gateway-588c9d65cc-dlzbm                                    Readiness probe failed: Get "http://10.244.0.61:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+23m         Warning   Unhealthy                        pod/notification-controller-5cbf768644-jn8qv                    Readiness probe failed: Get "http://10.244.0.34:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+23m         Warning   Unhealthy                        pod/datastorage-84bb6d8f5c-6z962                                Readiness probe failed: Get "http://10.244.0.28:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+23m         Warning   Unhealthy                        pod/effectivenessmonitor-controller-cb7d95bb6-xmdss             Readiness probe failed: Get "http://10.244.0.30:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+23m         Warning   Unhealthy                        pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Readiness probe failed: Get "http://10.244.0.78:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+23m         Warning   Unhealthy                        pod/valkey-5695d478b9-pbz8p                                     Readiness probe failed: command timed out: "valkey-cli --tls --cacert /etc/tls-ca/ca.crt --cert /certs/tls.crt --key /certs/tls.key -p 6380 ping" timed out after 3s
+23m         Warning   Unhealthy                        pod/workflowexecution-controller-c7bb9b96d-6spjh                Readiness probe failed: Get "http://10.244.0.29:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+23m         Warning   Unhealthy                        pod/aianalysis-controller-8558694cb9-lbxks                      Readiness probe failed: HTTP probe failed with statuscode: 500
+22m         Warning   Unhealthy                        pod/signalprocessing-controller-5c4c69cd6f-8trbz                Readiness probe failed: HTTP probe failed with statuscode: 500
+22m         Warning   Unhealthy                        pod/effectivenessmonitor-controller-cb7d95bb6-xmdss             Readiness probe failed: HTTP probe failed with statuscode: 500
+22m         Warning   Unhealthy                        pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Readiness probe failed: Get "http://10.244.0.40:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+22m         Warning   Unhealthy                        pod/console-756d955c66-64z77                                    Readiness probe failed: Get "http://10.244.0.37:4180/oauth2/ping": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+22m         Warning   Unhealthy                        pod/apifrontend-64dfd494b9-tccms                                Readiness probe failed: Get "http://10.244.0.31:8081/readyz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+22m         Warning   CleanupFailed                    workflowexecution/we-rr-4309bc63be09-b3625ff7                   Cleanup failed during finalization: wait for deletion of Job kubernaut-workflows/wfe-e549ccedd3be9d57: check deletion of Job kubernaut-workflows/wfe-e549ccedd3be9d57: call remote-cluster__resources_get: calling "tools/call": standalone SSE stream: exceeded 5 retries without progress (session ID: qFOp9mxhDMIOis6+oKG548uIvfs/jyNQHC4Nm7HFUzvmN03NCE4+jsA1qkzHxvbQRjdXFyqYeZ3pljBrD3ufwHpn2iPjvdN9812HGC/bykx8XacyXGu15fAYE9gyuuIwdynWo6oj3ttDCPAxcjTtn7g6xAZvrRbcHhiuJk3gj1T64CGxS/0bCjghmKBBme4a5eZxYuTpoFPtSIOTbVr6tnPxcPc2aL1EPBx77w==)
+22m         Normal    Created                          pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Container created
+22m         Normal    Started                          pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Container started
+21m         Warning   CleanupFailed                    workflowexecution/we-rr-4309bc63be09-b3625ff7                   Cleanup failed during finalization: get client for cluster "remote-cluster": resolve tool prefix for cluster "remote-cluster": reconnect failed: connect to MCP Gateway at http://envoy-mcp-system-mcp-gateway-7ead7c3d.envoy-gateway-system.svc.cluster.local:8080/mcp: context deadline exceeded (original: list tools from MCP Gateway: connection closed: calling "tools/list": client is closing: standalone SSE stream: exceeded 5 retries without progress (session ID: qFOp9mxhDMIOis6+oKG548uIvfs/jyNQHC4Nm7HFUzvmN03NCE4+jsA1qkzHxvbQRjdXFyqYeZ3pljBrD3ufwHpn2iPjvdN9812HGC/bykx8XacyXGu15fAYE9gyuuIwdynWo6oj3ttDCPAxcjTtn7g6xAZvrRbcHhiuJk3gj1T64CGxS/0bCjghmKBBme4a5eZxYuTpoFPtSIOTbVr6tnPxcPc2aL1EPBx77w==))
+21m         Warning   Unhealthy                        pod/valkey-5695d478b9-pbz8p                                     Liveness probe failed: command timed out: "valkey-cli --tls --cacert /etc/tls-ca/ca.crt --cert /certs/tls.crt --key /certs/tls.key -p 6380 ping" timed out after 5s
+21m         Warning   Unhealthy                        pod/workflowexecution-controller-c7bb9b96d-6spjh                Liveness probe failed: Get "http://10.244.0.29:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+20m         Warning   Unhealthy                        pod/kubernaut-agent-5d495d7fc-5x6q4                             Readiness probe failed: HTTP probe failed with statuscode: 503
+17m         Normal    Pulled                           pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Container image "quay.io/kubernaut-ai/fleetmetadatacache:1.6.0-rc20" already present on machine and can be accessed by the pod
+17m         Normal    Killing                          pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Container fleetmetadatacache failed liveness probe, will be restarted
+17m         Warning   Unhealthy                        pod/gateway-588c9d65cc-dlzbm                                    Readiness probe failed: HTTP probe failed with statuscode: 503
+16m         Warning   Unhealthy                        pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Readiness probe failed: Get "http://10.244.0.40:8081/readyz": dial tcp 10.244.0.40:8081: connect: connection refused
+16m         Warning   Unhealthy                        pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Readiness probe failed: HTTP probe failed with statuscode: 500
+15m         Warning   Unhealthy                        pod/workflowexecution-controller-c7bb9b96d-6spjh                Readiness probe failed: HTTP probe failed with statuscode: 500
+15m         Warning   CleanupFailed                    workflowexecution/we-rr-4309bc63be09-b3625ff7                   Cleanup failed during finalization: get client for cluster "remote-cluster": resolve tool prefix for cluster "remote-cluster": reconnect failed: connect to MCP Gateway at http://envoy-mcp-system-mcp-gateway-7ead7c3d.envoy-gateway-system.svc.cluster.local:8080/mcp: context deadline exceeded (original: list tools from MCP Gateway: connection closed: calling "tools/list": client is closing)
+14m         Warning   CleanupFailed                    workflowexecution/we-rr-4309bc63be09-59d3c641                   Cleanup failed after cooldown: get client for cluster "remote-cluster": resolve tool prefix for cluster "remote-cluster": reconnect failed: connect to MCP Gateway at http://envoy-mcp-system-mcp-gateway-7ead7c3d.envoy-gateway-system.svc.cluster.local:8080/mcp: context deadline exceeded (original: list tools from MCP Gateway: connection closed: calling "tools/list": client is closing)
+13m         Warning   Unhealthy                        pod/valkey-5695d478b9-pbz8p                                     Readiness probe failed:
+13m         Warning   Unhealthy                        pod/datastorage-84bb6d8f5c-6z962                                Readiness probe failed: HTTP probe failed with statuscode: 503
+13m         Warning   Unhealthy                        pod/postgresql-64f6569d48-gsr68                                 Readiness probe failed: /var/run/postgresql:5432 - rejecting connections
+11m         Normal    SandboxChanged                   pod/gateway-588c9d65cc-dlzbm                                    Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/effectivenessmonitor-controller-cb7d95bb6-xmdss             Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/workflowexecution-controller-c7bb9b96d-6spjh                Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/aianalysis-controller-8558694cb9-lbxks                      Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/signalprocessing-controller-5c4c69cd6f-8trbz                Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/console-756d955c66-64z77                                    Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/valkey-5695d478b9-pbz8p                                     Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/datastorage-84bb6d8f5c-6z962                                Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/kubernaut-agent-5d495d7fc-5x6q4                             Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/apifrontend-64dfd494b9-tccms                                Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/authwebhook-687bf89769-ncm2g                                Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/postgresql-64f6569d48-gsr68                                 Pod sandbox changed, it will be killed and re-created.
+11m         Normal    SandboxChanged                   pod/notification-controller-5cbf768644-jn8qv                    Pod sandbox changed, it will be killed and re-created.
+11m         Normal    Created                          pod/datastorage-84bb6d8f5c-6z962                                Container created
+11m         Normal    Created                          pod/aianalysis-controller-8558694cb9-lbxks                      Container created
+11m         Normal    Pulled                           pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Container image "quay.io/kubernaut-ai/remediationorchestrator:1.6.0-rc20" already present on machine and can be accessed by the pod
+11m         Normal    Pulled                           pod/datastorage-84bb6d8f5c-6z962                                Container image "postgres:16-alpine" already present on machine and can be accessed by the pod
+11m         Normal    Pulled                           pod/postgresql-64f6569d48-gsr68                                 Container image "postgres:16-alpine" already present on machine and can be accessed by the pod
+11m         Normal    Pulled                           pod/aianalysis-controller-8558694cb9-lbxks                      Container image "quay.io/kubernaut-ai/aianalysis:1.6.0-rc20" already present on machine and can be accessed by the pod
+11m         Normal    Pulled                           pod/kubernaut-agent-5d495d7fc-5x6q4                             Container image "quay.io/kubernaut-ai/kubernautagent:1.6.0-rc20" already present on machine and can be accessed by the pod
+11m         Normal    Pulled                           pod/notification-controller-5cbf768644-jn8qv                    Container image "quay.io/kubernaut-ai/notification:1.6.0-rc20" already present on machine and can be accessed by the pod
+11m         Normal    Pulled                           pod/workflowexecution-controller-c7bb9b96d-6spjh                Container image "quay.io/kubernaut-ai/workflowexecution:1.6.0-rc20" already present on machine and can be accessed by the pod
+11m         Normal    Created                          pod/workflowexecution-controller-c7bb9b96d-6spjh                Container created
+11m         Normal    Created                          pod/gateway-588c9d65cc-dlzbm                                    Container created
+11m         Normal    Pulled                           pod/gateway-588c9d65cc-dlzbm                                    Container image "quay.io/kubernaut-ai/gateway:1.6.0-rc20" already present on machine and can be accessed by the pod
+11m         Normal    Created                          pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Container created
+11m         Normal    Pulled                           pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Container image "quay.io/kubernaut-ai/fleetmetadatacache:1.6.0-rc20" already present on machine and can be accessed by the pod
+11m         Normal    Created                          pod/console-756d955c66-64z77                                    Container created
+11m         Normal    Created                          pod/postgresql-64f6569d48-gsr68                                 Container created
+11m         Normal    Created                          pod/kubernaut-agent-5d495d7fc-5x6q4                             Container created
+11m         Normal    Pulled                           pod/authwebhook-687bf89769-ncm2g                                Container image "docker.io/bitnami/kubectl:latest@sha256:6e2cdb22d6ab7264ea198c717f555e30536b54029d26c8781b9f25f78951b564" already present on machine and can be accessed by the pod
+11m         Normal    Created                          pod/authwebhook-687bf89769-ncm2g                                Container created
+11m         Normal    Started                          pod/workflowexecution-controller-c7bb9b96d-6spjh                Container started
+11m         Normal    Pulled                           pod/console-756d955c66-64z77                                    Container image "quay.io/oauth2-proxy/oauth2-proxy:v7.15.3" already present on machine and can be accessed by the pod
+11m         Normal    Created                          pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Container created
+11m         Normal    Started                          pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Container started
+11m         Normal    Pulled                           pod/signalprocessing-controller-5c4c69cd6f-8trbz                Container image "quay.io/kubernaut-ai/signalprocessing:1.6.0-rc20" already present on machine and can be accessed by the pod
+11m         Normal    Created                          pod/notification-controller-5cbf768644-jn8qv                    Container created
+11m         Normal    Created                          pod/apifrontend-64dfd494b9-tccms                                Container created
+11m         Normal    Pulled                           pod/effectivenessmonitor-controller-cb7d95bb6-xmdss             Container image "quay.io/kubernaut-ai/effectivenessmonitor:1.6.0-rc20" already present on machine and can be accessed by the pod
+11m         Normal    Created                          pod/effectivenessmonitor-controller-cb7d95bb6-xmdss             Container created
+11m         Normal    Created                          pod/valkey-5695d478b9-pbz8p                                     Container created
+11m         Normal    Pulled                           pod/valkey-5695d478b9-pbz8p                                     Container image "valkey/valkey:8-alpine" already present on machine and can be accessed by the pod
+11m         Normal    Pulled                           pod/apifrontend-64dfd494b9-tccms                                Container image "quay.io/kubernaut-ai/apifrontend:1.6.0-rc20" already present on machine and can be accessed by the pod
+10m         Normal    Started                          pod/effectivenessmonitor-controller-cb7d95bb6-xmdss             Container started
+10m         Normal    Started                          pod/aianalysis-controller-8558694cb9-lbxks                      Container started
+10m         Normal    Started                          pod/kubernaut-agent-5d495d7fc-5x6q4                             Container started
+10m         Normal    Started                          pod/datastorage-84bb6d8f5c-6z962                                Container started
+10m         Normal    Created                          pod/signalprocessing-controller-5c4c69cd6f-8trbz                Container created
+10m         Normal    Started                          pod/apifrontend-64dfd494b9-tccms                                Container started
+10m         Normal    Created                          pod/console-756d955c66-64z77                                    Container created
+10m         Normal    Started                          pod/signalprocessing-controller-5c4c69cd6f-8trbz                Container started
+10m         Normal    Started                          pod/authwebhook-687bf89769-ncm2g                                Container started
+10m         Normal    Started                          pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Container started
+10m         Normal    Started                          pod/notification-controller-5cbf768644-jn8qv                    Container started
+10m         Normal    Started                          pod/console-756d955c66-64z77                                    Container started
+10m         Normal    Started                          pod/valkey-5695d478b9-pbz8p                                     Container started
+10m         Normal    Started                          pod/gateway-588c9d65cc-dlzbm                                    Container started
+10m         Normal    Pulled                           pod/console-756d955c66-64z77                                    Container image "quay.io/kubernaut-ai/kubernaut-console:1.6.0-rc20" already present on machine and can be accessed by the pod
+10m         Normal    Started                          pod/postgresql-64f6569d48-gsr68                                 Container started
+10m         Normal    Started                          pod/console-756d955c66-64z77                                    Container started
+10m         Normal    KeyPairVerified                  issuer/demo-console-ca                                          Signing CA verified
+10m         Normal    ReconcileStarted                 notificationrequest/nr-completion-rr-7f1635052972-0a08bdf0      Started reconciling notification nr-completion-rr-7f1635052972-0a08bdf0
+10m         Normal    ReconcileStarted                 notificationrequest/nr-manual-review-rr-4309bc63be09-59d3c641   Started reconciling notification nr-manual-review-rr-4309bc63be09-59d3c641
+10m         Normal    ReconcileStarted                 notificationrequest/nr-completion-rr-7f1635052972-b4f2963f      Started reconciling notification nr-completion-rr-7f1635052972-b4f2963f
+10m         Normal    Created                          pod/datastorage-84bb6d8f5c-6z962                                Container created
+10m         Normal    Pulled                           pod/datastorage-84bb6d8f5c-6z962                                Container image "quay.io/kubernaut-ai/datastorage:1.6.0-rc20" already present on machine and can be accessed by the pod
+10m         Normal    Started                          pod/datastorage-84bb6d8f5c-6z962                                Container started
+10m         Warning   Unhealthy                        pod/signalprocessing-controller-5c4c69cd6f-8trbz                Startup probe failed: Get "http://10.244.0.30:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+10m         Warning   Unhealthy                        pod/aianalysis-controller-8558694cb9-lbxks                      Readiness probe failed: HTTP probe failed with statuscode: 500
+10m         Warning   Unhealthy                        pod/notification-controller-5cbf768644-jn8qv                    Readiness probe failed: HTTP probe failed with statuscode: 500
+10m         Warning   Unhealthy                        pod/apifrontend-64dfd494b9-tccms                                Startup probe failed: Get "http://10.244.0.44:8081/healthz": dial tcp 10.244.0.44:8081: connect: connection refused
+9m59s       Warning   Unhealthy                        pod/workflowexecution-controller-c7bb9b96d-6spjh                Startup probe failed: Get "http://10.244.0.23:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+9m58s       Warning   Unhealthy                        pod/effectivenessmonitor-controller-cb7d95bb6-xmdss             Startup probe failed: Get "http://10.244.0.18:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+9m57s       Warning   Unhealthy                        pod/kubernaut-agent-5d495d7fc-5x6q4                             Readiness probe failed: HTTP probe failed with statuscode: 503
+9m52s       Warning   Unhealthy                        pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Startup probe failed: Get "http://10.244.0.29:8081/healthz": context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+6m42s       Normal    SuccessfulCreate                 replicaset/fleetmetadatacache-6dffb7dcf9                        Created pod: fleetmetadatacache-6dffb7dcf9-t45wj
+6m42s       Normal    ScalingReplicaSet                deployment/fleetmetadatacache                                   Scaled up replica set fleetmetadatacache-6dffb7dcf9 from 0 to 1
+6m42s       Normal    Scheduled                        pod/fleetmetadatacache-6dffb7dcf9-t45wj                         Successfully assigned kubernaut-system/fleetmetadatacache-6dffb7dcf9-t45wj to kubernaut-hub-control-plane
+6m41s       Normal    Pulled                           pod/fleetmetadatacache-6dffb7dcf9-t45wj                         Container image "quay.io/kubernaut-ai/fleetmetadatacache:1.6.0-rc20" already present on machine and can be accessed by the pod
+6m41s       Normal    Created                          pod/fleetmetadatacache-6dffb7dcf9-t45wj                         Container created
+6m41s       Normal    Started                          pod/fleetmetadatacache-6dffb7dcf9-t45wj                         Container started
+4m27s       Warning   CleanupFailed                    workflowexecution/we-rr-7f1635052972-0a08bdf0                   Cleanup failed after cooldown: get client for cluster "remote-cluster": resolve tool prefix for cluster "remote-cluster": in MCP Gateway tools/list response: no tools found for cluster "remote-cluster" among 19 discovered tool names
+4m27s       Warning   CleanupFailed                    workflowexecution/we-rr-7f1635052972-b4f2963f                   Cleanup failed after cooldown: get client for cluster "remote-cluster": resolve tool prefix for cluster "remote-cluster": in MCP Gateway tools/list response: no tools found for cluster "remote-cluster" among 19 discovered tool names
+4m27s       Warning   CleanupFailed                    workflowexecution/we-rr-4309bc63be09-b3625ff7                   Cleanup failed during finalization: get client for cluster "remote-cluster": resolve tool prefix for cluster "remote-cluster": in MCP Gateway tools/list response: no tools found for cluster "remote-cluster" among 19 discovered tool names
+4m27s       Warning   CleanupFailed                    workflowexecution/we-rr-4309bc63be09-59d3c641                   Cleanup failed after cooldown: get client for cluster "remote-cluster": resolve tool prefix for cluster "remote-cluster": in MCP Gateway tools/list response: no tools found for cluster "remote-cluster" among 19 discovered tool names
+95s         Warning   Unhealthy                        pod/fleetmetadatacache-6dffb7dcf9-t45wj                         Readiness probe failed: HTTP probe failed with statuscode: 503
+44s         Warning   Unhealthy                        pod/fleetmetadatacache-d4dd6c7f8-88xcg                          Readiness probe failed: HTTP probe failed with statuscode: 503
+40s         Warning   Unhealthy                        pod/remediationorchestrator-controller-7bc6bb77cd-kmln7         Readiness probe failed: HTTP probe failed with statuscode: 500
+24s         Warning   Unhealthy                        pod/gateway-588c9d65cc-dlzbm                                    Readiness probe failed: HTTP probe failed with statuscode: 503

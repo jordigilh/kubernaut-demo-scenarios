@@ -1,0 +1,2 @@
+NAME                               READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+kubernaut-agent-6b864b88d6-22q56   1/1     Running   0          92m   10.244.0.74   kubernaut-hub-control-plane   <none>           <none>

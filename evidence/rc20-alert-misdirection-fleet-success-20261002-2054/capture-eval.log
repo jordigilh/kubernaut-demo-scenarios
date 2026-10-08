@@ -1,0 +1,14 @@
+==> Capturing eval transcript for RR: rr-1c290d778763-37bd1bac
+  Waiting for audit flush (3s)...
+  Audit events: 11 LLM request(s)
+  Session ID: as-rr-1c290d778763-37bd1bac
+  Extracting LLM trace from audit_events...
+
+==> Eval transcript saved to: /Users/jgil/go/src/github.com/jordigilh/kubernaut-demo-scenarios/golden-transcripts/alert-misdirection-kubepodcrashlooping.json
+    Scenario:    alert-misdirection
+    Signal:      KubePodCrashLooping
+    RR:          rr-1c290d778763-37bd1bac (Completed / Remediated)
+    Model:       gpt-5.6-luna
+    Tokens:      83699
+    LLM turns:   11
+    Tool calls:  24

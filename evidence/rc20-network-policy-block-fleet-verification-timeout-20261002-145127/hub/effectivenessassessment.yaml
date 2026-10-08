@@ -1,0 +1,56 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: EffectivenessAssessment
+metadata:
+  creationTimestamp: "2026-10-02T18:54:50Z"
+  generation: 1
+  name: ea-rr-9d7638a122e2-dd1813f9
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: false
+    controller: true
+    kind: RemediationRequest
+    name: rr-9d7638a122e2-dd1813f9
+    uid: 023923a2-18f9-4a4b-b26b-3cfd59e6ea98
+  resourceVersion: "15320"
+  uid: 86513c6b-7385-4cbc-b64a-9b9f7eb75e70
+spec:
+  clusterID: remote-cluster
+  config:
+    stabilizationWindow: 5m0s
+  correlationID: rr-9d7638a122e2-dd1813f9
+  preRemediationSpecHash: sha256:5aca3f8cf305daf0660e32973926d8f64a16b7cbd23abdb097358a345ad44b67
+  remediationCreatedAt: "2026-10-02T18:53:18Z"
+  remediationRequestPhase: Verifying
+  remediationTarget:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: traffic-gen
+    namespace: demo-frontend
+  signalName: KubeDeploymentReplicasMismatch
+  signalTarget:
+    kind: Deployment
+    name: traffic-gen
+    namespace: demo-frontend
+status:
+  alertManagerCheckAfter: "2026-10-02T18:59:50Z"
+  assessmentReason: Expired
+  completedAt: "2026-10-02T19:02:38Z"
+  components: {}
+  conditions:
+  - lastTransitionTime: "2026-10-02T19:02:38Z"
+    message: Assessment completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-10-02T19:02:38Z"
+    message: 'Assessment completed: Expired'
+    observedGeneration: 1
+    reason: AssessmentExpired
+    status: "True"
+    type: AssessmentComplete
+  message: 'Assessment completed: Expired'
+  phase: Completed
+  prometheusCheckAfter: "2026-10-02T18:59:50Z"
+  validityDeadline: "2026-10-02T19:01:50Z"

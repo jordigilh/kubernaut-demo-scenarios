@@ -1,0 +1,195 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: AIAnalysis
+metadata:
+  creationTimestamp: "2026-10-03T03:11:23Z"
+  finalizers:
+  - kubernaut.ai/finalizer
+  generation: 1
+  name: ai-rr-7e2b686ca561-ca34b5f8
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RemediationRequest
+    name: rr-7e2b686ca561-ca34b5f8
+    uid: 0acebc36-a2c6-4d51-9219-3e0572eab514
+  resourceVersion: "73377"
+  uid: a881ded0-03b0-43d0-b359-7d17a970ba23
+spec:
+  analysisRequest:
+    analysisTypes:
+    - Investigation
+    - RootCause
+    - WorkflowSelection
+    signalContext:
+      businessPriority: P3
+      enrichmentResults:
+        businessClassification:
+          businessUnit: platform
+          criticality: High
+          serviceOwner: sre-team
+          slaRequirement: Gold
+        kubernetesContext:
+          cluster:
+            labels:
+              environment: production
+              kubernaut.ai/managed: "true"
+          clusterID: remote-cluster
+          degradedMode: true
+          namespace:
+            annotations:
+              kubectl.kubernetes.io/last-applied-configuration: |
+                {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"kubernaut.ai/business-unit":"platform","kubernaut.ai/component":"backend-api","kubernaut.ai/criticality":"high","kubernaut.ai/environment":"production","kubernaut.ai/managed":"true","kubernaut.ai/service-owner":"sre-team","kubernaut.ai/sla-tier":"tier-1"},"name":"demo-payments"}}
+            labels:
+              kubernaut.ai/business-unit: platform
+              kubernaut.ai/component: backend-api
+              kubernaut.ai/criticality: high
+              kubernaut.ai/environment: production
+              kubernaut.ai/managed: "true"
+              kubernaut.ai/service-owner: sre-team
+              kubernaut.ai/sla-tier: tier-1
+              kubernetes.io/metadata.name: demo-payments
+            name: demo-payments
+      environment: Production
+      fingerprint: 7e2b686ca5616cc054e05d8456a76d3a2190a3d736ae5392716887d5e3b89420
+      severity: warning
+      signalAnnotations:
+        description: |
+          A PodDisruptionBudget in namespace demo-payments currently permits zero voluntary disruptions. Cluster maintenance operations may be affected.
+        summary: |
+          PDB payment-service-pdb in namespace demo-payments has zero allowed disruptions.
+      signalMode: reactive
+      signalName: KubePodDisruptionBudgetAtLimit
+      targetResource:
+        kind: PodDisruptionBudget
+        name: payment-service-pdb
+        namespace: demo-payments
+  clusterID: remote-cluster
+  remediationId: rr-7e2b686ca561-ca34b5f8
+  remediationRequestRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: RemediationRequest
+    name: rr-7e2b686ca561-ca34b5f8
+    namespace: kubernaut-system
+    uid: 0acebc36-a2c6-4d51-9219-3e0572eab514
+  timesOutAt: "2026-10-03T03:21:23Z"
+status:
+  approval:
+    approvalReason: Auto-approved
+    approvalRequired: false
+  completedAt: "2026-10-03T03:12:21Z"
+  conditions:
+  - lastTransitionTime: "2026-10-03T03:11:23Z"
+    message: AgentSession as-rr-7e2b686ca561-ca34b5f8 created
+    observedGeneration: 1
+    reason: SessionCreated
+    status: "True"
+    type: InvestigationSessionReady
+  - lastTransitionTime: "2026-10-03T03:12:21Z"
+    message: KA investigation completed successfully
+    observedGeneration: 1
+    reason: InvestigationSucceeded
+    status: "True"
+    type: InvestigationComplete
+  - lastTransitionTime: "2026-10-03T03:12:21Z"
+    message: Policy evaluation does not require manual approval
+    observedGeneration: 1
+    reason: AutoApproved
+    status: "False"
+    type: ApprovalRequired
+  - lastTransitionTime: "2026-10-03T03:12:21Z"
+    message: Workflow 30d56add-47c3-5735-bdc9-e09c7e9bb2bf selected with confidence
+      93%
+    observedGeneration: 1
+    reason: WorkflowSelected
+    status: "True"
+    type: WorkflowResolved
+  - lastTransitionTime: "2026-10-03T03:12:21Z"
+    message: Rego policy evaluation completed successfully
+    observedGeneration: 1
+    reason: AnalysisSucceeded
+    status: "True"
+    type: AnalysisComplete
+  - lastTransitionTime: "2026-10-03T03:12:21Z"
+    message: Analysis completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  investigationMetadata:
+    investigationId: ai-rr-7e2b686ca561-ca34b5f8
+    investigationTime: 58602
+    totalAnalysisTime: 58617
+  investigationSession:
+    createdAt: "2026-10-03T03:11:23Z"
+    generation: 0
+    id: as-rr-7e2b686ca561-ca34b5f8
+    lastPolled: "2026-10-03T03:12:21Z"
+    pollCount: 3
+  message: Analysis complete
+  observedGeneration: 1
+  phase: Completed
+  postRCAContext:
+    detectedLabels:
+      cdiManaged: false
+      gitOpsManaged: false
+      helmManaged: false
+      hpaEnabled: false
+      liveMigratable: false
+      networkIsolated: false
+      pdbProtected: true
+      resourceQuotaConstrained: true
+      stateful: false
+      virtualMachine: false
+    setAt: "2026-10-03T03:12:21Z"
+  rcaResult:
+    actionability: Actionable
+    rootCause: 'payment-service-pdb allows zero voluntary disruptions because minAvailable:
+      2 equals the two healthy payment-service replicas; this is a configuration/capacity
+      condition, not pod failure.'
+    rootCauseAnalysis:
+      contributingFactors:
+      - Deployment payment-service is configured with two replicas.
+      - 'The PDB requires minAvailable: 2, leaving disruptionsAllowed: 0 when both
+        replicas are healthy.'
+      - Both replicas are ready and stable, so the PDB is the direct blocker rather
+        than workload instability.
+      remediationTarget:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: payment-service
+        namespace: demo-payments
+      severity: warning
+      signalType: KubePodDisruptionBudgetAtLimit
+      summary: 'payment-service-pdb allows zero voluntary disruptions because minAvailable:
+        2 equals the two healthy payment-service replicas; this is a configuration/capacity
+        condition, not pod failure.'
+    selectedWorkflow:
+      actionType: RelaxPDB
+      confidence: 0.93
+      declaredParameterNames:
+        TARGET_RESOURCE_KIND: true
+        TARGET_RESOURCE_NAME: true
+        TARGET_RESOURCE_NAMESPACE: true
+      executionBundle: quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:ab38364edf3a3ae99fb424d1aae26ed34dec104cbba45c5e8857745a28028538
+      executionEngine: job
+      parameters:
+        TARGET_RESOURCE_API_VERSION: apps/v1
+        TARGET_RESOURCE_KIND: Deployment
+        TARGET_RESOURCE_NAME: payment-service
+        TARGET_RESOURCE_NAMESPACE: demo-payments
+      rationale: 'The catalog-preferred RelaxPDB action matches the pdbProtected label
+        and its guidance exactly: healthy pods are present, minAvailable equals replica
+        count, and zero voluntary disruptions may block maintenance. The workflow
+        temporarily relaxes the PDB; increasing replicas is a longer-term capacity/configuration
+        change and is not an available catalog workflow.'
+      selectedAt: "2026-10-03T03:12:21Z"
+      serviceAccountName: relax-pdb-v1-runner
+      version: 1.6.3
+      workflowId: 30d56add-47c3-5735-bdc9-e09c7e9bb2bf
+      workflowName: relax-pdb-v1
+  reason: AnalysisCompleted
+  review:
+    needsHumanReview: false
+  startedAt: "2026-10-03T03:11:23Z"

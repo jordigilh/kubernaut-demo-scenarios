@@ -1,0 +1,18 @@
+LAST SEEN   TYPE      REASON              OBJECT                                    MESSAGE
+16m         Normal    Scheduled           pod/metrics-collector-7b6bd89dbc-lqcct    Successfully assigned demo-monitoring/metrics-collector-7b6bd89dbc-lqcct to kubernaut-remote-cluster-control-plane
+16m         Normal    ScalingReplicaSet   deployment/metrics-collector              Scaled up replica set metrics-collector-7b6bd89dbc from 0 to 1
+16m         Normal    SuccessfulCreate    replicaset/metrics-collector-7b6bd89dbc   Created pod: metrics-collector-7b6bd89dbc-lqcct
+16m         Normal    Pulling             pod/metrics-collector-7b6bd89dbc-lqcct    Pulling image "docker.io/alpine/k8s:1.30.0"
+16m         Normal    Created             pod/metrics-collector-7b6bd89dbc-lqcct    Container created
+16m         Normal    Pulled              pod/metrics-collector-7b6bd89dbc-lqcct    Successfully pulled image "docker.io/alpine/k8s:1.30.0" in 18.496s (18.496s including waiting). Image size: 272639006 bytes.
+16m         Normal    Started             pod/metrics-collector-7b6bd89dbc-lqcct    Container started
+5m38s       Warning   Unhealthy           pod/metrics-collector-7b6bd89dbc-lqcct    Readiness probe failed: no
+102s        Normal    SuccessfulCreate    replicaset/metrics-collector-56687b8cb4   Created pod: metrics-collector-56687b8cb4-p2vpr
+102s        Normal    Started             pod/metrics-collector-56687b8cb4-p2vpr    Container started
+102s        Normal    Scheduled           pod/metrics-collector-56687b8cb4-p2vpr    Successfully assigned demo-monitoring/metrics-collector-56687b8cb4-p2vpr to kubernaut-remote-cluster-control-plane
+102s        Normal    Created             pod/metrics-collector-56687b8cb4-p2vpr    Container created
+102s        Normal    Pulled              pod/metrics-collector-56687b8cb4-p2vpr    Container image "docker.io/alpine/k8s:1.30.0" already present on machine and can be accessed by the pod
+102s        Normal    ScalingReplicaSet   deployment/metrics-collector              Scaled up replica set metrics-collector-56687b8cb4 from 0 to 1
+91s         Normal    Killing             pod/metrics-collector-7b6bd89dbc-lqcct    Stopping container metrics-collector
+91s         Normal    SuccessfulDelete    replicaset/metrics-collector-7b6bd89dbc   Deleted pod: metrics-collector-7b6bd89dbc-lqcct
+91s         Normal    ScalingReplicaSet   deployment/metrics-collector              Scaled down replica set metrics-collector-7b6bd89dbc from 1 to 0

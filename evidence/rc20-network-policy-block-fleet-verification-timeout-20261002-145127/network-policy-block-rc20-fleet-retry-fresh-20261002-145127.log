@@ -1,0 +1,138 @@
+  Operator-managed Prometheus is installed.
+==> Default preflight: metrics-pipeline...
+  Preflight [metrics-pipeline]: checking kube-state-metrics...
+  Preflight [metrics-pipeline]: OK (1 series)
+==> Seeding ActionType CRDs...
+==> Seeding RemediationWorkflow CRDs (namespace: kubernaut-system)...
+    SKIP disk-pressure-emptydir.yaml (engine: ansible — no AWX/AAP found)
+    Applied 33 workflow(s), skipped 1, failed 0.
+[14:51:37] Starting DataStorage port-forward (localhost:30081 -> svc/data-storage-service:8081)...
+[14:51:38] DataStorage port-forward ready
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    Scenario: network-policy-block
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[14:51:39] Running network-policy-block/run.sh...
+=============================================
+ NetworkPolicy Traffic Block Demo (#138)
+=============================================
+
+==> [spoke=/Users/jgil/.kube/kubernaut-remote-cluster-config] Deploying scenario resources...
+==> [fleet] Deploying workload manifests to spoke (skipping operator monitoring kinds -- see fleet_deploy_monitoring)...
+    namespace/demo-frontend created
+    configmap/web-frontend-config created
+    service/web-frontend created
+    deployment.apps/traffic-gen created
+    deployment.apps/web-frontend created
+    networkpolicy.networking.k8s.io/allow-web-traffic created
+  Applied 6 document(s) to spoke, skipped 2 (monitoring kinds).
+  [fleet] kube-state-metrics already deployed on spoke.
+==> [fleet] Deploying monitoring CRDs to spoke (operator-native, no config surgery)...
+    prometheusrule.monitoring.coreos.com/demo-app-alerts created
+    Set cluster=remote-cluster on alert rules in doc-5.yaml.
+    servicemonitor.monitoring.coreos.com/demo-app-metrics created
+  Applied 2 monitoring document(s) to spoke, skipped 6 (workload kinds).
+==> [spoke] Waiting for deployment to be healthy...
+deployment.apps/web-frontend condition met
+NAME                            READY   STATUS              RESTARTS   AGE
+traffic-gen-6fbdd9f844-qwjhg    0/1     ContainerCreating   0          3s
+web-frontend-85bdd97987-8447j   1/1     Running             0          3s
+web-frontend-85bdd97987-px7fx   1/1     Running             0          3s
+
+==> [spoke] Establishing healthy baseline (20s)...
+  Baseline established.
+
+==> [spoke] Injecting deny-all NetworkPolicy...
+==> Removing allow-web-traffic policy (so deny-all takes full effect)...
+networkpolicy.networking.k8s.io "allow-web-traffic" deleted from demo-frontend namespace
+==> Injecting deny-all NetworkPolicy...
+networkpolicy.networking.k8s.io/default-network-policy created
+==> Deny-all NetworkPolicy applied. All ingress traffic is now blocked.
+    Health checks will fail, pods will become NotReady.
+
+  Waiting for health checks to fail...
+NAME                            READY   STATUS    RESTARTS   AGE
+traffic-gen-6fbdd9f844-qwjhg    1/1     Running   0          28s
+web-frontend-85bdd97987-8447j   1/1     Running   0          28s
+web-frontend-85bdd97987-px7fx   1/1     Running   0          28s
+
+==> [spoke] Fault injected. Run fleet/hub.sh (or ../run.sh) to confirm the alert on the hub.
+
+==> [hub=/Users/jgil/.kube/kubernaut-hub-config] Waiting for alert...
+==> [fleet] Waiting for alert 'KubeDeploymentReplicasMismatch' (namespace=demo-frontend, cluster=remote-cluster) on hub Alertmanager (timeout 360s)...
+  alert 'KubeDeploymentReplicasMismatch' (namespace=demo-frontend, cluster=remote-cluster) is firing.
+
+==> Alert is firing. Driving full remediation pipeline on the hub (--auto-approve)...
+[14:53:13] Waiting for RemediationRequest (target: demo-frontend)...
+[14:53:18] RemediationRequest rr-9d7638a122e2-dd1813f9 created -> Phase: Processing
+[14:53:18] Polling pipeline (timeout: 600s, approval: --auto-approve)...
+[14:53:29] Phase: Processing -> Analyzing
+[14:53:29] AI Analysis in progress...
+[14:54:20] Phase: Analyzing -> Executing
+
+           AI Analysis
+           ──────────────────────────────────────────
+           Root Cause:    traffic-gen has one running but unready pod because its readiness probe intermittently fails when contacting web-frontend; the upstream Service is currently healthy, leaving intermittent or unobserved connectivity/response failure as the deepest verified cause.
+           Severity:      critical
+           Target:        Deployment/traffic-gen (ns: demo-frontend)
+           Workflow:      929f4c44-33ab-58fa-849b-df6938aa0b7f (quay.io/kubernaut-cicd/test-workflows/fix-network-policy-job@sha256:b74f1c96d5db04cc6273b486bc9efcd241618e75e695bc297a64f58081e8a2e2)
+           Confidence:    0.7
+           Rationale:     The catalog's preferred and highest-ranked action is FixNetworkPolicy,...
+           Approval:      not required
+
+[14:54:22] WorkflowExecution running...
+           WFE Phase: Running
+           WFE Phase: Running
+           WFE Phase: Running
+[14:54:55] Phase: Executing -> Verifying
+[14:54:55] EffectivenessAssessment verification in progress...
+[15:02:25] Phase: Verifying -> Completed
+[15:02:25] Pipeline completed (outcome: VerificationTimedOut)
+[15:02:26] Waiting for EffectivenessAssessment to complete...
+
+           Effectiveness Assessment
+           ──────────────────────────────────────────
+           Phase:         Completed
+           Reason:        Expired
+           Message:       Assessment completed: Expired
+           Alert Score:   pending
+           Health Score:  pending
+           Metrics Score: pending
+
+[15:02:42] Running network-policy-block/fleet/validate.sh...
+           Fleet runner already confirmed and processed KubeDeploymentReplicasMismatch; skipping duplicate alert wait.
+           Fleet runner already completed the pipeline for demo-frontend; skipping duplicate RR wait.
+           Fleet runner already completed the pipeline for demo-frontend; skipping duplicate pipeline poll.
+[15:02:43] Running assertions...
+           [PASS] RR phase = Completed
+           [FAIL] RR outcome = VerificationTimedOut (expected: Remediated)
+           [PASS] SP phase = Completed
+           [PASS] AA phase = Completed
+           [PASS] AA selected a workflow = 929f4c44-33ab-58fa-849b-df6938aa0b7f (not )
+           [PASS] AA selected correct workflow contains "fix-network-policy-job"
+           [PASS] AA confidence present = 0.7 (not )
+           [PASS] WFE phase = Completed
+           [PASS] EA phase = Completed
+           [PASS] Default network policy removed = 0
+           [PASS] At least 1 web-frontend pod Running = 2 (> 0)
+           [PASS] traffic-gen pod Ready (signal self-resolved) = True
+
+           Scenario Assertions
+           ──────────────────────────────────────────
+
+           ============================================
+            RESULT: FAIL (11/12 passed, 1 failed)
+           ============================================
+
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    Summary
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Scenario                        Result    Duration
+  ──────────────────────────────  ────────  ────────
+  network-policy-block            FAIL      11m 05s
+
+  Total: 11m 07s | 0 passed, 1 failed
+

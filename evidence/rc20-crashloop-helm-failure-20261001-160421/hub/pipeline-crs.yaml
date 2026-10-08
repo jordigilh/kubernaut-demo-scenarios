@@ -1,0 +1,721 @@
+apiVersion: v1
+items:
+- apiVersion: kubernaut.ai/v1alpha1
+  kind: RemediationRequest
+  metadata:
+    annotations:
+      kubernaut.ai/created-at: "2026-10-01T19:55:19Z"
+    creationTimestamp: "2026-10-01T19:55:19Z"
+    generation: 1
+    labels:
+      app.kubernetes.io/component: remediation
+      app.kubernetes.io/managed-by: gateway-service
+    name: rr-7f1635052972-0a08bdf0
+    namespace: kubernaut-system
+    resourceVersion: "8970"
+    uid: 0e99c664-d131-4640-971c-21536823c7df
+  spec:
+    clusterID: remote-cluster
+    firingTime: "2026-10-01T19:49:13Z"
+    originalPayload: |
+      {"receiver":"gateway-webhook","status":"firing","alerts":[{"status":"firing","labels":{"alertname":"KubePodCrashLooping","cluster":"remote-cluster","container":"worker","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-storefront","pod":"worker-7db6dfdc68-gmmn9","prometheus":"monitoring/fleet-spoke","reason":"CrashLoopBackOff","service":"kube-state-metrics","severity":"critical","uid":"3c150805-a38d-4939-a725-1d5792625378"},"annotations":{"description":"A container in namespace demo-storefront is failing to reach a stable running state. Elevated restart rate may indicate service degradation.\n","summary":"Container worker in pod worker-7db6dfdc68-gmmn9 is restarting repeatedly (1 restarts in 10m).\n"},"startsAt":"2026-10-01T19:49:13.44Z","endsAt":"0001-01-01T00:00:00Z","generatorURL":"http://prometheus-fleet-spoke-0:9090/graph?g0.expr=max_over_time%28kube_pod_container_status_waiting_reason%7Bnamespace%3D%22demo-storefront%22%2Creason%3D%22CrashLoopBackOff%22%7D%5B2m%5D%29+%3E+0\u0026g0.tab=1","fingerprint":"e7a790d17ff01746"}],"notification_reason":"first notification","groupLabels":{},"commonLabels":{"alertname":"KubePodCrashLooping","cluster":"remote-cluster","container":"worker","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-storefront","pod":"worker-7db6dfdc68-gmmn9","prometheus":"monitoring/fleet-spoke","reason":"CrashLoopBackOff","service":"kube-state-metrics","severity":"critical","uid":"3c150805-a38d-4939-a725-1d5792625378"},"commonAnnotations":{"description":"A container in namespace demo-storefront is failing to reach a stable running state. Elevated restart rate may indicate service degradation.\n","summary":"Container worker in pod worker-7db6dfdc68-gmmn9 is restarting repeatedly (1 restarts in 10m).\n"},"routeLabels":{},"externalURL":"http://alertmanager-7d8c7db59d-vj5nr:9093","version":"4","groupKey":"{}:{}","truncatedAlerts":0}
+    providerData: '{"labels":{"alertname":"KubePodCrashLooping","cluster":"remote-cluster","container":"worker","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-storefront","pod":"worker-7db6dfdc68-gmmn9","prometheus":"monitoring/fleet-spoke","reason":"CrashLoopBackOff","service":"kube-state-metrics","severity":"critical","uid":"3c150805-a38d-4939-a725-1d5792625378"},"namespace":"demo-storefront"}'
+    receivedTime: "2026-10-01T19:55:19Z"
+    severity: critical
+    signalAnnotations:
+      description: |
+        A container in namespace demo-storefront is failing to reach a stable running state. Elevated restart rate may indicate service degradation.
+      summary: |
+        Container worker in pod worker-7db6dfdc68-gmmn9 is restarting repeatedly (1 restarts in 10m).
+    signalFingerprint: 7f16350529727317bb04f776426a2f544ae8f65cd03b827aed7bf6f4a066cf25
+    signalLabels:
+      alertname: KubePodCrashLooping
+      cluster: remote-cluster
+      container: worker
+      endpoint: http-metrics
+      instance: 10.244.0.9:8080
+      job: kube-state-metrics
+      namespace: demo-storefront
+      pod: worker-7db6dfdc68-gmmn9
+      prometheus: monitoring/fleet-spoke
+      reason: CrashLoopBackOff
+      service: kube-state-metrics
+      severity: critical
+      uid: 3c150805-a38d-4939-a725-1d5792625378
+    signalName: KubePodCrashLooping
+    signalSource: prometheus
+    signalType: alert
+    targetResource:
+      kind: Deployment
+      name: worker
+      namespace: demo-storefront
+    targetType: kubernetes
+  status:
+    completedAt: "2026-10-01T20:01:48Z"
+    completionStatus:
+      notificationRequestRefs:
+      - apiVersion: notification.kubernaut.ai/v1alpha1
+        kind: NotificationRequest
+        name: nr-completion-rr-7f1635052972-0a08bdf0
+        namespace: kubernaut-system
+      notificationStatus: Sent
+      outcome: Inconclusive
+    conditions:
+    - lastTransitionTime: "2026-10-01T19:55:19Z"
+      message: SignalProcessing CRD sp-rr-7f1635052972-0a08bdf0 created successfully
+      observedGeneration: 1
+      reason: SignalProcessingCreated
+      status: "True"
+      type: SignalProcessingReady
+    - lastTransitionTime: "2026-10-01T19:56:48Z"
+      message: Remediation completed, verifying effectiveness
+      observedGeneration: 1
+      reason: Verifying
+      status: "True"
+      type: Ready
+    - lastTransitionTime: "2026-10-01T19:55:19Z"
+      message: AIAnalysis CRD ai-rr-7f1635052972-0a08bdf0 created successfully
+      observedGeneration: 1
+      reason: AIAnalysisCreated
+      status: "True"
+      type: AIAnalysisReady
+    - lastTransitionTime: "2026-10-01T19:55:19Z"
+      message: SignalProcessing completed successfully
+      observedGeneration: 1
+      reason: SignalProcessingSucceeded
+      status: "True"
+      type: SignalProcessingComplete
+    - lastTransitionTime: "2026-10-01T19:56:26Z"
+      message: AIAnalysis completed successfully
+      observedGeneration: 1
+      reason: AIAnalysisSucceeded
+      status: "True"
+      type: AIAnalysisComplete
+    - lastTransitionTime: "2026-10-01T19:56:26Z"
+      message: Pre-remediation hash captured
+      observedGeneration: 1
+      reason: HashCaptured
+      status: "True"
+      type: PreRemediationHashCaptured
+    - lastTransitionTime: "2026-10-01T19:56:26Z"
+      message: WorkflowExecution CRD we-rr-7f1635052972-0a08bdf0 created successfully
+      observedGeneration: 1
+      reason: WorkflowExecutionCreated
+      status: "True"
+      type: WorkflowExecutionReady
+    - lastTransitionTime: "2026-10-01T19:56:48Z"
+      message: WorkflowExecution completed successfully
+      observedGeneration: 1
+      reason: WorkflowSucceeded
+      status: "True"
+      type: WorkflowExecutionComplete
+    - lastTransitionTime: "2026-10-01T20:01:48Z"
+      message: 'Effectiveness assessment completed (reason: Full)'
+      observedGeneration: 1
+      reason: AssessmentCompleted
+      status: "True"
+      type: EffectivenessAssessed
+    - lastTransitionTime: "2026-10-01T20:01:48Z"
+      message: Notification delivered successfully
+      observedGeneration: 1
+      reason: DeliverySucceeded
+      status: "True"
+      type: NotificationDelivered
+    deduplication:
+      firstSeenAt: "2026-10-01T19:55:19Z"
+      lastSeenAt: "2026-10-01T19:58:14Z"
+      occurrenceCount: 2
+    observedGeneration: 1
+    operatorAudit:
+      lastModifiedAt: "2026-10-01T19:55:19Z"
+      lastModifiedBy: system:serviceaccount:kubernaut-system:remediationorchestrator-controller
+      preRemediationSpecHash: sha256:beca11ed0552173fe2e89a16a77ac78b089b20b75c062078ed02f989cc9bf4ee
+    overallPhase: Completed
+    phaseProgress:
+      aiAnalysisRef:
+        apiVersion: kubernaut.ai/v1alpha1
+        kind: AIAnalysis
+        name: ai-rr-7f1635052972-0a08bdf0
+        namespace: kubernaut-system
+      analyzingStartTime: "2026-10-01T19:55:19Z"
+      effectivenessAssessmentRef:
+        apiVersion: kubernaut.ai/v1alpha1
+        kind: EffectivenessAssessment
+        name: ea-rr-7f1635052972-0a08bdf0
+        namespace: kubernaut-system
+      executingStartTime: "2026-10-01T19:56:26Z"
+      processingStartTime: "2026-10-01T19:55:19Z"
+      signalProcessingRef:
+        apiVersion: kubernaut.ai/v1alpha1
+        kind: SignalProcessing
+        name: sp-rr-7f1635052972-0a08bdf0
+        namespace: kubernaut-system
+      verificationDeadline: "2026-10-01T20:04:18Z"
+      workflowExecutionRef:
+        apiVersion: kubernaut.ai/v1alpha1
+        kind: WorkflowExecution
+        name: we-rr-7f1635052972-0a08bdf0
+        namespace: kubernaut-system
+    retentionExpiryTime: "2026-10-02T20:01:48Z"
+    routingStatus:
+      consecutiveFailureCount: 1
+      nextAllowedExecution: "2026-10-01T20:02:48Z"
+    startTime: "2026-10-01T19:55:19Z"
+    timeoutConfig:
+      analyzing: 10m0s
+      executing: 30m0s
+      global: 1h0m0s
+      processing: 5m0s
+    workflowSelection:
+      confidence: "0.94"
+      remediationTarget:
+        apiVersion: v1
+        kind: ConfigMap
+        name: worker-config
+        namespace: demo-storefront
+      selectedWorkflowRef:
+        executionBundle: quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:d7739e5bcf1270e32ec36ed7a6a528fe99e4d12a3fa2d55d9eaaddee2a107d25
+        version: 1.6.4
+        workflowId: 0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24
+      signalTargetDisplay: Deployment/worker
+      targetDisplay: ConfigMap/worker-config
+      workflowDisplayName: HelmRollback/helm-rollback-v1
+- apiVersion: kubernaut.ai/v1alpha1
+  kind: AIAnalysis
+  metadata:
+    creationTimestamp: "2026-10-01T19:55:19Z"
+    finalizers:
+    - kubernaut.ai/finalizer
+    generation: 1
+    name: ai-rr-7f1635052972-0a08bdf0
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: kubernaut.ai/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: RemediationRequest
+      name: rr-7f1635052972-0a08bdf0
+      uid: 0e99c664-d131-4640-971c-21536823c7df
+    resourceVersion: "8059"
+    uid: 387fbf5e-38a5-4f33-ab95-6f43c495da30
+  spec:
+    analysisRequest:
+      analysisTypes:
+      - Investigation
+      - RootCause
+      - WorkflowSelection
+      signalContext:
+        businessPriority: P0
+        enrichmentResults:
+          businessClassification:
+            businessUnit: engineering
+            criticality: High
+            serviceOwner: backend-team
+            slaRequirement: Gold
+          kubernetesContext:
+            cluster:
+              labels:
+                environment: production
+                kubernaut.ai/managed: "true"
+            clusterID: remote-cluster
+            namespace:
+              annotations:
+                kubectl.kubernetes.io/last-applied-configuration: |
+                  {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"kubernaut.ai/business-unit":"engineering","kubernaut.ai/component":"backend-api","kubernaut.ai/criticality":"high","kubernaut.ai/environment":"production","kubernaut.ai/managed":"true","kubernaut.ai/service-owner":"backend-team","kubernaut.ai/sla-tier":"tier-1"},"name":"demo-storefront"}}
+              labels:
+                kubernaut.ai/business-unit: engineering
+                kubernaut.ai/component: backend-api
+                kubernaut.ai/criticality: high
+                kubernaut.ai/environment: production
+                kubernaut.ai/managed: "true"
+                kubernaut.ai/service-owner: backend-team
+                kubernaut.ai/sla-tier: tier-1
+                kubernetes.io/metadata.name: demo-storefront
+              name: demo-storefront
+            workload:
+              annotations:
+                deployment.kubernetes.io/revision: "2"
+                meta.helm.sh/release-name: demo-storefront
+                meta.helm.sh/release-namespace: demo-storefront
+              kind: Deployment
+              labels:
+                app: worker
+                app.kubernetes.io/instance: demo-storefront
+                app.kubernetes.io/managed-by: Helm
+                app.kubernetes.io/name: demo-storefront
+                app.kubernetes.io/version: 1.0.0
+                helm.sh/chart: demo-storefront-0.1.0
+                kubernaut.ai/managed: "true"
+              name: worker
+        environment: Production
+        fingerprint: 7f16350529727317bb04f776426a2f544ae8f65cd03b827aed7bf6f4a066cf25
+        severity: critical
+        signalAnnotations:
+          description: |
+            A container in namespace demo-storefront is failing to reach a stable running state. Elevated restart rate may indicate service degradation.
+          summary: |
+            Container worker in pod worker-7db6dfdc68-gmmn9 is restarting repeatedly (1 restarts in 10m).
+        signalMode: reactive
+        signalName: KubePodCrashLooping
+        targetResource:
+          kind: Deployment
+          name: worker
+          namespace: demo-storefront
+    clusterID: remote-cluster
+    remediationId: rr-7f1635052972-0a08bdf0
+    remediationRequestRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: RemediationRequest
+      name: rr-7f1635052972-0a08bdf0
+      namespace: kubernaut-system
+      uid: 0e99c664-d131-4640-971c-21536823c7df
+    timesOutAt: "2026-10-01T20:05:19Z"
+  status:
+    approval:
+      approvalReason: Auto-approved
+      approvalRequired: false
+    completedAt: "2026-10-01T19:56:26Z"
+    conditions:
+    - lastTransitionTime: "2026-10-01T19:55:19Z"
+      message: AgentSession as-rr-7f1635052972-0a08bdf0 created
+      observedGeneration: 1
+      reason: SessionCreated
+      status: "True"
+      type: InvestigationSessionReady
+    - lastTransitionTime: "2026-10-01T19:56:26Z"
+      message: KA investigation completed successfully
+      observedGeneration: 1
+      reason: InvestigationSucceeded
+      status: "True"
+      type: InvestigationComplete
+    - lastTransitionTime: "2026-10-01T19:56:26Z"
+      message: Policy evaluation does not require manual approval
+      observedGeneration: 1
+      reason: AutoApproved
+      status: "False"
+      type: ApprovalRequired
+    - lastTransitionTime: "2026-10-01T19:56:26Z"
+      message: Workflow 0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24 selected with confidence
+        94%
+      observedGeneration: 1
+      reason: WorkflowSelected
+      status: "True"
+      type: WorkflowResolved
+    - lastTransitionTime: "2026-10-01T19:56:26Z"
+      message: Rego policy evaluation completed successfully
+      observedGeneration: 1
+      reason: AnalysisSucceeded
+      status: "True"
+      type: AnalysisComplete
+    - lastTransitionTime: "2026-10-01T19:56:26Z"
+      message: Analysis completed
+      observedGeneration: 1
+      reason: Ready
+      status: "True"
+      type: Ready
+    investigationMetadata:
+      investigationId: ai-rr-7f1635052972-0a08bdf0
+      investigationTime: 67070
+      totalAnalysisTime: 67121
+    investigationSession:
+      createdAt: "2026-10-01T19:55:19Z"
+      generation: 0
+      id: as-rr-7f1635052972-0a08bdf0
+      lastPolled: "2026-10-01T19:56:26Z"
+      pollCount: 3
+    message: Analysis complete
+    observedGeneration: 1
+    phase: Completed
+    postRCAContext:
+      detectedLabels:
+        cdiManaged: false
+        gitOpsManaged: false
+        helmManaged: true
+        hpaEnabled: false
+        liveMigratable: false
+        networkIsolated: false
+        pdbProtected: false
+        resourceQuotaConstrained: false
+        stateful: false
+        virtualMachine: false
+      setAt: "2026-10-01T19:56:26Z"
+    rcaResult:
+      actionability: Actionable
+      rootCause: The worker container crashes because the Helm-managed ConfigMap demo-storefront/worker-config
+        contains the invalid nginx directive invalid_directive_that_breaks_nginx at
+        line 11, causing nginx to exit with code 1. The failing deployment revision
+        is unhealthy while the previous revision's pods are healthy.
+      rootCauseAnalysis:
+        contributingFactors:
+        - Deployment revision 2 introduced a new configuration checksum; the previous
+          healthy ReplicaSet uses a different checksum.
+        - The invalid nginx configuration is mounted from ConfigMap worker-config
+          at /etc/nginx/nginx.conf.
+        - The rollout is degraded with 2 of 3 replicas available.
+        remediationTarget:
+          apiVersion: v1
+          kind: ConfigMap
+          name: worker-config
+          namespace: demo-storefront
+        severity: critical
+        signalType: KubePodCrashLooping
+        summary: The worker container crashes because the Helm-managed ConfigMap demo-storefront/worker-config
+          contains the invalid nginx directive invalid_directive_that_breaks_nginx
+          at line 11, causing nginx to exit with code 1. The failing deployment revision
+          is unhealthy while the previous revision's pods are healthy.
+      selectedWorkflow:
+        actionType: HelmRollback
+        confidence: 0.94
+        declaredParameterNames:
+          TARGET_RESOURCE_KIND: true
+          TARGET_RESOURCE_NAME: true
+          TARGET_RESOURCE_NAMESPACE: true
+        executionBundle: quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:d7739e5bcf1270e32ec36ed7a6a528fe99e4d12a3fa2d55d9eaaddee2a107d25
+        executionEngine: job
+        parameters:
+          TARGET_RESOURCE_API_VERSION: v1
+          TARGET_RESOURCE_KIND: ConfigMap
+          TARGET_RESOURCE_NAME: worker-config
+          TARGET_RESOURCE_NAMESPACE: demo-storefront
+        rationale: HelmRollback is the catalog-preferred action because helmManaged=true.
+          The RCA identifies a configuration regression introduced in the latest deployment
+          revision, while the previous revision is healthy, matching the workflow's
+          use case and preconditions. Although PatchConfiguration could directly remove
+          the invalid directive, rollback is the safer recovery path for this production
+          P0 incident and restores the known-good Helm revision.
+        selectedAt: "2026-10-01T19:56:26Z"
+        serviceAccountName: helm-rollback-v1-runner
+        version: 1.6.4
+        workflowId: 0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24
+        workflowName: helm-rollback-v1
+    reason: AnalysisCompleted
+    review:
+      needsHumanReview: false
+    startedAt: "2026-10-01T19:55:19Z"
+- apiVersion: kubernaut.ai/v1alpha1
+  kind: SignalProcessing
+  metadata:
+    creationTimestamp: "2026-10-01T19:55:19Z"
+    generation: 1
+    name: sp-rr-7f1635052972-0a08bdf0
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: kubernaut.ai/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: RemediationRequest
+      name: rr-7f1635052972-0a08bdf0
+      uid: 0e99c664-d131-4640-971c-21536823c7df
+    resourceVersion: "7683"
+    uid: a7aa0ef7-2f7b-407c-a133-ffb5bbc282ec
+  spec:
+    enrichmentConfig: {}
+    remediationRequestRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: RemediationRequest
+      name: rr-7f1635052972-0a08bdf0
+      namespace: kubernaut-system
+      uid: 0e99c664-d131-4640-971c-21536823c7df
+    signal:
+      annotations:
+        description: |
+          A container in namespace demo-storefront is failing to reach a stable running state. Elevated restart rate may indicate service degradation.
+        summary: |
+          Container worker in pod worker-7db6dfdc68-gmmn9 is restarting repeatedly (1 restarts in 10m).
+      clusterID: remote-cluster
+      fingerprint: 7f16350529727317bb04f776426a2f544ae8f65cd03b827aed7bf6f4a066cf25
+      firingTime: "2026-10-01T19:49:13Z"
+      labels:
+        alertname: KubePodCrashLooping
+        cluster: remote-cluster
+        container: worker
+        endpoint: http-metrics
+        instance: 10.244.0.9:8080
+        job: kube-state-metrics
+        namespace: demo-storefront
+        pod: worker-7db6dfdc68-gmmn9
+        prometheus: monitoring/fleet-spoke
+        reason: CrashLoopBackOff
+        service: kube-state-metrics
+        severity: critical
+        uid: 3c150805-a38d-4939-a725-1d5792625378
+      name: KubePodCrashLooping
+      providerData: '{"labels":{"alertname":"KubePodCrashLooping","cluster":"remote-cluster","container":"worker","endpoint":"http-metrics","instance":"10.244.0.9:8080","job":"kube-state-metrics","namespace":"demo-storefront","pod":"worker-7db6dfdc68-gmmn9","prometheus":"monitoring/fleet-spoke","reason":"CrashLoopBackOff","service":"kube-state-metrics","severity":"critical","uid":"3c150805-a38d-4939-a725-1d5792625378"},"namespace":"demo-storefront"}'
+      receivedTime: "2026-10-01T19:55:19Z"
+      severity: critical
+      source: prometheus
+      targetResource:
+        kind: Deployment
+        name: worker
+        namespace: demo-storefront
+      targetType: kubernetes
+      type: alert
+    timesOutAt: "2026-10-01T20:00:19Z"
+  status:
+    businessClassification:
+      businessUnit: engineering
+      criticality: High
+      serviceOwner: backend-team
+      slaRequirement: Gold
+    completionTime: "2026-10-01T19:55:19Z"
+    conditions:
+    - lastTransitionTime: "2026-10-01T19:55:19Z"
+      message: 'K8s context enriched: Deployment demo-storefront/worker'
+      observedGeneration: 1
+      reason: EnrichmentSucceeded
+      status: "True"
+      type: EnrichmentComplete
+    - lastTransitionTime: "2026-10-01T19:55:19Z"
+      message: 'Classified: environment=Production (source=namespace-labels), priority=P0
+        (source=rego-policy), severity=critical (source=rego-policy)'
+      observedGeneration: 1
+      reason: ClassificationSucceeded
+      status: "True"
+      type: ClassificationComplete
+    - lastTransitionTime: "2026-10-01T19:55:19Z"
+      message: 'Categorized: businessUnit=engineering, criticality=High, sla=Gold'
+      observedGeneration: 1
+      reason: CategorizationSucceeded
+      status: "True"
+      type: CategorizationComplete
+    - lastTransitionTime: "2026-10-01T19:55:19Z"
+      message: 'Signal processed successfully in 0.51s: P0 Production alert ready
+        for remediation'
+      observedGeneration: 1
+      reason: ProcessingSucceeded
+      status: "True"
+      type: ProcessingComplete
+    - lastTransitionTime: "2026-10-01T19:55:19Z"
+      message: Signal processing completed
+      observedGeneration: 1
+      reason: Ready
+      status: "True"
+      type: Ready
+    environmentClassification:
+      classifiedAt: "2026-10-01T19:55:19Z"
+      environment: Production
+      source: namespace-labels
+    kubernetesContext:
+      cluster:
+        labels:
+          environment: production
+          kubernaut.ai/managed: "true"
+      clusterID: remote-cluster
+      namespace:
+        annotations:
+          kubectl.kubernetes.io/last-applied-configuration: |
+            {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"kubernaut.ai/business-unit":"engineering","kubernaut.ai/component":"backend-api","kubernaut.ai/criticality":"high","kubernaut.ai/environment":"production","kubernaut.ai/managed":"true","kubernaut.ai/service-owner":"backend-team","kubernaut.ai/sla-tier":"tier-1"},"name":"demo-storefront"}}
+        labels:
+          kubernaut.ai/business-unit: engineering
+          kubernaut.ai/component: backend-api
+          kubernaut.ai/criticality: high
+          kubernaut.ai/environment: production
+          kubernaut.ai/managed: "true"
+          kubernaut.ai/service-owner: backend-team
+          kubernaut.ai/sla-tier: tier-1
+          kubernetes.io/metadata.name: demo-storefront
+        name: demo-storefront
+      workload:
+        annotations:
+          deployment.kubernetes.io/revision: "2"
+          meta.helm.sh/release-name: demo-storefront
+          meta.helm.sh/release-namespace: demo-storefront
+        kind: Deployment
+        labels:
+          app: worker
+          app.kubernetes.io/instance: demo-storefront
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: demo-storefront
+          app.kubernetes.io/version: 1.0.0
+          helm.sh/chart: demo-storefront-0.1.0
+          kubernaut.ai/managed: "true"
+        name: worker
+    observedGeneration: 1
+    phase: Completed
+    priorityAssignment:
+      assignedAt: "2026-10-01T19:55:19Z"
+      policyName: production-critical
+      priority: P0
+      source: rego-policy
+    signalClassification:
+      policyHash: ddc50589cc4a08e08af9d5cdd3a1b2738a00f2061ca53673702810dbda35a66c
+      severity: critical
+      signalMode: reactive
+      signalName: KubePodCrashLooping
+    startTime: "2026-10-01T19:55:19Z"
+- apiVersion: kubernaut.ai/v1alpha1
+  kind: WorkflowExecution
+  metadata:
+    creationTimestamp: "2026-10-01T19:56:26Z"
+    finalizers:
+    - workflowexecution.kubernaut.ai/workflowexecution-cleanup
+    generation: 1
+    name: we-rr-7f1635052972-0a08bdf0
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: kubernaut.ai/v1alpha1
+      blockOwnerDeletion: true
+      controller: true
+      kind: RemediationRequest
+      name: rr-7f1635052972-0a08bdf0
+      uid: 0e99c664-d131-4640-971c-21536823c7df
+    resourceVersion: "8173"
+    uid: 26f3a670-343b-4dda-9b34-74e6e4d04a5b
+  spec:
+    clusterID: remote-cluster
+    confidence: 0.94
+    parameters:
+      TARGET_RESOURCE_API_VERSION: v1
+      TARGET_RESOURCE_KIND: ConfigMap
+      TARGET_RESOURCE_NAME: worker-config
+      TARGET_RESOURCE_NAMESPACE: demo-storefront
+    rationale: HelmRollback is the catalog-preferred action because helmManaged=true.
+      The RCA identifies a configuration regression introduced in the latest deployment
+      revision, while the previous revision is healthy, matching the workflow's use
+      case and preconditions. Although PatchConfiguration could directly remove the
+      invalid directive, rollback is the safer recovery path for this production P0
+      incident and restores the known-good Helm revision.
+    remediationRequestRef:
+      apiVersion: kubernaut.ai/v1alpha1
+      kind: RemediationRequest
+      name: rr-7f1635052972-0a08bdf0
+      namespace: kubernaut-system
+      uid: 0e99c664-d131-4640-971c-21536823c7df
+    targetResource: demo-storefront/ConfigMap/worker-config
+    timesOutAt: "2026-10-01T20:26:26Z"
+    workflowRef:
+      actionType: HelmRollback
+      declaredParameterNames:
+        TARGET_RESOURCE_KIND: true
+        TARGET_RESOURCE_NAME: true
+        TARGET_RESOURCE_NAMESPACE: true
+      executionBundle: quay.io/kubernaut-cicd/test-workflows/helm-rollback-job@sha256:d7739e5bcf1270e32ec36ed7a6a528fe99e4d12a3fa2d55d9eaaddee2a107d25
+      executionEngine: job
+      serviceAccountName: helm-rollback-v1-runner
+      version: 1.6.4
+      workflowId: 0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24
+      workflowName: helm-rollback-v1
+  status:
+    completionTime: "2026-10-01T19:56:48Z"
+    conditions:
+    - lastTransitionTime: "2026-10-01T19:56:27Z"
+      message: Audit event workflow.completed recorded to DataStorage
+      observedGeneration: 1
+      reason: AuditSucceeded
+      status: "True"
+      type: AuditRecorded
+    - lastTransitionTime: "2026-10-01T19:56:27Z"
+      message: job execution resource wfe-b5b9751881488bb8 created in kubernaut-workflows
+        namespace
+      observedGeneration: 1
+      reason: ExecutionCreated
+      status: "True"
+      type: ExecutionCreated
+    - lastTransitionTime: "2026-10-01T19:56:38Z"
+      message: 'Execution running (job: Running)'
+      observedGeneration: 1
+      reason: ExecutionStarted
+      status: "True"
+      type: ExecutionRunning
+    - lastTransitionTime: "2026-10-01T19:56:48Z"
+      message: All tasks completed successfully in &Duration{Duration:22s,}
+      observedGeneration: 1
+      reason: ExecutionSucceeded
+      status: "True"
+      type: ExecutionComplete
+    - lastTransitionTime: "2026-10-01T19:56:48Z"
+      message: Workflow execution completed
+      observedGeneration: 1
+      reason: Ready
+      status: "True"
+      type: Ready
+    duration: 22s
+    executionRef:
+      name: wfe-b5b9751881488bb8
+    executionStatus:
+      completedTasks: 1
+      reason: Succeeded
+      status: "True"
+      totalTasks: 1
+    observedGeneration: 1
+    phase: Completed
+    startTime: "2026-10-01T19:56:27Z"
+- apiVersion: kubernaut.ai/v1alpha1
+  kind: EffectivenessAssessment
+  metadata:
+    creationTimestamp: "2026-10-01T19:56:48Z"
+    generation: 1
+    name: ea-rr-7f1635052972-0a08bdf0
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: kubernaut.ai/v1alpha1
+      blockOwnerDeletion: false
+      controller: true
+      kind: RemediationRequest
+      name: rr-7f1635052972-0a08bdf0
+      uid: 0e99c664-d131-4640-971c-21536823c7df
+    resourceVersion: "8951"
+    uid: d04342b5-aa60-4e00-aa0b-7248143531cc
+  spec:
+    clusterID: remote-cluster
+    config:
+      stabilizationWindow: 5m0s
+    correlationID: rr-7f1635052972-0a08bdf0
+    preRemediationSpecHash: sha256:beca11ed0552173fe2e89a16a77ac78b089b20b75c062078ed02f989cc9bf4ee
+    remediationCreatedAt: "2026-10-01T19:55:19Z"
+    remediationRequestPhase: Verifying
+    remediationTarget:
+      apiVersion: v1
+      kind: ConfigMap
+      name: worker-config
+      namespace: demo-storefront
+    signalName: KubePodCrashLooping
+    signalTarget:
+      kind: Deployment
+      name: worker
+      namespace: demo-storefront
+  status:
+    alertManagerCheckAfter: "2026-10-01T20:01:48Z"
+    assessmentReason: Full
+    completedAt: "2026-10-01T20:01:48Z"
+    components:
+      alertAssessed: true
+      alertScore: 0
+      currentSpecHash: sha256:beca11ed0552173fe2e89a16a77ac78b089b20b75c062078ed02f989cc9bf4ee
+      hashComputed: true
+      healthAssessed: true
+      metricsAssessed: true
+      metricsScore: 0
+      postRemediationSpecHash: sha256:beca11ed0552173fe2e89a16a77ac78b089b20b75c062078ed02f989cc9bf4ee
+    conditions:
+    - lastTransitionTime: "2026-10-01T20:01:48Z"
+      message: Post-remediation spec hash captured
+      observedGeneration: 1
+      reason: PostHashCaptured
+      status: "True"
+      type: PostHashCaptured
+    - lastTransitionTime: "2026-10-01T20:01:48Z"
+      message: Post-remediation spec hash computed; baseline established
+      observedGeneration: 1
+      reason: SpecUnchanged
+      status: "True"
+      type: SpecIntegrity
+    - lastTransitionTime: "2026-10-01T20:01:48Z"
+      message: Assessment completed
+      observedGeneration: 1
+      reason: Ready
+      status: "True"
+      type: Ready
+    - lastTransitionTime: "2026-10-01T20:01:48Z"
+      message: 'Assessment completed: Full'
+      observedGeneration: 1
+      reason: AssessmentFull
+      status: "True"
+      type: AssessmentComplete
+    message: 'Assessment completed: Full'
+    phase: Completed
+    prometheusCheckAfter: "2026-10-01T20:01:48Z"
+    validityDeadline: "2026-10-01T20:03:48Z"
+kind: List
+metadata:
+  resourceVersion: ""

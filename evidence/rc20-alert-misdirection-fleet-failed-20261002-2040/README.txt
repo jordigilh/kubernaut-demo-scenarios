@@ -1,0 +1,12 @@
+scenario=alert-misdirection
+mode=fleet
+run_started=2026-10-03T00:40:26Z
+signal=KubePodCrashLooping
+remediation_request=rr-1c290d778763-4c59d6de
+classification=Fleet run preserved as failed fixture; AI correctly rejected the misleading OOM description, but selected HelmRollback for a plain Deployment and the WFE failed
+expected=Root-cause correction followed by a successful Deployment rollback/restart
+observed=AI root cause identified the failing command override and unsupported OOM diagnosis; selected helm-rollback-v1; its remote Job exited 1 because the plain Deployment had no Helm instance label and multiple Helm releases were present; WFE Failed / BackoffLimitExceeded
+disk=Not the cause; the execution image was pulled and the workflow container exited 1 during Helm release discovery
+scripting=The Helm rollback script also emitted integer-test errors while handling the multiple-release count
+safety=No successful remediation; broken workload intentionally preserved for evidence and must be unlabelled before leaving the cluster
+fixture=demo-backend/Deployment/worker, related monitoring objects, and namespace

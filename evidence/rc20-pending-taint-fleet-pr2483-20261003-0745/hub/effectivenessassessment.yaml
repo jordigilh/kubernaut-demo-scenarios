@@ -1,0 +1,75 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: EffectivenessAssessment
+metadata:
+  creationTimestamp: "2026-10-03T11:37:26Z"
+  generation: 1
+  name: ea-rr-825b58c1ca42-ffa5cb04
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: false
+    controller: true
+    kind: RemediationRequest
+    name: rr-825b58c1ca42-ffa5cb04
+    uid: 980a8bf3-0dd2-4596-9afd-6e7ba8492849
+  resourceVersion: "147672"
+  uid: fbb874c6-a6dc-4713-b9f6-6e7a7da24d73
+spec:
+  clusterID: remote-cluster
+  config:
+    stabilizationWindow: 5m0s
+  correlationID: rr-825b58c1ca42-ffa5cb04
+  preRemediationSpecHash: sha256:885947ff9100a0e9292c6db1790245027c859d6cb76ecc51ccc343788f218880
+  remediationCreatedAt: "2026-10-03T11:35:37Z"
+  remediationRequestPhase: Verifying
+  remediationTarget:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: batch-processor
+    namespace: demo-scheduler
+  signalName: KubePodNotScheduled
+  signalTarget:
+    kind: Deployment
+    name: batch-processor
+    namespace: demo-scheduler
+status:
+  alertManagerCheckAfter: "2026-10-03T11:42:26Z"
+  assessmentReason: MetricsTimedOut
+  completedAt: "2026-10-03T11:44:26Z"
+  components:
+    alertAssessed: true
+    alertScore: 0
+    currentSpecHash: sha256:885947ff9100a0e9292c6db1790245027c859d6cb76ecc51ccc343788f218880
+    hashComputed: true
+    healthAssessed: true
+    healthScore: 0
+    postRemediationSpecHash: sha256:885947ff9100a0e9292c6db1790245027c859d6cb76ecc51ccc343788f218880
+  conditions:
+  - lastTransitionTime: "2026-10-03T11:42:26Z"
+    message: Post-remediation spec hash captured
+    observedGeneration: 1
+    reason: PostHashCaptured
+    status: "True"
+    type: PostHashCaptured
+  - lastTransitionTime: "2026-10-03T11:42:26Z"
+    message: Target resource spec unchanged since post-remediation hash
+    observedGeneration: 1
+    reason: SpecUnchanged
+    status: "True"
+    type: SpecIntegrity
+  - lastTransitionTime: "2026-10-03T11:44:26Z"
+    message: Assessment completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  - lastTransitionTime: "2026-10-03T11:44:26Z"
+    message: 'Assessment completed: MetricsTimedOut'
+    observedGeneration: 1
+    reason: MetricsTimedOut
+    status: "True"
+    type: AssessmentComplete
+  message: 'Assessment completed: MetricsTimedOut'
+  phase: Completed
+  prometheusCheckAfter: "2026-10-03T11:42:26Z"
+  validityDeadline: "2026-10-03T11:44:26Z"

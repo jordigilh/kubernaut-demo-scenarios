@@ -1,0 +1,27 @@
+NAMESPACE          NAME                                                       PHASE       OUTCOME        ALERT                        RCA TARGET                WORKFLOW                                    CONFIDENCE   AGE    CLUSTER          SOURCE       SIGNAL NS         SIGNAL TARGET             RCA NS
+kubernaut-system   remediationrequest.kubernaut.ai/rr-2bf3a5781f9d-3dc16f2b   Failed                     KubeDeploymentRolloutStuck   Deployment/checkout-api   RollbackDeployment/fix-image-reference-v1   0.98         96s    remote-cluster   prometheus   demo-shipping     Deployment/checkout-api   demo-shipping
+kubernaut-system   remediationrequest.kubernaut.ai/rr-7f1635052972-0a08bdf0   Completed   Inconclusive   KubePodCrashLooping          ConfigMap/worker-config   HelmRollback/helm-rollback-v1               0.94         165m   remote-cluster   prometheus   demo-storefront   Deployment/worker         demo-storefront
+kubernaut-system   remediationrequest.kubernaut.ai/rr-7f1635052972-b2a6da7f   Failed                     KubePodCrashLooping          ConfigMap/worker-config   PatchConfiguration/patch-configuration-v1   0.96         148m   remote-cluster   prometheus   demo-storefront   Deployment/worker         demo-storefront
+kubernaut-system   remediationrequest.kubernaut.ai/rr-7f1635052972-b4f2963f   Completed   Remediated     KubePodCrashLooping          ConfigMap/worker-config   HelmRollback/helm-rollback-v1               0.86         86m    remote-cluster   prometheus   demo-storefront   Deployment/worker         demo-storefront
+
+NAMESPACE          NAME                                                  PHASE       CONFIDENCE   APPROVAL REQUIRED   REASON   AGE
+kubernaut-system   aianalysis.kubernaut.ai/ai-rr-2bf3a5781f9d-3dc16f2b   Completed   0.98         false               Ready    95s
+kubernaut-system   aianalysis.kubernaut.ai/ai-rr-7f1635052972-0a08bdf0   Completed   0.94         false               Ready    165m
+kubernaut-system   aianalysis.kubernaut.ai/ai-rr-7f1635052972-b2a6da7f   Completed   0.96         false               Ready    148m
+kubernaut-system   aianalysis.kubernaut.ai/ai-rr-7f1635052972-b4f2963f   Completed   0.86         false               Ready    86m
+
+NAMESPACE          NAME                                                        PHASE       SEVERITY   ENVIRONMENT   PRIORITY   REASON   AGE
+kubernaut-system   signalprocessing.kubernaut.ai/sp-rr-2bf3a5781f9d-3dc16f2b   Completed   critical   Production    P0         Ready    96s
+kubernaut-system   signalprocessing.kubernaut.ai/sp-rr-7f1635052972-0a08bdf0   Completed   critical   Production    P0         Ready    165m
+kubernaut-system   signalprocessing.kubernaut.ai/sp-rr-7f1635052972-b2a6da7f   Completed   critical   Production    P0         Ready    148m
+kubernaut-system   signalprocessing.kubernaut.ai/sp-rr-7f1635052972-b4f2963f   Completed   critical   Production    P0         Ready    86m
+
+NAMESPACE          NAME                                                         PHASE       WORKFLOW                 WORKFLOWID                             TARGET                                    DURATION   REASON     AGE
+kubernaut-system   workflowexecution.kubernaut.ai/we-rr-2bf3a5781f9d-3dc16f2b   Failed      fix-image-reference-v1   45c70620-7fc4-5150-9165-ddc643b9281f   demo-shipping/Deployment/checkout-api     11s        NotReady   40s
+kubernaut-system   workflowexecution.kubernaut.ai/we-rr-7f1635052972-0a08bdf0   Completed   helm-rollback-v1         0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24   demo-storefront/ConfigMap/worker-config   22s        Ready      163m
+kubernaut-system   workflowexecution.kubernaut.ai/we-rr-7f1635052972-b2a6da7f   Failed      patch-configuration-v1   5abcef80-b22d-5c17-ae27-e9949cf8fb1e   demo-storefront/ConfigMap/worker-config   2m15s      NotReady   147m
+kubernaut-system   workflowexecution.kubernaut.ai/we-rr-7f1635052972-b4f2963f   Completed   helm-rollback-v1         0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24   demo-storefront/ConfigMap/worker-config   21s        Ready      85m
+
+NAMESPACE          NAME                                                               PHASE       REASON   CORRELATIONID              READYREASON   AGE
+kubernaut-system   effectivenessassessment.kubernaut.ai/ea-rr-7f1635052972-0a08bdf0   Completed   Full     rr-7f1635052972-0a08bdf0   Ready         163m
+kubernaut-system   effectivenessassessment.kubernaut.ai/ea-rr-7f1635052972-b4f2963f   Completed   Full     rr-7f1635052972-b4f2963f   Ready         85m

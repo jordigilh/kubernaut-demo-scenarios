@@ -1,0 +1,101 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: WorkflowExecution
+metadata:
+  creationTimestamp: "2026-10-03T11:36:44Z"
+  finalizers:
+  - workflowexecution.kubernaut.ai/workflowexecution-cleanup
+  generation: 1
+  name: we-rr-825b58c1ca42-ffa5cb04
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RemediationRequest
+    name: rr-825b58c1ca42-ffa5cb04
+    uid: 980a8bf3-0dd2-4596-9afd-6e7ba8492849
+  resourceVersion: "146588"
+  uid: 19d4a918-35bb-4710-a4a1-d4c1138ddf5e
+spec:
+  clusterID: remote-cluster
+  confidence: 0.82
+  parameters:
+    NODE_NAME: kubernaut-remote-cluster-worker-1790996710
+    TAINT_KEY: scheduled
+    TARGET_RESOURCE_API_VERSION: apps/v1
+    TARGET_RESOURCE_KIND: Deployment
+    TARGET_RESOURCE_NAME: batch-processor
+    TARGET_RESOURCE_NAMESPACE: demo-scheduler
+  rationale: The catalog's preferred and higher-ranked actions target PVC expansion,
+    restart, or PDB relaxation, none of which match this scheduling-filter failure.
+    RemoveTaint directly addresses the untolerated NoSchedule taint, and the RCA identifies
+    the matching worker node as healthy with the taint as the scheduling blocker.
+    This assumes the taint is no longer required; otherwise the Deployment should
+    be changed to add the appropriate toleration, which is not available in the catalog.
+  remediationRequestRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: RemediationRequest
+    name: rr-825b58c1ca42-ffa5cb04
+    namespace: kubernaut-system
+    uid: 980a8bf3-0dd2-4596-9afd-6e7ba8492849
+  targetResource: demo-scheduler/Deployment/batch-processor
+  timesOutAt: "2026-10-03T12:06:44Z"
+  workflowRef:
+    actionType: RemoveTaint
+    declaredParameterNames:
+      NODE_NAME: true
+      TAINT_KEY: true
+      TARGET_RESOURCE_KIND: true
+      TARGET_RESOURCE_NAME: true
+      TARGET_RESOURCE_NAMESPACE: true
+    executionBundle: quay.io/kubernaut-cicd/test-workflows/remove-taint-job@sha256:2121ecf1001f6b95b7aeabda1fd4e2eb9eba9052a514a18a1e0f841d9958d561
+    executionEngine: job
+    serviceAccountName: remove-taint-v1-runner
+    version: 1.6.3
+    workflowId: 51247c9a-179f-54b8-b2fa-ece9fb80ef17
+    workflowName: remove-taint-v1
+status:
+  completionTime: "2026-10-03T11:37:26Z"
+  conditions:
+  - lastTransitionTime: "2026-10-03T11:36:44Z"
+    message: Audit event workflow.completed recorded to DataStorage
+    observedGeneration: 1
+    reason: AuditSucceeded
+    status: "True"
+    type: AuditRecorded
+  - lastTransitionTime: "2026-10-03T11:36:44Z"
+    message: job execution resource wfe-c78de5380fd76cfb created in kubernaut-workflows
+      namespace
+    observedGeneration: 1
+    reason: ExecutionCreated
+    status: "True"
+    type: ExecutionCreated
+  - lastTransitionTime: "2026-10-03T11:36:55Z"
+    message: 'Execution running (job: Running)'
+    observedGeneration: 1
+    reason: ExecutionStarted
+    status: "True"
+    type: ExecutionRunning
+  - lastTransitionTime: "2026-10-03T11:37:26Z"
+    message: All tasks completed successfully in &Duration{Duration:42s,}
+    observedGeneration: 1
+    reason: ExecutionSucceeded
+    status: "True"
+    type: ExecutionComplete
+  - lastTransitionTime: "2026-10-03T11:37:26Z"
+    message: Workflow execution completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  duration: 42s
+  executionRef:
+    name: wfe-c78de5380fd76cfb
+  executionStatus:
+    completedTasks: 1
+    reason: Succeeded
+    status: "True"
+    totalTasks: 1
+  observedGeneration: 1
+  phase: Completed
+  startTime: "2026-10-03T11:36:44Z"

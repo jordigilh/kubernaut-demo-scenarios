@@ -1,0 +1,17 @@
+scenario=etcd-defrag-forecast
+mode=fleet
+action=dedicated demo-etcd StatefulSet on spoke
+run_started=2026-10-02T22:45:03Z
+run_log=run.log
+remediation_request=rr-5141270197ec-bcaf6130
+signal=EtcdHighFragmentationRatio
+classification=Fleet RCA/tooling failure: KA exhausted its investigation budget before workflow selection
+pipeline=Completed/ManualReviewRequired
+ai_analysis=Failed; workflow resolution failed with rca_incomplete
+agent_session=as-rr-5141270197ec-bcaf6130
+workflow_execution=none
+effectiveness_assessment=none
+failure_evidence=KA rejected additional Prometheus calls after total tool-call limit; execute_prometheus_range_query received invalid relative timestamp "now"; pods_log previous-container requests also failed
+fixture_state=preserved on spoke with three healthy etcd members and approximately 99% fragmentation; no cleanup performed
+reference=The existing etcd-defrag-forecast golden transcript is an earlier successful OCP run, not evidence that this Fleet attempt succeeded.
+no_new_golden_transcript=true

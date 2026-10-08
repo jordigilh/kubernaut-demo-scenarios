@@ -1,0 +1,367 @@
+apiVersion: v1
+items:
+- apiVersion: kubernaut.ai/v1alpha1
+  kind: EffectivenessAssessment
+  metadata:
+    creationTimestamp: "2026-10-02T18:45:50Z"
+    generation: 1
+    name: ea-rr-10a3e3419019-f32ca31b
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: kubernaut.ai/v1alpha1
+      blockOwnerDeletion: false
+      controller: true
+      kind: RemediationRequest
+      name: rr-10a3e3419019-f32ca31b
+      uid: c2dabed7-62d3-465c-8dd9-7d9086b63b88
+    resourceVersion: "13374"
+    uid: 8bebeab6-5287-4e4a-8eb4-c9f147d5008e
+  spec:
+    clusterID: remote-cluster
+    config:
+      stabilizationWindow: 5m0s
+    correlationID: rr-10a3e3419019-f32ca31b
+    preRemediationSpecHash: sha256:cbae5843cc718eb0652b6c65d9061c2c34c7d8c1b678f93c962388e32a92a5ca
+    remediationCreatedAt: "2026-10-02T18:43:18Z"
+    remediationRequestPhase: Verifying
+    remediationTarget:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      name: data-kv-store-2
+      namespace: demo-keystore
+    signalName: KubeStatefulSetReplicasMismatch
+    signalTarget:
+      kind: StatefulSet
+      name: kv-store
+      namespace: demo-keystore
+  status:
+    alertManagerCheckAfter: "2026-10-02T18:50:50Z"
+    assessmentReason: Full
+    completedAt: "2026-10-02T18:50:50Z"
+    components:
+      alertAssessed: true
+      alertScore: 1
+      currentSpecHash: sha256:99ce714bca0c8a1e0a8d9b242e83b762fc89cdf17959260800758fb0899009c7
+      hashComputed: true
+      healthAssessed: true
+      metricsAssessed: true
+      metricsScore: 0.25000000000000006
+      postRemediationSpecHash: sha256:99ce714bca0c8a1e0a8d9b242e83b762fc89cdf17959260800758fb0899009c7
+    conditions:
+    - lastTransitionTime: "2026-10-02T18:50:50Z"
+      message: Post-remediation spec hash captured
+      observedGeneration: 1
+      reason: PostHashCaptured
+      status: "True"
+      type: PostHashCaptured
+    - lastTransitionTime: "2026-10-02T18:50:50Z"
+      message: Post-remediation spec hash computed; baseline established
+      observedGeneration: 1
+      reason: SpecUnchanged
+      status: "True"
+      type: SpecIntegrity
+    - lastTransitionTime: "2026-10-02T18:50:50Z"
+      message: Assessment completed
+      observedGeneration: 1
+      reason: Ready
+      status: "True"
+      type: Ready
+    - lastTransitionTime: "2026-10-02T18:50:50Z"
+      message: 'Assessment completed: Full'
+      observedGeneration: 1
+      reason: AssessmentFull
+      status: "True"
+      type: AssessmentComplete
+    message: 'Assessment completed: Full'
+    phase: Completed
+    prometheusCheckAfter: "2026-10-02T18:50:50Z"
+    validityDeadline: "2026-10-02T18:52:50Z"
+- apiVersion: kubernaut.ai/v1alpha1
+  kind: EffectivenessAssessment
+  metadata:
+    creationTimestamp: "2026-10-03T00:56:02Z"
+    generation: 1
+    name: ea-rr-1c290d778763-37bd1bac
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: kubernaut.ai/v1alpha1
+      blockOwnerDeletion: false
+      controller: true
+      kind: RemediationRequest
+      name: rr-1c290d778763-37bd1bac
+      uid: 7a6e707b-44ab-4c66-8047-f6ffe79fdea1
+    resourceVersion: "53190"
+    uid: 0e3319a8-c6f0-4bbd-b82c-132e3668af8f
+  spec:
+    clusterID: remote-cluster
+    config:
+      stabilizationWindow: 5m0s
+    correlationID: rr-1c290d778763-37bd1bac
+    preRemediationSpecHash: sha256:11dde3aac2d48044f1f6645d591e73eaa8004ed6ca858c25400222f97fa9be13
+    remediationCreatedAt: "2026-10-03T00:54:38Z"
+    remediationRequestPhase: Verifying
+    remediationTarget:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: worker
+      namespace: demo-backend
+    signalName: KubePodCrashLooping
+    signalTarget:
+      kind: Deployment
+      name: worker
+      namespace: demo-backend
+  status:
+    alertManagerCheckAfter: "2026-10-03T01:01:02Z"
+    assessmentReason: Full
+    completedAt: "2026-10-03T01:01:02Z"
+    components:
+      alertAssessed: true
+      alertScore: 1
+      currentSpecHash: sha256:6e0e7cc93927c96c64f5122996ac3c72417e0c460a19b4116462f86fe0b14e06
+      hashComputed: true
+      healthAssessed: true
+      healthScore: 1
+      metricsAssessed: true
+      metricsScore: 0.25000000000000006
+      postRemediationSpecHash: sha256:6e0e7cc93927c96c64f5122996ac3c72417e0c460a19b4116462f86fe0b14e06
+    conditions:
+    - lastTransitionTime: "2026-10-03T01:01:02Z"
+      message: Post-remediation spec hash captured
+      observedGeneration: 1
+      reason: PostHashCaptured
+      status: "True"
+      type: PostHashCaptured
+    - lastTransitionTime: "2026-10-03T01:01:02Z"
+      message: Post-remediation spec hash computed; baseline established
+      observedGeneration: 1
+      reason: SpecUnchanged
+      status: "True"
+      type: SpecIntegrity
+    - lastTransitionTime: "2026-10-03T01:01:02Z"
+      message: Assessment completed
+      observedGeneration: 1
+      reason: Ready
+      status: "True"
+      type: Ready
+    - lastTransitionTime: "2026-10-03T01:01:02Z"
+      message: 'Assessment completed: Full'
+      observedGeneration: 1
+      reason: AssessmentFull
+      status: "True"
+      type: AssessmentComplete
+    message: 'Assessment completed: Full'
+    phase: Completed
+    prometheusCheckAfter: "2026-10-03T01:01:02Z"
+    validityDeadline: "2026-10-03T01:03:02Z"
+- apiVersion: kubernaut.ai/v1alpha1
+  kind: EffectivenessAssessment
+  metadata:
+    creationTimestamp: "2026-10-02T18:26:14Z"
+    generation: 1
+    name: ea-rr-220b295e549b-0016b3e9
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: kubernaut.ai/v1alpha1
+      blockOwnerDeletion: false
+      controller: true
+      kind: RemediationRequest
+      name: rr-220b295e549b-0016b3e9
+      uid: 5e6c0b9a-5c1e-4b44-9f75-98f481ddb9be
+    resourceVersion: "10173"
+    uid: be5708e9-9c3c-405c-b35b-c7759fcbe086
+  spec:
+    clusterID: remote-cluster
+    config:
+      stabilizationWindow: 5m0s
+    correlationID: rr-220b295e549b-0016b3e9
+    preRemediationSpecHash: sha256:e7953d1811b0b2b17b8cbe97ba57c71b66feb3329337efe72c9921ac266a1ee3
+    remediationCreatedAt: "2026-10-02T18:13:30Z"
+    remediationRequestPhase: Verifying
+    remediationTarget:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: metrics-collector
+      namespace: demo-monitoring
+    signalName: RBACPolicyDenied
+    signalTarget:
+      kind: Deployment
+      name: metrics-collector
+      namespace: demo-monitoring
+  status:
+    alertManagerCheckAfter: "2026-10-02T18:31:14Z"
+    assessmentReason: Full
+    completedAt: "2026-10-02T18:31:14Z"
+    components:
+      alertAssessed: true
+      alertScore: 1
+      currentSpecHash: sha256:043427cd83fba0a12c0667a0ec87dc982bd9be9c26b1919c1856ffae4da8b0e0
+      hashComputed: true
+      healthAssessed: true
+      healthScore: 1
+      metricsAssessed: true
+      metricsScore: 0
+      postRemediationSpecHash: sha256:043427cd83fba0a12c0667a0ec87dc982bd9be9c26b1919c1856ffae4da8b0e0
+    conditions:
+    - lastTransitionTime: "2026-10-02T18:31:14Z"
+      message: Post-remediation spec hash captured
+      observedGeneration: 1
+      reason: PostHashCaptured
+      status: "True"
+      type: PostHashCaptured
+    - lastTransitionTime: "2026-10-02T18:31:14Z"
+      message: Post-remediation spec hash computed; baseline established
+      observedGeneration: 1
+      reason: SpecUnchanged
+      status: "True"
+      type: SpecIntegrity
+    - lastTransitionTime: "2026-10-02T18:31:14Z"
+      message: Assessment completed
+      observedGeneration: 1
+      reason: Ready
+      status: "True"
+      type: Ready
+    - lastTransitionTime: "2026-10-02T18:31:14Z"
+      message: 'Assessment completed: Full'
+      observedGeneration: 1
+      reason: AssessmentFull
+      status: "True"
+      type: AssessmentComplete
+    message: 'Assessment completed: Full'
+    phase: Completed
+    prometheusCheckAfter: "2026-10-02T18:31:14Z"
+    validityDeadline: "2026-10-02T18:33:14Z"
+- apiVersion: kubernaut.ai/v1alpha1
+  kind: EffectivenessAssessment
+  metadata:
+    creationTimestamp: "2026-10-02T18:35:22Z"
+    generation: 1
+    name: ea-rr-4309bc63be09-2aadfaa5
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: kubernaut.ai/v1alpha1
+      blockOwnerDeletion: false
+      controller: true
+      kind: RemediationRequest
+      name: rr-4309bc63be09-2aadfaa5
+      uid: 8dd1553f-81bb-4a4d-80dc-b4ea18483237
+    resourceVersion: "11662"
+    uid: b70c41ae-6a8b-447d-8736-bc2bc876114e
+  spec:
+    clusterID: remote-cluster
+    config:
+      stabilizationWindow: 5m0s
+    correlationID: rr-4309bc63be09-2aadfaa5
+    preRemediationSpecHash: sha256:c6fb0e4834e37c34acb167911709a1996b7b6c99b0f53a48fa7274064f9380b1
+    remediationCreatedAt: "2026-10-02T18:34:07Z"
+    remediationRequestPhase: Verifying
+    remediationTarget:
+      apiVersion: v1
+      kind: ConfigMap
+      name: gateway-config-bad
+      namespace: demo-ingress
+    signalName: KubePodCrashLooping
+    signalTarget:
+      kind: Deployment
+      name: api-gateway
+      namespace: demo-ingress
+  status:
+    alertManagerCheckAfter: "2026-10-02T18:40:22Z"
+    assessmentReason: Full
+    completedAt: "2026-10-02T18:40:22Z"
+    components:
+      alertAssessed: true
+      alertScore: 1
+      currentSpecHash: sha256:f15892024cf7c31c407f701d3aa97c63ac58d34b71264cd9e58dbdd3e450adf1
+      hashComputed: true
+      healthAssessed: true
+      metricsAssessed: true
+      metricsScore: 0.25000000000000006
+      postRemediationSpecHash: sha256:f15892024cf7c31c407f701d3aa97c63ac58d34b71264cd9e58dbdd3e450adf1
+    conditions:
+    - lastTransitionTime: "2026-10-02T18:40:22Z"
+      message: Post-remediation spec hash captured
+      observedGeneration: 1
+      reason: PostHashCaptured
+      status: "True"
+      type: PostHashCaptured
+    - lastTransitionTime: "2026-10-02T18:40:22Z"
+      message: Post-remediation spec hash computed; baseline established
+      observedGeneration: 1
+      reason: SpecUnchanged
+      status: "True"
+      type: SpecIntegrity
+    - lastTransitionTime: "2026-10-02T18:40:22Z"
+      message: Assessment completed
+      observedGeneration: 1
+      reason: Ready
+      status: "True"
+      type: Ready
+    - lastTransitionTime: "2026-10-02T18:40:22Z"
+      message: 'Assessment completed: Full'
+      observedGeneration: 1
+      reason: AssessmentFull
+      status: "True"
+      type: AssessmentComplete
+    message: 'Assessment completed: Full'
+    phase: Completed
+    prometheusCheckAfter: "2026-10-02T18:40:22Z"
+    validityDeadline: "2026-10-02T18:42:22Z"
+- apiVersion: kubernaut.ai/v1alpha1
+  kind: EffectivenessAssessment
+  metadata:
+    creationTimestamp: "2026-10-02T18:54:50Z"
+    generation: 1
+    name: ea-rr-9d7638a122e2-dd1813f9
+    namespace: kubernaut-system
+    ownerReferences:
+    - apiVersion: kubernaut.ai/v1alpha1
+      blockOwnerDeletion: false
+      controller: true
+      kind: RemediationRequest
+      name: rr-9d7638a122e2-dd1813f9
+      uid: 023923a2-18f9-4a4b-b26b-3cfd59e6ea98
+    resourceVersion: "15320"
+    uid: 86513c6b-7385-4cbc-b64a-9b9f7eb75e70
+  spec:
+    clusterID: remote-cluster
+    config:
+      stabilizationWindow: 5m0s
+    correlationID: rr-9d7638a122e2-dd1813f9
+    preRemediationSpecHash: sha256:5aca3f8cf305daf0660e32973926d8f64a16b7cbd23abdb097358a345ad44b67
+    remediationCreatedAt: "2026-10-02T18:53:18Z"
+    remediationRequestPhase: Verifying
+    remediationTarget:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: traffic-gen
+      namespace: demo-frontend
+    signalName: KubeDeploymentReplicasMismatch
+    signalTarget:
+      kind: Deployment
+      name: traffic-gen
+      namespace: demo-frontend
+  status:
+    alertManagerCheckAfter: "2026-10-02T18:59:50Z"
+    assessmentReason: Expired
+    completedAt: "2026-10-02T19:02:38Z"
+    components: {}
+    conditions:
+    - lastTransitionTime: "2026-10-02T19:02:38Z"
+      message: Assessment completed
+      observedGeneration: 1
+      reason: Ready
+      status: "True"
+      type: Ready
+    - lastTransitionTime: "2026-10-02T19:02:38Z"
+      message: 'Assessment completed: Expired'
+      observedGeneration: 1
+      reason: AssessmentExpired
+      status: "True"
+      type: AssessmentComplete
+    message: 'Assessment completed: Expired'
+    phase: Completed
+    prometheusCheckAfter: "2026-10-02T18:59:50Z"
+    validityDeadline: "2026-10-02T19:01:50Z"
+kind: List
+metadata:
+  resourceVersion: ""

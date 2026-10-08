@@ -1,0 +1,138 @@
+WARNING: Some Kubernaut deployments are not ready:
+    authwebhook=/1
+  Operator-managed Prometheus is installed.
+==> Default preflight: metrics-pipeline...
+  Preflight [metrics-pipeline]: checking kube-state-metrics...
+  Preflight [metrics-pipeline]: OK (1 series)
+==> Seeding ActionType CRDs...
+==> Seeding RemediationWorkflow CRDs (namespace: kubernaut-system)...
+    SKIP disk-pressure-emptydir.yaml (engine: ansible — no AWX/AAP found)
+    Applied 33 workflow(s), skipped 1, failed 0.
+[01:26:34] Starting DataStorage port-forward (localhost:30081 -> svc/data-storage-service:8081)...
+[01:26:35] DataStorage port-forward ready
+[01:26:35] Starting Prometheus port-forward (localhost:9090)...
+[01:26:37] Prometheus port-forward ready
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    Scenario: rbac-failure
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[01:26:37] Running rbac-failure/run.sh...
+=============================================
+ RBAC Failure Remediation Demo
+ RoleBinding deleted -> 403 Forbidden
+ -> RestoreRoleBinding
+=============================================
+
+==> [spoke=/Users/jgil/.kube/kubernaut-remote-cluster-config] Deploying scenario resources...
+==> [fleet] Deploying workload manifests to spoke (skipping operator monitoring kinds -- see fleet_deploy_monitoring)...
+    namespace/demo-monitoring created
+    serviceaccount/metrics-collector created
+    role.rbac.authorization.k8s.io/metrics-collector created
+    rolebinding.rbac.authorization.k8s.io/metrics-collector-binding created
+    deployment.apps/metrics-collector created
+  Applied 5 document(s) to spoke, skipped 1 (monitoring kinds).
+  [fleet] kube-state-metrics already deployed on spoke.
+==> [fleet] Deploying monitoring CRDs to spoke (operator-native, no config surgery)...
+    prometheusrule.monitoring.coreos.com/demo-app-alerts created
+    Set cluster=remote-cluster on alert rules in doc-5.yaml.
+  Applied 1 monitoring document(s) to spoke, skipped 5 (workload kinds).
+==> [spoke] Waiting for deployment to be Available...
+deployment.apps/metrics-collector condition met
+NAME                                 READY   STATUS    RESTARTS   AGE
+metrics-collector-7b6bd89dbc-9htrm   1/1     Running   0          12s
+
+==> [spoke] Establishing healthy baseline (20s)...
+
+==> [spoke] Injecting RBAC failure (delete RoleBinding)...
+==> Simulating accidental RoleBinding deletion (security audit cleanup)...
+rolebinding.rbac.authorization.k8s.io "metrics-collector-binding" deleted from demo-monitoring namespace
+==> RoleBinding deleted. metrics-collector will lose API access.
+   Readiness probe will fail with 'forbidden', pod goes NotReady.
+
+NAME                                 READY   STATUS    RESTARTS   AGE
+metrics-collector-7b6bd89dbc-9htrm   1/1     Running   0          32s
+
+Name:             metrics-collector-7b6bd89dbc-9htrm
+Namespace:        demo-monitoring
+Priority:         0
+Service Account:  metrics-collector
+Node:             kubernaut-remote-cluster-control-plane/10.89.0.3
+Start Time:       Fri, 02 Oct 2026 01:26:37 -0400
+Labels:           app=metrics-collector
+                  pod-template-hash=7b6bd89dbc
+Annotations:      <none>
+Status:           Running
+IP:               10.244.0.29
+IPs:
+  IP:           10.244.0.29
+Controlled By:  ReplicaSet/metrics-collector-7b6bd89dbc
+Containers:
+  metrics-collector:
+    Container ID:  containerd://e77a52e75a94d7309d2cfbcd5cd25f4798b5cd2af725de7af2f0c2c5709048ec
+    Image:         docker.io/alpine/k8s:1.30.0
+    Image ID:      docker.io/alpine/k8s@sha256:bd01dae02676ce4cab62fc744e43443eee5bf660054e94d3496d23bfc35d384e
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      /bin/sh
+      -c
+    Args:
+      while true; do kubectl get pods -n demo-monitoring > /dev/null 2>&1 && echo "$(date) OK" || echo "$(date) FORBIDDEN"; sleep 10; done
+      
+    State:          Running
+      Started:      Fri, 02 Oct 2026 01:26:38 -0400
+    Ready:          True
+    Restart Count:  0
+    Readiness:      exec [kubectl auth can-i list pods -n demo-monitoring] delay=5s timeout=1s period=10s #success=1 #failure=3
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-8lc4h (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  kube-api-access-8lc4h:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  32s   default-scheduler  Successfully assigned demo-monitoring/metrics-collector-7b6bd89dbc-9htrm to kubernaut-remote-cluster-control-plane
+  Normal  Pulled     31s   kubelet            spec.containers{metrics-collector}: Container image "docker.io/alpine/k8s:1.30.0" already present on machine and can be accessed by the pod
+  Normal  Created    31s   kubelet            spec.containers{metrics-collector}: Container created
+  Normal  Started    31s   kubelet            spec.containers{metrics-collector}: Container started
+
+==> [spoke] Fault injected. Run fleet/hub.sh (or ../run.sh) to confirm the alert on the hub.
+
+==> [hub=/Users/jgil/.kube/kubernaut-hub-config] Waiting for alert...
+==> [fleet] Waiting for alert 'RBACPolicyDenied' (namespace=demo-monitoring, cluster=remote-cluster) on hub Alertmanager (timeout 480s)...
+  alert 'RBACPolicyDenied' (namespace=demo-monitoring, cluster=remote-cluster) is firing.
+
+==> Alert is firing. Driving full remediation pipeline on the hub (--auto-approve)...
+[01:28:43] Waiting for RemediationRequest (target: demo-monitoring)...
+[01:30:46] Timed out waiting for RemediationRequest after 120s
+[01:30:46] run.sh failed for rbac-failure
+[01:30:46] Preserving rbac-failure resources after failure for RCA (cleanup skipped)
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    Summary
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Scenario                        Result    Duration
+  ──────────────────────────────  ────────  ────────
+  rbac-failure                    FAIL      4m 09s
+
+  Total: 4m 12s | 0 passed, 1 failed
+

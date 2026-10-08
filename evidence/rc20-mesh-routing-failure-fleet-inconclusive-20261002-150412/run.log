@@ -1,0 +1,71 @@
+  Operator-managed Prometheus is installed.
+==> Default preflight: metrics-pipeline...
+  Preflight [metrics-pipeline]: checking kube-state-metrics...
+  Preflight [metrics-pipeline]: OK (1 series)
+==> Seeding ActionType CRDs...
+==> Seeding RemediationWorkflow CRDs (namespace: kubernaut-system)...
+    SKIP disk-pressure-emptydir.yaml (engine: ansible — no AWX/AAP found)
+    Applied 33 workflow(s), skipped 1, failed 0.
+[15:04:24] Starting DataStorage port-forward (localhost:30081 -> svc/data-storage-service:8081)...
+[15:04:25] DataStorage port-forward ready
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    Scenario: mesh-routing-failure
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[15:04:25] Running mesh-routing-failure/run.sh...
+=============================================
+ Istio Mesh Routing Failure Demo (#136)
+=============================================
+
+==> [spoke=/Users/jgil/.kube/kubernaut-remote-cluster-config] Deploying scenario resources...
+==> [fleet] Deploying workload manifests to spoke (skipping operator monitoring kinds -- see fleet_deploy_monitoring)...
+    namespace/demo-mesh created
+    configmap/api-server-config created
+    service/api-server created
+    deployment.apps/api-server created
+    deployment.apps/traffic-gen created
+  Applied 5 document(s) to spoke, skipped 3 (monitoring kinds).
+  [fleet] kube-state-metrics already deployed on spoke.
+==> [fleet] Deploying monitoring CRDs to spoke (operator-native, no config surgery)...
+    podmonitor.monitoring.coreos.com/istio-proxy created
+    prometheusrule.monitoring.coreos.com/demo-app-alerts created
+    Set cluster=remote-cluster on alert rules in doc-6.yaml.
+    servicemonitor.monitoring.coreos.com/demo-app-metrics created
+  Applied 3 monitoring document(s) to spoke, skipped 5 (workload kinds).
+==> [spoke] Waiting for deployments to be ready (sidecar injection takes a moment)...
+deployment.apps/api-server condition met
+deployment.apps/traffic-gen condition met
+  Workload and traffic generator deployed with Istio sidecars.
+NAME                          READY   STATUS    RESTARTS   AGE
+api-server-66d54bf5d7-4pnps   2/2     Running   0          21s
+api-server-66d54bf5d7-jvgtb   2/2     Running   0          21s
+traffic-gen-ccbbd8cb6-ftrgx   2/2     Running   0          21s
+
+==> [spoke] Establishing healthy baseline (30s)...
+  Baseline established.
+
+==> [spoke] Injecting restrictive AuthorizationPolicy...
+==> Injecting deny-all AuthorizationPolicy...
+authorizationpolicy.security.istio.io/deny-all-traffic created
+==> AuthorizationPolicy applied. Istio sidecar will deny all inbound traffic.
+    Requests to api-server will return HTTP 403 Forbidden.
+==> Check: kubectl exec -n demo-mesh deploy/traffic-gen -- curl -s -o /dev/null -w '%{http_code}' http://api-server:8080/
+
+  Waiting for policy to take effect (5s)...
+NAME                          READY   STATUS    RESTARTS   AGE
+api-server-66d54bf5d7-4pnps   2/2     Running   0          57s
+api-server-66d54bf5d7-jvgtb   2/2     Running   0          57s
+traffic-gen-ccbbd8cb6-ftrgx   2/2     Running   0          57s
+
+==> [spoke] Fault injected. Run fleet/hub.sh (or ../run.sh) to confirm the alert on the hub.
+
+==> [hub=/Users/jgil/.kube/kubernaut-hub-config] Waiting for alert (~2-3 min)...
+==> [fleet] Waiting for alert 'IstioHighDenyRate' (namespace=demo-mesh, cluster=remote-cluster) on hub Alertmanager (timeout 300s)...
+  alert 'IstioHighDenyRate' (namespace=demo-mesh, cluster=remote-cluster) is firing.
+
+==> Alert is firing. Driving full remediation pipeline on the hub (--auto-approve)...
+[15:06:24] Waiting for RemediationRequest (target: demo-mesh)...
+[15:06:30] RemediationRequest rr-34d70cf37c03-8778e4a8 created -> Phase: Analyzing
+[15:06:30] Polling pipeline (timeout: 600s, approval: --auto-approve)...
+[15:06:30] AI Analysis in progress...

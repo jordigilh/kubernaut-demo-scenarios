@@ -1,0 +1,11 @@
+NAME                         READY   STATUS    RESTARTS   AGE    IP            NODE                                     NOMINATED NODE   READINESS GATES
+pod/worker-96b59756b-9q778   1/1     Running   0          8m8s   10.244.0.22   kubernaut-remote-cluster-control-plane   <none>           <none>
+pod/worker-96b59756b-lbrmb   1/1     Running   0          8m8s   10.244.0.23   kubernaut-remote-cluster-control-plane   <none>           <none>
+
+NAME                     READY   UP-TO-DATE   AVAILABLE   AGE    CONTAINERS   IMAGES              SELECTOR
+deployment.apps/worker   2/2     2            2           8m8s   worker       nginx:1.27-alpine   app=worker
+
+NAME                           DATA   AGE
+configmap/istio-ca-root-cert   1      8m9s
+configmap/kube-root-ca.crt     1      8m9s
+configmap/worker-config        1      8m8s

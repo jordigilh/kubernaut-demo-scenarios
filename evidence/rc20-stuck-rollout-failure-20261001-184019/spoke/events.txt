@@ -1,0 +1,39 @@
+LAST SEEN   TYPE      REASON              OBJECT                               MESSAGE
+4m59s       Normal    Scheduled           pod/checkout-api-5fbd59b477-vgx5q    Successfully assigned demo-shipping/checkout-api-5fbd59b477-vgx5q to kubernaut-remote-cluster-control-plane
+4m59s       Normal    ScalingReplicaSet   deployment/checkout-api              Scaled up replica set checkout-api-5fbd59b477 from 0 to 3
+4m59s       Normal    SuccessfulCreate    replicaset/checkout-api-5fbd59b477   Created pod: checkout-api-5fbd59b477-cdzls
+4m59s       Normal    SuccessfulCreate    replicaset/checkout-api-5fbd59b477   Created pod: checkout-api-5fbd59b477-vgx5q
+4m59s       Normal    SuccessfulCreate    replicaset/checkout-api-5fbd59b477   Created pod: checkout-api-5fbd59b477-hd6gg
+4m59s       Normal    Scheduled           pod/checkout-api-5fbd59b477-hd6gg    Successfully assigned demo-shipping/checkout-api-5fbd59b477-hd6gg to kubernaut-remote-cluster-control-plane
+4m59s       Normal    Scheduled           pod/checkout-api-5fbd59b477-cdzls    Successfully assigned demo-shipping/checkout-api-5fbd59b477-cdzls to kubernaut-remote-cluster-control-plane
+4m58s       Normal    Pulling             pod/checkout-api-5fbd59b477-vgx5q    Pulling image "quay.io/kubernaut-cicd/demo-http-server:1.0.0"
+4m57s       Normal    Pulling             pod/checkout-api-5fbd59b477-cdzls    Pulling image "quay.io/kubernaut-cicd/demo-http-server:1.0.0"
+4m57s       Normal    Pulling             pod/checkout-api-5fbd59b477-hd6gg    Pulling image "quay.io/kubernaut-cicd/demo-http-server:1.0.0"
+4m53s       Normal    Created             pod/checkout-api-5fbd59b477-hd6gg    Container created
+4m53s       Normal    Created             pod/checkout-api-5fbd59b477-cdzls    Container created
+4m53s       Normal    Pulled              pod/checkout-api-5fbd59b477-hd6gg    Successfully pulled image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" in 148ms (4.934s including waiting). Image size: 10101219 bytes.
+4m53s       Normal    Pulled              pod/checkout-api-5fbd59b477-vgx5q    Successfully pulled image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" in 4.631s (4.631s including waiting). Image size: 10101219 bytes.
+4m53s       Normal    Created             pod/checkout-api-5fbd59b477-vgx5q    Container created
+4m53s       Normal    Pulled              pod/checkout-api-5fbd59b477-cdzls    Successfully pulled image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" in 204ms (4.814s including waiting). Image size: 10101219 bytes.
+4m52s       Normal    Started             pod/checkout-api-5fbd59b477-hd6gg    Container started
+4m52s       Normal    Started             pod/checkout-api-5fbd59b477-cdzls    Container started
+4m52s       Normal    Started             pod/checkout-api-5fbd59b477-vgx5q    Container started
+4m34s       Normal    SuccessfulCreate    replicaset/checkout-api-7bf8fbd474   Created pod: checkout-api-7bf8fbd474-zsnjg
+4m34s       Normal    ScalingReplicaSet   deployment/checkout-api              Scaled up replica set checkout-api-7bf8fbd474 from 0 to 1
+4m33s       Normal    Killing             pod/checkout-api-5fbd59b477-cdzls    Stopping container api
+4m33s       Normal    SuccessfulDelete    replicaset/checkout-api-5fbd59b477   Deleted pod: checkout-api-5fbd59b477-cdzls
+4m33s       Normal    Scheduled           pod/checkout-api-7bf8fbd474-zsnjg    Successfully assigned demo-shipping/checkout-api-7bf8fbd474-zsnjg to kubernaut-remote-cluster-control-plane
+4m33s       Normal    ScalingReplicaSet   deployment/checkout-api              Scaled up replica set checkout-api-7bf8fbd474 from 1 to 2
+4m33s       Normal    ScalingReplicaSet   deployment/checkout-api              Scaled down replica set checkout-api-5fbd59b477 from 3 to 2
+4m33s       Normal    Scheduled           pod/checkout-api-7bf8fbd474-zvz4x    Successfully assigned demo-shipping/checkout-api-7bf8fbd474-zvz4x to kubernaut-remote-cluster-control-plane
+4m33s       Normal    SuccessfulCreate    replicaset/checkout-api-7bf8fbd474   Created pod: checkout-api-7bf8fbd474-zvz4x
+109s        Normal    Pulling             pod/checkout-api-7bf8fbd474-zsnjg    Pulling image "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist"
+108s        Warning   Failed              pod/checkout-api-7bf8fbd474-zsnjg    Error: ErrImagePull
+108s        Warning   Failed              pod/checkout-api-7bf8fbd474-zsnjg    Failed to pull image "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist": rpc error: code = NotFound desc = failed to pull and unpack image "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist": failed to resolve reference "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist": quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist: not found
+100s        Warning   Failed              pod/checkout-api-7bf8fbd474-zvz4x    Error: ErrImagePull
+100s        Warning   Failed              pod/checkout-api-7bf8fbd474-zvz4x    Failed to pull image "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist": rpc error: code = NotFound desc = failed to pull and unpack image "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist": failed to resolve reference "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist": quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist: not found
+100s        Normal    Pulling             pod/checkout-api-7bf8fbd474-zvz4x    Pulling image "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist"
+53s         Warning   Failed              pod/checkout-api-7bf8fbd474-zvz4x    Error: ImagePullBackOff
+40s         Warning   Failed              pod/checkout-api-7bf8fbd474-zsnjg    Error: ImagePullBackOff
+1s          Normal    BackOff             pod/checkout-api-7bf8fbd474-zsnjg    Back-off pulling image "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist"
+0s          Normal    BackOff             pod/checkout-api-7bf8fbd474-zvz4x    Back-off pulling image "quay.io/kubernaut-cicd/demo-http-server:99.99.99-doesnotexist"

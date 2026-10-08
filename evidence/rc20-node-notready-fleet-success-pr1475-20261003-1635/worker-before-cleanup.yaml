@@ -1,0 +1,168 @@
+apiVersion: v1
+kind: Node
+metadata:
+  annotations:
+    node.alpha.kubernetes.io/ttl: "0"
+    volumes.kubernetes.io/controller-managed-attach-detach: "true"
+  creationTimestamp: "2026-10-03T03:05:25Z"
+  labels:
+    beta.kubernetes.io/arch: arm64
+    beta.kubernetes.io/os: linux
+    kubernaut.ai/business-unit: infrastructure
+    kubernaut.ai/criticality: critical
+    kubernaut.ai/environment: production
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/service-owner: infra-team
+    kubernaut.ai/sla-tier: tier-1
+    kubernaut.ai/workload-pool: "true"
+    kubernetes.io/arch: arm64
+    kubernetes.io/hostname: kubernaut-remote-cluster-worker-1790996710
+    kubernetes.io/os: linux
+  name: kubernaut-remote-cluster-worker-1790996710
+  resourceVersion: "156138"
+  uid: bc5dd367-4fad-4f32-8748-40e83278cdb5
+spec:
+  podCIDR: 10.244.1.0/24
+  podCIDRs:
+  - 10.244.1.0/24
+  taints:
+  - effect: NoSchedule
+    key: node.kubernetes.io/unschedulable
+    timeAdded: "2026-10-03T16:37:10Z"
+  unschedulable: true
+status:
+  addresses:
+  - address: 10.89.0.17
+    type: InternalIP
+  - address: kubernaut-remote-cluster-worker-1790996710
+    type: Hostname
+  allocatable:
+    cpu: "6"
+    ephemeral-storage: "99252940800"
+    hugepages-1Gi: "0"
+    hugepages-2Mi: "0"
+    hugepages-32Mi: "0"
+    hugepages-64Ki: "0"
+    memory: 14233708Ki
+    pods: "110"
+  capacity:
+    cpu: "6"
+    ephemeral-storage: "99252940800"
+    hugepages-1Gi: "0"
+    hugepages-2Mi: "0"
+    hugepages-32Mi: "0"
+    hugepages-64Ki: "0"
+    memory: 14233708Ki
+    pods: "110"
+  conditions:
+  - lastHeartbeatTime: "2026-10-03T16:40:42Z"
+    lastTransitionTime: "2026-10-03T16:37:38Z"
+    message: kubelet has sufficient memory available
+    reason: KubeletHasSufficientMemory
+    status: "False"
+    type: MemoryPressure
+  - lastHeartbeatTime: "2026-10-03T16:40:42Z"
+    lastTransitionTime: "2026-10-03T16:37:38Z"
+    message: kubelet has no disk pressure
+    reason: KubeletHasNoDiskPressure
+    status: "False"
+    type: DiskPressure
+  - lastHeartbeatTime: "2026-10-03T16:40:42Z"
+    lastTransitionTime: "2026-10-03T16:37:38Z"
+    message: kubelet has sufficient PID available
+    reason: KubeletHasSufficientPID
+    status: "False"
+    type: PIDPressure
+  - lastHeartbeatTime: "2026-10-03T16:40:42Z"
+    lastTransitionTime: "2026-10-03T16:37:38Z"
+    message: kubelet is posting ready status
+    reason: KubeletReady
+    status: "True"
+    type: Ready
+  daemonEndpoints:
+    kubeletEndpoint:
+      Port: 10250
+  declaredFeatures:
+  - ExtendWebSocketsToKubelet
+  - InPlacePodLevelResourcesVerticalScaling
+  - InPlacePodVerticalScalingInitContainers
+  - RestartAllContainersOnContainerExits
+  features:
+    supplementalGroupsPolicy: true
+  images:
+  - names:
+    - localhost/kubernetes-mcp-server:cluster-scope-pr1475-20261003-arm64
+    sizeBytes: 184120365
+  - names:
+    - docker.io/library/import-2026-08-26@sha256:4fbbef5581e6ed60b96426e3786371b57da07f66e350b4ff2b0077413c2b0444
+    - registry.k8s.io/kube-apiserver-arm64:v1.37.0
+    - registry.k8s.io/kube-apiserver:v1.37.0
+    sizeBytes: 97074036
+  - names:
+    - docker.io/library/import-2026-08-26@sha256:dda35f6553455c1dde75aebfbb20759d24b7de776b884eb06415f242f276200c
+    - registry.k8s.io/kube-controller-manager-arm64:v1.37.0
+    - registry.k8s.io/kube-controller-manager:v1.37.0
+    sizeBytes: 85081821
+  - names:
+    - docker.io/library/import-2026-08-26@sha256:d5e740cce95911da5590b633aae2f7f7e3370ec9d212d4dbbbf3bf19fa07551f
+    - registry.k8s.io/kube-proxy-arm64:v1.37.0
+    - registry.k8s.io/kube-proxy:v1.37.0
+    sizeBytes: 84532964
+  - names:
+    - docker.io/library/import-2026-08-26@sha256:2aa78b45454b3df79d15bf6a57b4f9871f11ce16c8b645109ba2310076d228dd
+    - registry.k8s.io/kube-scheduler-arm64:v1.37.0
+    - registry.k8s.io/kube-scheduler:v1.37.0
+    sizeBytes: 59129565
+  - names:
+    - quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:ab38364edf3a3ae99fb424d1aae26ed34dec104cbba45c5e8857745a28028538
+    sizeBytes: 55115577
+  - names:
+    - quay.io/kubernaut-cicd/test-workflows/scale-replicas-job@sha256:8e7ce7de50a2115bb9d1f0a74ad27bf13f201ceb8cb98285edce9166f894f125
+    sizeBytes: 55115320
+  - names:
+    - docker.io/kindest/kindnetd:v20260820-69b56db7
+    sizeBytes: 35652389
+  - names:
+    - registry.k8s.io/coredns/coredns:v1.14.6
+    sizeBytes: 21239459
+  - names:
+    - registry.k8s.io/etcd:3.7.0-0
+    sizeBytes: 20455189
+  - names:
+    - docker.io/kindest/local-path-provisioner:v20260820-69b56db7
+    sizeBytes: 14217939
+  - names:
+    - quay.io/kubernaut-cicd/demo-http-server@sha256:bfb8c9879b679bd436e1a940864ad318c0bea0d9bb8fc14d35652cab49020b53
+    - quay.io/kubernaut-cicd/demo-http-server:1.0.0
+    sizeBytes: 10101219
+  - names:
+    - docker.io/kindest/local-path-helper:v20260131-7181c60a
+    sizeBytes: 2740462
+  - names:
+    - registry.k8s.io/pause:3.10
+    sizeBytes: 267933
+  nodeInfo:
+    architecture: arm64
+    bootID: 24854de9-292b-487f-bb9f-10e8d944fa7d
+    containerRuntimeVersion: containerd://2.3.4
+    kernelVersion: 7.1.10-200.fc44.aarch64
+    kubeProxyVersion: ""
+    kubeletVersion: v1.37.0
+    machineID: e2cf65a366424ceb9af74d5b8f16c836
+    operatingSystem: linux
+    osImage: Debian GNU/Linux 13 (trixie)
+    runningInUserNamespace: true
+    systemUUID: 6f1bc0d7-88cd-4082-8af7-967627e9ff1f
+  runtimeHandlers:
+  - features:
+      recursiveReadOnlyMounts: true
+      userNamespaces: true
+    name: ""
+  - features:
+      recursiveReadOnlyMounts: true
+      userNamespaces: true
+    name: runc
+  - features:
+      recursiveReadOnlyMounts: true
+      userNamespaces: true
+    name: test-handler

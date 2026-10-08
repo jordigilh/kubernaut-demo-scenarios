@@ -1,0 +1,119 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: NotificationRequest
+metadata:
+  creationTimestamp: "2026-10-03T01:01:02Z"
+  generation: 1
+  name: nr-completion-rr-1c290d778763-37bd1bac
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RemediationRequest
+    name: rr-1c290d778763-37bd1bac
+    uid: 7a6e707b-44ab-4c66-8047-f6ffe79fdea1
+  resourceVersion: "53204"
+  uid: aa804633-94b4-4378-92bd-e931246605e0
+spec:
+  body: |-
+    **Cluster**: remote-cluster
+
+    **Remediation**: rr-1c290d778763-37bd1bac
+
+    Remediation Completed Successfully
+
+    **Status**: Remediated
+
+    **Outcome**: Remediated
+
+    **Signal**: KubePodCrashLooping
+    **Severity**: critical
+
+    **Affected Resource**:
+    - **Kind**: Deployment
+    - **Name**: worker
+    - **Namespace**: demo-backend
+
+    **Root Cause Analysis**:
+    CrashLoopBackOff is caused by Deployment revision 4 overriding the worker command to print a fatal bad-release message and exit with code 1. The prior revision is healthy; this is a pod-spec regression, not OOM or node pressure.
+
+    **Workflow Executed**: RollbackDeployment (8b477368-a095-5807-8c1e-60ddc8175956)
+    **Execution Engine**: job
+
+    **Selection Rationale**:
+    crashloop-rollback-v1 directly matches a CrashLoopBackOff caused by a Deployment pod-spec command change with a known healthy previous revision. Its preconditions are satisfied, and the RCA explicitly rules out OOMKilled and external infrastructure failures.
+
+    **Verification Results**:
+    Verification completed: all checks were performed, but some indicate the remediation was not fully effective.
+    - Metrics: minimal improvement (score: 0.25)
+
+    This incident was automatically detected and remediated by Kubernaut.
+  clusterID: remote-cluster
+  context:
+    analysis:
+      outcome: Remediated
+      rootCause: CrashLoopBackOff is caused by Deployment revision 4 overriding the
+        worker command to print a fatal bad-release message and exit with code 1.
+        The prior revision is healthy; this is a pod-spec regression, not OOM or node
+        pressure.
+    lineage:
+      aiAnalysis: ai-rr-1c290d778763-37bd1bac
+      remediationRequest: rr-1c290d778763-37bd1bac
+    verification:
+      assessed: true
+      outcome: completed
+      reason: Full
+      summary: 'Verification completed: all checks were performed, but some indicate
+        the remediation was not fully effective.'
+    workflow:
+      actionType: RollbackDeployment
+      executionEngine: job
+      workflowId: 8b477368-a095-5807-8c1e-60ddc8175956
+      workflowName: crashloop-rollback-v1
+  priority: Low
+  remediationRequestRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: RemediationRequest
+    name: rr-1c290d778763-37bd1bac
+    namespace: kubernaut-system
+    uid: 7a6e707b-44ab-4c66-8047-f6ffe79fdea1
+  retentionDays: 7
+  severity: critical
+  subject: 'Remediation Completed: KubePodCrashLooping'
+  type: Completion
+status:
+  completionTime: "2026-10-03T01:01:02Z"
+  conditions:
+  - lastTransitionTime: "2026-10-03T01:01:02Z"
+    message: 'Matched rules [default-console] (attributes: verificationAssessed=true,
+      verificationReason=Full, type=Completion, severity=critical, verificationOutcome=completed,
+      workflowId=8b477368-a095-5807-8c1e-60ddc8175956, rootCause=CrashLoopBackOff
+      is caused by Deployment revision 4 overriding the worker command to print a
+      fatal bad-release message and exit with code 1. The prior revision is healthy;
+      this is a pod-spec regression, not OOM or node pressure., verificationDegraded=false,
+      priority=Low, remediationRequest=rr-1c290d778763-37bd1bac, aiAnalysis=ai-rr-1c290d778763-37bd1bac,
+      executionEngine=job, outcome=Remediated) → channels: console'
+    observedGeneration: 1
+    reason: RoutingRuleMatched
+    status: "True"
+    type: RoutingResolved
+  - lastTransitionTime: "2026-10-03T01:01:02Z"
+    message: Notification delivered
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  deliveryAttempts:
+  - attempt: 1
+    channel: console
+    durationSeconds: 0.001
+    status: success
+    timestamp: "2026-10-03T01:01:02Z"
+  message: Successfully delivered to 1 channel(s)
+  observedGeneration: 1
+  phase: Sent
+  processingStartedAt: "2026-10-03T01:01:02Z"
+  queuedAt: "2026-10-03T01:01:02Z"
+  reason: AllDeliveriesSucceeded
+  successfulDeliveries: 1
+  totalAttempts: 1

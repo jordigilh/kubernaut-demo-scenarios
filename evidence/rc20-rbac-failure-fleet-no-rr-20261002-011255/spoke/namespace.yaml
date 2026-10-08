@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"kubernaut.ai/business-unit":"platform","kubernaut.ai/component":"monitoring","kubernaut.ai/criticality":"high","kubernaut.ai/environment":"production","kubernaut.ai/managed":"true","kubernaut.ai/service-owner":"sre-team","kubernaut.ai/sla-tier":"tier-1"},"name":"demo-monitoring"}}
+  creationTimestamp: "2026-10-02T04:47:09Z"
+  labels:
+    kubernaut.ai/business-unit: platform
+    kubernaut.ai/component: monitoring
+    kubernaut.ai/criticality: high
+    kubernaut.ai/environment: production
+    kubernaut.ai/managed: "true"
+    kubernaut.ai/service-owner: sre-team
+    kubernaut.ai/sla-tier: tier-1
+    kubernetes.io/metadata.name: demo-monitoring
+  name: demo-monitoring
+  resourceVersion: "77609"
+  uid: 41c7535e-1808-4665-981f-be21f264f5c3
+spec:
+  finalizers:
+  - kubernetes
+status:
+  phase: Active

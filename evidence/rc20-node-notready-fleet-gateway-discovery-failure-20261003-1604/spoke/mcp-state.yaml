@@ -1,0 +1,486 @@
+apiVersion: v1
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "4"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"kube-mcp-server","component":"fleet"},"name":"kube-mcp-server","namespace":"mcp-system"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"kube-mcp-server"}},"template":{"metadata":{"labels":{"app":"kube-mcp-server","component":"fleet"}},"spec":{"containers":[{"args":["--port=8080","--cluster-provider=in-cluster","--toolsets=core","--stateless","--list-output=yaml","--config=/etc/kubernetes-mcp-server/config.toml","--log-level=6"],"image":"ghcr.io/containers/kubernetes-mcp-server@sha256:4219880ffae9b61f5cf8e27c0536d4001336016a6af77dc5a63dfaf9ce938b97","livenessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":5,"periodSeconds":10},"name":"kube-mcp-server","ports":[{"containerPort":8080,"name":"http"}],"readinessProbe":{"httpGet":{"path":"/healthz","port":8080},"initialDelaySeconds":3,"periodSeconds":5},"resources":{"limits":{"cpu":"250m","memory":"128Mi"},"requests":{"cpu":"50m","memory":"32Mi"}},"volumeMounts":[{"mountPath":"/etc/kubernetes-mcp-server","name":"config","readOnly":true},{"mountPath":"/etc/tls-ca","name":"tls-ca","readOnly":true}]}],"serviceAccountName":"kube-mcp-server","volumes":[{"configMap":{"name":"kube-mcp-server-config"},"name":"config"},{"configMap":{"name":"inter-service-ca"},"name":"tls-ca"}]}}}}
+    creationTimestamp: "2026-10-02T17:53:03Z"
+    generation: 4
+    labels:
+      app: kube-mcp-server
+      component: fleet
+    name: kube-mcp-server
+    namespace: mcp-system
+    resourceVersion: "150319"
+    uid: 553dda87-824a-41eb-b423-580117f13426
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: kube-mcp-server
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        labels:
+          app: kube-mcp-server
+          component: fleet
+      spec:
+        containers:
+        - args:
+          - --config=/etc/kubernetes-mcp-server/config.toml
+          image: localhost/kubernetes-mcp-server:cluster-scope-pr1475-20261003-arm64
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: kube-mcp-server
+          ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 250m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 32Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /etc/kubernetes-mcp-server
+            name: config
+            readOnly: true
+          - mountPath: /etc/tls-ca
+            name: tls-ca
+            readOnly: true
+        dnsPolicy: ClusterFirst
+        nodeSelector:
+          kubernetes.io/hostname: kubernaut-remote-cluster-control-plane
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        serviceAccount: kube-mcp-server
+        serviceAccountName: kube-mcp-server
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: kube-mcp-server-config
+          name: config
+        - configMap:
+            defaultMode: 420
+            name: inter-service-ca
+          name: tls-ca
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-10-03T15:58:20Z"
+      lastUpdateTime: "2026-10-03T15:58:20Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2026-10-02T17:53:03Z"
+      lastUpdateTime: "2026-10-03T15:58:28Z"
+      message: ReplicaSet "kube-mcp-server-759b65fc56" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    observedGeneration: 4
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+    updatedReplicas: 1
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-10-03T15:58:22Z"
+    generateName: kube-mcp-server-759b65fc56-
+    generation: 1
+    labels:
+      app: kube-mcp-server
+      component: fleet
+      pod-template-hash: 759b65fc56
+    name: kube-mcp-server-759b65fc56-z8wbb
+    namespace: mcp-system
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: kube-mcp-server-759b65fc56
+      uid: eef3c74a-1b3e-4ce3-ae26-c4b41e0c0951
+    resourceVersion: "150300"
+    uid: 7afbe1f4-3941-4312-9adf-c53fbd885b40
+  spec:
+    containers:
+    - args:
+      - --config=/etc/kubernetes-mcp-server/config.toml
+      image: localhost/kubernetes-mcp-server:cluster-scope-pr1475-20261003-arm64
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: kube-mcp-server
+      ports:
+      - containerPort: 8080
+        name: http
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /healthz
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 250m
+          memory: 128Mi
+        requests:
+          cpu: 50m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/kubernetes-mcp-server
+        name: config
+        readOnly: true
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-dsnvz
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-control-plane
+    nodeSelector:
+      kubernetes.io/hostname: kubernaut-remote-cluster-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: kube-mcp-server
+    serviceAccountName: kube-mcp-server
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: kube-mcp-server-config
+      name: config
+    - configMap:
+        defaultMode: 420
+        name: inter-service-ca
+      name: tls-ca
+    - name: kube-api-access-dsnvz
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 50m
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T15:58:23Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T15:58:22Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T15:58:28Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T15:58:28Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-03T15:58:22Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 50m
+        memory: 32Mi
+      containerID: containerd://a328873299a39afad3b6dfcc015d56379d65f3e839f3a35e6f78667cdeb5821f
+      image: localhost/kubernetes-mcp-server:cluster-scope-pr1475-20261003-arm64
+      imageID: docker.io/library/import-2026-10-03@sha256:61a65f38a88dae11543b9f20eb68657c747151a000e625bb417da613f60f8484
+      lastState: {}
+      name: kube-mcp-server
+      ready: true
+      resources:
+        limits:
+          cpu: 250m
+          memory: 128Mi
+        requests:
+          cpu: 50m
+          memory: 32Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-03T15:58:23Z"
+      user:
+        linux:
+          gid: 0
+          supplementalGroups:
+          - 0
+          uid: 65532
+      volumeMounts:
+      - mountPath: /etc/kubernetes-mcp-server
+        name: config
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /etc/tls-ca
+        name: tls-ca
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-dsnvz
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.12
+    hostIPs:
+    - ip: 10.89.0.12
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.94
+    podIPs:
+    - ip: 10.244.0.94
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 250m
+        memory: 128Mi
+      requests:
+        cpu: 28m
+        memory: 32Mi
+    startTime: "2026-10-03T15:58:22Z"
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"keycloak","namespace":"mcp-system"},"spec":{"ports":[{"port":8443,"targetPort":30557}]}}
+    creationTimestamp: "2026-10-02T17:51:24Z"
+    name: keycloak
+    namespace: mcp-system
+    resourceVersion: "471"
+    uid: a454a0b6-4331-4520-b027-b25a0e755f25
+  spec:
+    clusterIP: 10.96.64.42
+    clusterIPs:
+    - 10.96.64.42
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 8443
+      protocol: TCP
+      targetPort: 30557
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"labels":{"app":"kube-mcp-server","component":"fleet"},"name":"kube-mcp-server","namespace":"mcp-system"},"spec":{"ports":[{"name":"http","port":8080,"targetPort":8080}],"selector":{"app":"kube-mcp-server"}}}
+    creationTimestamp: "2026-10-02T17:53:03Z"
+    labels:
+      app: kube-mcp-server
+      component: fleet
+    name: kube-mcp-server
+    namespace: mcp-system
+    resourceVersion: "581"
+    uid: 5d023bd4-4ed3-4adb-b831-e90586c4a250
+  spec:
+    clusterIP: 10.96.200.111
+    clusterIPs:
+    - 10.96.200.111
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: kube-mcp-server
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"kube-mcp-server-nodeport","namespace":"mcp-system"},"spec":{"ports":[{"nodePort":30180,"port":8080,"targetPort":8080}],"selector":{"app":"kube-mcp-server"},"type":"NodePort"}}
+    creationTimestamp: "2026-10-02T17:54:08Z"
+    name: kube-mcp-server-nodeport
+    namespace: mcp-system
+    resourceVersion: "696"
+    uid: bec165c8-0014-4eb7-834e-90746bf4a463
+  spec:
+    clusterIP: 10.96.18.225
+    clusterIPs:
+    - 10.96.18.225
+    externalTrafficPolicy: Cluster
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - nodePort: 30180
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: kube-mcp-server
+    sessionAffinity: None
+    type: NodePort
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Endpoints","metadata":{"annotations":{},"name":"keycloak","namespace":"mcp-system"},"subsets":[{"addresses":[{"ip":"10.89.0.11"}],"ports":[{"port":30557}]}]}
+    creationTimestamp: "2026-10-02T17:51:24Z"
+    name: keycloak
+    namespace: mcp-system
+    resourceVersion: "472"
+    uid: 9fcf3382-7f97-44ba-bd09-e72814724dfa
+  subsets:
+  - addresses:
+    - ip: 10.89.0.11
+    ports:
+    - port: 30557
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    creationTimestamp: "2026-10-02T17:53:03Z"
+    labels:
+      app: kube-mcp-server
+      component: fleet
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+    name: kube-mcp-server
+    namespace: mcp-system
+    resourceVersion: "150307"
+    uid: ce152d74-0cb2-42a1-b5a1-dfd925b6c0db
+  subsets:
+  - addresses:
+    - ip: 10.244.0.94
+      nodeName: kubernaut-remote-cluster-control-plane
+      targetRef:
+        kind: Pod
+        name: kube-mcp-server-759b65fc56-z8wbb
+        namespace: mcp-system
+        uid: 7afbe1f4-3941-4312-9adf-c53fbd885b40
+    ports:
+    - name: http
+      port: 8080
+      protocol: TCP
+- apiVersion: v1
+  kind: Endpoints
+  metadata:
+    creationTimestamp: "2026-10-02T17:54:08Z"
+    labels:
+      endpoints.kubernetes.io/managed-by: endpoint-controller
+    name: kube-mcp-server-nodeport
+    namespace: mcp-system
+    resourceVersion: "150311"
+    uid: 53ddda0e-ae20-453e-81da-31dc88915d72
+  subsets:
+  - addresses:
+    - ip: 10.244.0.94
+      nodeName: kubernaut-remote-cluster-control-plane
+      targetRef:
+        kind: Pod
+        name: kube-mcp-server-759b65fc56-z8wbb
+        namespace: mcp-system
+        uid: 7afbe1f4-3941-4312-9adf-c53fbd885b40
+    ports:
+    - port: 8080
+      protocol: TCP
+kind: List
+metadata:
+  resourceVersion: ""

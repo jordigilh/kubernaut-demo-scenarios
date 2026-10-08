@@ -1,0 +1,1308 @@
+apiVersion: v1
+items:
+- apiVersion: cert-manager.io/v1
+  kind: Certificate
+  metadata:
+    annotations:
+      cert-manager.io/issuing-trigger: manual-1790907282
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"cert-manager.io/v1","kind":"Certificate","metadata":{"annotations":{},"name":"demo-app-cert","namespace":"demo-portal"},"spec":{"dnsNames":["demo-app.demo-portal.svc.cluster.local","demo-app"],"duration":"2160h","issuerRef":{"kind":"ClusterIssuer","name":"demo-selfsigned-ca"},"renewBefore":"360h","secretName":"demo-app-tls"}}
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    generation: 1
+    name: demo-app-cert
+    namespace: demo-portal
+    resourceVersion: "55907"
+    uid: c3c69cca-d2c2-41d7-b3a2-b09800d77060
+  spec:
+    dnsNames:
+    - demo-app.demo-portal.svc.cluster.local
+    - demo-app
+    duration: 2160h
+    issuerRef:
+      kind: ClusterIssuer
+      name: demo-selfsigned-ca
+    renewBefore: 360h
+    secretName: demo-app-tls
+  status:
+    conditions:
+    - lastTransitionTime: "2026-10-02T02:14:42Z"
+      message: Issuing certificate as Secret does not exist
+      observedGeneration: 1
+      reason: DoesNotExist
+      status: "False"
+      type: Ready
+    - lastTransitionTime: "2026-10-02T02:14:42Z"
+      message: Issuing certificate as Secret does not exist
+      observedGeneration: 1
+      reason: DoesNotExist
+      status: "True"
+      type: Issuing
+    nextPrivateKeySecretName: demo-app-cert-bqzhv
+    revision: 1
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      deployment.kubernetes.io/revision: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"labels":{"app":"demo-app","kubernaut.ai/managed":"true"},"name":"demo-app","namespace":"demo-portal"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"demo-app"}},"template":{"metadata":{"labels":{"app":"demo-app"}},"spec":{"containers":[{"env":[{"name":"LISTEN_PORT","value":"8443"},{"name":"TLS_CERT_DIR","value":"/etc/tls"}],"image":"quay.io/kubernaut-cicd/demo-http-server:1.0.0","name":"demo-app","ports":[{"containerPort":8443,"name":"https"}],"resources":{"limits":{"cpu":"50m","memory":"64Mi"},"requests":{"cpu":"10m","memory":"32Mi"}},"volumeMounts":[{"mountPath":"/etc/tls","name":"tls","readOnly":true}]}],"volumes":[{"name":"tls","secret":{"optional":true,"secretName":"demo-app-tls"}}]}}}}
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    generation: 1
+    labels:
+      app: demo-app
+      kubernaut.ai/managed: "true"
+    name: demo-app
+    namespace: demo-portal
+    resourceVersion: "55850"
+    uid: 77d67e79-1b15-44ed-a1e1-3ac4091b1876
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 2
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: demo-app
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        labels:
+          app: demo-app
+      spec:
+        containers:
+        - env:
+          - name: LISTEN_PORT
+            value: "8443"
+          - name: TLS_CERT_DIR
+            value: /etc/tls
+          image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+          imagePullPolicy: IfNotPresent
+          name: demo-app
+          ports:
+          - containerPort: 8443
+            name: https
+            protocol: TCP
+          resources:
+            limits:
+              cpu: 50m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /etc/tls
+            name: tls
+            readOnly: true
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - name: tls
+          secret:
+            defaultMode: 420
+            optional: true
+            secretName: demo-app-tls
+  status:
+    availableReplicas: 2
+    conditions:
+    - lastTransitionTime: "2026-10-02T02:14:23Z"
+      lastUpdateTime: "2026-10-02T02:14:23Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    - lastTransitionTime: "2026-10-02T02:14:21Z"
+      lastUpdateTime: "2026-10-02T02:14:23Z"
+      message: ReplicaSet "demo-app-6dfc6dd78d" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    observedGeneration: 1
+    readyReplicas: 2
+    replicas: 2
+    terminatingReplicas: 0
+    updatedReplicas: 2
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    generateName: demo-app-6dfc6dd78d-
+    generation: 1
+    labels:
+      app: demo-app
+      pod-template-hash: 6dfc6dd78d
+    name: demo-app-6dfc6dd78d-2nx7x
+    namespace: demo-portal
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: demo-app-6dfc6dd78d
+      uid: 7756c283-8606-410b-8277-9741c84e6364
+    resourceVersion: "56050"
+    uid: cbf27cbf-1f62-428f-bc89-025ada15a98f
+  spec:
+    containers:
+    - env:
+      - name: LISTEN_PORT
+        value: "8443"
+      - name: TLS_CERT_DIR
+        value: /etc/tls
+      image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+      imagePullPolicy: IfNotPresent
+      name: demo-app
+      ports:
+      - containerPort: 8443
+        name: https
+        protocol: TCP
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/tls
+        name: tls
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-mn6q8
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: tls
+      secret:
+        defaultMode: 420
+        optional: true
+        secretName: demo-app-tls
+    - name: kube-api-access-mn6q8
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 10m
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T02:14:22Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T02:14:21Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T02:14:23Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T02:14:23Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T02:14:21Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://df2cc47117fb4b71c9411d558878616df5942033a6d5a5322e89ae8b97d55794
+      image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+      imageID: quay.io/kubernaut-cicd/demo-http-server@sha256:bfb8c9879b679bd436e1a940864ad318c0bea0d9bb8fc14d35652cab49020b53
+      lastState: {}
+      name: demo-app
+      ready: true
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T02:14:23Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/tls
+        name: tls
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-mn6q8
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.5
+    hostIPs:
+    - ip: 10.89.0.5
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.96
+    podIPs:
+    - ip: 10.244.0.96
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        memory: 32Mi
+    startTime: "2026-10-02T02:14:21Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    generateName: demo-app-6dfc6dd78d-
+    generation: 1
+    labels:
+      app: demo-app
+      pod-template-hash: 6dfc6dd78d
+    name: demo-app-6dfc6dd78d-k4knl
+    namespace: demo-portal
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: demo-app-6dfc6dd78d
+      uid: 7756c283-8606-410b-8277-9741c84e6364
+    resourceVersion: "56025"
+    uid: a602ca7b-29db-4d61-b8a1-027364cbcb30
+  spec:
+    containers:
+    - env:
+      - name: LISTEN_PORT
+        value: "8443"
+      - name: TLS_CERT_DIR
+        value: /etc/tls
+      image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+      imagePullPolicy: IfNotPresent
+      name: demo-app
+      ports:
+      - containerPort: 8443
+        name: https
+        protocol: TCP
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /etc/tls
+        name: tls
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-85kzb
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: kubernaut-remote-cluster-control-plane
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: tls
+      secret:
+        defaultMode: 420
+        optional: true
+        secretName: demo-app-tls
+    - name: kube-api-access-85kzb
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    allocatedResources:
+      cpu: 10m
+      memory: 32Mi
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T02:14:22Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T02:14:21Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T02:14:23Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T02:14:23Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-10-02T02:14:21Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 10m
+        memory: 32Mi
+      containerID: containerd://017b4a2287f45cb1383966b085fd47ce3bf1888bcd3bc8a1939dd364bfc43cba
+      image: quay.io/kubernaut-cicd/demo-http-server:1.0.0
+      imageID: quay.io/kubernaut-cicd/demo-http-server@sha256:bfb8c9879b679bd436e1a940864ad318c0bea0d9bb8fc14d35652cab49020b53
+      lastState: {}
+      name: demo-app
+      ready: true
+      resources:
+        limits:
+          cpu: 50m
+          memory: 64Mi
+        requests:
+          cpu: 10m
+          memory: 32Mi
+      restartCount: 0
+      started: true
+      state:
+        running:
+          startedAt: "2026-10-02T02:14:23Z"
+      user:
+        linux:
+          gid: 65534
+          supplementalGroups:
+          - 65534
+          uid: 65534
+      volumeMounts:
+      - mountPath: /etc/tls
+        name: tls
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-85kzb
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 10.89.0.5
+    hostIPs:
+    - ip: 10.89.0.5
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.0.97
+    podIPs:
+    - ip: 10.244.0.97
+    qosClass: Burstable
+    resources:
+      limits:
+        cpu: 50m
+        memory: 64Mi
+      requests:
+        memory: 32Mi
+    startTime: "2026-10-02T02:14:21Z"
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: demo-app-6dfc6dd78d-2nx7x
+    namespace: demo-portal
+    resourceVersion: "55784"
+    uid: cbf27cbf-1f62-428f-bc89-025ada15a98f
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Successfully assigned demo-portal/demo-app-6dfc6dd78d-2nx7x to kubernaut-remote-cluster-control-plane
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-6dfc6dd78d-2nx7x.18da94aa6f58f0a7
+    namespace: demo-portal
+    resourceVersion: "55791"
+    uid: 8b6bda04-d583-4888-be9c-e0472b6c57f7
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{demo-app}
+    kind: Pod
+    name: demo-app-6dfc6dd78d-2nx7x
+    namespace: demo-portal
+    resourceVersion: "55790"
+    uid: cbf27cbf-1f62-428f-bc89-025ada15a98f
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:22Z"
+  message: Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already
+    present on machine and can be accessed by the pod
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:22Z"
+    name: demo-app-6dfc6dd78d-2nx7x.18da94aab4f151d7
+    namespace: demo-portal
+    resourceVersion: "55836"
+    uid: d9547eeb-88c2-4e3b-b2e6-69e6ef6d3bc2
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: kubernaut-remote-cluster-control-plane
+  source:
+    component: kubelet
+    host: kubernaut-remote-cluster-control-plane
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{demo-app}
+    kind: Pod
+    name: demo-app-6dfc6dd78d-2nx7x
+    namespace: demo-portal
+    resourceVersion: "55790"
+    uid: cbf27cbf-1f62-428f-bc89-025ada15a98f
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:22Z"
+  message: Container created
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:22Z"
+    name: demo-app-6dfc6dd78d-2nx7x.18da94aab58d4052
+    namespace: demo-portal
+    resourceVersion: "55838"
+    uid: 159c9518-edc8-499a-908f-82f91d111618
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: kubernaut-remote-cluster-control-plane
+  source:
+    component: kubelet
+    host: kubernaut-remote-cluster-control-plane
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:23Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{demo-app}
+    kind: Pod
+    name: demo-app-6dfc6dd78d-2nx7x
+    namespace: demo-portal
+    resourceVersion: "55790"
+    uid: cbf27cbf-1f62-428f-bc89-025ada15a98f
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:23Z"
+  message: Container started
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:23Z"
+    name: demo-app-6dfc6dd78d-2nx7x.18da94aad88eb56d
+    namespace: demo-portal
+    resourceVersion: "55839"
+    uid: 7a16c6a3-e287-448c-9575-42b5e69d635b
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: kubernaut-remote-cluster-control-plane
+  source:
+    component: kubelet
+    host: kubernaut-remote-cluster-control-plane
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: v1
+    kind: Pod
+    name: demo-app-6dfc6dd78d-k4knl
+    namespace: demo-portal
+    resourceVersion: "55782"
+    uid: a602ca7b-29db-4d61-b8a1-027364cbcb30
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Successfully assigned demo-portal/demo-app-6dfc6dd78d-k4knl to kubernaut-remote-cluster-control-plane
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-6dfc6dd78d-k4knl.18da94aa6f58b3f1
+    namespace: demo-portal
+    resourceVersion: "55793"
+    uid: 2c2ff742-0bc8-483b-9d08-63da5e93e04a
+  reason: Scheduled
+  reportingComponent: default-scheduler
+  reportingInstance: ""
+  source:
+    component: default-scheduler
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{demo-app}
+    kind: Pod
+    name: demo-app-6dfc6dd78d-k4knl
+    namespace: demo-portal
+    resourceVersion: "55789"
+    uid: a602ca7b-29db-4d61-b8a1-027364cbcb30
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:22Z"
+  message: Container image "quay.io/kubernaut-cicd/demo-http-server:1.0.0" already
+    present on machine and can be accessed by the pod
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:22Z"
+    name: demo-app-6dfc6dd78d-k4knl.18da94aaad2c8868
+    namespace: demo-portal
+    resourceVersion: "55833"
+    uid: e9c7669f-000e-40c9-acb0-80718f62a49e
+  reason: Pulled
+  reportingComponent: kubelet
+  reportingInstance: kubernaut-remote-cluster-control-plane
+  source:
+    component: kubelet
+    host: kubernaut-remote-cluster-control-plane
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:22Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{demo-app}
+    kind: Pod
+    name: demo-app-6dfc6dd78d-k4knl
+    namespace: demo-portal
+    resourceVersion: "55789"
+    uid: a602ca7b-29db-4d61-b8a1-027364cbcb30
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:22Z"
+  message: Container created
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:22Z"
+    name: demo-app-6dfc6dd78d-k4knl.18da94aaae0978f5
+    namespace: demo-portal
+    resourceVersion: "55835"
+    uid: 9c4e157f-e284-476a-a637-6acdae3fdf45
+  reason: Created
+  reportingComponent: kubelet
+  reportingInstance: kubernaut-remote-cluster-control-plane
+  source:
+    component: kubelet
+    host: kubernaut-remote-cluster-control-plane
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:23Z"
+  involvedObject:
+    apiVersion: v1
+    fieldPath: spec.containers{demo-app}
+    kind: Pod
+    name: demo-app-6dfc6dd78d-k4knl
+    namespace: demo-portal
+    resourceVersion: "55789"
+    uid: a602ca7b-29db-4d61-b8a1-027364cbcb30
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:23Z"
+  message: Container started
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:23Z"
+    name: demo-app-6dfc6dd78d-k4knl.18da94aadc806a6d
+    namespace: demo-portal
+    resourceVersion: "55845"
+    uid: 2ea36279-8996-4007-910a-55f5523afafe
+  reason: Started
+  reportingComponent: kubelet
+  reportingInstance: kubernaut-remote-cluster-control-plane
+  source:
+    component: kubelet
+    host: kubernaut-remote-cluster-control-plane
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: demo-app-6dfc6dd78d
+    namespace: demo-portal
+    resourceVersion: "55779"
+    uid: 7756c283-8606-410b-8277-9741c84e6364
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: 'Created pod: demo-app-6dfc6dd78d-k4knl'
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-6dfc6dd78d.18da94aa6c78eb40
+    namespace: demo-portal
+    resourceVersion: "55783"
+    uid: 20771734-805b-4298-8602-43d56c3cdcc7
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: ReplicaSet
+    name: demo-app-6dfc6dd78d
+    namespace: demo-portal
+    resourceVersion: "55779"
+    uid: 7756c283-8606-410b-8277-9741c84e6364
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: 'Created pod: demo-app-6dfc6dd78d-2nx7x'
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-6dfc6dd78d.18da94aa6d3680e1
+    namespace: demo-portal
+    resourceVersion: "55786"
+    uid: 2649ba85-b46e-456e-a8b5-1053020cae3e
+  reason: SuccessfulCreate
+  reportingComponent: replicaset-controller
+  reportingInstance: ""
+  source:
+    component: replicaset-controller
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-1
+    namespace: demo-portal
+    resourceVersion: "55806"
+    uid: 0aff28e8-f0a7-47f1-8ecd-4f9aacfcc7ca
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Not signing CertificateRequest until it is Approved
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert-1.18da94aa7a967953
+    namespace: demo-portal
+    resourceVersion: "55812"
+    uid: dca14e36-b288-4bf4-a2d4-91eec42d8a46
+  reason: WaitingForApproval
+  reportingComponent: cert-manager-certificaterequests-issuer-ca
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-ca
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-1
+    namespace: demo-portal
+    resourceVersion: "55806"
+    uid: 0aff28e8-f0a7-47f1-8ecd-4f9aacfcc7ca
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Not signing CertificateRequest until it is Approved
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert-1.18da94aa7a9bf90d
+    namespace: demo-portal
+    resourceVersion: "55809"
+    uid: 395cec9a-d5f1-4ef0-bfb6-7e41fbafeaec
+  reason: WaitingForApproval
+  reportingComponent: cert-manager-certificaterequests-issuer-acme
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-acme
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-1
+    namespace: demo-portal
+    resourceVersion: "55806"
+    uid: 0aff28e8-f0a7-47f1-8ecd-4f9aacfcc7ca
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Not signing CertificateRequest until it is Approved
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert-1.18da94aa7a9f7d73
+    namespace: demo-portal
+    resourceVersion: "55808"
+    uid: 17a31a76-5efe-46a0-9714-6105d65e0883
+  reason: WaitingForApproval
+  reportingComponent: cert-manager-certificaterequests-issuer-venafi
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-venafi
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-1
+    namespace: demo-portal
+    resourceVersion: "55806"
+    uid: 0aff28e8-f0a7-47f1-8ecd-4f9aacfcc7ca
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Not signing CertificateRequest until it is Approved
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert-1.18da94aa7aa0ca76
+    namespace: demo-portal
+    resourceVersion: "55811"
+    uid: a6e8e4fd-405d-413b-a1d0-96d4fdf2679a
+  reason: WaitingForApproval
+  reportingComponent: cert-manager-certificaterequests-issuer-vault
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-vault
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-1
+    namespace: demo-portal
+    resourceVersion: "55806"
+    uid: 0aff28e8-f0a7-47f1-8ecd-4f9aacfcc7ca
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Not signing CertificateRequest until it is Approved
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert-1.18da94aa7aabff4d
+    namespace: demo-portal
+    resourceVersion: "55813"
+    uid: 93dd1fe6-4608-4df1-9d63-296fcacda9bd
+  reason: WaitingForApproval
+  reportingComponent: cert-manager-certificaterequests-issuer-selfsigned
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-selfsigned
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-1
+    namespace: demo-portal
+    resourceVersion: "55806"
+    uid: 0aff28e8-f0a7-47f1-8ecd-4f9aacfcc7ca
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Certificate request has been approved by cert-manager.io
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert-1.18da94aa7b79c290
+    namespace: demo-portal
+    resourceVersion: "55815"
+    uid: 4429a813-bf80-48c8-a107-5668ec4855dc
+  reason: cert-manager.io
+  reportingComponent: cert-manager-certificaterequests-approver
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-approver
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-1
+    namespace: demo-portal
+    resourceVersion: "55814"
+    uid: 0aff28e8-f0a7-47f1-8ecd-4f9aacfcc7ca
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Certificate fetched from issuer successfully
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert-1.18da94aa7beb1fd0
+    namespace: demo-portal
+    resourceVersion: "55816"
+    uid: 913347c9-9c70-4c7e-8df8-16b687dc65d2
+  reason: CertificateIssued
+  reportingComponent: cert-manager-certificaterequests-issuer-ca
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-ca
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:42Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-2
+    namespace: demo-portal
+    resourceVersion: "55908"
+    uid: 701fb6f8-5a36-4aca-8d57-8d76fdc90a84
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:42Z"
+  message: Not signing CertificateRequest until it is Approved
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:42Z"
+    name: demo-app-cert-2.18da94af6a6ed567
+    namespace: demo-portal
+    resourceVersion: "55910"
+    uid: cb65b78b-95a1-4bf8-aac0-aa99a1edf430
+  reason: WaitingForApproval
+  reportingComponent: cert-manager-certificaterequests-issuer-venafi
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-venafi
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:42Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-2
+    namespace: demo-portal
+    resourceVersion: "55908"
+    uid: 701fb6f8-5a36-4aca-8d57-8d76fdc90a84
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:42Z"
+  message: Not signing CertificateRequest until it is Approved
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:42Z"
+    name: demo-app-cert-2.18da94af6a6f1588
+    namespace: demo-portal
+    resourceVersion: "55914"
+    uid: b16f6538-c151-4368-9780-e819ab517e36
+  reason: WaitingForApproval
+  reportingComponent: cert-manager-certificaterequests-issuer-ca
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-ca
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:42Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-2
+    namespace: demo-portal
+    resourceVersion: "55908"
+    uid: 701fb6f8-5a36-4aca-8d57-8d76fdc90a84
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:42Z"
+  message: Not signing CertificateRequest until it is Approved
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:42Z"
+    name: demo-app-cert-2.18da94af6a7156d9
+    namespace: demo-portal
+    resourceVersion: "55913"
+    uid: db3bf5bd-74b4-4f79-9fb6-8f487e05ae23
+  reason: WaitingForApproval
+  reportingComponent: cert-manager-certificaterequests-issuer-acme
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-acme
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:42Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-2
+    namespace: demo-portal
+    resourceVersion: "55908"
+    uid: 701fb6f8-5a36-4aca-8d57-8d76fdc90a84
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:42Z"
+  message: Not signing CertificateRequest until it is Approved
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:42Z"
+    name: demo-app-cert-2.18da94af6a729b8e
+    namespace: demo-portal
+    resourceVersion: "55912"
+    uid: 8bf88d45-30f6-486a-94b1-b4d0aa860e12
+  reason: WaitingForApproval
+  reportingComponent: cert-manager-certificaterequests-issuer-vault
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-vault
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:42Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-2
+    namespace: demo-portal
+    resourceVersion: "55908"
+    uid: 701fb6f8-5a36-4aca-8d57-8d76fdc90a84
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:42Z"
+  message: Not signing CertificateRequest until it is Approved
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:42Z"
+    name: demo-app-cert-2.18da94af6a7907c7
+    namespace: demo-portal
+    resourceVersion: "55911"
+    uid: 83b77d4f-de8a-4817-9738-ed9940bb7df8
+  reason: WaitingForApproval
+  reportingComponent: cert-manager-certificaterequests-issuer-selfsigned
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-selfsigned
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:42Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-2
+    namespace: demo-portal
+    resourceVersion: "55908"
+    uid: 701fb6f8-5a36-4aca-8d57-8d76fdc90a84
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:42Z"
+  message: Certificate request has been approved by cert-manager.io
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:42Z"
+    name: demo-app-cert-2.18da94af6af7860f
+    namespace: demo-portal
+    resourceVersion: "55916"
+    uid: a12f6619-bb0b-41b2-9584-6c4e989c2c59
+  reason: cert-manager.io
+  reportingComponent: cert-manager-certificaterequests-approver
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-approver
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:42Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: CertificateRequest
+    name: demo-app-cert-2
+    namespace: demo-portal
+    resourceVersion: "55915"
+    uid: 701fb6f8-5a36-4aca-8d57-8d76fdc90a84
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:42Z"
+  message: Referenced issuer does not have a Ready status condition
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:42Z"
+    name: demo-app-cert-2.18da94af6afe2a98
+    namespace: demo-portal
+    resourceVersion: "55917"
+    uid: deb3d553-e002-4e51-9f03-7300d323827c
+  reason: IssuerNotReady
+  reportingComponent: cert-manager-certificaterequests-issuer-ca
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificaterequests-issuer-ca
+  type: Normal
+- apiVersion: v1
+  count: 2
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    name: demo-app-cert
+    namespace: demo-portal
+    resourceVersion: "55796"
+    uid: c3c69cca-d2c2-41d7-b3a2-b09800d77060
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:42Z"
+  message: Issuing certificate as Secret does not exist
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert.18da94aa73e563ee
+    namespace: demo-portal
+    resourceVersion: "55902"
+    uid: d72a5b1e-6004-4dfd-afc6-e3b2b7d876b7
+  reason: Issuing
+  reportingComponent: cert-manager-certificates-trigger
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificates-trigger
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    name: demo-app-cert
+    namespace: demo-portal
+    resourceVersion: "55797"
+    uid: c3c69cca-d2c2-41d7-b3a2-b09800d77060
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Stored new private key in temporary Secret resource "demo-app-cert-4mdfl"
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert.18da94aa78545bf1
+    namespace: demo-portal
+    resourceVersion: "55801"
+    uid: 8f40a7dc-c3cc-44a9-9992-2285ffd87b62
+  reason: Generated
+  reportingComponent: cert-manager-certificates-key-manager
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificates-key-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    name: demo-app-cert
+    namespace: demo-portal
+    resourceVersion: "55803"
+    uid: c3c69cca-d2c2-41d7-b3a2-b09800d77060
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Created new CertificateRequest resource "demo-app-cert-1"
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert.18da94aa7a777c79
+    namespace: demo-portal
+    resourceVersion: "55807"
+    uid: 380fda66-7803-4c25-a4c2-8c0fe5ac1586
+  reason: Requested
+  reportingComponent: cert-manager-certificates-request-manager
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificates-request-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    name: demo-app-cert
+    namespace: demo-portal
+    resourceVersion: "55803"
+    uid: c3c69cca-d2c2-41d7-b3a2-b09800d77060
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: The certificate has been successfully issued
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app-cert.18da94aa7d71f612
+    namespace: demo-portal
+    resourceVersion: "55820"
+    uid: 37c3d99c-75b0-45a1-ba9e-193807e7e22a
+  reason: Issuing
+  reportingComponent: cert-manager-certificates-issuing
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificates-issuing
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:42Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    name: demo-app-cert
+    namespace: demo-portal
+    resourceVersion: "55901"
+    uid: c3c69cca-d2c2-41d7-b3a2-b09800d77060
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:42Z"
+  message: Stored new private key in temporary Secret resource "demo-app-cert-bqzhv"
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:42Z"
+    name: demo-app-cert.18da94af693a19b8
+    namespace: demo-portal
+    resourceVersion: "55906"
+    uid: 7b177963-38d0-403a-92ae-e3c6ca53a7a6
+  reason: Generated
+  reportingComponent: cert-manager-certificates-key-manager
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificates-key-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:42Z"
+  involvedObject:
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    name: demo-app-cert
+    namespace: demo-portal
+    resourceVersion: "55907"
+    uid: c3c69cca-d2c2-41d7-b3a2-b09800d77060
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:42Z"
+  message: Created new CertificateRequest resource "demo-app-cert-2"
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:42Z"
+    name: demo-app-cert.18da94af6a69d548
+    namespace: demo-portal
+    resourceVersion: "55909"
+    uid: 7443af22-47d8-49a8-9b03-98c7d49483f9
+  reason: Requested
+  reportingComponent: cert-manager-certificates-request-manager
+  reportingInstance: ""
+  source:
+    component: cert-manager-certificates-request-manager
+  type: Normal
+- apiVersion: v1
+  count: 1
+  eventTime: null
+  firstTimestamp: "2026-10-02T02:14:21Z"
+  involvedObject:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: demo-app
+    namespace: demo-portal
+    resourceVersion: "55778"
+    uid: 77d67e79-1b15-44ed-a1e1-3ac4091b1876
+  kind: Event
+  lastTimestamp: "2026-10-02T02:14:21Z"
+  message: Scaled up replica set demo-app-6dfc6dd78d from 0 to 2
+  metadata:
+    creationTimestamp: "2026-10-02T02:14:21Z"
+    name: demo-app.18da94aa6b6b2bcd
+    namespace: demo-portal
+    resourceVersion: "55780"
+    uid: a06560d5-d2de-4143-952c-efe787477086
+  reason: ScalingReplicaSet
+  reportingComponent: deployment-controller
+  reportingInstance: ""
+  source:
+    component: deployment-controller
+  type: Normal
+kind: List
+metadata:
+  resourceVersion: ""

@@ -1,0 +1,18 @@
+NAME                                                       PHASE       OUTCOME        ALERT                 RCA TARGET                WORKFLOW                                    CONFIDENCE   AGE     CLUSTER          SOURCE       SIGNAL NS              SIGNAL TARGET       RCA NS
+remediationrequest.kubernaut.ai/rr-72622dc77609-f8055cb8   Completed   Remediated     KubePodCrashLooping   ConfigMap/worker-config   HelmRollback/helm-rollback-v1               0.98         6m46s   remote-cluster   prometheus   demo-storefront-rc20   Deployment/worker   demo-storefront-rc20
+remediationrequest.kubernaut.ai/rr-7f1635052972-0a08bdf0   Completed   Inconclusive   KubePodCrashLooping   ConfigMap/worker-config   HelmRollback/helm-rollback-v1               0.94         22m     remote-cluster   prometheus   demo-storefront        Deployment/worker   demo-storefront
+remediationrequest.kubernaut.ai/rr-7f1635052972-b2a6da7f   Failed                     KubePodCrashLooping   ConfigMap/worker-config   PatchConfiguration/patch-configuration-v1   0.96         6m46s   remote-cluster   prometheus   demo-storefront        Deployment/worker   demo-storefront
+
+NAME                                                  PHASE       CONFIDENCE   APPROVAL REQUIRED   REASON   AGE
+aianalysis.kubernaut.ai/ai-rr-72622dc77609-f8055cb8   Completed   0.98         false               Ready    6m45s
+aianalysis.kubernaut.ai/ai-rr-7f1635052972-0a08bdf0   Completed   0.94         false               Ready    22m
+aianalysis.kubernaut.ai/ai-rr-7f1635052972-b2a6da7f   Completed   0.96         false               Ready    6m45s
+
+NAME                                                         PHASE       WORKFLOW                 WORKFLOWID                             TARGET                                         DURATION   REASON     AGE
+workflowexecution.kubernaut.ai/we-rr-72622dc77609-f8055cb8   Completed   helm-rollback-v1         0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24   demo-storefront-rc20/ConfigMap/worker-config   10s        Ready      6m5s
+workflowexecution.kubernaut.ai/we-rr-7f1635052972-0a08bdf0   Completed   helm-rollback-v1         0aa9e14b-13ab-5b61-af2f-c78ccf4e8d24   demo-storefront/ConfigMap/worker-config        22s        Ready      21m
+workflowexecution.kubernaut.ai/we-rr-7f1635052972-b2a6da7f   Failed      patch-configuration-v1   5abcef80-b22d-5c17-ae27-e9949cf8fb1e   demo-storefront/ConfigMap/worker-config        2m15s      NotReady   5m41s
+
+NAME                                                               PHASE       REASON   CORRELATIONID              READYREASON   AGE
+effectivenessassessment.kubernaut.ai/ea-rr-72622dc77609-f8055cb8   Completed   Full     rr-72622dc77609-f8055cb8   Ready         5m54s
+effectivenessassessment.kubernaut.ai/ea-rr-7f1635052972-0a08bdf0   Completed   Full     rr-7f1635052972-0a08bdf0   Ready         21m

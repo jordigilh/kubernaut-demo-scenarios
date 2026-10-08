@@ -1,0 +1,72 @@
+Name:             wfe-23149e6e52c95435-qtfff
+Namespace:        kubernaut-workflows
+Priority:         0
+Service Account:  relax-pdb-v1-runner
+Node:             kubernaut-remote-cluster-worker-1790996710/10.89.0.17
+Start Time:       Fri, 02 Oct 2026 23:12:22 -0400
+Labels:           batch.kubernetes.io/controller-uid=c42ae1b5-5118-497d-a74c-a86f97426bc8
+                  batch.kubernetes.io/job-name=wfe-23149e6e52c95435
+                  controller-uid=c42ae1b5-5118-497d-a74c-a86f97426bc8
+                  job-name=wfe-23149e6e52c95435
+                  kubernaut.ai/execution-engine=job
+                  kubernaut.ai/workflow-execution=we-rr-7e2b686ca561-ca34b5f8
+Annotations:      <none>
+Status:           Succeeded
+SeccompProfile:   RuntimeDefault
+IP:               10.244.1.3
+IPs:
+  IP:  10.244.1.3
+Containers:
+  workflow:
+    Container ID:   containerd://96caeb2fc17eaf9712ca2e880541d865dab8bd297505c226a54ccd658c5f0f23
+    Image:          quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:ab38364edf3a3ae99fb424d1aae26ed34dec104cbba45c5e8857745a28028538
+    Image ID:       quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:ab38364edf3a3ae99fb424d1aae26ed34dec104cbba45c5e8857745a28028538
+    Port:           <none>
+    Host Port:      <none>
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Fri, 02 Oct 2026 23:12:28 -0400
+      Finished:     Fri, 02 Oct 2026 23:12:39 -0400
+    Ready:          False
+    Restart Count:  0
+    Environment:
+      TARGET_RESOURCE:            demo-payments/Deployment/payment-service
+      TARGET_RESOURCE_KIND:       Deployment
+      TARGET_RESOURCE_NAME:       payment-service
+      TARGET_RESOURCE_NAMESPACE:  demo-payments
+      HOME:                       /tmp
+      TMPDIR:                     /tmp
+    Mounts:
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-cwfzk (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:
+  tmp:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  kube-api-access-cwfzk:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    Optional:                false
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  41m   default-scheduler  Successfully assigned kubernaut-workflows/wfe-23149e6e52c95435-qtfff to kubernaut-remote-cluster-worker-1790996710
+  Normal  Pulling    41m   kubelet            spec.containers{workflow}: Pulling image "quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:ab38364edf3a3ae99fb424d1aae26ed34dec104cbba45c5e8857745a28028538"
+  Normal  Pulled     41m   kubelet            spec.containers{workflow}: Successfully pulled image "quay.io/kubernaut-cicd/test-workflows/relax-pdb-job@sha256:ab38364edf3a3ae99fb424d1aae26ed34dec104cbba45c5e8857745a28028538" in 5.804s (5.804s including waiting). Image size: 55115577 bytes.
+  Normal  Created    41m   kubelet            spec.containers{workflow}: Container created
+  Normal  Started    41m   kubelet            spec.containers{workflow}: Container started

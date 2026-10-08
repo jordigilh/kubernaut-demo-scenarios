@@ -1,0 +1,143 @@
+apiVersion: kubernaut.ai/v1alpha1
+kind: SignalProcessing
+metadata:
+  creationTimestamp: "2026-10-02T22:47:04Z"
+  generation: 1
+  name: sp-rr-5141270197ec-bcaf6130
+  namespace: kubernaut-system
+  ownerReferences:
+  - apiVersion: kubernaut.ai/v1alpha1
+    blockOwnerDeletion: true
+    controller: true
+    kind: RemediationRequest
+    name: rr-5141270197ec-bcaf6130
+    uid: b61a6bbd-43bf-4601-b4d9-72b404541909
+  resourceVersion: "31824"
+  uid: 43b62d60-f550-40c3-a7e7-82b230ab629a
+spec:
+  enrichmentConfig: {}
+  remediationRequestRef:
+    apiVersion: kubernaut.ai/v1alpha1
+    kind: RemediationRequest
+    name: rr-5141270197ec-bcaf6130
+    namespace: kubernaut-system
+    uid: b61a6bbd-43bf-4601-b4d9-72b404541909
+  signal:
+    annotations:
+      description: |
+        Total allocated storage on etcd-1 is significantly larger than the storage currently holding live data. This gap may indicate stale space that has not yet been reclaimed.
+      summary: |
+        Pod etcd-1 in namespace demo-datastore shows on-disk storage far exceeding active data size.
+    clusterID: remote-cluster
+    fingerprint: 5141270197ec008a2cd1b30d1c60eb89a50afe58a802485de097f0f1a785234b
+    firingTime: "2026-10-02T22:46:56Z"
+    labels:
+      alertname: EtcdHighFragmentationRatio
+      cluster: remote-cluster
+      container: etcd
+      endpoint: metrics
+      instance: 10.244.0.61:2381
+      job: etcd-headless
+      namespace: demo-datastore
+      pod: etcd-1
+      prometheus: monitoring/fleet-spoke
+      service: etcd-headless
+      severity: critical
+    name: EtcdHighFragmentationRatio
+    providerData: '{"labels":{"alertname":"EtcdHighFragmentationRatio","cluster":"remote-cluster","container":"etcd","endpoint":"metrics","instance":"10.244.0.61:2381","job":"etcd-headless","namespace":"demo-datastore","pod":"etcd-1","prometheus":"monitoring/fleet-spoke","service":"etcd-headless","severity":"critical"},"namespace":"demo-datastore"}'
+    receivedTime: "2026-10-02T22:47:03Z"
+    severity: critical
+    source: prometheus
+    targetResource:
+      kind: StatefulSet
+      name: etcd
+      namespace: demo-datastore
+    targetType: kubernetes
+    type: alert
+  timesOutAt: "2026-10-02T22:52:04Z"
+status:
+  businessClassification:
+    businessUnit: platform
+    criticality: High
+    serviceOwner: sre-team
+    slaRequirement: Gold
+  completionTime: "2026-10-02T22:47:07Z"
+  conditions:
+  - lastTransitionTime: "2026-10-02T22:47:05Z"
+    message: 'K8s context enriched: StatefulSet demo-datastore/etcd'
+    observedGeneration: 1
+    reason: EnrichmentSucceeded
+    status: "True"
+    type: EnrichmentComplete
+  - lastTransitionTime: "2026-10-02T22:47:06Z"
+    message: 'Classified: environment=Production (source=namespace-labels), priority=P0
+      (source=rego-policy), severity=critical (source=rego-policy)'
+    observedGeneration: 1
+    reason: ClassificationSucceeded
+    status: "True"
+    type: ClassificationComplete
+  - lastTransitionTime: "2026-10-02T22:47:07Z"
+    message: 'Categorized: businessUnit=platform, criticality=High, sla=Gold'
+    observedGeneration: 1
+    reason: CategorizationSucceeded
+    status: "True"
+    type: CategorizationComplete
+  - lastTransitionTime: "2026-10-02T22:47:07Z"
+    message: 'Signal processed successfully in 3.30s: P0 Production alert ready for
+      remediation'
+    observedGeneration: 1
+    reason: ProcessingSucceeded
+    status: "True"
+    type: ProcessingComplete
+  - lastTransitionTime: "2026-10-02T22:47:07Z"
+    message: Signal processing completed
+    observedGeneration: 1
+    reason: Ready
+    status: "True"
+    type: Ready
+  environmentClassification:
+    classifiedAt: "2026-10-02T22:47:05Z"
+    environment: Production
+    source: namespace-labels
+  kubernetesContext:
+    cluster:
+      labels:
+        environment: production
+        kubernaut.ai/managed: "true"
+    clusterID: remote-cluster
+    namespace:
+      annotations:
+        kubectl.kubernetes.io/last-applied-configuration: |
+          {"apiVersion":"v1","kind":"Namespace","metadata":{"annotations":{},"labels":{"kubernaut.ai/business-unit":"platform","kubernaut.ai/component":"etcd","kubernaut.ai/criticality":"critical","kubernaut.ai/environment":"production","kubernaut.ai/managed":"true","kubernaut.ai/service-owner":"sre-team","kubernaut.ai/sla-tier":"tier-1"},"name":"demo-datastore"}}
+      labels:
+        kubernaut.ai/business-unit: platform
+        kubernaut.ai/component: etcd
+        kubernaut.ai/criticality: critical
+        kubernaut.ai/environment: production
+        kubernaut.ai/managed: "true"
+        kubernaut.ai/service-owner: sre-team
+        kubernaut.ai/sla-tier: tier-1
+        kubernetes.io/metadata.name: demo-datastore
+      name: demo-datastore
+    workload:
+      annotations:
+        kubectl.kubernetes.io/last-applied-configuration: |
+          {"apiVersion":"apps/v1","kind":"StatefulSet","metadata":{"annotations":{},"labels":{"app":"etcd","kubernaut.ai/managed":"true"},"name":"etcd","namespace":"demo-datastore"},"spec":{"podManagementPolicy":"Parallel","replicas":3,"selector":{"matchLabels":{"app":"etcd"}},"serviceName":"etcd-headless","template":{"metadata":{"labels":{"app":"etcd"}},"spec":{"containers":[{"args":["--name=$(POD_NAME)","--data-dir=/var/lib/etcd","--listen-client-urls=http://0.0.0.0:2379","--advertise-client-urls=http://$(POD_NAME).etcd-headless.$(CLUSTER_NAMESPACE).svc.cluster.local:2379","--listen-peer-urls=http://0.0.0.0:2380","--initial-advertise-peer-urls=http://$(POD_NAME).etcd-headless.$(CLUSTER_NAMESPACE).svc.cluster.local:2380","--listen-metrics-urls=http://0.0.0.0:2381","--initial-cluster=etcd-0=http://etcd-0.etcd-headless.$(CLUSTER_NAMESPACE).svc.cluster.local:2380,etcd-1=http://etcd-1.etcd-headless.$(CLUSTER_NAMESPACE).svc.cluster.local:2380,etcd-2=http://etcd-2.etcd-headless.$(CLUSTER_NAMESPACE).svc.cluster.local:2380","--initial-cluster-token=demo-datastore","--initial-cluster-state=new","--auto-compaction-retention=1","--quota-backend-bytes=2147483648"],"command":["/usr/local/bin/etcd"],"env":[{"name":"POD_NAME","valueFrom":{"fieldRef":{"fieldPath":"metadata.name"}}},{"name":"CLUSTER_NAMESPACE","valueFrom":{"fieldRef":{"fieldPath":"metadata.namespace"}}}],"image":"quay.io/coreos/etcd:v3.5.21","name":"etcd","ports":[{"containerPort":2379,"name":"client"},{"containerPort":2380,"name":"peer"},{"containerPort":2381,"name":"metrics"}],"readinessProbe":{"exec":{"command":["/usr/local/bin/etcdctl","--endpoints=http://localhost:2379","endpoint","health"]},"initialDelaySeconds":10,"periodSeconds":10},"resources":{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"50m","memory":"128Mi"}},"volumeMounts":[{"mountPath":"/var/lib/etcd","name":"etcd-data"}]}]}},"volumeClaimTemplates":[{"metadata":{"name":"etcd-data"},"spec":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"1Gi"}}}}]}}
+      kind: StatefulSet
+      labels:
+        app: etcd
+        kubernaut.ai/managed: "true"
+      name: etcd
+  observedGeneration: 1
+  phase: Completed
+  priorityAssignment:
+    assignedAt: "2026-10-02T22:47:05Z"
+    policyName: production-critical
+    priority: P0
+    source: rego-policy
+  signalClassification:
+    policyHash: ddc50589cc4a08e08af9d5cdd3a1b2738a00f2061ca53673702810dbda35a66c
+    severity: critical
+    signalMode: reactive
+    signalName: EtcdHighFragmentationRatio
+  startTime: "2026-10-02T22:47:04Z"
