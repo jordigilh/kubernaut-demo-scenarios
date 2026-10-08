@@ -11,6 +11,18 @@ via a Helm chart. KA's `get_resource_context` tool detects the
 cluster-context label. The LLM uses this to select the `HelmRollback` workflow
 instead of `RollbackDeployment` (`kubectl rollout undo`).
 
+### Target contract
+
+`TARGET_RESOURCE_*` identifies the resource selected by RCA so the execution
+job can discover its Helm release. It does **not** limit the rollback scope to
+that resource. A Helm rollback applies to the entire release, so any resource
+kind in the release may be used as the target when it carries the standard
+`app.kubernetes.io/instance` label. If that label is absent, the job falls back
+to `helm list` only when the namespace contains exactly one release.
+
+The existing `Deployment`-kind/ReplicaSet-name compatibility path for
+kubernaut#693 remains supported.
+
 | | |
 |---|---|
 | **Signal** | `KubePodCrashLooping` — restart count increasing rapidly |
@@ -25,7 +37,7 @@ kube_pod_container_status_restarts_total increasing → KubePodCrashLooping aler
   → AlertManager webhook → Gateway → RemediationRequest
   → Signal Processing (severity=critical, env=production, P0)
   → AI Analysis (KA + Claude Sonnet 4 on Vertex AI)
-    → LLM detects helmManaged=true from deployment labels
+    → LLM detects helmManaged=true from Helm release resource labels
     → LLM selects HelmRollback workflow (not RollbackDeployment)
   → Remediation Orchestrator → Approval Request (confidence 0.95)
   → WorkflowExecution: helm rollback demo-storefront 1
@@ -275,7 +287,7 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 |-------|---------------|
 | **Root Cause** | CrashLoopBackOff caused by an invalid nginx directive (`invalid_directive_that_breaks_nginx on;`) in the worker-config ConfigMap deployed via a Helm upgrade, preventing nginx from starting. The rolling update stalled with the new ReplicaSet pod crash-looping while the old ReplicaSet continues serving. |
 | **Severity** | critical |
-| **Target Resource** | Deployment/worker (ns: demo-storefront) |
+| **Target Resource** | Any Helm-managed RCA target in the release (this fixture commonly exposes `Deployment/worker` or `ConfigMap/worker-config`) |
 | **Workflow Selected** | helm-rollback-v1 (`HelmRollback`) |
 | **Confidence** | 0.97 |
 | **Approval** | required (production environment) |
@@ -287,9 +299,9 @@ When Kubernaut's AI analysis processes this scenario, the LLM typically reasons 
 1. Describes crashing pod, reads events and previous logs — identifies `nginx: [emerg] unknown directive "invalid_directive_that_breaks_nginx"`.
 2. Fetches Deployment and node context — detects `helmManaged=true` from `app.kubernetes.io/managed-by: Helm` label.
 3. Enriches with `get_namespaced_resource_context` — confirms `environment=production`, Helm annotations.
-4. Selects `HelmRollback` because it reverts both the Deployment and the ConfigMap atomically, maintaining Helm release history integrity.
+4. Selects `HelmRollback` because it reverts the entire Helm release atomically, maintaining Helm release history integrity for both the Deployment and ConfigMap.
 
-> **Why this matters**: Shows the LLM distinguishing between kubectl-managed and Helm-managed deployments. It explicitly rejects both `PatchConfiguration` (Helm state inconsistency) and `RollbackDeployment` (wouldn't revert the ConfigMap), selecting `HelmRollback` as the only complete fix.
+> **Why this matters**: Shows the LLM distinguishing between kubectl-managed and Helm-managed release resources. It explicitly rejects both `PatchConfiguration` (Helm state inconsistency) and `RollbackDeployment` (wouldn't revert the ConfigMap), selecting `HelmRollback` as the only complete fix.
 
 #### LLM Investigation Trace (v1.3)
 
@@ -303,7 +315,7 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
 | 1 | `kubectl_describe(Pod/worker-…)`, `kubectl_events(Pod/…)`, `kubectl_get_by_kind_in_namespace(Pod)` | 4 678 | Identified CrashLoopBackOff, exit code 1, 5 restarts; listed all pods in namespace |
 | 2 | `kubectl_describe(Deployment/worker)`, `kubectl_previous_logs(…)` | 21 038 | Confirmed rolling update stalled; read nginx error: `[emerg] unknown directive "invalid_directive_that_breaks_nginx"` |
 | 3 | `kubectl_describe(Node/…)`, `get_namespaced_resource_context(Deployment/worker)` | 28 324 | Enriched: `helmManaged=true`, `environment=production`, Helm release annotations |
-| 4 | *submit_result (RCA)* | 28 704 | Target: Deployment/worker — invalid nginx directive from Helm upgrade |
+| 4 | *submit_result (RCA)* | 28 704 | Target: a resource in the Helm release — invalid nginx directive from Helm upgrade |
 
 **Phase 2 — Workflow Selection (8 LLM turns)**
 
@@ -329,9 +341,9 @@ during a Kind run with `claude-sonnet-4-6` on platform version `1.3.0-rc11`.
 
 > **Note**: The LLM explicitly rejected two alternatives with detailed rationale:
 > `PatchConfiguration` would leave Helm release state inconsistent, and
-> `RollbackDeployment` via kubectl would not revert the ConfigMap (the actual
-> root cause). `HelmRollback` is the only action that atomically restores both
-> the Deployment spec and the ConfigMap to the previous healthy Helm revision.
+> `RollbackDeployment` via kubectl would not revert other release resources
+> such as the ConfigMap. `HelmRollback` restores the entire release to the
+> previous healthy revision.
 
 #### 8. Verify remediation
 
@@ -346,6 +358,17 @@ helm history demo-storefront -n demo-storefront
 # 1         superseded  Install complete
 # 2         superseded  Upgrade complete
 # 3         deployed    Rollback to 1
+```
+
+#### Target contract regression
+
+The release rollback job can be tested without a live cluster. This exercises
+the same `ConfigMap` target path used when RCA identifies `worker-config`, as
+well as an arbitrary resource, direct Deployment, and legacy ReplicaSet-name
+compatibility paths:
+
+```bash
+bash deploy/remediation-workflows/crashloop-helm/test-remediate.sh
 ```
 
 #### 9. View notifications
@@ -378,7 +401,7 @@ Feature: Helm-managed CrashLoopBackOff remediation
 
     Then Gateway receives the alert via AlertManager webhook
       And Signal Processing enriches with severity=critical, environment=production, P0
-      And KA detects helmManaged=true from deployment labels
+      And KA detects helmManaged=true from Helm release resource labels
       And the LLM diagnoses bad ConfigMap from nginx error logs
       And the LLM selects HelmRollback workflow (not RollbackDeployment)
       And Remediation Orchestrator requests human approval (confidence 0.95)
@@ -389,11 +412,13 @@ Feature: Helm-managed CrashLoopBackOff remediation
 
 ## Acceptance Criteria
 
-- [ ] Helm chart deploys worker with `app.kubernetes.io/managed-by: Helm` label
+- [ ] Helm chart deploys release resources with `app.kubernetes.io/managed-by: Helm` and `app.kubernetes.io/instance` labels
 - [ ] `helm upgrade` with bad nginx config causes CrashLoopBackOff
 - [ ] PrometheusRule fires KubePodCrashLooping (>3 restarts in 10m, `for: 3m`)
 - [ ] KA detects `helmManaged=true` and surfaces it as cluster context
 - [ ] LLM selects `HelmRollback` action type (not `RollbackDeployment`)
+- [ ] `TARGET_RESOURCE_*` accepts any resource in the Helm release, including `ConfigMap/worker-config`
+- [ ] Target-contract regression test covers ConfigMap, arbitrary resource, Deployment, and ReplicaSet-name compatibility paths
 - [ ] WE Job runs `helm rollback` to the previous healthy revision
 - [ ] Helm history shows revision 3 as "Rollback to 1"
 - [ ] All worker replicas are Running/Ready after rollback

@@ -66,11 +66,6 @@ fi
 
 echo "==> [spoke=${SPOKE_KUBECONFIG}] Deploying scenario resources..."
 MANIFEST_DIR=$(fleet_get_manifest_dir "${SCRIPT_DIR}")
-if [ "$platform" = "kind" ] && fleet_spoke_is_arm64; then
-    echo "ERROR: the dedicated demo etcd image is amd64-only and cannot run on this arm64 spoke." >&2
-    echo "  Re-run with ETCD_LIVE_CLUSTER=1 to fragment the kind control-plane etcd instead." >&2
-    exit 1
-fi
 fleet_deploy_workload "${MANIFEST_DIR}"
 fleet_bootstrap_monitoring "${MANIFEST_DIR}"
 

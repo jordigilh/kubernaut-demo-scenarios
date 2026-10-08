@@ -76,20 +76,20 @@ assert_eq "$beta_outcome" "Remediated" "Beta RR outcome"
 
 alpha_rr=$(get_rr_name "${NS_ALPHA}")
 alpha_workflow=$(kubectl get aianalyses "ai-${alpha_rr}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 
 beta_rr=$(get_rr_name "${NS_BETA}")
 beta_workflow=$(kubectl get aianalyses "ai-${beta_rr}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 
 assert_neq "$alpha_workflow" "" "Alpha AA selected a workflow"
 assert_neq "$beta_workflow" "" "Beta AA selected a workflow"
 assert_neq "$alpha_workflow" "$beta_workflow" "Different workflows selected (risk-based)"
 
 alpha_bundle=$(kubectl get aianalyses "ai-${alpha_rr}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
 beta_bundle=$(kubectl get aianalyses "ai-${beta_rr}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
 
 assert_contains "$alpha_bundle" "hotfix-config-job" "Alpha selected hotfix-config workflow (high risk tolerance)"
 assert_contains "$beta_bundle" "hotfix-config-job" "Beta selected hotfix-config-production workflow (low risk tolerance)"

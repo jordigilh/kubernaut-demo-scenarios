@@ -3,6 +3,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # StatefulSet/PVC/workload monitoring resources are spoke-side; stale
+    # Alertmanager state and pipeline CRs are hub-side.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    fleet_target_kubectl delete statefulset kv-store -n demo-keystore --cascade=foreground --ignore-not-found
+    fleet_target_kubectl delete pvc -l app=kv-store -n demo-keystore --ignore-not-found
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-keystore
+    restart_alertmanager
+    purge_pipeline_crds
+    exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

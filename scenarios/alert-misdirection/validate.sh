@@ -67,15 +67,15 @@ elif [ "$rr_phase" = "Completed" ] && [ "$rr_outcome" = "Remediated" ]; then
     assert_eq "$aa_phase" "Completed" "AA phase"
 
     workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+      -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
     assert_neq "$workflow_id" "" "AA selected a workflow"
 
     bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+      -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
     assert_contains "$bundle" "crashloop-rollback-job" "AA selected rollback (resisted OOM misdirection)"
 
     confidence=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || echo "")
+      -o jsonpath='{.status.rcaResult.selectedWorkflow.confidence}' 2>/dev/null || echo "")
     assert_neq "$confidence" "" "AA confidence present"
 
     wfe_phase=$(get_wfe_phase "${NAMESPACE}")
@@ -99,10 +99,10 @@ else
     log_phase "RR escalated to ManualReviewRequired — LLM did not blindly trust OOM claim"
 
     workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+      -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
     if [ -n "$workflow_id" ]; then
         bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-          -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+          -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
         if echo "$bundle" | grep -qi "memory"; then
             log_phase "WARNING: LLM selected a memory-related workflow — misdirection succeeded"
         fi

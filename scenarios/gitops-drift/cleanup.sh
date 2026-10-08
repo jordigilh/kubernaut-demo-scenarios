@@ -4,6 +4,57 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # Gitea, ArgoCD, and Kubernaut state live on the hub. The ArgoCD-managed
+    # workload namespace is removed from the spoke after the Application is
+    # deleted, while any stale hub copy is removed to avoid false inspection.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+
+    NAMESPACE="${GITOPS_NAMESPACE:-demo-webui}"
+    GITEA_NAMESPACE="gitea"
+    GITEA_ADMIN_USER="kubernaut"
+    GITEA_ADMIN_PASS="kubernaut123"
+    REPO_NAME="demo-gitops-repo"
+
+    disable_prometheus_toolset || true
+    restore_ro_gitops_sync_delay || true
+
+    if kubectl get namespace "${GITEA_NAMESPACE}" &>/dev/null; then
+        kill_stale_gitea_pf
+        kubectl port-forward -n "${GITEA_NAMESPACE}" svc/gitea-http "${GITEA_LOCAL_PORT}:3000" &>/dev/null &
+        PF_PID=$!
+        wait_for_port "${GITEA_LOCAL_PORT}"
+        WORK_DIR=$(mktemp -d)
+        if timeout 30 git clone "http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}/${GITEA_ADMIN_USER}/${REPO_NAME}.git" \
+             "${WORK_DIR}/repo" &>/dev/null; then
+            cd "${WORK_DIR}/repo"
+            INITIAL_COMMIT=$(git rev-list --max-parents=0 HEAD 2>/dev/null || echo "")
+            CURRENT_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
+            if [ -n "${INITIAL_COMMIT}" ] && [ "${CURRENT_HEAD}" != "${INITIAL_COMMIT}" ]; then
+                git reset --hard "${INITIAL_COMMIT}" &>/dev/null && \
+                    git push --force origin main &>/dev/null || echo "  WARNING: Failed to reset/push repo."
+            fi
+            cd /
+        fi
+        rm -rf "${WORK_DIR}"
+        kill "${PF_PID}" 2>/dev/null || true
+    fi
+
+    ARGOCD_NS=$(get_argocd_namespace)
+    kubectl delete application web-frontend -n "${ARGOCD_NS}" --ignore-not-found
+    kubectl delete namespace "${NAMESPACE}" --ignore-not-found --wait=true
+    for rr in $(kubectl get rr -n "${PLATFORM_NS}" \
+        -o jsonpath='{range .items[*]}{.metadata.name}={.spec.signalLabels.namespace}{"\n"}{end}' 2>/dev/null \
+        | grep "=${NAMESPACE}$" | cut -d= -f1); do
+        kubectl delete rr "$rr" -n "${PLATFORM_NS}" --wait=false 2>/dev/null || true
+    done
+    fleet_target_kubectl delete namespace "${NAMESPACE}" --ignore-not-found --wait=true
+    purge_pipeline_crds
+    exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

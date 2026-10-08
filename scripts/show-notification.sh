@@ -66,7 +66,7 @@ display_one() {
       rr_ns=$(echo "$json" | jq -r '.spec.remediationRequestRef.namespace // ""')
       if [ -n "$rr_name" ] && [ -n "$rr_ns" ]; then
         outcome=$(kubectl get remediationrequest "$rr_name" -n "$rr_ns" \
-          -o jsonpath='{.status.outcome}' 2>/dev/null || true)
+          -o jsonpath='{.status.completionStatus.outcome}' 2>/dev/null || true)
         if [ -n "$outcome" ]; then
           body=$(echo "$body" | sed "s/^\*\*Outcome\*\*: *$/\*\*Outcome\*\*: $outcome/")
         fi

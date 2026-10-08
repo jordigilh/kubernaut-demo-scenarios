@@ -5,7 +5,7 @@ title = "External actor reverts Kubernaut's fix -> detect the ineffective-remedi
 kind  = 'yes'
 host  = 'all'
 ocp   = 'yes'
-fleet = 'alert-only'
+fleet = 'yes'
 
 [notes]
-fleet = "stays alert-only: defining narrative needs a real remediation loop fleet's model doesn't run (#423)"
+fleet = "runs the first remediation cycle with RR polling on the hub and the external actor patching the workload on the spoke"

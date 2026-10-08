@@ -7,13 +7,11 @@
 # Kubernaut cluster, as documented there.
 #
 # Fleet mode: set HUB_KUBECONFIG (Kubernaut control plane) and
-# SPOKE_KUBECONFIG (demo workload cluster) to run fleet/run.sh instead,
-# which deploys the workload on the spoke and always behaves as
-# --alert-only (see scripts/fleet-helper.sh). The shadow-agent
-# (alignmentCheck) enable step from local/run.sh only affects the
-# downstream LLM-investigation pipeline, which fleet mode never runs, so
-# it's skipped entirely there -- fleet mode just confirms the underlying
-# CrashLoop alert reaches the hub.
+# SPOKE_KUBECONFIG (demo workload cluster) to run fleet/run.sh instead.
+# Fleet mode drives the full hub-side pipeline unless --alert-only is passed,
+# but it deliberately does not mutate the hub's alignmentCheck setting. Enable
+# the shadow agent temporarily on the Helm/operator-managed hub when capturing
+# this scenario's expected alignment_check_failed transcript, then restore it.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

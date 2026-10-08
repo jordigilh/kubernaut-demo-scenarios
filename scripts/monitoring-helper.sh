@@ -29,9 +29,17 @@ require_infra() {
             echo "ERROR: cert-manager is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
         metrics-server)
-            kubectl get deployment metrics-server -n kube-system &>/dev/null && return 0
-            kubectl get apiservice v1beta1.metrics.k8s.io &>/dev/null && return 0
-            echo "ERROR: metrics-server is not installed. Run: bash scripts/setup-demo-cluster.sh"
+            if kubectl get apiservice v1beta1.metrics.k8s.io \
+                -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' \
+                2>/dev/null | grep -q True; then
+                return 0
+            fi
+            if kubectl get deployment metrics-server -n kube-system &>/dev/null; then
+                echo "ERROR: metrics-server is installed but the Kubernetes Metrics API is not Available."
+                echo "  Check: kubectl get apiservice v1beta1.metrics.k8s.io"
+            else
+                echo "ERROR: metrics-server is not installed. Run: bash scripts/setup-demo-cluster.sh"
+            fi
             exit 1 ;;
         blackbox)
             helm status prometheus-blackbox-exporter -n "${MONITORING_NS}" &>/dev/null && return 0
@@ -633,7 +641,8 @@ ensure_cert_manager() {
 }
 
 # ── metrics-server ───────────────────────────────────────────────────────────
-# Used by: hpa-maxed, autoscale (HPA requires real CPU/memory metrics)
+# Used by: autoscale, hpa-maxed, resource-contention, memory-leak,
+#          node-notready (Agent kubectl_top_* tools require real metrics)
 ensure_metrics_server() {
     if kubectl get deployment metrics-server -n kube-system &>/dev/null || \
        kubectl get deployment -n kube-system \
@@ -667,12 +676,15 @@ ensure_metrics_server() {
 # ── Istio ────────────────────────────────────────────────────────────────────
 # Used by: mesh-routing-failure
 ensure_istio() {
-    if kubectl get namespace istio-system &>/dev/null; then
+    local profile="${1:-demo}"
+
+    if kubectl get deployment istiod -n istio-system &>/dev/null; then
+        kubectl rollout status deployment/istiod -n istio-system --timeout=300s
         echo "  Istio already installed."
         return 0
     fi
 
-    echo "==> Installing Istio..."
+    echo "==> Installing Istio (profile: ${profile})..."
 
     if ! command -v istioctl &>/dev/null; then
         echo "ERROR: istioctl not found in PATH."
@@ -681,7 +693,7 @@ ensure_istio() {
         exit 1
     fi
 
-    istioctl install --set profile=demo -y
+    istioctl install --set "profile=${profile}" -y
     kubectl wait --for=condition=Available deployment/istiod \
       -n istio-system --timeout=300s
 

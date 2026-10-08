@@ -13,9 +13,9 @@
 # --alert-only (see scripts/fleet-helper.sh). Requires Istio installed on
 # the spoke (fleet/spoke.sh does NOT install it -- `istioctl install
 # --set profile=minimal -y --kubeconfig="$SPOKE_KUBECONFIG"` first, same
-# prerequisite as local mode). The PodMonitor (prometheus-operator) is
-# skipped like every other operator-only kind; fleet mode instead adds a
-# raw role:pod scrape job for the istio-proxy sidecar's Envoy stats port.
+# prerequisite as local mode). The PodMonitor (or the OCP ServiceMonitor
+# overlay) is applied natively to the spoke's operator-managed Prometheus;
+# fleet mode does not add a raw scrape job or edit prometheus-config.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -17,9 +17,11 @@ global:
       effect: NoSchedule
 
 gateway:
+  enabled: true
   service:
     type: NodePort
   auth:
+    enabled: true
     signalSources:
       - name: alertmanager
         serviceAccount: kube-prometheus-stack-alertmanager

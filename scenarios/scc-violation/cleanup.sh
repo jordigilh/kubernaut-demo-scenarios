@@ -2,6 +2,26 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # Operator configuration and pipeline state are hub-side; the SCC
+    # workload and monitoring resources are removed from the spoke.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    disable_prometheus_toolset || true
+    restore_production_approval || true
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-agents
+    PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
+    kubectl get configmap remediationorchestrator-config -n "$PLATFORM_NS" -o yaml \
+      | sed 's/stabilizationWindow: "[^"]*"/stabilizationWindow: "60s"/' \
+      | kubectl apply -f - >/dev/null 2>&1
+    kubectl rollout restart deploy/remediationorchestrator-controller -n "$PLATFORM_NS" >/dev/null 2>&1
+    kubectl rollout status deploy/remediationorchestrator-controller -n "$PLATFORM_NS" --timeout=120s >/dev/null 2>&1
+    purge_pipeline_crds
+    restart_alertmanager
+    exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

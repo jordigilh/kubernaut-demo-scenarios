@@ -4,8 +4,9 @@
 # The upstream Kubernaut repository owns cluster and core-platform bootstrap.
 # This script installs the remaining demo dependencies and seeds policies,
 # ActionTypes, and RemediationWorkflows. In fleet mode, all control-plane
-# resources are applied to HUB_KUBECONFIG; the spoke is never used for
-# credentials or catalog content.
+# resources are applied to HUB_KUBECONFIG; the spoke is used only for
+# workload-side dependencies such as metrics-server and never for credentials
+# or catalog content.
 #
 # Usage:
 #   ./scripts/setup-demo-cluster.sh
@@ -158,6 +159,153 @@ ensure_fleet_alertmanager_ca() {
     fi
 }
 
+# Detect the platform of the workload cluster without changing the hub's
+# ambient KUBECONFIG. Fleet Kind spokes can install Istio with istioctl;
+# OpenShift spokes are expected to use the OpenShift Service Mesh operator.
+fleet_spoke_platform() {
+    if [ -n "${SPOKE_PLATFORM:-}" ]; then
+        printf '%s\n' "${SPOKE_PLATFORM}"
+        return 0
+    fi
+
+    local api_output
+    api_output=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" \
+        api-resources --api-group=config.openshift.io 2>/dev/null || true)
+    if echo "$api_output" | grep -q ClusterVersion; then
+        printf '%s\n' ocp
+    else
+        printf '%s\n' kind
+    fi
+}
+
+# Install the workload-cluster Istio dependency for Fleet Kind demos. OCP
+# Service Mesh is operator-managed and must not be replaced by istioctl.
+ensure_fleet_spoke_istio() {
+    local spoke_platform
+    spoke_platform=$(fleet_spoke_platform)
+    if [ "$spoke_platform" = "ocp" ]; then
+        echo "  OpenShift spoke detected; expecting Istio from OpenShift Service Mesh."
+        return 0
+    fi
+
+    (
+        export KUBECONFIG="${SPOKE_KUBECONFIG}"
+        ensure_istio minimal
+    )
+}
+
+# The Fleet read identity is normally bound to Kubernetes' built-in `view`
+# ClusterRole. Kubernetes' aggregated view role exposes namespaced cert-manager
+# resources but not the cluster-scoped ClusterIssuer resource. Certificate
+# scenarios therefore need this small additional grant so the remote MCP agent
+# can inspect the issuer backing a failed Certificate.
+ensure_fleet_spoke_cert_manager_rbac() {
+    [ "$FLEET_MODE" = true ] || return 0
+
+    local identity="${FLEET_READ_IDENTITY:-keycloak:service-account-kubernaut-fleet-read}"
+    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" apply -f - >/dev/null <<EOF
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubernaut-fleet-cert-manager-view
+  labels:
+    app.kubernetes.io/managed-by: kubernaut-demo-scenarios
+    kubernaut.ai/fleet-read: "true"
+rules:
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - clusterissuers
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubernaut-fleet-cert-manager-view
+  labels:
+    app.kubernetes.io/managed-by: kubernaut-demo-scenarios
+    kubernaut.ai/fleet-read: "true"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubernaut-fleet-cert-manager-view
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: ${identity}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubernaut-fleet-node-stats-view
+  labels:
+    app.kubernetes.io/managed-by: kubernaut-demo-scenarios
+    kubernaut.ai/fleet-read: "true"
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes/proxy
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubernaut-fleet-node-stats-view
+  labels:
+    app.kubernetes.io/managed-by: kubernaut-demo-scenarios
+    kubernaut.ai/fleet-read: "true"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubernaut-fleet-node-stats-view
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: ${identity}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kubernaut-fleet-cert-manager-secret-view
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/managed-by: kubernaut-demo-scenarios
+    kubernaut.ai/fleet-read: "true"
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  resourceNames:
+  - demo-ca-key-pair
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubernaut-fleet-cert-manager-secret-view
+  namespace: cert-manager
+  labels:
+    app.kubernetes.io/managed-by: kubernaut-demo-scenarios
+    kubernaut.ai/fleet-read: "true"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubernaut-fleet-cert-manager-secret-view
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: ${identity}
+EOF
+    echo "  Fleet read access granted for cert-manager ClusterIssuers and demo CA Secret on spoke."
+}
+
 TOTAL_START=$(date +%s)
 
 echo "============================================="
@@ -180,6 +328,14 @@ echo "==> Phase 1: Kubernaut platform"
 source "${SCRIPT_DIR}/platform-helper.sh"
 ensure_platform
 ensure_fleet_alertmanager_ca
+if [ "$FLEET_MODE" = true ]; then
+    # shellcheck source=fleet-helper.sh
+    source "${SCRIPT_DIR}/fleet-helper.sh"
+    # The upstream Fleet bootstrap creates selector-less bridge Endpoints for
+    # the Kind node IPs. Reconcile them after every setup so a Podman/Kind VM
+    # restart cannot leave Alertmanager, MCP, or Thanos pointed at old nodes.
+    fleet_reconcile_bridge_endpoints
+fi
 echo ""
 
 # Upstream's fleet bootstrap owns the hub/spoke monitoring and fleet services.
@@ -236,6 +392,47 @@ else
     # local setup.
     # shellcheck source=monitoring-helper.sh
     source "${SCRIPT_DIR}/monitoring-helper.sh"
+
+    if [ "$SKIP_INFRA" = false ]; then
+        echo "==> Spoke infrastructure"
+        echo "--- cert-manager ---"
+        if [ "$SKIP_CERT_MANAGER" = true ]; then
+            echo "  Skipping spoke cert-manager (--skip-cert-manager)."
+        else
+            (
+                export KUBECONFIG="${SPOKE_KUBECONFIG}"
+                ensure_cert_manager
+            )
+        fi
+        ensure_fleet_spoke_cert_manager_rbac
+        echo ""
+
+        echo "--- metrics-server ---"
+        if [ "$SKIP_METRICS_SERVER" = true ]; then
+            echo "  Skipping spoke metrics-server (--skip-metrics-server)."
+        else
+            # Metrics-server is a workload-cluster dependency in fleet mode:
+            # the Agent's kubectl_top_* tools query the spoke, not the hub.
+            # Run this in a subshell so the rest of setup remains targeted at
+            # the hub/control plane.
+            (
+                export KUBECONFIG="${SPOKE_KUBECONFIG}"
+                ensure_metrics_server
+                kubectl wait --for=condition=Available \
+                    apiservice/v1beta1.metrics.k8s.io --timeout=120s
+            )
+        fi
+        echo ""
+
+        echo "--- Istio ---"
+        if [ "$SKIP_ISTIO" = true ]; then
+            echo "  Skipping spoke Istio (--skip-istio)."
+        else
+            ensure_fleet_spoke_istio
+        fi
+        echo ""
+    fi
+
     if [ "$SKIP_MONITORING" = true ]; then
         echo "==> Monitoring stack: skipped (--skip-monitoring)"
     elif monitoring_stack_installed; then
@@ -349,6 +546,36 @@ for ns in "${NAMESPACES[@]}"; do
 done
 
 if [ "$FLEET_MODE" = true ]; then
+    if [ "$SKIP_INFRA" = false ]; then
+        if [ "$SKIP_CERT_MANAGER" = false ]; then
+            for dep in cert-manager cert-manager-cainjector cert-manager-webhook; do
+                ready=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" \
+                    get deployment "$dep" -n cert-manager \
+                    -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+                desired=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" \
+                    get deployment "$dep" -n cert-manager \
+                    -o jsonpath='{.spec.replicas}' 2>/dev/null || true)
+                if [ "${ready:-0}" != "${desired:-1}" ]; then
+                    echo "  WARNING: spoke cert-manager/${dep} not ready (${ready:-0}/${desired:-1})"
+                    all_ready=false
+                fi
+            done
+        fi
+
+        if [ "$SKIP_ISTIO" = false ] && [ "$(fleet_spoke_platform)" = "kind" ]; then
+            ready=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" \
+                get deployment istiod -n istio-system \
+                -o jsonpath='{.status.readyReplicas}' 2>/dev/null || true)
+            desired=$(kubectl --kubeconfig="${SPOKE_KUBECONFIG}" \
+                get deployment istiod -n istio-system \
+                -o jsonpath='{.spec.replicas}' 2>/dev/null || true)
+            if [ "${ready:-0}" != "${desired:-1}" ]; then
+                echo "  WARNING: spoke istio-system/istiod not ready (${ready:-0}/${desired:-1})"
+                all_ready=false
+            fi
+        fi
+    fi
+
     if kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get secret gitea-repo-creds \
         -n kubernaut-workflows &>/dev/null; then
         echo "  ERROR: gitea-repo-creds must not exist on the spoke."

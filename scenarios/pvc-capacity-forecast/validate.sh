@@ -59,25 +59,25 @@ rr_name=$(get_rr_name "${NAMESPACE}")
 aa_name="ai-${rr_name}"
 
 workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 assert_neq "$workflow_id" "" "AA selected a workflow"
 
 bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
 assert_contains "$bundle" "expand-pvc" "AA selected correct workflow"
 
 confidence=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || echo "0")
+  -o jsonpath='{.status.rcaResult.selectedWorkflow.confidence}' 2>/dev/null || echo "0")
 assert_neq "$confidence" "" "AA confidence present"
 
 # Verify the LLM investigated -- RCA should reference storage/PVC/capacity
 root_cause=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCause}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.summary}' 2>/dev/null || echo "")
 assert_neq "$root_cause" "" "AA root cause analysis present"
 
 # Verify remediation target points at the PVC or the deployment
 rem_target_kind=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
 assert_neq "$rem_target_kind" "" "AA remediation target kind present"
 
 wfe_phase=$(get_wfe_phase "${NAMESPACE}")

@@ -14,9 +14,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../../../scripts/platform-helper.sh"
 
 GITEA_NAMESPACE="gitea"
-GITEA_ADMIN_USER="kubernaut"
-GITEA_ADMIN_PASS="kubernaut123"
-REPO_NAME="demo-gitops-repo"
+GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-kubernaut}"
+GITEA_ADMIN_PASS="${GITEA_ADMIN_PASS:-kubernaut123}"
+REPO_NAME="${REPO_NAME:-demo-gitops-repo}"
 
 echo "==> Installing Gitea in namespace ${GITEA_NAMESPACE} (platform: ${PLATFORM})..."
 

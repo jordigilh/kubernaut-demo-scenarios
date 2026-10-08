@@ -71,6 +71,20 @@ fails.
 ./scenarios/image-pull-failure/cleanup.sh
 ```
 
+### Fleet mode
+
+Fleet mode uses the same authenticated OpenShift internal registry fixture:
+
+```bash
+HUB_KUBECONFIG=~/.kube/kubernaut-hub-config \
+SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config \
+./scenarios/image-pull-failure/run.sh --fleet --auto-approve
+```
+
+The repository does not provision a credential-gated private registry for a
+Kind spoke. The Fleet runner therefore fails fast on Kind instead of claiming
+that deleting a pull secret caused a public-image pull failure.
+
 ### `run.sh` flags
 
 | Flag | Behavior | When to use |

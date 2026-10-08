@@ -267,19 +267,87 @@ restart_alertmanager() {
     echo "  WARNING: no AlertManager Deployment or StatefulSet found in monitoring."
 }
 
-# Delete all pipeline CRDs (RR, SP, AIA, WFE, EA, RAR, Notif) from kubernaut-system.
+# Delete pipeline CRDs owned by the current scenario's RemediationRequest.
+#
 # Call this from cleanup.sh after deleting the scenario namespace so that stale
-# resources from previous runs don't interfere with subsequent scenarios.
+# resources from the completed run don't interfere with subsequent scenarios.
+# The optional arguments are signal namespaces; when omitted, infer them from
+# the calling scenario via scenario-registry.sh.  Never fall back to deleting
+# every pipeline CRD: failed runs are intentionally preserved for RCA and may
+# belong to another scenario.  Set PURGE_PIPELINE_CRDS_ALL=true only for an
+# explicit, operator-requested global purge.
 purge_pipeline_crds() {
     local ns="${PLATFORM_NS:-kubernaut-system}"
-    echo "==> Purging pipeline CRDs from ${ns}..."
-    kubectl delete remediationrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
-    kubectl delete signalprocessings --all -n "$ns" --ignore-not-found 2>/dev/null || true
-    kubectl delete aianalyses --all -n "$ns" --ignore-not-found 2>/dev/null || true
-    kubectl delete workflowexecutions --all -n "$ns" --ignore-not-found 2>/dev/null || true
-    kubectl delete effectivenessassessments --all -n "$ns" --ignore-not-found 2>/dev/null || true
-    kubectl delete remediationapprovalrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
-    kubectl delete notificationrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
+    local target_namespaces=("$@")
+
+    if [ "${PURGE_PIPELINE_CRDS_ALL:-false}" = true ]; then
+        echo "==> Purging all pipeline CRDs from ${ns} (explicit global purge)..."
+        kubectl delete remediationrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
+        kubectl delete signalprocessings --all -n "$ns" --ignore-not-found 2>/dev/null || true
+        kubectl delete aianalyses --all -n "$ns" --ignore-not-found 2>/dev/null || true
+        kubectl delete workflowexecutions --all -n "$ns" --ignore-not-found 2>/dev/null || true
+        kubectl delete effectivenessassessments --all -n "$ns" --ignore-not-found 2>/dev/null || true
+        kubectl delete remediationapprovalrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
+        kubectl delete notificationrequests --all -n "$ns" --ignore-not-found 2>/dev/null || true
+        return 0
+    fi
+
+    if [ "${#target_namespaces[@]}" -eq 0 ]; then
+        local caller="${BASH_SOURCE[1]:-}"
+        local scenario_name=""
+        if [ -n "$caller" ]; then
+            scenario_name=$(basename "$(dirname "$caller")")
+        fi
+        if [ -f "${REPO_ROOT:-}/scripts/scenario-registry.sh" ]; then
+            # shellcheck disable=SC1091
+            source "${REPO_ROOT}/scripts/scenario-registry.sh"
+            if [ -n "$scenario_name" ] && [ -n "${SCENARIO_NS[$scenario_name]:-}" ]; then
+                read -r -a target_namespaces <<< "${SCENARIO_NS[$scenario_name]}"
+            fi
+        fi
+    fi
+
+    if [ "${#target_namespaces[@]}" -eq 0 ]; then
+        echo "WARNING: refusing an unscoped pipeline CRD purge; pass signal namespaces or set PURGE_PIPELINE_CRDS_ALL=true." >&2
+        return 0
+    fi
+
+    echo "==> Purging pipeline CRDs for signal namespace(s): ${target_namespaces[*]}..."
+
+    local rr_listing rr_name rr_namespace target match
+    local rr_names=()
+    rr_listing=$(kubectl get remediationrequests -n "$ns" \
+        -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.signalLabels.namespace}{"\n"}{end}' \
+        2>/dev/null || true)
+    while IFS=$'\t' read -r rr_name rr_namespace; do
+        [ -n "$rr_name" ] || continue
+        match=false
+        for target in "${target_namespaces[@]}"; do
+            if [ "$rr_namespace" = "$target" ]; then
+                match=true
+                break
+            fi
+        done
+        [ "$match" = true ] && rr_names+=("$rr_name")
+    done <<< "$rr_listing"
+
+    for rr_name in "${rr_names[@]}"; do
+        # The pipeline CRDs use the RR as their Kubernetes owner. Delete the
+        # children first so this remains safe even if the RR is deleted with
+        # background propagation by another cleanup step.
+        local child_kind child_name child_names
+        for child_kind in signalprocessings aianalyses workflowexecutions effectivenessassessments remediationapprovalrequests notificationrequests; do
+            child_names=$(kubectl get "$child_kind" -n "$ns" -o json 2>/dev/null \
+                | jq -r --arg rr "$rr_name" \
+                    '.items[] | select(any(.metadata.ownerReferences[]?; .name == $rr)) | .metadata.name' \
+                2>/dev/null || true)
+            while IFS= read -r child_name; do
+                [ -n "$child_name" ] || continue
+                kubectl delete "$child_kind" "$child_name" -n "$ns" --ignore-not-found --wait=false 2>/dev/null || true
+            done <<< "$child_names"
+        done
+        kubectl delete remediationrequest "$rr_name" -n "$ns" --ignore-not-found --wait=false 2>/dev/null || true
+    done
 }
 
 # Silence a specific alert in AlertManager (platform-aware).
@@ -421,6 +489,113 @@ seed_action_types_and_workflows() {
         rm -rf "${_results_dir}"
         echo "    Applied ${applied} workflow(s), skipped ${skipped}, failed ${failed}."
     fi
+}
+
+# Reconcile the API-server peers in the Kubernaut NetworkPolicies used by the
+# Kind demo. Kind runs kube-apiserver as a hostNetwork static pod, so a normal
+# podSelector cannot target it. The chart therefore uses an ipBlock for port
+# 6443 (and authwebhook ingress on 9443), but Podman/Kind node addresses can
+# change when the VM or control-plane container is recreated. Keep the live
+# policy aligned with the current `default/kubernetes` Endpoints object.
+#
+# This is intentionally Kind-only. Production CNIs have different semantics
+# for Service VIPs, hostNetwork peers, and API-server identities; production
+# installations should use their CNI-native API-server identity policy or a
+# controller that reconciles the endpoint set rather than relying on this
+# harness helper.
+reconcile_kubernaut_api_network_policies() {
+    if [ "${PLATFORM:-kind}" != "kind" ]; then
+        return 0
+    fi
+
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local workdir
+    workdir=$(mktemp -d)
+
+    if ! kubectl -n default get endpoints kubernetes -o json >"${workdir}/endpoints.json" 2>/dev/null; then
+        echo "  WARNING: could not read default/kubernetes Endpoints; NetworkPolicy reconciliation skipped." >&2
+        rm -rf "${workdir}"
+        return 0
+    fi
+
+    if ! kubectl -n "${ns}" get networkpolicy \
+        -l app.kubernetes.io/part-of=kubernaut -o json >"${workdir}/policies.json" 2>/dev/null; then
+        echo "  WARNING: could not read Kubernaut NetworkPolicies; reconciliation skipped." >&2
+        rm -rf "${workdir}"
+        return 0
+    fi
+
+    if ! python3 - "${workdir}/endpoints.json" "${workdir}/policies.json" "${workdir}/patches" <<'PY'
+import ipaddress
+import json
+import pathlib
+import sys
+
+endpoints_path, policies_path, patches_dir = map(pathlib.Path, sys.argv[1:])
+patches_dir.mkdir()
+
+endpoints = json.loads(endpoints_path.read_text())
+cidrs = []
+for subset in endpoints.get("subsets", []):
+    for address in subset.get("addresses", []):
+        ip = ipaddress.ip_address(address["ip"])
+        cidrs.append(f"{ip}/{ip.max_prefixlen}")
+cidrs = sorted(set(cidrs), key=lambda value: (":" in value, value))
+if not cidrs:
+    raise SystemExit("default/kubernetes has no ready endpoint addresses")
+
+policies = json.loads(policies_path.read_text())
+changed = 0
+
+def has_port(rule, port):
+    return any(str(entry.get("port")) == str(port) for entry in (rule.get("ports") or []))
+
+for policy in policies.get("items", []):
+    patch = []
+    for direction, peer_key, port in (("egress", "to", 6443), ("ingress", "from", 9443)):
+        for rule_index, rule in enumerate(policy.get("spec", {}).get(direction) or []):
+            if not has_port(rule, port):
+                continue
+            peers = rule.get(peer_key) or []
+            ip_peers = [peer for peer in peers if "ipBlock" in peer]
+            if not ip_peers:
+                continue
+
+            template = dict(ip_peers[0]["ipBlock"])
+            replacement = [peer for peer in peers if "ipBlock" not in peer]
+            replacement.extend({"ipBlock": dict(template, cidr=cidr)} for cidr in cidrs)
+            if replacement == peers:
+                continue
+
+            patch.append({
+                "op": "replace",
+                "path": f"/spec/{direction}/{rule_index}/{peer_key}",
+                "value": replacement,
+            })
+
+    if patch:
+        name = policy["metadata"]["name"]
+        (patches_dir / f"{name}.json").write_text(json.dumps(patch, separators=(",", ":")))
+        changed += 1
+        print(f"{name}: reconciled API peer(s) to {', '.join(cidrs)}")
+
+print(f"policies_changed={changed}")
+PY
+    then
+        echo "  WARNING: could not derive API endpoint peers; NetworkPolicy reconciliation skipped." >&2
+        rm -rf "${workdir}"
+        return 0
+    fi
+
+    local patch_file name
+    for patch_file in "${workdir}/patches"/*.json; do
+        [ -f "${patch_file}" ] || continue
+        name=$(basename "${patch_file}" .json)
+        kubectl -n "${ns}" patch networkpolicy "${name}" --type=json \
+            -p="$(cat "${patch_file}")" >/dev/null
+    done
+
+    rm -rf "${workdir}"
 }
 
 # Validate that the demo environment is ready (no installs).
@@ -592,6 +767,7 @@ ensure_platform() {
 
     if helm status kubernaut -n "${PLATFORM_NS}" &>/dev/null; then
         echo "  Kubernaut platform already installed (Helm)."
+        reconcile_kubernaut_api_network_policies
         _check_llm_credentials
         return 0
     fi
@@ -677,6 +853,7 @@ ensure_platform() {
     # ready, creating a deadlock (datastorage needs migration → migration is
     # post-install → post-install waits for --wait → --wait waits for datastorage).
     # Instead, let Helm finish (hooks run), then poll via wait_platform_ready().
+    local helm_rc=0
     helm upgrade --install kubernaut "${CHART_REF}" \
         --namespace "${PLATFORM_NS}" \
         --create-namespace \
@@ -685,7 +862,17 @@ ensure_platform() {
         ${version_flag} \
         ${policy_flags} \
         --skip-crds \
-        --timeout 10m
+        --timeout 10m || helm_rc=$?
+
+    # Reconcile even after a failed Helm attempt. Helm can leave the existing
+    # platform running with old NetworkPolicies (for example when an unrelated
+    # ConfigMap field-ownership conflict aborts an upgrade), and a stale
+    # control-plane endpoint then prevents those workloads from recovering.
+    reconcile_kubernaut_api_network_policies
+    if [ "${helm_rc}" -ne 0 ]; then
+        echo "  WARNING: Helm platform install/upgrade failed (exit ${helm_rc})." >&2
+        return "${helm_rc}"
+    fi
 
     echo "  Kubernaut platform installed in ${PLATFORM_NS}."
 
@@ -1259,11 +1446,12 @@ restore_em() {
     echo "  EM configuration restored to original."
 }
 
-# Temporarily tune the RemediationOrchestrator GitOps propagation delay for a
-# scenario that uses a webhook-backed GitOps controller. The complete original
-# ConfigMap is saved so cleanup restores any cluster-specific configuration.
-configure_ro_gitops_sync_delay() {
-    local delay="${1:?usage: configure_ro_gitops_sync_delay <duration>}"
+# Temporarily tune RemediationOrchestrator timing for a scenario that uses a
+# webhook-backed GitOps controller. The complete original ConfigMap is saved so
+# cleanup restores any cluster-specific configuration.
+configure_ro_gitops_timing() {
+    local delay="${1:?usage: configure_ro_gitops_timing <gitops-delay> [stabilization-window]}"
+    local stabilization="${2:-}"
     local ns="${PLATFORM_NS:-kubernaut-system}"
     local cm="remediationorchestrator-config"
 
@@ -1285,14 +1473,25 @@ configure_ro_gitops_sync_delay() {
 import sys, yaml
 data = yaml.safe_load(sys.stdin.read()) or {}
 data.setdefault("asyncPropagation", {})["gitOpsSyncDelay"] = sys.argv[1]
+if len(sys.argv) > 2 and sys.argv[2]:
+    data.setdefault("effectivenessAssessment", {})["stabilizationWindow"] = sys.argv[2]
 print(yaml.dump(data, default_flow_style=False), end="")
-' "${delay}" <<< "${current_yaml}")
+' "${delay}" "${stabilization}" <<< "${current_yaml}")
 
     kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
       -p "{\"data\":{\"remediationorchestrator.yaml\":$(echo "${patched}" | jq -Rs .)}}"
     kubectl rollout restart deployment/remediationorchestrator-controller -n "${ns}"
     kubectl rollout status deployment/remediationorchestrator-controller -n "${ns}" --timeout=60s
-    echo "  RO configured: gitOpsSyncDelay=${delay}"
+    if [ -n "${stabilization}" ]; then
+        echo "  RO configured: gitOpsSyncDelay=${delay}, effectivenessAssessment.stabilizationWindow=${stabilization}"
+    else
+        echo "  RO configured: gitOpsSyncDelay=${delay}"
+    fi
+}
+
+configure_ro_gitops_sync_delay() {
+    local delay="${1:?usage: configure_ro_gitops_sync_delay <duration>}"
+    configure_ro_gitops_timing "${delay}"
 }
 
 restore_ro_gitops_sync_delay() {

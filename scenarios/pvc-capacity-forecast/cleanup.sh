@@ -3,6 +3,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # Toolset, alert, and pipeline state are hub-side. PVCs, workload, and
+    # monitoring resources are removed from the spoke.
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    disable_prometheus_toolset || true
+    fleet_target_kubectl delete pvc --all -n demo-archive --ignore-not-found --wait=false 2>/dev/null || true
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-archive
+    silence_alert "PVRunwayShort" "demo-archive" "2m"
+    purge_pipeline_crds
+    exit 0
+fi
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

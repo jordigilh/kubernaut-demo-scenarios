@@ -66,6 +66,7 @@ kubectl run etcd-injector -n "${NAMESPACE}" --rm -i --restart=Never \
           "securityContext": {
             "allowPrivilegeEscalation": false,
             "runAsNonRoot": true,
+            "runAsUser": 1001,
             "seccompProfile": {"type": "RuntimeDefault"},
             "capabilities": {"drop": ["ALL"]}
           }

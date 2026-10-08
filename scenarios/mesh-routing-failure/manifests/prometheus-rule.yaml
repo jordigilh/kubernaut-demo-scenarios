@@ -15,6 +15,10 @@ spec:
       for: 30s
       labels:
         severity: critical
+        # Gateway resolves Prometheus labels to a Kubernetes target. The
+        # Istio metric is aggregated by namespace, so retain the affected
+        # Deployment explicitly rather than leaving the signal targetless.
+        deployment: api-server
       annotations:
         summary: >
           HTTP 403 responses detected for inbound requests in
@@ -29,6 +33,7 @@ spec:
       for: 30s
       labels:
         severity: critical
+        deployment: api-server
       annotations:
         summary: >
           Sustained HTTP 403 responses detected in

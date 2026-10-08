@@ -88,7 +88,7 @@ for _rr in $crash_rr_names; do
       -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
     [ "$_aa_phase" != "Completed" ] && continue
     _target=$(kubectl get aianalyses "${_aa}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
+      -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
     [ -z "$best_rr" ] && best_rr="$_rr"
     if [ "$_target" = "postgres" ] || [ "$_target" = "postgres-config" ]; then
         postgres_rr="$_rr"
@@ -107,13 +107,13 @@ aa_phase=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
 assert_eq "$aa_phase" "Completed" "AA phase"
 
 root_cause=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCause}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.summary}' 2>/dev/null || echo "")
 assert_neq "$root_cause" "" "AA root cause analysis present"
 
 rem_target_name=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
 rem_target_kind=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
 
 # Primary assertion: at least one crash-loop RR should target postgres (not canary-v2)
 if [ "$rem_target_name" = "postgres" ] || [ "$rem_target_name" = "postgres-config" ]; then

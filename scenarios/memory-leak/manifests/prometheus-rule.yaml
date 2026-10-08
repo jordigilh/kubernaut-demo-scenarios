@@ -11,17 +11,26 @@ spec:
     rules:
     - alert: ContainerMemoryExhaustionPredicted
       expr: |
-        predict_linear(
-          container_memory_working_set_bytes{
-            namespace="demo-telemetry"
-          }[5m], 1800
+        # Fleet Prometheus may scrape cAdvisor through both the kubelet and
+        # kubelet-cadvisor jobs. Aggregate duplicate scrape series before the
+        # namespace/pod/container comparison so the alert evaluates reliably
+        # in both single-cluster and Fleet monitoring setups.
+        max by (namespace, pod, container) (
+          predict_linear(
+            container_memory_working_set_bytes{
+              namespace="demo-telemetry",
+              container!=""
+            }[5m], 1800
+          )
         )
         >
         on(namespace, pod, container)
-        kube_pod_container_resource_limits{
-          namespace="demo-telemetry",
-          resource="memory"
-        }
+        max by (namespace, pod, container) (
+          kube_pod_container_resource_limits{
+            namespace="demo-telemetry",
+            resource="memory"
+          }
+        )
       for: 30s
       labels:
         severity: warning

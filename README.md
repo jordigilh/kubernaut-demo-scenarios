@@ -94,7 +94,7 @@ Run the demo setup script to install Gitea/ArgoCD as needed and seed the policie
 ./scripts/setup-demo-cluster.sh
 ```
 
-In fleet mode, the script targets the hub for all control-plane resources and keeps `gitea-repo-creds` off the spoke. The Kind GitOps setup also requires the Gitea push webhook to ArgoCD; setup fails if the hook cannot be created.
+In fleet mode, the script targets the hub for all control-plane resources and keeps `gitea-repo-creds` off the spoke. It installs the shared scenario dependencies on the spoke (cert-manager, metrics-server, and Istio for Kind) unless their `--skip-*` flags are used. The Kind GitOps setup also requires the Gitea push webhook to ArgoCD; setup fails if the hook cannot be created.
 
 > **Pre-release charts:** Chart version selection belongs to the upstream bootstrap target. Follow the upstream Kubernaut setup documentation for pinned versions.
 
@@ -411,7 +411,14 @@ export HUB_KUBECONFIG=~/tmp/hub.yaml     # cluster running the Kubernaut control
 export SPOKE_KUBECONFIG=~/tmp/spoke.yaml # cluster running the demo workload
 
 ./scenarios/crashloop/run.sh --fleet
+
+# Run, validate with the scenario's fleet validator, and clean up remotely
+./scripts/run-scenario.sh --fleet --scenario crashloop --auto-approve --cleanup
 ```
+
+In orchestrator mode, pipeline CRDs and Alertmanager checks stay on the hub while
+workload assertions and cleanup target the spoke. `--validate-only` selects the
+scenario's `fleet/validate.sh`; recording scripts remain single-cluster only.
 
 Most fleet-aware scenarios now run the **full remediation pipeline** on the hub, same as
 single-cluster mode -- `--auto-approve` (default) or `--interactive` drive it through to
@@ -445,9 +452,16 @@ Shadow agent verdicts are recorded in the audit trail and visible via `extract-a
 
 Every RemediationRequest produces a full audit trail in the DataStorage PostgreSQL backend — LLM turns, tool calls, workflow selection rationale, shadow agent alignment checks, and more. Use `extract-audit-trace.sh` to pull these traces for debugging, eval capture, or golden transcript generation.
 
+By default, the script uses the current `KUBECONFIG`. In fleet mode, set both
+`HUB_KUBECONFIG` and `SPOKE_KUBECONFIG` as described above and pass `--fleet`
+to explicitly read the audit database from the hub.
+
 ```bash
 # Full audit trail for a specific RR
 bash scripts/extract-audit-trace.sh rr-6f5490d9b422-be1a4d24
+
+# Latest investigation trace from the fleet hub
+bash scripts/extract-audit-trace.sh --fleet --latest --investigation
 
 # Just the AI investigation (LLM turns + tool calls)
 bash scripts/extract-audit-trace.sh --latest --investigation

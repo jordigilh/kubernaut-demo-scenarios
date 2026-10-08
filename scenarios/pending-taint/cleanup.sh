@@ -4,6 +4,21 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    TARGET_NODE=$(fleet_target_kubectl get nodes -l kubernaut.ai/workload-pool=true \
+        -o name 2>/dev/null | head -1 || true)
+    [ -z "${TARGET_NODE}" ] || fleet_target_kubectl taint nodes "${TARGET_NODE}" maintenance- 2>/dev/null || true
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-scheduler
+    purge_pipeline_crds
+    restart_alertmanager
+    restore_em || true
+    exit 0
+fi
+
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 

@@ -200,7 +200,7 @@ with open(f) as fh: content = fh.read()
 # (from previous broken runs where build output leaked into the file).
 # Match from 'bundle: ...' up to the next blank line or YAML key.
 content = re.sub(
-    r'(    bundle: ).*?(?=\n\n|\n    parameters:|\n    detectedLabels:|\n  parameters:|\Z)',
+    r'(    bundle: ).*?(?=\n\n|\n  [A-Za-z0-9_-]+:|\Z)',
     r'\g<1>' + new,
     content,
     flags=re.DOTALL

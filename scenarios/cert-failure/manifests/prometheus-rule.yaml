@@ -23,9 +23,9 @@ spec:
         namespace: demo-portal
       annotations:
         summary: >
-          Certificate {{ $labels.name }} in namespace {{ $labels.namespace }}
+          Certificate {{ $labels.name }} in namespace {{ $labels.exported_namespace }}
           is not ready.
         description: >
-          The demo-app-cert Certificate in namespace {{ $labels.namespace }}
+          The demo-app-cert Certificate in namespace {{ $labels.exported_namespace }}
           has been in a non-ready state for an extended period. TLS-protected
           service endpoints may be unavailable or degraded.

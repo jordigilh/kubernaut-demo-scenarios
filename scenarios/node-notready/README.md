@@ -19,6 +19,7 @@ existing workloads to healthy nodes.
 | Kind cluster | Multi-node with `kubernaut.ai/managed=true` label |
 | LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With kube-state-metrics |
+| Metrics API | metrics-server (required by the RCA's `kubectl_top_nodes` tool) |
 | Podman | Required to pause/unpause Kind node container |
 | Workflow catalog | `cordon-drain-v1` registered in DataStorage |
 
@@ -60,6 +61,21 @@ scoped permissions (created automatically when workflows are seeded via
 ```bash
 ./scenarios/node-notready/run.sh
 ```
+
+### Fleet mode
+
+Fleet mode pauses a worker container on the spoke and drives remediation from
+the hub. The spoke must expose the Kubernetes Metrics API:
+
+```bash
+HUB_KUBECONFIG=~/.kube/kubernaut-hub-config \
+SPOKE_KUBECONFIG=~/.kube/kubernaut-remote-cluster-config \
+./scenarios/node-notready/run.sh --fleet --auto-approve
+```
+
+Some kube-mcp-server versions cannot resolve cluster-scoped Node targets when
+the incoming alert also carries a workload namespace; such runs are preserved
+as upstream Fleet owner-resolution failures.
 
 ### `run.sh` flags
 

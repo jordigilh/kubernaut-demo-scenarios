@@ -39,6 +39,7 @@ predict_linear(container_memory_working_set_bytes[5m], 1800)
 | Cluster | Kind or OCP with Kubernaut services deployed |
 | LLM backend | Real LLM (not mock) via Kubernaut Agent |
 | Prometheus | With cAdvisor scraping and kube-state-metrics |
+| Metrics API | metrics-server (required by the RCA's `kubectl_top_pods` tool) |
 | Workflow catalog | `graceful-restart-v1` registered in DataStorage |
 | KA Prometheus | Auto-enabled by `run.sh`, reverted by `cleanup.sh` ([manual enablement](../../docs/prometheus-toolset.md)) |
 

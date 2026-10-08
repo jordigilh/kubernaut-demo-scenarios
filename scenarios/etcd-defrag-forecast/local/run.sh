@@ -76,12 +76,6 @@ if [ "${ETCD_LIVE_CLUSTER:-0}" = "1" ]; then
 else
 # Step 1: Deploy etcd cluster
 echo "==> Step 1: Deploying 3-member etcd cluster..."
-if [ "$(detect_platform)" = "kind" ] \
-    && kubectl get nodes -o jsonpath='{range .items[*]}{.status.nodeInfo.architecture}{"\n"}{end}' 2>/dev/null | grep -q '^arm64$'; then
-    echo "ERROR: the dedicated demo etcd image is amd64-only and cannot run on this arm64 kind cluster." >&2
-    echo "  Re-run with ETCD_LIVE_CLUSTER=1 to fragment the kind control-plane etcd instead." >&2
-    exit 1
-fi
 MANIFEST_DIR=$(get_manifest_dir "${SCRIPT_DIR}")
 kubectl apply -k "${MANIFEST_DIR}"
 

@@ -43,15 +43,15 @@ rr_name=$(get_rr_name "${APP_NS}")
 aa_name="ai-${rr_name}"
 
 root_cause=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCause}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.summary}' 2>/dev/null || echo "")
 assert_neq "$root_cause" "" "AA root cause analysis present"
 
 rem_target_name=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.name}' 2>/dev/null || echo "")
 rem_target_kind=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.kind}' 2>/dev/null || echo "")
 rem_target_ns=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.rootCauseAnalysis.remediationTarget.namespace}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.rcaResult.rootCauseAnalysis.remediationTarget.namespace}' 2>/dev/null || echo "")
 
 # Primary assertion: RCA target is postgres in the infrastructure namespace
 if [ "$rem_target_name" = "postgres" ] && [ "$rem_target_ns" = "${INFRA_NS}" ]; then

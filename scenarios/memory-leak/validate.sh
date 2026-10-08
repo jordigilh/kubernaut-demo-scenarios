@@ -61,10 +61,10 @@ if [ "$rr_phase" = "Failed" ] && [ "$human_reason" = "low_confidence" ]; then
     log_phase "RR failed due to low_confidence — valid production outcome"
 
     workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+      -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
     if [ -n "$workflow_id" ]; then
         bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-          -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+          -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
         assert_contains "$bundle" "graceful-restart-job" "AA selected correct workflow (low confidence)"
     fi
 
@@ -74,10 +74,10 @@ elif [ "$rr_phase" = "ManualReviewRequired" ]; then
     log_phase "RR escalated to ManualReviewRequired (low confidence) — valid outcome"
 
     workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+      -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
     if [ -n "$workflow_id" ]; then
         bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-          -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+          -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
         assert_contains "$bundle" "graceful-restart-job" "AA selected correct workflow (escalated)"
     fi
 
@@ -91,15 +91,15 @@ else
     assert_in "$rr_outcome" "RR outcome" "Remediated" "Inconclusive"
 
     workflow_id=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+      -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
     assert_neq "$workflow_id" "" "AA selected a workflow"
 
     bundle=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
+          -o jsonpath='{.status.rcaResult.selectedWorkflow.executionBundle}' 2>/dev/null || echo "")
     assert_contains "$bundle" "graceful-restart-job" "AA selected correct workflow"
 
     confidence=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-      -o jsonpath='{.status.selectedWorkflow.confidence}' 2>/dev/null || echo "0")
+      -o jsonpath='{.status.rcaResult.selectedWorkflow.confidence}' 2>/dev/null || echo "0")
     assert_neq "$confidence" "" "AA confidence present"
 
     wfe_phase=$(get_wfe_phase "${NAMESPACE}")

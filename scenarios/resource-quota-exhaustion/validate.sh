@@ -41,7 +41,7 @@ poll_pipeline "${NAMESPACE}" 600 "${APPROVE_MODE}" || true
 REMEDIATION_LOOPS=1
 
 first_outcome=$(kubectl get rr "${first_rr}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.completionStatus.outcome}' 2>/dev/null || echo "")
 
 if [ "$first_outcome" = "ManualReviewRequired" ]; then
     # Path A: LLM directly escalated (primary path in v1.2.0 with
@@ -83,11 +83,11 @@ log_phase "Running assertions..."
 log_info "Remediation loops: ${REMEDIATION_LOOPS} (decisive RR: ${DECISIVE_RR})"
 
 decisive_outcome=$(kubectl get rr "${DECISIVE_RR}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.completionStatus.outcome}' 2>/dev/null || echo "")
 assert_eq "$decisive_outcome" "ManualReviewRequired" "RR outcome"
 
 requires_review=$(kubectl get rr "${DECISIVE_RR}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.requiresManualReview}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.completionStatus.requiresManualReview}' 2>/dev/null || echo "")
 assert_eq "$requires_review" "true" "RR requiresManualReview"
 
 sp_name="sp-${DECISIVE_RR}"
@@ -97,11 +97,11 @@ assert_eq "$sp_phase" "Completed" "SP phase"
 
 aa_name="ai-${DECISIVE_RR}"
 aa_human=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.needsHumanReview}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.review.needsHumanReview}' 2>/dev/null || echo "")
 assert_eq "$aa_human" "true" "AA needsHumanReview"
 
 aa_reason=$(kubectl get aianalyses "${aa_name}" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.humanReviewReason}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.review.humanReviewReason}' 2>/dev/null || echo "")
 assert_in "$aa_reason" "AA humanReviewReason" "no_matching_workflows" "llm_parsing_error"
 
 # Quota should still be exhausted: at least one RS has desired > ready

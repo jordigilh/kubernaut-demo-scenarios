@@ -40,10 +40,10 @@ aa_name="ai-${rr_name}"
 rr_phase=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.overallPhase}' 2>/dev/null || echo "")
 rr_outcome=$(kubectl get rr "$rr_name" -n "${PLATFORM_NS}" \
-  -o jsonpath='{.status.outcome}' 2>/dev/null || echo "")
+  -o jsonpath='{.status.completionStatus.outcome}' 2>/dev/null || echo "")
 
 aa_workflow_id=$(kubectl get aianalyses "${aa_name}" \
-  -n "${PLATFORM_NS}" -o jsonpath='{.status.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
+  -n "${PLATFORM_NS}" -o jsonpath='{.status.rcaResult.selectedWorkflow.workflowId}' 2>/dev/null || echo "")
 
 sp_phase=$(kubectl get signalprocessings "sp-${rr_name}" -n "${PLATFORM_NS}" \
   -o jsonpath='{.status.phase}' 2>/dev/null || echo "")

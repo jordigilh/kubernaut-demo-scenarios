@@ -4,6 +4,33 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=../../scripts/fleet-helper.sh
+source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
+if fleet_initialize_targeting "$@"; then
+    # shellcheck source=../../scripts/platform-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+    WORKER_NODE=$(fleet_target_kubectl get nodes \
+        -l 'kubernaut.ai/managed=true,!node-role.kubernetes.io/control-plane' \
+        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    [ -z "${WORKER_NODE}" ] || podman unpause "${WORKER_NODE}" 2>/dev/null || true
+    [ -z "${WORKER_NODE}" ] || fleet_target_kubectl uncordon "${WORKER_NODE}" 2>/dev/null || true
+    fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" demo-compute
+    restore_production_approval || true
+    ORIGINAL_B64=$(kubectl --kubeconfig="${HUB_KUBECONFIG}" get configmap signalprocessing-policy \
+        -n "${PLATFORM_NS}" -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-policy-rego}' 2>/dev/null || true)
+    if [ -n "${ORIGINAL_B64}" ]; then
+        ORIGINAL_POLICY=$(printf '%s' "${ORIGINAL_B64}" | base64 -d)
+        kubectl --kubeconfig="${HUB_KUBECONFIG}" patch configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+            --type=merge -p "{\"data\":{\"policy.rego\":$(printf '%s' "${ORIGINAL_POLICY}" | jq -Rs .)}}" >/dev/null
+        kubectl --kubeconfig="${HUB_KUBECONFIG}" annotate configmap signalprocessing-policy -n "${PLATFORM_NS}" \
+            'kubernaut.ai/original-policy-rego-' >/dev/null 2>&1 || true
+        kubectl --kubeconfig="${HUB_KUBECONFIG}" rollout restart deployment/signalprocessing-controller -n "${PLATFORM_NS}" >/dev/null 2>&1 || true
+    fi
+    purge_pipeline_crds
+    restart_alertmanager
+    exit 0
+fi
+
 # shellcheck source=../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
 
