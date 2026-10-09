@@ -260,25 +260,26 @@ restart_alertmanager() {
         return 0
     fi
     echo "==> Restarting AlertManager to clear stale notification state..."
+    local monitoring_ns="${FLEET_MONITORING_NS:-monitoring}"
     local am_deployment
-    am_deployment=$(kubectl get deployment -n monitoring -l app=alertmanager \
+    am_deployment=$(kubectl get deployment -n "${monitoring_ns}" -l app=alertmanager \
         -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
     if [ -n "$am_deployment" ]; then
-        kubectl rollout restart "deployment/${am_deployment}" -n monitoring
-        kubectl rollout status "deployment/${am_deployment}" -n monitoring --timeout=60s
+        kubectl rollout restart "deployment/${am_deployment}" -n "${monitoring_ns}"
+        kubectl rollout status "deployment/${am_deployment}" -n "${monitoring_ns}" --timeout=60s
         return 0
     fi
 
     local am_statefulset
-    am_statefulset=$(kubectl get statefulset -n monitoring -l app=alertmanager \
+    am_statefulset=$(kubectl get statefulset -n "${monitoring_ns}" -l app=alertmanager \
         -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
     if [ -n "$am_statefulset" ]; then
-        kubectl rollout restart "statefulset/${am_statefulset}" -n monitoring
-        kubectl rollout status "statefulset/${am_statefulset}" -n monitoring --timeout=60s
+        kubectl rollout restart "statefulset/${am_statefulset}" -n "${monitoring_ns}"
+        kubectl rollout status "statefulset/${am_statefulset}" -n "${monitoring_ns}" --timeout=60s
         return 0
     fi
 
-    echo "  WARNING: no AlertManager Deployment or StatefulSet found in monitoring."
+    echo "  WARNING: no AlertManager Deployment or StatefulSet found in ${monitoring_ns}."
 }
 
 # Delete pipeline CRDs owned by the current scenario's RemediationRequest.
@@ -1519,6 +1520,71 @@ restore_gateway_deduplication_cooldown() {
     kubectl rollout restart deployment/gateway -n "${ns}" 2>/dev/null || true
     kubectl rollout status deployment/gateway -n "${ns}" --timeout=60s 2>/dev/null || true
     echo "  Gateway deduplication cooldown restored to original."
+}
+
+# Temporarily tune AlertManager's repeat interval for a scenario that keeps an
+# alert firing across remediation cycles. AlertManager normally repeats a
+# firing notification only hourly; a short run-scoped interval is needed to
+# deliver the continuing alert after the first RR becomes terminal without
+# clearing or reinjecting the workload stimulus.
+#
+# The original YAML is saved as an annotation so cleanup restores the exact
+# cluster-specific configuration. Idempotent: repeated configuration preserves
+# the first saved copy.
+configure_alertmanager_repeat_interval() {
+    local repeat_interval="${1:?usage: configure_alertmanager_repeat_interval <duration>}"
+    local ns="${FLEET_MONITORING_NS:-monitoring}"
+    local cm="${FLEET_ALERTMANAGER_CONFIGMAP:-alertmanager-config}"
+
+    local existing_b64
+    existing_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-alertmanager-config}' 2>/dev/null || echo "")
+
+    local current_yaml
+    current_yaml=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.data.alertmanager\.yml}')
+    [ -n "${current_yaml}" ] || {
+        echo "ERROR: AlertManager config ${cm} in ${ns} has no alertmanager.yml data." >&2
+        return 1
+    }
+
+    if [ -z "${existing_b64}" ]; then
+        kubectl annotate configmap "${cm}" -n "${ns}" \
+          "kubernaut.ai/original-alertmanager-config=$(echo "${current_yaml}" | base64 | tr -d '\n')" --overwrite
+    fi
+
+    local patched
+    patched=$(python3 -c '
+import sys, yaml
+data = yaml.safe_load(sys.stdin.read()) or {}
+data.setdefault("route", {})["repeat_interval"] = sys.argv[1]
+print(yaml.dump(data, default_flow_style=False), end="")
+' "${repeat_interval}" <<< "${current_yaml}")
+
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"alertmanager.yml\":$(echo "${patched}" | jq -Rs .)}}"
+    restart_alertmanager
+    echo "  AlertManager configured: route.repeat_interval=${repeat_interval}"
+}
+
+restore_alertmanager_repeat_interval() {
+    local ns="${FLEET_MONITORING_NS:-monitoring}"
+    local cm="${FLEET_ALERTMANAGER_CONFIGMAP:-alertmanager-config}"
+    local saved_b64
+    saved_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-alertmanager-config}' 2>/dev/null || echo "")
+    if [ -z "${saved_b64}" ]; then
+        return 0
+    fi
+
+    local original
+    original=$(echo "${saved_b64}" | base64 -d)
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"alertmanager.yml\":$(echo "${original}" | jq -Rs .)}}"
+    kubectl annotate configmap "${cm}" -n "${ns}" \
+      "kubernaut.ai/original-alertmanager-config-" 2>/dev/null || true
+    restart_alertmanager || true
+    echo "  AlertManager repeat interval restored to original."
 }
 
 # Temporarily tune RemediationOrchestrator timing for a scenario that uses a
