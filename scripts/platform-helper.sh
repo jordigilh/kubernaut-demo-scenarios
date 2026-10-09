@@ -1460,6 +1460,67 @@ restore_em() {
     echo "  EM configuration restored to original."
 }
 
+# Temporarily tune Gateway's same-fingerprint post-completion cooldown for a
+# scenario that deliberately keeps an alert firing across remediation cycles.
+# A zero duration disables only the post-completion cooldown; Gateway still
+# requires a new signal delivery and still deduplicates an active RR.
+#
+# The original YAML is saved as an annotation so cleanup can restore the
+# cluster-specific configuration exactly.
+configure_gateway_deduplication_cooldown() {
+    local cooldown="${1:?usage: configure_gateway_deduplication_cooldown <duration>}"
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="gateway-config"
+
+    local existing_b64
+    existing_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-gateway-config}' 2>/dev/null || echo "")
+
+    local current_yaml
+    current_yaml=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.data.config\.yaml}')
+
+    if [ -z "${existing_b64}" ]; then
+        kubectl annotate configmap "${cm}" -n "${ns}" \
+          "kubernaut.ai/original-gateway-config=$(echo "${current_yaml}" | base64 | tr -d '\n')" --overwrite
+    fi
+
+    local patched
+    patched=$(python3 -c '
+import sys, yaml
+data = yaml.safe_load(sys.stdin.read()) or {}
+data.setdefault("processing", {}).setdefault("deduplication", {})["cooldownPeriod"] = sys.argv[1]
+print(yaml.dump(data, default_flow_style=False), end="")
+' "${cooldown}" <<< "${current_yaml}")
+
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"config.yaml\":$(echo "${patched}" | jq -Rs .)}}"
+    kubectl rollout restart deployment/gateway -n "${ns}"
+    kubectl rollout status deployment/gateway -n "${ns}" --timeout=60s
+    echo "  Gateway configured: processing.deduplication.cooldownPeriod=${cooldown}"
+}
+
+restore_gateway_deduplication_cooldown() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="gateway-config"
+    local saved_b64
+    saved_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-gateway-config}' 2>/dev/null || echo "")
+    if [ -z "${saved_b64}" ]; then
+        return 0
+    fi
+
+    local original
+    original=$(echo "${saved_b64}" | base64 -d)
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"config.yaml\":$(echo "${original}" | jq -Rs .)}}"
+    kubectl annotate configmap "${cm}" -n "${ns}" \
+      "kubernaut.ai/original-gateway-config-" 2>/dev/null || true
+    kubectl rollout restart deployment/gateway -n "${ns}" 2>/dev/null || true
+    kubectl rollout status deployment/gateway -n "${ns}" --timeout=60s 2>/dev/null || true
+    echo "  Gateway deduplication cooldown restored to original."
+}
+
 # Temporarily tune RemediationOrchestrator timing for a scenario that uses a
 # webhook-backed GitOps controller. The complete original ConfigMap is saved so
 # cleanup restores any cluster-specific configuration.

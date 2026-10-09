@@ -90,6 +90,7 @@ if fleet_initialize_targeting "$@"; then
         if [ -n "${_cleanup_pf_pid}" ]; then
             kill "${_cleanup_pf_pid}" 2>/dev/null || true
         fi
+        restore_gateway_deduplication_cooldown || true
         restore_ro_gitops_sync_delay || true
         restore_production_approval || true
     }
@@ -118,6 +119,7 @@ if fleet_initialize_targeting "$@"; then
         _cleanup_pf_pid=""
     fi
 
+    restore_gateway_deduplication_cooldown || true
     restore_ro_gitops_sync_delay || true
     restore_production_approval || true
     delete_flood_configmaps
@@ -144,6 +146,7 @@ else
 fi
 delete_flood_configmaps
 kubectl delete namespace demo-controllers --ignore-not-found --wait=false
+restore_gateway_deduplication_cooldown || true
 restore_ro_gitops_sync_delay || true
 
 echo "==> Waiting for namespace deletion to complete..."

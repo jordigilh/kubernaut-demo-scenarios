@@ -18,8 +18,8 @@ configured spoke while the Kubernaut control plane remains on the hub.
 |---|---|
 | **Signal** | `KubePodCrashLooping` -- operator pod OOMKilled by informer cache overflow |
 | **Root cause** | Unfiltered `ByObject` ConfigMap cache in `controller-runtime` (CVE: kubeflow/spark-operator#2878) |
-| **Attack vector** | 100 ConfigMaps at ~1MB each (~100MB raw, 300-500MB after Go struct deserialization overhead, exceeds 128Mi limit) |
-| **Fleet remediation** | `increase-memory-limits-gitops-v1` -- opens a reviewed forward-change PR on the hub, adds a fixed 128Mi to the limit, and waits for a human merge |
+| **Attack vector** | 300 ConfigMaps at ~1MB each (~300MB raw, approximately 900-1500MB after Go struct deserialization overhead, exceeds both 128Mi and 256Mi limits) |
+| **Fleet remediation** | `increase-memory-limits-gitops-v1` -- opens a reviewed forward-change PR on the hub, adds a fixed 128Mi to the limit, and waits for a human merge; the first increase is intentionally ineffective |
 | **Local remediation** | Generic `increase-memory-limits-v1` direct Job workflow (the local path has no Argo CD Application) |
 
 ## The Vulnerability
@@ -42,17 +42,18 @@ it caches every ConfigMap in scope. The empty `{}` configuration directs the inf
 perform a full `LIST` and persistent `WATCH` on all ConfigMaps, deserializing each into a
 typed Go struct (`corev1.ConfigMap`) with map headers, string headers, and pointer indirection.
 
-An attacker creates 100 ConfigMaps at ~1MB each (the Kubernetes maximum). The informer caches
-~100MB of raw data, but Go struct deserialization adds 3-5x overhead (map headers, string
-headers, pointer indirection), pushing the in-memory footprint to 300-500MB. This exceeds the
-128Mi memory limit. The operator OOMKills, restarts, attempts to re-list everything, and
-crashes again -- entering CrashLoopBackOff.
+An attacker creates 300 ConfigMaps at ~1MB each (the Kubernetes maximum per object). The informer
+caches ~300MB of raw data, but Go struct deserialization adds 3-5x overhead (map headers, string
+headers, pointer indirection), pushing the in-memory footprint to roughly 900-1500MB. This
+exceeds both the initial 128Mi memory limit and the workflow's deliberately fixed 256Mi first
+remediation target. The operator OOMKills, restarts, attempts to re-list everything, and crashes
+again -- entering CrashLoopBackOff.
 
 ## Signal Flow
 
 ```
-inject-configmap-flood.sh creates 100 x 1MB ConfigMaps
-  -> operator informer caches all into Go structs (~100MB raw, 300-500MB with overhead)
+inject-configmap-flood.sh creates 300 x 1MB ConfigMaps
+  -> operator informer caches all into Go structs (~300MB raw, roughly 900-1500MB with overhead)
   -> exceeds 128Mi memory limit -> OOMKill -> CrashLoopBackOff
   -> KubePodCrashLooping alert fires (1m for clause)
   -> Kubernaut pipeline:
@@ -66,11 +67,12 @@ inject-configmap-flood.sh creates 100 x 1MB ConfigMaps
        WFE Job on hub: creates a forward branch + PR; it never patches the spoke
        human reviewer approves and merges the protected-main PR
        Argo CD applies the merged revision to the spoke
-       EM: independently verifies operator health, alerts, metrics, and spec hash
-   -> retained flood is expanded for a bounded observation window so the
-      platform can evaluate recurrence and remediation durability
-      -> the workflow itself remains RR-agnostic and performs the same fixed
-         +128Mi forward change whenever platform routing invokes it
+        EM: independently verifies operator health, alerts, metrics, and spec hash
+        -> alert and health evidence show the +128Mi change was ineffective
+    -> Gateway's post-completion same-alert cooldown is set to 0 for the rehearsal
+       -> the still-firing alert creates a second RR without clearing or reinjecting the flood
+    -> platform remediation history/routing escalates the second RR to ManualReviewRequired
+       -> no second WFE, RAR, PR, or memory increase is created
 ```
 
 ## Prerequisites
@@ -87,13 +89,10 @@ The demo operator exposes controller-runtime metrics on port `8080`; the scenari
 deploys a Service and ServiceMonitor for that endpoint. Pod CPU and memory usage
 come from kubelet/cAdvisor (Prometheus) and the Kubernetes Metrics API (`kubectl top`),
 not from the operator's own `/metrics` endpoint. In fleet mode, metrics-server must
-be available on the spoke where the workload runs. During recurrence, the flood
-script reads the live Deployment memory limit and automatically adds enough retained
-ConfigMaps to target approximately 75% of that limit in raw payload using the conservative
-3x informer overhead estimate, leaving room for the next fixed `+128Mi` increment to
-recover. Set `RECURRENCE_FLOOD_COUNT` to a positive integer to override the automatic
-sizing. `RECURRENCE_OBSERVATION_CYCLES` only bounds how long the rehearsal observes
-recurrence; it is not a remediation retry or handoff threshold.
+be available on the spoke where the workload runs. Fleet mode uses a deterministic
+300-object flood rather than live-limit auto-sizing: the initial load must remain over
+the 256Mi limit after the first fixed `+128Mi` remediation so Effectiveness Monitor can
+record a genuine ineffective attempt.
 
 ## Running the Scenario
 
@@ -138,19 +137,21 @@ repository credential; the spoke never receives that Secret. `--interactive` req
 both an explicit RAR approval and a separate human PR review/merge. The Job remains
 Running until it observes the merge; it does not approve, merge, push `main`, or patch
 the live Deployment. Validation waits for the merged Argo revision, independent
-effectiveness assessment, retained stimulus evidence, and recurrence history. A
-recurrence or human-handoff decision belongs to platform routing/history, not to
-the workflow Job.
+effectiveness assessment, retained stimulus evidence, and a second RR created from
+the continuing alert. The human-handoff decision belongs to platform routing/history,
+not to the workflow Job.
 
 Fleet mode temporarily sets the Remediation Orchestrator's
 `asyncPropagation.gitOpsSyncDelay` to `10s` and
 `effectivenessAssessment.stabilizationWindow` to `30s`. The Gitea push webhook triggers
 Argo CD reconciliation immediately, so a longer polling-oriented delay is unnecessary;
 the shorter stabilization window keeps this demo verification quick while retaining
-independent health, alert, metrics, and spec-hash assessment. `cleanup.sh` restores the
-original RO configuration. Set `GITOPS_SYNC_DELAY` or
-`EFFECTIVENESS_STABILIZATION_WINDOW` only when the environment needs different
-run-scoped values.
+independent health, alert, metrics, and spec-hash assessment. Fleet mode also temporarily
+sets Gateway's `processing.deduplication.cooldownPeriod` to `0s`, allowing a fresh delivery
+for the still-firing alert after the first RR completes; `cleanup.sh` restores both the
+Gateway and RO configurations. Set `GITOPS_SYNC_DELAY`,
+`EFFECTIVENESS_STABILIZATION_WINDOW`, or `GATEWAY_DEDUP_COOLDOWN` only when the environment
+needs different run-scoped values.
 
 ### Reviewing the GitOps PR
 
@@ -215,9 +216,12 @@ Stop the port-forward with `Ctrl-C` after the review is complete. Kind uses port
 - [ ] The Job opens a forward-change PR and waits; it never merges, pushes protected `main`, or patches the live Deployment
 - [ ] A human reviewer approves and manually merges the PR
 - [ ] Argo CD applies the merged revision and the spoke Deployment memory limit increases while requests remain unchanged
-- [ ] Effectiveness assessment completes with independent health, alert, metric, and hash evidence while the flood remains
-- [ ] Remediation history exposes every prior remediation linked through the target's chained pre/post spec hashes, not only the latest direct hash match
-- [ ] Controlled recurrence scales the retained object population from the live memory limit without a workflow-side recurrence ceiling or scripted model outcome
+- [ ] Effectiveness assessment completes with independent health, alert, metric, and hash evidence while the 300-object flood remains
+- [ ] The first EA is genuinely ineffective because alert or health evidence fails; a metrics-only zero is insufficient
+- [ ] Gateway cooldown is temporarily `0s`, and the still-firing alert creates a second RR without clearing or reinjecting ConfigMaps
+- [ ] The second RR exposes the failed remediation history to platform routing and reaches `ManualReviewRequired`
+- [ ] The second RR creates no WFE, RAR, Gitea PR, or additional memory increase
+- [ ] The workflow Job remains RR-agnostic; recurrence and escalation are not scripted workflow outcomes
 
 ## BDD Specification
 
@@ -229,7 +233,7 @@ Feature: Operator OOMKill remediation from informer cache flooding
       And the operator has an unfiltered ConfigMap informer cache
       And the operator has a 128Mi memory limit
 
-    When 100 ConfigMaps at ~1MB each are created in the namespace
+    When 300 ConfigMaps at ~1MB each are created in the namespace
       And the informer deserializes all ConfigMaps into Go structs (3-5x overhead)
       And the in-memory cache exceeds 128Mi
       And the operator is OOMKilled and enters CrashLoopBackOff
@@ -243,8 +247,13 @@ Feature: Operator OOMKill remediation from informer cache flooding
       And the workflow opens a pull request without patching the live Deployment
       And a human reviewer approves and merges the protected-main pull request
       And Argo CD applies the merged desired-state revision to the spoke
-      And the operator recovers and stabilizes
-      And Effectiveness Monitor confirms healthScore=1 while the stimulus remains
+       And the operator receives exactly one reviewed +128Mi GitOps increase to 256Mi
+       And the ConfigMap flood remains present and the alert remains firing
+       And Effectiveness Monitor records alert or health failure for the first EA
+       And Gateway cooldown is 0s for this rehearsal
+       And the continuing alert creates a second RemediationRequest
+       And platform history/routing escalates the second RemediationRequest to ManualReviewRequired
+       And the second RemediationRequest creates no WorkflowExecution or pull request
 ```
 
 ## References

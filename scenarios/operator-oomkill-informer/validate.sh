@@ -2,8 +2,9 @@
 # Validate the GitOps-managed operator OOM closed loop (#446).
 #
 # Fleet mode validates one successful, human-gated PR remediation while the
-# ConfigMap stimulus remains present, then observes a bounded number of
-# recurrence cycles so the platform can expose the linked remediation history.
+# ConfigMap stimulus remains present, then waits for the still-firing alert to
+# create a second RR. The first +128Mi change is intentionally insufficient;
+# platform history/routing must escalate the second RR without another WFE.
 # The workflow Job is deliberately RR-agnostic: this validator must not require
 # it to decide recurrence or emit a human handoff.
 set -euo pipefail
@@ -30,11 +31,12 @@ done
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
 PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${FLEET_MODE:-false}" = true ] && echo 1800 || echo 720)}"
-INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-100}"
-RECURRENCE_ENABLED="${RECURRENCE_ENABLED:-true}"
-RECURRENCE_OBSERVATION_CYCLES="${RECURRENCE_OBSERVATION_CYCLES:-3}"
-RECURRENCE_FLOOD_COUNT="${RECURRENCE_FLOOD_COUNT:-auto}"
-ALERT_CLEAR_TIMEOUT="${ALERT_CLEAR_TIMEOUT:-600}"
+if [ "${FLEET_MODE:-false}" = true ]; then
+    INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-300}"
+else
+    INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-100}"
+fi
+SECOND_RR_TIMEOUT="${SECOND_RR_TIMEOUT:-600}"
 GITEA_REPO="${OPERATOR_GITOPS_REPO:-demo-operator-oomkill-repo}"
 GITEA_USER="${GITEA_ADMIN_USER:-kubernaut}"
 GITEA_PASS="${GITEA_ADMIN_PASS:-kubernaut123}"
@@ -63,6 +65,18 @@ gitea_get_json() {
     curl -sS -u "${GITEA_USER}:${GITEA_PASS}" \
         -o "${output}" -w '%{http_code}' \
         "http://localhost:${GITEA_LOCAL_PORT}/api/v1${path}" || true
+}
+
+gitea_pull_count() {
+    local output="$1" code
+    code=$(gitea_get_json \
+        "/repos/${GITEA_USER}/${GITEA_REPO}/pulls?state=all&limit=50" "${output}")
+    GITEA_PULL_COUNT_CODE="${code}"
+    if [ "${code}" = "200" ]; then
+        jq 'length' "${output}"
+    else
+        printf '%s\n' "-1"
+    fi
 }
 
 cleanup_validation_artifacts() {
@@ -108,17 +122,8 @@ validate_positive_integer() {
     }
 }
 
-validate_flood_count() {
-    local variable_name="$1" value="$2"
-    if [ "${value}" = "auto" ]; then
-        return 0
-    fi
-    validate_positive_integer "${variable_name}" "${value}"
-}
-
 validate_positive_integer INITIAL_FLOOD_COUNT "${INITIAL_FLOOD_COUNT}"
-validate_positive_integer RECURRENCE_OBSERVATION_CYCLES "${RECURRENCE_OBSERVATION_CYCLES}"
-validate_flood_count RECURRENCE_FLOOD_COUNT "${RECURRENCE_FLOOD_COUNT}"
+validate_positive_integer SECOND_RR_TIMEOUT "${SECOND_RR_TIMEOUT}"
 
 jsonpath_or_empty() {
     local resource="$1" name="$2" namespace="$3" path="$4"
@@ -220,9 +225,6 @@ if [ "${FLEET_MODE:-false}" != true ]; then
     exit $?
 fi
 
-# Alertmanager keeps a firing alert until the spoke signal has decayed. A new
-# RR must be observed after that decay; otherwise Gateway deduplication can
-# make a recurrence look like a second pass through the first RR.
 fleet_alert_present() {
     local alert_name="$1" namespace="$2" cluster="$3" pod alerts active_pods
     pod=$(command kubectl --kubeconfig="${HUB_KUBECONFIG}" get pods -n "${FLEET_MONITORING_NS:-monitoring}" \
@@ -255,30 +257,6 @@ raise SystemExit(1)
 ' "${alert_name}" "${namespace}" "${cluster}" "${active_pods}"
 }
 
-wait_for_fleet_alert_clear() {
-    if [ "${FLEET_MODE:-false}" != true ]; then
-        sleep "${ALERT_CLEAR_TIMEOUT}"
-        return 0
-    fi
-    local cluster="${SPOKE_CLUSTER_LABEL:-${FLEET_CLUSTER_ID:-remote-cluster}}"
-    local elapsed=0
-    while [ "${elapsed}" -lt "${ALERT_CLEAR_TIMEOUT}" ]; do
-        if fleet_alert_present "KubePodCrashLooping" "${NAMESPACE}" "${cluster}"; then
-            :
-        else
-            local probe_rc=$?
-            if [ "${probe_rc}" -eq 1 ]; then
-                return 0
-            fi
-            echo "WARNING: unable to query hub Alertmanager while waiting for alert decay; retrying." >&2
-        fi
-        sleep 5
-        elapsed=$((elapsed + 5))
-    done
-    echo "WARNING: alert did not clear within ${ALERT_CLEAR_TIMEOUT}s; continuing so Gateway can prove whether it deduplicates the recurrence." >&2
-    return 1
-}
-
 wait_for_new_rr() {
     local previous_rr="$1" previous_created_at="$2" timeout="${3:-300}"
     local elapsed=0 candidate
@@ -297,6 +275,29 @@ wait_for_new_rr() {
         elapsed=$((elapsed + 5))
     done
     return 1
+}
+
+workflow_execution_exists_for_rr() {
+    local rr_name="$1"
+    kubectl get workflowexecution "we-${rr_name}" -n "${PLATFORM_NS}" &>/dev/null
+}
+
+approval_request_exists_for_rr() {
+    local rr_name="$1"
+    kubectl get remediationapprovalrequest "rar-${rr_name}" -n "${PLATFORM_NS}" &>/dev/null
+}
+
+is_zero_score() {
+    case "${1:-}" in
+        0|0.0|0.00|0.000) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+platform_escalation_evidence() {
+    local text="$*"
+    printf '%s' "${text}" | grep -Eiq \
+        'ineffective|consecutive.?fail|repeated|operator.?escalat|manual.?review|remediation.?history'
 }
 
 history_chain_metrics_from_audit() {
@@ -411,6 +412,7 @@ MERGED_SHA=$(printf '%s\n' "${JOB_LOG}" | sed -n 's/^PR_MERGED_COMMIT_SHA=//p' |
 PR_NUMBER=$(printf '%s\n' "${JOB_LOG}" | sed -n 's/^FORWARD_CHANGE_PR_NUMBER=//p' | tail -1)
 PR_URL=$(printf '%s\n' "${JOB_LOG}" | sed -n 's/^FORWARD_CHANGE_PR_URL=//p' | tail -1)
 PR_MERGED_BY=$(printf '%s\n' "${JOB_LOG}" | sed -n 's/^PR_MERGED_BY=//p' | tail -1)
+FIRST_PR_COUNT=0
 assert_neq "${MERGED_SHA}" "" "merged PR commit SHA recorded"
 assert_neq "${PR_NUMBER}" "" "PR number recorded"
 assert_neq "${PR_URL}" "" "PR URL recorded"
@@ -423,10 +425,14 @@ if [ "${FLEET_MODE:-false}" = true ] && [ -n "${PR_NUMBER}" ]; then
     GITEA_JSON_DIR=$(mktemp -d)
     PROTECTION_FILE="${GITEA_JSON_DIR}/protection.json"
     REVIEWS_FILE="${GITEA_JSON_DIR}/reviews.json"
+    PULLS_FILE="${GITEA_JSON_DIR}/pulls.json"
     PROTECTION_CODE=$(gitea_get_json "/repos/${GITEA_USER}/${GITEA_REPO}/branch_protections/main" "${PROTECTION_FILE}")
     REVIEWS_CODE=$(gitea_get_json "/repos/${GITEA_USER}/${GITEA_REPO}/pulls/${PR_NUMBER}/reviews" "${REVIEWS_FILE}")
+    gitea_pull_count "${PULLS_FILE}" >/dev/null
+    FIRST_PR_COUNT=$(jq 'length' "${PULLS_FILE}" 2>/dev/null || echo "-1")
     assert_eq "${PROTECTION_CODE}" "200" "Gitea main branch protection API response"
     assert_eq "${REVIEWS_CODE}" "200" "Gitea PR reviews API response"
+    assert_eq "${GITEA_PULL_COUNT_CODE}" "200" "Gitea pull-request listing API response"
     # jq's `//` treats boolean false as absent; preserve the explicit false
     # returned by Gitea for protected-main direct pushes.
     PROTECTED_PUSH=$(jq -r 'if has("enable_push") then .enable_push else empty end' \
@@ -440,6 +446,7 @@ if [ "${FLEET_MODE:-false}" = true ] && [ -n "${PR_NUMBER}" ]; then
     assert_gt "${REQUIRED_APPROVALS}" "0" "Gitea requires a PR approval"
     assert_eq "${ADMIN_OVERRIDE}" "true" "Gitea blocks administrator merge override"
     assert_gt "${HUMAN_APPROVALS}" "0" "independent human reviewer approved the PR"
+    assert_gt "${FIRST_PR_COUNT}" "0" "first remediation created a Gitea pull request"
     rm -rf "${GITEA_JSON_DIR}"
     cleanup_gitea_port_forward
 fi
@@ -468,6 +475,13 @@ EA_HEALTH_ASSESSED=$(jsonpath_or_empty effectivenessassessments "ea-${FIRST_RR}"
 EA_ALERT_ASSESSED=$(jsonpath_or_empty effectivenessassessments "ea-${FIRST_RR}" "${PLATFORM_NS}" '{.status.components.alertAssessed}')
 EA_METRICS_ASSESSED=$(jsonpath_or_empty effectivenessassessments "ea-${FIRST_RR}" "${PLATFORM_NS}" '{.status.components.metricsAssessed}')
 EA_REASON=$(jsonpath_or_empty effectivenessassessments "ea-${FIRST_RR}" "${PLATFORM_NS}" '{.status.assessmentReason}')
+FIRST_ALERT_ACTIVE=false
+if [ "${FLEET_MODE:-false}" = true ]; then
+    _first_alert_cluster="${SPOKE_CLUSTER_LABEL:-${FLEET_CLUSTER_ID:-remote-cluster}}"
+    if fleet_alert_present "KubePodCrashLooping" "${NAMESPACE}" "${_first_alert_cluster}"; then
+        FIRST_ALERT_ACTIVE=true
+    fi
+fi
 
 assert_eq "${APPLIED_LIMIT}" "256Mi" "spoke Deployment memory limit increased by exactly 128Mi"
 assert_eq "${APPLIED_REQUEST}" "32Mi" "spoke Deployment memory request preserved"
@@ -483,87 +497,104 @@ assert_neq "${EA_HEALTH}" "NaN" "first effectiveness health score is numeric"
 assert_neq "${EA_ALERT}" "" "first effectiveness alert score recorded"
 assert_neq "${EA_REASON}" "" "effectiveness assessment reason recorded"
 
-if [ "${FLEET_MODE:-false}" = true ] && [ "${RECURRENCE_ENABLED}" = true ]; then
-    log_phase "Beginning controlled recurrence; the initial ConfigMaps remain present."
-    next_start=$((INITIAL_FLOOD_COUNT + 1))
-    for cycle in $(seq 2 "${RECURRENCE_OBSERVATION_CYCLES}"); do
-        echo "==> Recurrence cycle ${cycle}: waiting for the previous alert to clear..."
-        wait_for_fleet_alert_clear || true
-        PREVIOUS_RR_CREATED_AT=$(jsonpath_or_empty remediationrequests "${VALIDATION_RR_NAME}" "${PLATFORM_NS}" '{.metadata.creationTimestamp}')
-        echo "==> Recurrence cycle ${cycle}: adding ${RECURRENCE_FLOOD_COUNT} more ConfigMaps."
-        NAMESPACE="${NAMESPACE}" CONFIGMAP_COUNT="${RECURRENCE_FLOOD_COUNT}" \
-            TARGET_DEPLOYMENT=demo-controllers-controller \
-            CONFIGMAP_START="${next_start}" CONFIGMAP_PREFIX=app-config KUBECONFIG="${SPOKE_KUBECONFIG}" \
-            bash "${SCRIPT_DIR}/inject-configmap-flood.sh"
-        next_start=$(( $(configmap_flood_count) + 1 ))
-        fleet_wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 480
-        previous_rr="${VALIDATION_RR_NAME}"
-        SECOND_RR=$(wait_for_new_rr "${previous_rr}" "${PREVIOUS_RR_CREATED_AT}" 600 || true)
-        if [ -z "${SECOND_RR}" ]; then
-            echo "ERROR: recurrence alert fired but no new RR was observed; refusing to call this history-informed." >&2
-            assert_neq "${SECOND_RR}" "" "new RR created for recurrence"
-            break
-        fi
+if [ "${FLEET_MODE:-false}" = true ]; then
+    assert_eq "${FIRST_ALERT_ACTIVE}" "true" "first EA completed while KubePodCrashLooping remained active"
+    if is_zero_score "${EA_ALERT}"; then
+        FIRST_EA_FAILURE_EVIDENCE="alertScore=${EA_ALERT}"
+    elif is_zero_score "${EA_HEALTH}"; then
+        FIRST_EA_FAILURE_EVIDENCE="healthScore=${EA_HEALTH}"
+    else
+        FIRST_EA_FAILURE_EVIDENCE=""
+    fi
+    assert_neq "${FIRST_EA_FAILURE_EVIDENCE}" "" \
+        "first EA has alert/health failure evidence (not metrics-only)"
+
+    log_phase "Waiting for the continuing alert to create a second RR; no stimulus reset or reinjection will occur."
+    PREVIOUS_RR_CREATED_AT=$(jsonpath_or_empty remediationrequests "${FIRST_RR}" "${PLATFORM_NS}" '{.metadata.creationTimestamp}')
+    SECOND_RR=$(wait_for_new_rr "${FIRST_RR}" "${PREVIOUS_RR_CREATED_AT}" "${SECOND_RR_TIMEOUT}" || true)
+    assert_neq "${SECOND_RR}" "" "second RR created from the continuing alert"
+
+    if [ -n "${SECOND_RR}" ]; then
         export VALIDATION_RR_NAME="${SECOND_RR}"
         JOB_LOG=""
         export ON_VERIFYING_HOOK=capture_workflow_job_log
-        cycle_rc=0
-        poll_pipeline "${NAMESPACE}" "${PIPELINE_TIMEOUT}" "${APPROVE_MODE}" || cycle_rc=$?
-        cycle_phase=$(get_rr_phase "${NAMESPACE}")
-        cycle_outcome=$(get_rr_outcome "${NAMESPACE}")
-        cycle_aa="ai-${SECOND_RR}"
-        cycle_reason=$(jsonpath_or_empty aianalyses "${cycle_aa}" "${PLATFORM_NS}" '{.status.review.humanReviewReason}')
-        cycle_subreason=$(jsonpath_or_empty aianalyses "${cycle_aa}" "${PLATFORM_NS}" '{.status.subReason}')
-        cycle_requires_review=$(jsonpath_or_empty remediationrequests "${SECOND_RR}" "${PLATFORM_NS}" '{.status.completionStatus.requiresManualReview}')
-        cycle_block_reason=$(jsonpath_or_empty remediationrequests "${SECOND_RR}" "${PLATFORM_NS}" '{.status.routingStatus.blockReason}')
-        retained_now=$(configmap_flood_count)
-        echo "  Recurrence RR=${SECOND_RR} phase=${cycle_phase} outcome=${cycle_outcome} reason=${cycle_reason:-${cycle_subreason:-${cycle_block_reason:-none}}} retainedConfigMaps=${retained_now}"
-        assert_gt "${retained_now}" "$((INITIAL_FLOOD_COUNT - 1))" "stimulus retained through recurrence cycle ${cycle}"
+        SECOND_POLL_RC=0
+        poll_pipeline "${NAMESPACE}" "${PIPELINE_TIMEOUT}" "${APPROVE_MODE}" || SECOND_POLL_RC=$?
 
-        # The workflow must not decide recurrence. A stale image containing the
-        # old scenario guard is a contract failure, even if RO later classifies
-        # the RR as failed or requiring review.
-        JOB_LOG=""
-        capture_workflow_job_log
-        workflow_handoff_marker=$(printf '%s\n' "${JOB_LOG}" | grep -F 'HUMAN_HANDOFF_REQUIRED=' || true)
-        assert_eq "${workflow_handoff_marker}" "" "workflow Job remains RR-agnostic at recurrence cycle ${cycle}"
+        SECOND_PHASE=$(get_rr_phase "${NAMESPACE}")
+        SECOND_OUTCOME=$(get_rr_outcome "${NAMESPACE}")
+        SECOND_AA="ai-${SECOND_RR}"
+        SECOND_AA_PHASE=$(jsonpath_or_empty aianalyses "${SECOND_AA}" "${PLATFORM_NS}" '{.status.phase}')
+        SECOND_AA_WORKFLOW=$(jsonpath_or_empty aianalyses "${SECOND_AA}" "${PLATFORM_NS}" '{.status.rcaResult.selectedWorkflow.workflowId}')
+        SECOND_AA_REASON=$(jsonpath_or_empty aianalyses "${SECOND_AA}" "${PLATFORM_NS}" '{.status.review.humanReviewReason}')
+        SECOND_AA_SUBREASON=$(jsonpath_or_empty aianalyses "${SECOND_AA}" "${PLATFORM_NS}" '{.status.subReason}')
+        SECOND_REQUIRES_REVIEW=$(jsonpath_or_empty remediationrequests "${SECOND_RR}" "${PLATFORM_NS}" '{.status.completionStatus.requiresManualReview}')
+        SECOND_BLOCK_REASON=$(jsonpath_or_empty remediationrequests "${SECOND_RR}" "${PLATFORM_NS}" '{.status.routingStatus.blockReason}')
+        SECOND_ROUTING_REASON=$(jsonpath_or_empty remediationrequests "${SECOND_RR}" "${PLATFORM_NS}" '{.status.routingStatus.reason}')
+        SECOND_RETAINED_COUNT=$(configmap_flood_count)
+        SECOND_LIMIT=$(fleet_target_kubectl get deployment/demo-controllers-controller -n "${NAMESPACE}" \
+            -o jsonpath='{.spec.template.spec.containers[0].resources.limits.memory}' 2>/dev/null || true)
+        SECOND_ALERT_ACTIVE=false
+        _second_alert_cluster="${SPOKE_CLUSTER_LABEL:-${FLEET_CLUSTER_ID:-remote-cluster}}"
+        if fleet_alert_present "KubePodCrashLooping" "${NAMESPACE}" "${_second_alert_cluster}"; then
+            SECOND_ALERT_ACTIVE=true
+        fi
+
+        echo "  Escalation RR=${SECOND_RR} phase=${SECOND_PHASE} outcome=${SECOND_OUTCOME} reason=${SECOND_AA_REASON:-${SECOND_AA_SUBREASON:-${SECOND_BLOCK_REASON:-${SECOND_ROUTING_REASON:-none}}}} retainedConfigMaps=${SECOND_RETAINED_COUNT}"
+        assert_eq "${SECOND_POLL_RC}" "0" "second pipeline reached a terminal platform decision"
+        assert_eq "${SECOND_PHASE}" "Completed" "second RR phase"
+        assert_eq "${SECOND_OUTCOME}" "ManualReviewRequired" "second RR escalated to ManualReviewRequired"
+        assert_eq "${SECOND_AA_PHASE}" "Completed" "second AA phase"
+        assert_eq "${SECOND_REQUIRES_REVIEW}" "true" "second RR requires manual review"
+        assert_eq "${SECOND_AA_WORKFLOW}" "" "second AA selected no remediation workflow"
+        assert_eq "${SECOND_ALERT_ACTIVE}" "true" "KubePodCrashLooping remained active at escalation"
+        assert_gt "${SECOND_RETAINED_COUNT}" $((INITIAL_FLOOD_COUNT - 1)) "stimulus retained through escalation"
+        assert_eq "${SECOND_LIMIT}" "${APPLIED_LIMIT}" "escalation did not increase Deployment memory again"
+
+        SECOND_ESCALATION_TEXT="${SECOND_AA_REASON} ${SECOND_AA_SUBREASON} ${SECOND_BLOCK_REASON} ${SECOND_ROUTING_REASON}"
+        if platform_escalation_evidence "${SECOND_ESCALATION_TEXT}"; then
+            assert_eq "true" "true" "escalation reason cites platform history/routing"
+        else
+            assert_eq "true" "false" "escalation reason cites platform history/routing"
+        fi
+
+        SECOND_WFE_EXISTS=false
+        if workflow_execution_exists_for_rr "${SECOND_RR}"; then
+            SECOND_WFE_EXISTS=true
+        fi
+        SECOND_RAR_EXISTS=false
+        if approval_request_exists_for_rr "${SECOND_RR}"; then
+            SECOND_RAR_EXISTS=true
+        fi
+        assert_eq "${SECOND_WFE_EXISTS}" "false" "escalation created no WorkflowExecution"
+        assert_eq "${SECOND_RAR_EXISTS}" "false" "escalation created no second RAR"
+
+        start_gitea_port_forward
+        GITEA_JSON_DIR=$(mktemp -d)
+        SECOND_PULLS_FILE="${GITEA_JSON_DIR}/pulls.json"
+        gitea_pull_count "${SECOND_PULLS_FILE}" >/dev/null
+        SECOND_PR_COUNT=$(jq 'length' "${SECOND_PULLS_FILE}" 2>/dev/null || echo "-1")
+        assert_eq "${GITEA_PULL_COUNT_CODE}" "200" "Gitea pull-request listing after escalation"
+        assert_eq "${SECOND_PR_COUNT}" "${FIRST_PR_COUNT}" "escalation created no additional Gitea pull request"
+        rm -rf "${GITEA_JSON_DIR}"
+        cleanup_gitea_port_forward
 
         AUDIT_TRACE_FILE="$(mktemp -t operator-oomkill-audit.XXXXXX)"
         if bash "${REPO_ROOT}/scripts/extract-audit-trace.sh" --fleet "${SECOND_RR}" --json --investigation >"${AUDIT_TRACE_FILE}" 2>&1; then
             history_evidence=$(grep -Eio 'remediation_history|regression_detected|previous remediation|prior remediation|ineffective' "${AUDIT_TRACE_FILE}" | head -1 || true)
-            assert_neq "${history_evidence}" "" "recurrence audit contains remediation history evidence"
+            assert_neq "${history_evidence}" "" "escalation audit contains remediation history evidence"
             history_chain_metrics=$(history_chain_metrics_from_audit "${AUDIT_TRACE_FILE}")
             IFS=$'\t' read -r history_entry_count history_link_count <<<"${history_chain_metrics}"
-            # The expected count is derived from the number of preceding
-            # observed remediations, not a policy retry threshold. This is the
-            # contract that the current target's linked hash chain is complete.
-            prior_observed=$((cycle - 1))
-            assert_gt "${history_entry_count}" $((prior_observed - 1)) \
-                "linked remediation history includes prior entries at recurrence cycle ${cycle}"
-            if [ "${prior_observed}" -gt 1 ]; then
-                assert_gt "${history_link_count}" $((prior_observed - 2)) \
-                    "remediation history preserves pre/post hash links at recurrence cycle ${cycle}"
-            fi
+            assert_gt "${history_entry_count}" "0" "escalation audit includes the failed first remediation"
             echo "  Audit trace captured at ${AUDIT_TRACE_FILE}; linked history entries=${history_entry_count}, hash links=${history_link_count}"
         else
             echo "WARNING: could not extract the DataStorage audit trace; see ${AUDIT_TRACE_FILE}" >&2
             assert_neq "" "" "DataStorage audit trace extraction"
         fi
-
-        case "${cycle_phase}:${cycle_outcome}:${cycle_requires_review}:${cycle_reason}:${cycle_subreason}:${cycle_block_reason}" in
-            *ManualReviewRequired*|*OperatorEscalation*|*operator_escalation*|*Ineffective*|*ConsecutiveFailures*|*true*)
-                echo "==> Platform policy reached a human-handoff state at recurrence cycle ${cycle}."
-                break
-                ;;
-        esac
-        if [ "${cycle_rc}" -ne 0 ]; then
-            echo "WARNING: recurrence cycle ${cycle} returned ${cycle_rc}; stopping the bounded observation window." >&2
-            break
-        fi
-    done
+    fi
 fi
 
-# Only after first-cycle EA and any observed recurrence evidence have been
+# Only after first-cycle EA and second-RR escalation evidence have been
 # captured is it safe to remove the stimulus.
 cleanup_stimulus
 unset VALIDATION_RR_NAME
