@@ -49,6 +49,11 @@ PIPELINE_TIMEOUT=600
 NO_COLOR_FLAG=""
 FLEET_MODE=false
 DS_PORT_FORWARD_PID=""
+DS_PORT_FORWARD_LOG=""
+DS_PORT_FORWARD_PORT=""
+PROM_PORT_FORWARD_PID=""
+PROM_PORT_FORWARD_LOG=""
+PROM_PORT_FORWARD_PORT=""
 
 usage() {
     sed -n '2,/^set /{ /^#/s/^# \?//p }' "$0"
@@ -56,12 +61,31 @@ usage() {
 }
 
 cleanup_port_forward() {
+    restore_deferred_fleet_tuning
     if [ -n "$DS_PORT_FORWARD_PID" ]; then
         kill "$DS_PORT_FORWARD_PID" 2>/dev/null || true
+        wait "$DS_PORT_FORWARD_PID" 2>/dev/null || true
         DS_PORT_FORWARD_PID=""
     fi
+    if [ -n "$PROM_PORT_FORWARD_PID" ]; then
+        kill "$PROM_PORT_FORWARD_PID" 2>/dev/null || true
+        wait "$PROM_PORT_FORWARD_PID" 2>/dev/null || true
+        PROM_PORT_FORWARD_PID=""
+    fi
+    [ -z "$DS_PORT_FORWARD_LOG" ] || rm -f "$DS_PORT_FORWARD_LOG"
+    [ -z "$PROM_PORT_FORWARD_LOG" ] || rm -f "$PROM_PORT_FORWARD_LOG"
 }
 trap cleanup_port_forward EXIT
+
+restore_deferred_fleet_tuning() {
+    if [ "${FLEET_MODE:-false}" = true ]; then
+        # Fleet runners invoked below with --no-validate defer their temporary
+        # approval/timing configuration until this wrapper finishes validation.
+        # Both helpers are no-ops when no run-scoped override was installed.
+        restore_ro_gitops_sync_delay || true
+        restore_production_approval || true
+    fi
+}
 
 # Read a scenario's scenario.toml (if any); prints "fleet kind ocp" values.
 read_scenario_meta() {
@@ -193,20 +217,57 @@ require_demo_ready
 
 # ── Port-forward management ──────────────────────────────────────────────────
 
+# Select a free IPv4 loopback port. Kind/Podman commonly reserves host ports
+# such as 30081 and 9090, so fixed local ports are not portable across macOS
+# and Linux hosts. A caller-supplied preferred port is used when available;
+# otherwise the kernel chooses an ephemeral port.
+choose_local_port() {
+    local preferred="${1:-}"
+    if [ -n "$preferred" ] && python3 - "$preferred" <<'PY' >/dev/null 2>&1
+import socket
+import sys
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", int(sys.argv[1])))
+PY
+    then
+        printf '%s\n' "$preferred"
+        return 0
+    fi
+
+    python3 - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+}
+
 ensure_datastorage_port_forward() {
-    if curl -sf -o /dev/null --connect-timeout 2 "http://localhost:30081/healthz" 2>/dev/null; then
+    if curl -sf -o /dev/null --connect-timeout 2 "http://127.0.0.1:30081/healthz" 2>/dev/null; then
+        DS_PORT_FORWARD_PORT=30081
         return 0
     fi
 
     # DataStorage exposes TLS on port 8080 (API) and plaintext on 8081 (health).
-    # Forward the health port so the readiness check works without TLS.
-    log_phase "Starting DataStorage port-forward (localhost:30081 -> svc/data-storage-service:8081)..."
-    kubectl port-forward -n kubernaut-system svc/data-storage-service 30081:8081 >/dev/null 2>&1 &
+    # Forward the health port so the readiness check works without TLS. Prefer
+    # 30081 for continuity, but avoid fixed-port collisions with Kind/Podman.
+    DS_PORT_FORWARD_PORT=$(choose_local_port "${DATASTORAGE_LOCAL_PORT:-30081}") || {
+        log_error "Could not select a local port for DataStorage port-forward"
+        return 1
+    }
+    DS_PORT_FORWARD_LOG=$(mktemp "${TMPDIR:-/tmp}/kubernaut-datastorage.XXXXXX")
+    log_phase "Starting DataStorage port-forward (127.0.0.1:${DS_PORT_FORWARD_PORT} -> svc/data-storage-service:8081)..."
+    kubectl port-forward --address=127.0.0.1 -n kubernaut-system \
+        svc/data-storage-service "${DS_PORT_FORWARD_PORT}:8081" \
+        >"${DS_PORT_FORWARD_LOG}" 2>&1 &
     DS_PORT_FORWARD_PID=$!
 
     local retries=0
     while [ "$retries" -lt 15 ]; do
-        if curl -sf -o /dev/null --connect-timeout 1 "http://localhost:30081/healthz" 2>/dev/null; then
+        if curl -sf -o /dev/null --connect-timeout 1 \
+            "http://127.0.0.1:${DS_PORT_FORWARD_PORT}/healthz" 2>/dev/null; then
             log_success "DataStorage port-forward ready"
             return 0
         fi
@@ -214,25 +275,38 @@ ensure_datastorage_port_forward() {
         retries=$((retries + 1))
     done
 
+    if [ -s "${DS_PORT_FORWARD_LOG}" ]; then
+        sed 's/^/  /' "${DS_PORT_FORWARD_LOG}" >&2
+    fi
     log_error "Failed to establish DataStorage port-forward"
     return 1
 }
 
 ensure_prometheus_port_forward() {
-    if curl -sf -o /dev/null --connect-timeout 2 "http://localhost:9090/-/ready" 2>/dev/null; then
+    if curl -sf -o /dev/null --connect-timeout 2 "http://127.0.0.1:9090/-/ready" 2>/dev/null; then
+        PROM_PORT_FORWARD_PORT=9090
         return 0
     fi
 
-    log_phase "Starting Prometheus port-forward (localhost:9090)..."
     local prometheus_target
     prometheus_target=$(kubectl get svc -n monitoring -l operated-prometheus=true \
         -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
     prometheus_target="${prometheus_target:-kube-prometheus-stack-prometheus}"
-    kubectl port-forward -n monitoring "svc/${prometheus_target}" 9090:9090 >/dev/null 2>&1 &
+    PROM_PORT_FORWARD_PORT=$(choose_local_port "${PROMETHEUS_LOCAL_PORT:-9090}") || {
+        log_warn "Could not select a local port for Prometheus port-forward (non-critical)"
+        return 0
+    }
+    PROM_PORT_FORWARD_LOG=$(mktemp "${TMPDIR:-/tmp}/kubernaut-prometheus.XXXXXX")
+    log_phase "Starting Prometheus port-forward (127.0.0.1:${PROM_PORT_FORWARD_PORT} -> svc/${prometheus_target}:9090)..."
+    kubectl port-forward --address=127.0.0.1 -n monitoring \
+        "svc/${prometheus_target}" "${PROM_PORT_FORWARD_PORT}:9090" \
+        >"${PROM_PORT_FORWARD_LOG}" 2>&1 &
+    PROM_PORT_FORWARD_PID=$!
 
     local retries=0
     while [ "$retries" -lt 10 ]; do
-        if curl -sf -o /dev/null --connect-timeout 1 "http://localhost:9090/-/ready" 2>/dev/null; then
+        if curl -sf -o /dev/null --connect-timeout 1 \
+            "http://127.0.0.1:${PROM_PORT_FORWARD_PORT}/-/ready" 2>/dev/null; then
             log_success "Prometheus port-forward ready"
             return 0
         fi
@@ -240,6 +314,14 @@ ensure_prometheus_port_forward() {
         retries=$((retries + 1))
     done
 
+    if [ -s "${PROM_PORT_FORWARD_LOG}" ]; then
+        sed 's/^/  /' "${PROM_PORT_FORWARD_LOG}" >&2
+    fi
+    kill "$PROM_PORT_FORWARD_PID" 2>/dev/null || true
+    wait "$PROM_PORT_FORWARD_PID" 2>/dev/null || true
+    PROM_PORT_FORWARD_PID=""
+    rm -f "$PROM_PORT_FORWARD_LOG"
+    PROM_PORT_FORWARD_LOG=""
     log_warn "Prometheus port-forward may not be ready (non-critical)"
 }
 
@@ -289,7 +371,12 @@ for scenario in "${SCENARIOS[@]}"; do
             if [ "$FLEET_MODE" = true ]; then
                 run_args+=(--fleet)
             fi
-            if ! bash "${scenario_dir}/run.sh" "${run_args[@]}"; then
+            if [ "$FLEET_MODE" = true ]; then
+                if ! DEFER_FLEET_TUNING_RESTORE=true bash "${scenario_dir}/run.sh" "${run_args[@]}"; then
+                    log_error "run.sh failed for ${scenario}"
+                    scenario_result="FAIL"
+                fi
+            elif ! bash "${scenario_dir}/run.sh" "${run_args[@]}"; then
                 log_error "run.sh failed for ${scenario}"
                 scenario_result="FAIL"
             fi
@@ -311,30 +398,31 @@ for scenario in "${SCENARIOS[@]}"; do
             validation_script="${scenario_dir}/fleet/validate.sh"
             validation_label="fleet/validate.sh"
         fi
-        if [ -f "$validation_script" ]; then
-            log_phase "Running ${scenario}/${validation_label}..."
-            reset_assertions
-            validate_args=("$APPROVE_MODE")
-            if [ "$FLEET_MODE" = true ]; then
-                validate_args+=(--fleet)
-            fi
-            [ -n "$NO_COLOR_FLAG" ] && validate_args+=("$NO_COLOR_FLAG")
-            if [ "$FLEET_MODE" = true ] && [ "$VALIDATE_ONLY" = false ]; then
-                # The Fleet runner's hub step already waited for and drove the
-                # pipeline. Tell the shared validator to reuse that completed
-                # pipeline instead of waiting for a second alert/RR after
-                # remediation has cleared the original alert.
-                if ! FLEET_PIPELINE_ALREADY_DRIVEN=true bash "$validation_script" "${validate_args[@]}"; then
+            if [ -f "$validation_script" ]; then
+                log_phase "Running ${scenario}/${validation_label}..."
+                reset_assertions
+                validate_args=("$APPROVE_MODE")
+                if [ "$FLEET_MODE" = true ]; then
+                    validate_args+=(--fleet)
+                fi
+                [ -n "$NO_COLOR_FLAG" ] && validate_args+=("$NO_COLOR_FLAG")
+                # run.sh was invoked with --no-validate above, so the validator
+                # owns the pipeline wait and must not be told that the Fleet
+                # runner already processed it. That flag is only appropriate
+                # when a direct scenario invocation has already driven the
+                # complete pipeline before calling a second validator.
+                if ! bash "$validation_script" "${validate_args[@]}"; then
                     scenario_result="FAIL"
                 fi
-            elif ! bash "$validation_script" "${validate_args[@]}"; then
-                scenario_result="FAIL"
-            fi
         else
             log_warn "No validate.sh found for ${scenario} -- skipping validation"
             scenario_result="SKIP"
         fi
     fi
+
+    # Restore deferred fleet tuning before the next scenario and even when
+    # validation failed. The EXIT trap repeats this safely for interrupted runs.
+    restore_deferred_fleet_tuning
 
     SCENARIO_END=$(date +%s)
     SCENARIO_DURATION=$((SCENARIO_END - SCENARIO_START))

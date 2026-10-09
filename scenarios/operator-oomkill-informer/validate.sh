@@ -224,23 +224,35 @@ fi
 # RR must be observed after that decay; otherwise Gateway deduplication can
 # make a recurrence look like a second pass through the first RR.
 fleet_alert_present() {
-    local alert_name="$1" namespace="$2" cluster="$3" pod alerts
+    local alert_name="$1" namespace="$2" cluster="$3" pod alerts active_pods
     pod=$(command kubectl --kubeconfig="${HUB_KUBECONFIG}" get pods -n "${FLEET_MONITORING_NS:-monitoring}" \
         -l app=alertmanager --field-selector=status.phase=Running \
         -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
     [ -n "${pod}" ] || return 2
+    # Prometheus' restart-rate rule can retain an alert for a deleted pod until
+    # its range window expires. Effectiveness Monitor filters those stale signal
+    # pod alerts against the current target pods; mirror that behavior here so
+    # recurrence does not wait on an old pod that is no longer failing.
+    active_pods=$(command kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get pods \
+        -n "${namespace}" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
+        2>/dev/null || true)
+    [ -n "${active_pods}" ] || return 2
     alerts=$(command kubectl --kubeconfig="${HUB_KUBECONFIG}" exec -n "${FLEET_MONITORING_NS:-monitoring}" \
         "${pod}" -- wget -qO- http://localhost:9093/api/v2/alerts 2>/dev/null || true)
     [ -n "${alerts}" ] || return 2
     printf '%s' "${alerts}" | python3 -c '
 import json, sys
-alert_name, namespace, cluster = sys.argv[1:]
+alert_name, namespace, cluster, active_pods = sys.argv[1:]
+active_pods = set(active_pods.splitlines())
 for alert in json.load(sys.stdin):
     labels = alert.get("labels", {})
+    # A stale alert for a deleted signal pod is not a live recurrence.
+    if labels.get("pod") and labels["pod"] not in active_pods:
+        continue
     if labels.get("alertname") == alert_name and labels.get("namespace") == namespace and (not cluster or labels.get("cluster") == cluster):
         raise SystemExit(0)
 raise SystemExit(1)
-' "${alert_name}" "${namespace}" "${cluster}"
+' "${alert_name}" "${namespace}" "${cluster}" "${active_pods}"
 }
 
 wait_for_fleet_alert_clear() {
