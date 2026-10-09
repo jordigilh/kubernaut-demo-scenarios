@@ -559,6 +559,7 @@ if [ "${FLEET_MODE:-false}" = true ]; then
         CYCLE_AA_SUBREASON=$(jsonpath_or_empty aianalyses "${CYCLE_AA}" "${PLATFORM_NS}" '{.status.subReason}')
         CYCLE_REQUIRES_REVIEW=$(jsonpath_or_empty remediationrequests "${NEXT_RR}" "${PLATFORM_NS}" '{.status.completionStatus.requiresManualReview}')
         CYCLE_BLOCK_REASON=$(jsonpath_or_empty remediationrequests "${NEXT_RR}" "${PLATFORM_NS}" '{.status.routingStatus.blockReason}')
+        CYCLE_BLOCK_MESSAGE=$(jsonpath_or_empty remediationrequests "${NEXT_RR}" "${PLATFORM_NS}" '{.status.routingStatus.blockMessage}')
         CYCLE_ROUTING_REASON=$(jsonpath_or_empty remediationrequests "${NEXT_RR}" "${PLATFORM_NS}" '{.status.routingStatus.reason}')
         CYCLE_RETAINED_COUNT=$(configmap_flood_count)
         CYCLE_LIMIT=$(fleet_target_kubectl get deployment/demo-controllers-controller -n "${NAMESPACE}" \
@@ -575,13 +576,36 @@ if [ "${FLEET_MODE:-false}" = true ]; then
         assert_eq "${CYCLE_ALERT_ACTIVE}" "true" "KubePodCrashLooping remained active at RR cycle ${cycle}"
         assert_gt "${CYCLE_RETAINED_COUNT}" $((INITIAL_FLOOD_COUNT - 1)) "stimulus retained through RR cycle ${cycle}"
 
-        CYCLE_ESCALATION_TEXT="${CYCLE_AA_REASON} ${CYCLE_AA_SUBREASON} ${CYCLE_BLOCK_REASON} ${CYCLE_ROUTING_REASON}"
+        CYCLE_ESCALATION_TEXT="${CYCLE_AA_REASON} ${CYCLE_AA_SUBREASON} ${CYCLE_BLOCK_REASON} ${CYCLE_BLOCK_MESSAGE} ${CYCLE_ROUTING_REASON}"
+        CYCLE_IS_ESCALATION=false
         if [ "${CYCLE_OUTCOME}" = "ManualReviewRequired" ] || \
-           [ "${CYCLE_REQUIRES_REVIEW}" = "true" ]; then
-            assert_eq "${CYCLE_OUTCOME}" "ManualReviewRequired" \
-                "RR cycle ${cycle} escalated to ManualReviewRequired"
-            assert_eq "${CYCLE_AA_PHASE}" "Completed" "RR cycle ${cycle} AA phase at escalation"
-            assert_eq "${CYCLE_REQUIRES_REVIEW}" "true" "RR cycle ${cycle} requires manual review"
+           [ "${CYCLE_REQUIRES_REVIEW}" = "true" ] || \
+           { [ "${CYCLE_PHASE}" = "Blocked" ] && platform_escalation_evidence "${CYCLE_ESCALATION_TEXT}"; }; then
+            CYCLE_IS_ESCALATION=true
+            if [ "${CYCLE_PHASE}" = "Blocked" ]; then
+                # rc22 expresses the consecutive-failure handoff as a routing
+                # block before AA starts; newer platform versions may instead
+                # complete the RR with ManualReviewRequired.
+                assert_eq "${CYCLE_PHASE}" "Blocked" \
+                    "RR cycle ${cycle} escalated by platform routing"
+                assert_eq "${CYCLE_BLOCK_REASON}" "ConsecutiveFailures" \
+                    "RR cycle ${cycle} routing block reason"
+                assert_contains "${CYCLE_BLOCK_MESSAGE}" "consecutive failures" \
+                    "RR cycle ${cycle} routing block message"
+                assert_eq "${CYCLE_AA_PHASE}" "" \
+                    "RR cycle ${cycle} created no AI analysis before routing escalation"
+                assert_eq "${CYCLE_REQUIRES_REVIEW}" "" \
+                    "RR cycle ${cycle} has no workflow manual-review status before routing escalation"
+            else
+                assert_eq "${CYCLE_PHASE}" "Completed" \
+                    "RR cycle ${cycle} escalated to ManualReviewRequired"
+                assert_eq "${CYCLE_OUTCOME}" "ManualReviewRequired" \
+                    "RR cycle ${cycle} escalation outcome"
+                assert_eq "${CYCLE_AA_PHASE}" "Completed" \
+                    "RR cycle ${cycle} AA phase at escalation"
+                assert_eq "${CYCLE_REQUIRES_REVIEW}" "true" \
+                    "RR cycle ${cycle} requires manual review"
+            fi
             assert_eq "${CYCLE_AA_WORKFLOW}" "" "RR cycle ${cycle} selected no remediation workflow"
             assert_eq "${CYCLE_LIMIT}" "${LAST_LIMIT}" \
                 "RR cycle ${cycle} escalation did not increase Deployment memory"
@@ -634,7 +658,7 @@ if [ "${FLEET_MODE:-false}" = true ]; then
                 echo "WARNING: could not extract the DataStorage audit trace; see ${AUDIT_TRACE_FILE}" >&2
                 assert_neq "" "" "DataStorage audit trace extraction at RR cycle ${cycle}"
             fi
-            ESCALATION_FOUND=true
+            ESCALATION_FOUND="${CYCLE_IS_ESCALATION}"
             break
         fi
 

@@ -76,6 +76,7 @@ inject-configmap-flood.sh creates 600 x 1MB ConfigMaps
      -> if routing permits another remediation, the same reviewed +128Mi change is applied
         -> the retained flood makes the effectiveness assessment fail again
      -> platform remediation history/routing escalates a follow-up RR to ManualReviewRequired
+        (or rc22's Blocked/ConsecutiveFailures routing handoff)
         -> the escalation creates no WFE, RAR, PR, or memory increase
 ```
 
@@ -229,7 +230,7 @@ Stop the port-forward with `Ctrl-C` after the review is complete. Kind uses port
 - [ ] The first EA is genuinely ineffective because alert or health evidence fails; a metrics-only zero is insufficient
 - [ ] Gateway cooldown is temporarily `0s` and AlertManager repeat interval is short enough for the still-firing alert to create follow-up RRs without clearing or reinjecting ConfigMaps
 - [ ] Every recurrence that is permitted to remediate adds exactly `128Mi`, remains ineffective, and preserves independent RAR/Gitea review evidence
-- [ ] Platform history/routing escalates by the fourth RR at the latest (normally on the second or third RR)
+- [ ] Platform history/routing escalates by the fourth RR at the latest (normally on the second or third RR), as `ManualReviewRequired` or rc22 `Blocked` with `ConsecutiveFailures`
 - [ ] The escalation RR creates no WFE, RAR, Gitea PR, or additional memory increase
 - [ ] The workflow Job remains RR-agnostic; recurrence and escalation are not scripted workflow outcomes
 
@@ -262,7 +263,7 @@ Feature: Operator OOMKill remediation from informer cache flooding
        And each Effectiveness Monitor assessment records alert or health failure
        And Gateway cooldown is 0s and AlertManager repeats the firing notification for this rehearsal
        And continuing alerts create follow-up RemediationRequests without stimulus reset
-       And platform history/routing escalates a follow-up RemediationRequest to ManualReviewRequired
+       And platform history/routing escalates a follow-up RemediationRequest to ManualReviewRequired or Blocked/ConsecutiveFailures
        And the escalation RemediationRequest creates no WorkflowExecution or pull request
 ```
 
