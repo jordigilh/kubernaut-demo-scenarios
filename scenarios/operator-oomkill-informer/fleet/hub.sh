@@ -22,10 +22,11 @@ APP_NAME="${OPERATOR_GITOPS_APP_NAME:-operator-oomkill-informer}"
 INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-300}"
 # Argo CD is refreshed by the Gitea push webhook, so the default polling-oriented
 # propagation delay can be shorter for this scenario. Keep the override for
-# environments that need a different run-scoped value. The shorter stabilization
-# window keeps this demo verification quick; cleanup restores the original values.
+# environments that need a different run-scoped value. The full stabilization
+# window gives the retained informer load time to expose a delayed ineffective
+# remediation; cleanup restores the original values.
 GITOPS_SYNC_DELAY="${GITOPS_SYNC_DELAY:-10s}"
-EFFECTIVENESS_STABILIZATION_WINDOW="${EFFECTIVENESS_STABILIZATION_WINDOW:-30s}"
+EFFECTIVENESS_STABILIZATION_WINDOW="${EFFECTIVENESS_STABILIZATION_WINDOW:-5m}"
 GATEWAY_DEDUP_COOLDOWN="${GATEWAY_DEDUP_COOLDOWN:-0s}"
 APPROVE_MODE="--interactive"
 ALERT_ONLY=false

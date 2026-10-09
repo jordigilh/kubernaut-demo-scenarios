@@ -143,10 +143,11 @@ not to the workflow Job.
 
 Fleet mode temporarily sets the Remediation Orchestrator's
 `asyncPropagation.gitOpsSyncDelay` to `10s` and
-`effectivenessAssessment.stabilizationWindow` to `30s`. The Gitea push webhook triggers
+`effectivenessAssessment.stabilizationWindow` to `5m`. The Gitea push webhook triggers
 Argo CD reconciliation immediately, so a longer polling-oriented delay is unnecessary;
-the shorter stabilization window keeps this demo verification quick while retaining
-independent health, alert, metrics, and spec-hash assessment. Fleet mode also temporarily
+the full stabilization window gives the retained informer load time to expose a delayed
+ineffective remediation while retaining independent health, alert, metrics, and spec-hash
+assessment. Fleet mode also temporarily
 sets Gateway's `processing.deduplication.cooldownPeriod` to `0s`, allowing a fresh delivery
 for the still-firing alert after the first RR completes; `cleanup.sh` restores both the
 Gateway and RO configurations. Set `GITOPS_SYNC_DELAY`,
