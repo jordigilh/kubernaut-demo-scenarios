@@ -159,9 +159,14 @@ assessment. Fleet mode also temporarily sets Gateway's
 `processing.deduplication.cooldownPeriod` to `0s` and AlertManager's `route.repeat_interval`
 to `1m`; the repeat allows a fresh delivery after each RR becomes terminal without
 clearing or reinjecting the flood. `cleanup.sh` restores AlertManager, Gateway, and RO
-configurations. Set `GITOPS_SYNC_DELAY`, `EFFECTIVENESS_STABILIZATION_WINDOW`,
-`GATEWAY_DEDUP_COOLDOWN`, `ALERTMANAGER_REPEAT_INTERVAL`, or `MAX_RR_CYCLES` only when
-the environment needs different run-scoped values.
+configurations. Because RC23 freezes the complete sanitized RCA evidence packet before
+workflow discovery, Fleet mode also temporarily sets
+`ai.investigation.maxEvidenceHandoffBytes` to `262144` (256KiB) so this scenario's
+600-object stimulus can reach discovery without truncating evidence; cleanup restores
+the platform's original value. Set `GITOPS_SYNC_DELAY`,
+`EFFECTIVENESS_STABILIZATION_WINDOW`, `GATEWAY_DEDUP_COOLDOWN`,
+`ALERTMANAGER_REPEAT_INTERVAL`, `MAX_EVIDENCE_HANDOFF_BYTES`, or `MAX_RR_CYCLES` only
+when the environment needs different run-scoped values.
 
 ### Reviewing the GitOps PR
 

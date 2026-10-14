@@ -29,6 +29,7 @@ GITOPS_SYNC_DELAY="${GITOPS_SYNC_DELAY:-10s}"
 EFFECTIVENESS_STABILIZATION_WINDOW="${EFFECTIVENESS_STABILIZATION_WINDOW:-5m}"
 GATEWAY_DEDUP_COOLDOWN="${GATEWAY_DEDUP_COOLDOWN:-0s}"
 ALERTMANAGER_REPEAT_INTERVAL="${ALERTMANAGER_REPEAT_INTERVAL:-1m}"
+MAX_EVIDENCE_HANDOFF_BYTES="${MAX_EVIDENCE_HANDOFF_BYTES:-262144}"
 APPROVE_MODE="--interactive"
 ALERT_ONLY=false
 NO_VALIDATE=false
@@ -84,6 +85,7 @@ cleanup_run() {
         restore_alertmanager_repeat_interval || true
         restore_gateway_deduplication_cooldown || true
         restore_ro_gitops_sync_delay || true
+        restore_ka_evidence_handoff_budget || true
         restore_production_approval || true
     fi
 }
@@ -116,6 +118,7 @@ force_production_approval
 configure_gateway_deduplication_cooldown "${GATEWAY_DEDUP_COOLDOWN}"
 configure_alertmanager_repeat_interval "${ALERTMANAGER_REPEAT_INTERVAL}"
 configure_ro_gitops_timing "${GITOPS_SYNC_DELAY}" "${EFFECTIVENESS_STABILIZATION_WINDOW}"
+configure_ka_evidence_handoff_budget "${MAX_EVIDENCE_HANDOFF_BYTES}"
 
 echo "==> [hub=${HUB_KUBECONFIG}] Ensuring Gitea + Argo CD are installed..."
 if ! kubectl get service gitea-http -n "${GITEA_NAMESPACE}" &>/dev/null; then

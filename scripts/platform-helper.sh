@@ -1655,3 +1655,78 @@ restore_ro_gitops_sync_delay() {
     kubectl rollout status deployment/remediationorchestrator-controller -n "${ns}" --timeout=60s
     echo "  RO configuration restored to original."
 }
+
+# Temporarily raise the Kubernaut Agent's complete evidence-handoff budget for
+# scenarios whose RCA intentionally retains a large evidence set. This is a
+# run-scoped tuning knob: preserve the exact chart-managed config and restore it
+# during cleanup rather than changing the platform default permanently.
+configure_ka_evidence_handoff_budget() {
+    local budget_bytes="${1:?usage: configure_ka_evidence_handoff_budget <bytes>}"
+    case "${budget_bytes}" in
+        ''|*[!0-9]*)
+            echo "ERROR: evidence handoff budget must be a positive integer: ${budget_bytes}" >&2
+            return 1
+            ;;
+    esac
+    [ "${budget_bytes}" -gt 0 ] || {
+        echo "ERROR: evidence handoff budget must be greater than zero." >&2
+        return 1
+    }
+
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="kubernaut-agent-config"
+    local existing_b64
+    existing_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+        -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-ka-config}' \
+        2>/dev/null || echo "")
+
+    local current_yaml
+    current_yaml=$(kubectl get configmap "${cm}" -n "${ns}" \
+        -o jsonpath='{.data.config\.yaml}')
+    [ -n "${current_yaml}" ] || {
+        echo "ERROR: Kubernaut Agent config ${cm} in ${ns} has no config.yaml data." >&2
+        return 1
+    }
+
+    if [ -z "${existing_b64}" ]; then
+        kubectl annotate configmap "${cm}" -n "${ns}" \
+            "kubernaut.ai/original-ka-config=$(echo "${current_yaml}" | base64 | tr -d '\n')" \
+            --overwrite
+    fi
+
+    local patched
+    patched=$(python3 -c '
+import sys, yaml
+data = yaml.safe_load(sys.stdin.read()) or {}
+data.setdefault("ai", {}).setdefault("investigation", {})["maxEvidenceHandoffBytes"] = int(sys.argv[1])
+print(yaml.safe_dump(data, default_flow_style=False, sort_keys=False), end="")
+' "${budget_bytes}" <<< "${current_yaml}")
+
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+        -p "{\"data\":{\"config.yaml\":$(echo "${patched}" | jq -Rs .)}}"
+    kubectl rollout restart deployment/kubernaut-agent -n "${ns}"
+    kubectl rollout status deployment/kubernaut-agent -n "${ns}" --timeout=120s
+    echo "  Kubernaut Agent configured: ai.investigation.maxEvidenceHandoffBytes=${budget_bytes}"
+}
+
+restore_ka_evidence_handoff_budget() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="kubernaut-agent-config"
+    local saved_b64
+    saved_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+        -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-ka-config}' \
+        2>/dev/null || echo "")
+    if [ -z "${saved_b64}" ]; then
+        return 0
+    fi
+
+    local original
+    original=$(echo "${saved_b64}" | base64 -d)
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+        -p "{\"data\":{\"config.yaml\":$(echo "${original}" | jq -Rs .)}}"
+    kubectl annotate configmap "${cm}" -n "${ns}" \
+        "kubernaut.ai/original-ka-config-" 2>/dev/null || true
+    kubectl rollout restart deployment/kubernaut-agent -n "${ns}"
+    kubectl rollout status deployment/kubernaut-agent -n "${ns}" --timeout=120s
+    echo "  Kubernaut Agent evidence-handoff budget restored to original."
+}
