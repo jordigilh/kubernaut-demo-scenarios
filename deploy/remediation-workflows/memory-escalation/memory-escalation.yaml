@@ -46,19 +46,21 @@ metadata:
 spec:
   # Increase Memory Limits Workflow Schema - Job Backend (BR-WORKFLOW-004)
   # Scenario: Memory escalation -- increase limits to prevent OOMKill
-  version: "1.6.1"
+  version: "1.6.2"
   description:
     what: "Increases the memory limits of a deployment's containers to prevent OOMKill events. Doubles the current memory limit by default."
-    whenToUse: "When a non-GitOps workload is being OOMKilled (ContainerOOMKilling signal or OOMKilled termination reason) because the memory limit is too low for the workload's requirements. This is a first-pass direct-cluster mitigation for workloads without ArgoCD/Flux ownership; for GitOps-managed workloads, use the reviewed GitOps IncreaseMemoryLimits workflow so the source of truth remains authoritative."
+    whenToUse: "When a Deployment's live resource limits are the authoritative remediation surface and its containers are being OOMKilled (ContainerOOMKilling signal or OOMKilled termination reason) because the memory limit is too low. This is a first-pass direct-cluster mitigation; when the Deployment itself is reconciled from ArgoCD/Flux desired state, use the reviewed GitOps IncreaseMemoryLimits workflow. A GitOps-associated incident may still require a different workflow when its target is a controller-generated dependency rather than the GitOps source-of-truth Deployment."
     whenNotToUse: >-
-      When the workload is managed by GitOps (ArgoCD or Flux) — do not patch the
-      live Deployment with this direct workflow because the next reconciliation
-      can overwrite the change; use the reviewed GitOps IncreaseMemoryLimits
-      workflow instead. Also do not use when the issue is a namespace
-      ResourceQuota constraint — increasing individual pod limits cannot resolve
-      quota exhaustion and may worsen it by requesting more memory per pod
-      against a fixed quota ceiling; in quota exhaustion cases, escalate to
-      human review for quota policy adjustment.
+      When this workflow would directly mutate a Deployment field reconciled from
+      ArgoCD, Flux, or another controller and the next reconciliation would
+      overwrite the change; use the source-of-truth or controller-aware workflow
+      instead. Do not infer that every incident associated with a GitOps resource
+      requires a Git revert: generated dependencies can have a different
+      authoritative remediation target. Also do not use when the issue is a
+      namespace ResourceQuota constraint — increasing individual pod limits cannot
+      resolve quota exhaustion and may worsen it by requesting more memory per pod
+      against a fixed quota ceiling; in quota exhaustion cases, escalate to human
+      review for quota policy adjustment.
     preconditions: "The deployment exists and containers have memory limits set. The node has sufficient allocatable memory for the increased limit."
   
   actionType: IncreaseMemoryLimits
