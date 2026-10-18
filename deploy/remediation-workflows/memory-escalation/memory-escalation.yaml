@@ -49,8 +49,8 @@ spec:
   version: "1.6.0"
   description:
     what: "Increases the memory limits of a deployment's containers to prevent OOMKill events. Doubles the current memory limit by default."
-    whenToUse: "When containers are being OOMKilled (ContainerOOMKilling signal or OOMKilled termination reason) because the memory limit is too low for the workload's requirements. This is the correct workflow for any OOMKill scenario, including suspected memory leaks -- increasing limits is the proper first-pass mitigation to buy runtime for the application team to investigate the root cause. Select this workflow even if prior attempts exist; the platform's escalation guardrails will automatically block repeated ineffective remediations."
-    whenNotToUse: "When the issue is a namespace ResourceQuota constraint — increasing individual pod limits cannot resolve quota exhaustion and may worsen it by requesting more memory per pod against a fixed quota ceiling; in quota exhaustion cases, escalate to human review for quota policy adjustment."
+    whenToUse: "When containers in a non-GitOps-managed Deployment are being OOMKilled because the memory limit is too low for the workload requirements. For ArgoCD/Flux-managed workloads, use the GitOps-specific increase-memory-limits-gitops-v1 workflow so the desired-state change is reviewed and reconciled through the source repository."
+    whenNotToUse: "When gitOpsManaged=true, gitOpsTool is set, or ArgoCD/Flux ownership annotations are present — use increase-memory-limits-gitops-v1 instead. Also do not use for namespace ResourceQuota exhaustion, where increasing individual pod limits cannot resolve the quota constraint; escalate for quota policy adjustment."
     preconditions: "The deployment exists and containers have memory limits set. The node has sufficient allocatable memory for the increased limit."
   
   actionType: IncreaseMemoryLimits
