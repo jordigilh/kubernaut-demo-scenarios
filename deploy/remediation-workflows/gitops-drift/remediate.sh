@@ -33,52 +33,87 @@ GIT_PASSWORD=$(cat "${SECRET_DIR}/password")
 echo "=== Phase 0: Discover ArgoCD Application ==="
 ARGO_APP_JSON=$(kubectl get applications.argoproj.io --all-namespaces -o json)
 
-GIT_REPO_URL=$(echo "${ARGO_APP_JSON}" | jq -r \
+ARGO_APP=$(echo "${ARGO_APP_JSON}" | jq -c \
   --arg ns "${TARGET_RESOURCE_NAMESPACE}" \
-  '.items[] | select(.spec.destination.namespace == $ns) | .spec.source.repoURL' \
-  | head -1)
+  '[.items[] | select(.spec.destination.namespace == $ns)] | first // empty')
 
-GIT_BRANCH_RAW=$(echo "${ARGO_APP_JSON}" | jq -r \
-  --arg ns "${TARGET_RESOURCE_NAMESPACE}" \
-  '.items[] | select(.spec.destination.namespace == $ns) | .spec.source.targetRevision' \
-  | head -1)
-GIT_BRANCH="${GIT_BRANCH_RAW}"
-[ "${GIT_BRANCH}" = "HEAD" ] || [ -z "${GIT_BRANCH}" ] && GIT_BRANCH="main"
-
-if [ -z "${GIT_REPO_URL}" ] || [ "${GIT_REPO_URL}" = "null" ]; then
+if [ -z "${ARGO_APP}" ]; then
   echo "ERROR: No ArgoCD Application found targeting namespace ${TARGET_RESOURCE_NAMESPACE}"
   exit 1
 fi
-echo "Discovered from ArgoCD: repoURL=${GIT_REPO_URL} branch=${GIT_BRANCH}"
+
+GIT_REPO_URL=$(echo "${ARGO_APP}" | jq -r '.spec.source.repoURL // empty')
+GIT_BRANCH_RAW=$(echo "${ARGO_APP}" | jq -r '.spec.source.targetRevision // empty')
+SYNC_STATUS=$(echo "${ARGO_APP}" | jq -r '.status.sync.status // empty')
+SYNC_REVISION=$(echo "${ARGO_APP}" | jq -r '.status.sync.revision // empty')
+
+if [ -z "${GIT_REPO_URL}" ] || [ -z "${SYNC_REVISION}" ]; then
+  echo "ERROR: ArgoCD Application has no repository URL or synchronized source revision"
+  exit 1
+fi
+if [ "${SYNC_STATUS}" != "Synced" ]; then
+  echo "ERROR: ArgoCD Application is not Synced (status=${SYNC_STATUS:-unknown}); refusing source rollback"
+  exit 1
+fi
+
+# A branch is required for a safe push. A detached target revision can be
+# inspected by ArgoCD but cannot safely receive the generated revert commit.
+case "${GIT_BRANCH_RAW}" in
+  ""|HEAD) GIT_BRANCH="main" ;;
+  [0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])
+    echo "ERROR: ArgoCD targetRevision is a detached commit (${GIT_BRANCH_RAW}); refusing to push a revert without a branch" >&2
+    exit 1
+    ;;
+  *) GIT_BRANCH="${GIT_BRANCH_RAW}" ;;
+esac
+
+echo "Discovered from ArgoCD: repoURL=${GIT_REPO_URL} branch=${GIT_BRANCH} synchronized_revision=${SYNC_REVISION}"
 
 echo "=== Phase 1: Validate ==="
 echo "Skipping pod health validation: the target may be on a different cluster"
-echo "Validated: GitOps application targets ${TARGET_RESOURCE_NAMESPACE}"
+echo "Validated: GitOps application targets ${TARGET_RESOURCE_NAMESPACE} at synchronized revision ${SYNC_REVISION}"
 
 echo "=== Phase 2: Action ==="
 AUTH_URL=$(echo "${GIT_REPO_URL}" | sed "s|://|://${GIT_USERNAME}:${GIT_PASSWORD}@|")
 echo "Cloning repository: ${GIT_REPO_URL}"
 rm -rf "${WORK_DIR}"
-git clone --branch "${GIT_BRANCH}" --depth 5 "${AUTH_URL}" "${WORK_DIR}"
+git clone --branch "${GIT_BRANCH}" --depth 50 "${AUTH_URL}" "${WORK_DIR}"
 cd "${WORK_DIR}"
 
-LAST_COMMIT=$(git log --oneline -1)
-echo "Last commit: ${LAST_COMMIT}"
+CURRENT_HEAD=$(git rev-parse HEAD)
+if [ "${CURRENT_HEAD}" != "${SYNC_REVISION}" ]; then
+  echo "ERROR: repository branch ${GIT_BRANCH} advanced beyond ArgoCD synchronized revision ${SYNC_REVISION} (current=${CURRENT_HEAD}); refusing to revert an unrelated commit" >&2
+  exit 1
+fi
 
-echo "Reverting last commit..."
+PARENT_LINE=$(git rev-list --parents -n 1 "${SYNC_REVISION}")
+PARENT_COUNT=$(echo "${PARENT_LINE}" | awk '{print NF-1}')
+MAINLINE_PARENT=$(echo "${PARENT_LINE}" | awk '{print $2}')
+if [ "${PARENT_COUNT}" -lt 1 ] || [ -z "${MAINLINE_PARENT}" ]; then
+  echo "ERROR: synchronized revision ${SYNC_REVISION} has no safe parent; refusing source rollback" >&2
+  exit 1
+fi
+
+PARENT_WAS_SYNCED=$(echo "${ARGO_APP}" | jq -r \
+  --arg parent "${MAINLINE_PARENT}" \
+  '[.status.history[]?.revision] | index($parent) != null')
+if [ "${PARENT_WAS_SYNCED}" != "true" ]; then
+  echo "ERROR: first parent ${MAINLINE_PARENT} was not previously synchronized by ArgoCD; refusing source rollback" >&2
+  exit 1
+fi
+
+LAST_COMMIT=$(git log --oneline -1 "${SYNC_REVISION}")
+echo "Synchronized commit: ${LAST_COMMIT}"
+echo "Previously synchronized first parent: ${MAINLINE_PARENT}"
+
+echo "Reverting synchronized source revision..."
 git config user.email "kubernaut@kubernaut.ai"
 git config user.name "Kubernaut Remediation"
-PARENT_COUNT=$(git rev-list --parents -n 1 HEAD | awk '{print NF-1}')
 if [ "${PARENT_COUNT}" -gt 1 ]; then
-  MAINLINE_PARENT=$(git rev-list --parents -n 1 HEAD | awk '{print $2}')
-  [ -n "${MAINLINE_PARENT}" ] || {
-    echo "ERROR: merge commit has no first parent; refusing to revert" >&2
-    exit 1
-  }
   echo "Merge commit detected; reverting against first-parent mainline ${MAINLINE_PARENT}"
-  git revert --no-edit --mainline 1 HEAD
+  git revert --no-edit --mainline 1 "${SYNC_REVISION}"
 else
-  git revert --no-edit HEAD
+  git revert --no-edit "${SYNC_REVISION}"
 fi
 
 echo "Pushing revert..."
