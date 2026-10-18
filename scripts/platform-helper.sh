@@ -260,25 +260,26 @@ restart_alertmanager() {
         return 0
     fi
     echo "==> Restarting AlertManager to clear stale notification state..."
+    local monitoring_ns="${FLEET_MONITORING_NS:-monitoring}"
     local am_deployment
-    am_deployment=$(kubectl get deployment -n monitoring -l app=alertmanager \
+    am_deployment=$(kubectl get deployment -n "${monitoring_ns}" -l app=alertmanager \
         -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
     if [ -n "$am_deployment" ]; then
-        kubectl rollout restart "deployment/${am_deployment}" -n monitoring
-        kubectl rollout status "deployment/${am_deployment}" -n monitoring --timeout=60s
+        kubectl rollout restart "deployment/${am_deployment}" -n "${monitoring_ns}"
+        kubectl rollout status "deployment/${am_deployment}" -n "${monitoring_ns}" --timeout=60s
         return 0
     fi
 
     local am_statefulset
-    am_statefulset=$(kubectl get statefulset -n monitoring -l app=alertmanager \
+    am_statefulset=$(kubectl get statefulset -n "${monitoring_ns}" -l app=alertmanager \
         -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
     if [ -n "$am_statefulset" ]; then
-        kubectl rollout restart "statefulset/${am_statefulset}" -n monitoring
-        kubectl rollout status "statefulset/${am_statefulset}" -n monitoring --timeout=60s
+        kubectl rollout restart "statefulset/${am_statefulset}" -n "${monitoring_ns}"
+        kubectl rollout status "statefulset/${am_statefulset}" -n "${monitoring_ns}" --timeout=60s
         return 0
     fi
 
-    echo "  WARNING: no AlertManager Deployment or StatefulSet found in monitoring."
+    echo "  WARNING: no AlertManager Deployment or StatefulSet found in ${monitoring_ns}."
 }
 
 # Delete pipeline CRDs owned by the current scenario's RemediationRequest.
@@ -1460,6 +1461,132 @@ restore_em() {
     echo "  EM configuration restored to original."
 }
 
+# Temporarily tune Gateway's same-fingerprint post-completion cooldown for a
+# scenario that deliberately keeps an alert firing across remediation cycles.
+# A zero duration disables only the post-completion cooldown; Gateway still
+# requires a new signal delivery and still deduplicates an active RR.
+#
+# The original YAML is saved as an annotation so cleanup can restore the
+# cluster-specific configuration exactly.
+configure_gateway_deduplication_cooldown() {
+    local cooldown="${1:?usage: configure_gateway_deduplication_cooldown <duration>}"
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="gateway-config"
+
+    local existing_b64
+    existing_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-gateway-config}' 2>/dev/null || echo "")
+
+    local current_yaml
+    current_yaml=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.data.config\.yaml}')
+
+    if [ -z "${existing_b64}" ]; then
+        kubectl annotate configmap "${cm}" -n "${ns}" \
+          "kubernaut.ai/original-gateway-config=$(echo "${current_yaml}" | base64 | tr -d '\n')" --overwrite
+    fi
+
+    local patched
+    patched=$(python3 -c '
+import sys, yaml
+data = yaml.safe_load(sys.stdin.read()) or {}
+data.setdefault("processing", {}).setdefault("deduplication", {})["cooldownPeriod"] = sys.argv[1]
+print(yaml.dump(data, default_flow_style=False), end="")
+' "${cooldown}" <<< "${current_yaml}")
+
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"config.yaml\":$(echo "${patched}" | jq -Rs .)}}"
+    kubectl rollout restart deployment/gateway -n "${ns}"
+    kubectl rollout status deployment/gateway -n "${ns}" --timeout=60s
+    echo "  Gateway configured: processing.deduplication.cooldownPeriod=${cooldown}"
+}
+
+restore_gateway_deduplication_cooldown() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="gateway-config"
+    local saved_b64
+    saved_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-gateway-config}' 2>/dev/null || echo "")
+    if [ -z "${saved_b64}" ]; then
+        return 0
+    fi
+
+    local original
+    original=$(echo "${saved_b64}" | base64 -d)
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"config.yaml\":$(echo "${original}" | jq -Rs .)}}"
+    kubectl annotate configmap "${cm}" -n "${ns}" \
+      "kubernaut.ai/original-gateway-config-" 2>/dev/null || true
+    kubectl rollout restart deployment/gateway -n "${ns}" 2>/dev/null || true
+    kubectl rollout status deployment/gateway -n "${ns}" --timeout=60s 2>/dev/null || true
+    echo "  Gateway deduplication cooldown restored to original."
+}
+
+# Temporarily tune AlertManager's repeat interval for a scenario that keeps an
+# alert firing across remediation cycles. AlertManager normally repeats a
+# firing notification only hourly; a short run-scoped interval is needed to
+# deliver the continuing alert after the first RR becomes terminal without
+# clearing or reinjecting the workload stimulus.
+#
+# The original YAML is saved as an annotation so cleanup restores the exact
+# cluster-specific configuration. Idempotent: repeated configuration preserves
+# the first saved copy.
+configure_alertmanager_repeat_interval() {
+    local repeat_interval="${1:?usage: configure_alertmanager_repeat_interval <duration>}"
+    local ns="${FLEET_MONITORING_NS:-monitoring}"
+    local cm="${FLEET_ALERTMANAGER_CONFIGMAP:-alertmanager-config}"
+
+    local existing_b64
+    existing_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-alertmanager-config}' 2>/dev/null || echo "")
+
+    local current_yaml
+    current_yaml=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.data.alertmanager\.yml}')
+    [ -n "${current_yaml}" ] || {
+        echo "ERROR: AlertManager config ${cm} in ${ns} has no alertmanager.yml data." >&2
+        return 1
+    }
+
+    if [ -z "${existing_b64}" ]; then
+        kubectl annotate configmap "${cm}" -n "${ns}" \
+          "kubernaut.ai/original-alertmanager-config=$(echo "${current_yaml}" | base64 | tr -d '\n')" --overwrite
+    fi
+
+    local patched
+    patched=$(python3 -c '
+import sys, yaml
+data = yaml.safe_load(sys.stdin.read()) or {}
+data.setdefault("route", {})["repeat_interval"] = sys.argv[1]
+print(yaml.dump(data, default_flow_style=False), end="")
+' "${repeat_interval}" <<< "${current_yaml}")
+
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"alertmanager.yml\":$(echo "${patched}" | jq -Rs .)}}"
+    restart_alertmanager
+    echo "  AlertManager configured: route.repeat_interval=${repeat_interval}"
+}
+
+restore_alertmanager_repeat_interval() {
+    local ns="${FLEET_MONITORING_NS:-monitoring}"
+    local cm="${FLEET_ALERTMANAGER_CONFIGMAP:-alertmanager-config}"
+    local saved_b64
+    saved_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+      -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-alertmanager-config}' 2>/dev/null || echo "")
+    if [ -z "${saved_b64}" ]; then
+        return 0
+    fi
+
+    local original
+    original=$(echo "${saved_b64}" | base64 -d)
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+      -p "{\"data\":{\"alertmanager.yml\":$(echo "${original}" | jq -Rs .)}}"
+    kubectl annotate configmap "${cm}" -n "${ns}" \
+      "kubernaut.ai/original-alertmanager-config-" 2>/dev/null || true
+    restart_alertmanager || true
+    echo "  AlertManager repeat interval restored to original."
+}
+
 # Temporarily tune RemediationOrchestrator timing for a scenario that uses a
 # webhook-backed GitOps controller. The complete original ConfigMap is saved so
 # cleanup restores any cluster-specific configuration.
@@ -1527,4 +1654,79 @@ restore_ro_gitops_sync_delay() {
     kubectl rollout restart deployment/remediationorchestrator-controller -n "${ns}"
     kubectl rollout status deployment/remediationorchestrator-controller -n "${ns}" --timeout=60s
     echo "  RO configuration restored to original."
+}
+
+# Temporarily raise the Kubernaut Agent's complete evidence-handoff budget for
+# scenarios whose RCA intentionally retains a large evidence set. This is a
+# run-scoped tuning knob: preserve the exact chart-managed config and restore it
+# during cleanup rather than changing the platform default permanently.
+configure_ka_evidence_handoff_budget() {
+    local budget_bytes="${1:?usage: configure_ka_evidence_handoff_budget <bytes>}"
+    case "${budget_bytes}" in
+        ''|*[!0-9]*)
+            echo "ERROR: evidence handoff budget must be a positive integer: ${budget_bytes}" >&2
+            return 1
+            ;;
+    esac
+    [ "${budget_bytes}" -gt 0 ] || {
+        echo "ERROR: evidence handoff budget must be greater than zero." >&2
+        return 1
+    }
+
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="kubernaut-agent-config"
+    local existing_b64
+    existing_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+        -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-ka-config}' \
+        2>/dev/null || echo "")
+
+    local current_yaml
+    current_yaml=$(kubectl get configmap "${cm}" -n "${ns}" \
+        -o jsonpath='{.data.config\.yaml}')
+    [ -n "${current_yaml}" ] || {
+        echo "ERROR: Kubernaut Agent config ${cm} in ${ns} has no config.yaml data." >&2
+        return 1
+    }
+
+    if [ -z "${existing_b64}" ]; then
+        kubectl annotate configmap "${cm}" -n "${ns}" \
+            "kubernaut.ai/original-ka-config=$(echo "${current_yaml}" | base64 | tr -d '\n')" \
+            --overwrite
+    fi
+
+    local patched
+    patched=$(python3 -c '
+import sys, yaml
+data = yaml.safe_load(sys.stdin.read()) or {}
+data.setdefault("ai", {}).setdefault("investigation", {})["maxEvidenceHandoffBytes"] = int(sys.argv[1])
+print(yaml.safe_dump(data, default_flow_style=False, sort_keys=False), end="")
+' "${budget_bytes}" <<< "${current_yaml}")
+
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+        -p "{\"data\":{\"config.yaml\":$(echo "${patched}" | jq -Rs .)}}"
+    kubectl rollout restart deployment/kubernaut-agent -n "${ns}"
+    kubectl rollout status deployment/kubernaut-agent -n "${ns}" --timeout=120s
+    echo "  Kubernaut Agent configured: ai.investigation.maxEvidenceHandoffBytes=${budget_bytes}"
+}
+
+restore_ka_evidence_handoff_budget() {
+    local ns="${PLATFORM_NS:-kubernaut-system}"
+    local cm="kubernaut-agent-config"
+    local saved_b64
+    saved_b64=$(kubectl get configmap "${cm}" -n "${ns}" \
+        -o jsonpath='{.metadata.annotations.kubernaut\.ai/original-ka-config}' \
+        2>/dev/null || echo "")
+    if [ -z "${saved_b64}" ]; then
+        return 0
+    fi
+
+    local original
+    original=$(echo "${saved_b64}" | base64 -d)
+    kubectl patch configmap "${cm}" -n "${ns}" --type=merge \
+        -p "{\"data\":{\"config.yaml\":$(echo "${original}" | jq -Rs .)}}"
+    kubectl annotate configmap "${cm}" -n "${ns}" \
+        "kubernaut.ai/original-ka-config-" 2>/dev/null || true
+    kubectl rollout restart deployment/kubernaut-agent -n "${ns}"
+    kubectl rollout status deployment/kubernaut-agent -n "${ns}" --timeout=120s
+    echo "  Kubernaut Agent evidence-handoff budget restored to original."
 }

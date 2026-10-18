@@ -90,7 +90,10 @@ if fleet_initialize_targeting "$@"; then
         if [ -n "${_cleanup_pf_pid}" ]; then
             kill "${_cleanup_pf_pid}" 2>/dev/null || true
         fi
+        restore_alertmanager_repeat_interval || true
+        restore_gateway_deduplication_cooldown || true
         restore_ro_gitops_sync_delay || true
+        restore_ka_evidence_handoff_budget || true
         restore_production_approval || true
     }
     trap cleanup_fleet_exit EXIT
@@ -118,7 +121,10 @@ if fleet_initialize_targeting "$@"; then
         _cleanup_pf_pid=""
     fi
 
+    restore_alertmanager_repeat_interval || true
+    restore_gateway_deduplication_cooldown || true
     restore_ro_gitops_sync_delay || true
+    restore_ka_evidence_handoff_budget || true
     restore_production_approval || true
     delete_flood_configmaps
     fleet_cleanup_scenario_resources "${SCRIPT_DIR}/manifests" "$NAMESPACE"
@@ -144,7 +150,9 @@ else
 fi
 delete_flood_configmaps
 kubectl delete namespace demo-controllers --ignore-not-found --wait=false
+restore_gateway_deduplication_cooldown || true
 restore_ro_gitops_sync_delay || true
+restore_ka_evidence_handoff_budget || true
 
 echo "==> Waiting for namespace deletion to complete..."
 _elapsed=0

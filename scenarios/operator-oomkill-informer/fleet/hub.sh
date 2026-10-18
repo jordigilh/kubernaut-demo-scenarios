@@ -19,13 +19,17 @@ GITEA_REVIEWER_PASS="${GITEA_REVIEWER_PASS:-sre-reviewer123}"
 GITEA_REVIEWER_EMAIL="${GITEA_REVIEWER_EMAIL:-sre-reviewer@kubernaut.ai}"
 REPO_NAME="${OPERATOR_GITOPS_REPO:-demo-operator-oomkill-repo}"
 APP_NAME="${OPERATOR_GITOPS_APP_NAME:-operator-oomkill-informer}"
-INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-100}"
+INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-600}"
 # Argo CD is refreshed by the Gitea push webhook, so the default polling-oriented
 # propagation delay can be shorter for this scenario. Keep the override for
-# environments that need a different run-scoped value. The shorter stabilization
-# window keeps this demo verification quick; cleanup restores the original values.
+# environments that need a different run-scoped value. The full stabilization
+# window gives the retained informer load time to expose a delayed ineffective
+# remediation; cleanup restores the original values.
 GITOPS_SYNC_DELAY="${GITOPS_SYNC_DELAY:-10s}"
-EFFECTIVENESS_STABILIZATION_WINDOW="${EFFECTIVENESS_STABILIZATION_WINDOW:-30s}"
+EFFECTIVENESS_STABILIZATION_WINDOW="${EFFECTIVENESS_STABILIZATION_WINDOW:-5m}"
+GATEWAY_DEDUP_COOLDOWN="${GATEWAY_DEDUP_COOLDOWN:-0s}"
+ALERTMANAGER_REPEAT_INTERVAL="${ALERTMANAGER_REPEAT_INTERVAL:-1m}"
+MAX_EVIDENCE_HANDOFF_BYTES="${MAX_EVIDENCE_HANDOFF_BYTES:-262144}"
 APPROVE_MODE="--interactive"
 ALERT_ONLY=false
 NO_VALIDATE=false
@@ -78,7 +82,10 @@ cleanup_run() {
     # The delay is a run-scoped tuning knob. Restore it even when setup or
     # validation exits early, rather than relying on a later manual cleanup.
     if [ "${DEFER_FLEET_TUNING_RESTORE:-false}" != true ]; then
+        restore_alertmanager_repeat_interval || true
+        restore_gateway_deduplication_cooldown || true
         restore_ro_gitops_sync_delay || true
+        restore_ka_evidence_handoff_budget || true
         restore_production_approval || true
     fi
 }
@@ -108,7 +115,10 @@ gitea_api_code() {
 # Provisional demo tuning only. The RO's existing async propagation mechanism
 # remains authoritative; cleanup.sh restores the original values.
 force_production_approval
+configure_gateway_deduplication_cooldown "${GATEWAY_DEDUP_COOLDOWN}"
+configure_alertmanager_repeat_interval "${ALERTMANAGER_REPEAT_INTERVAL}"
 configure_ro_gitops_timing "${GITOPS_SYNC_DELAY}" "${EFFECTIVENESS_STABILIZATION_WINDOW}"
+configure_ka_evidence_handoff_budget "${MAX_EVIDENCE_HANDOFF_BYTES}"
 
 echo "==> [hub=${HUB_KUBECONFIG}] Ensuring Gitea + Argo CD are installed..."
 if ! kubectl get service gitea-http -n "${GITEA_NAMESPACE}" &>/dev/null; then

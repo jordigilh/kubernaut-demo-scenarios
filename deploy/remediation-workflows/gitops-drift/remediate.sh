@@ -68,7 +68,18 @@ echo "Last commit: ${LAST_COMMIT}"
 echo "Reverting last commit..."
 git config user.email "kubernaut@kubernaut.ai"
 git config user.name "Kubernaut Remediation"
-git revert --no-edit HEAD
+PARENT_COUNT=$(git rev-list --parents -n 1 HEAD | awk '{print NF-1}')
+if [ "${PARENT_COUNT}" -gt 1 ]; then
+  MAINLINE_PARENT=$(git rev-list --parents -n 1 HEAD | awk '{print $2}')
+  [ -n "${MAINLINE_PARENT}" ] || {
+    echo "ERROR: merge commit has no first parent; refusing to revert" >&2
+    exit 1
+  }
+  echo "Merge commit detected; reverting against first-parent mainline ${MAINLINE_PARENT}"
+  git revert --no-edit --mainline 1 HEAD
+else
+  git revert --no-edit HEAD
+fi
 
 echo "Pushing revert..."
 git push origin "${GIT_BRANCH}"
