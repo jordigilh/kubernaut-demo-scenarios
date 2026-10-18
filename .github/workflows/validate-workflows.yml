@@ -109,3 +109,6 @@ jobs:
 
       - name: Exercise release-wide target handling
         run: bash deploy/remediation-workflows/crashloop-helm/test-remediate.sh
+
+      - name: Exercise GitOps synchronized-revision rollback contract
+        run: bash deploy/remediation-workflows/gitops-drift/test-remediate.sh
