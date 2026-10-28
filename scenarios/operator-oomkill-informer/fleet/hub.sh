@@ -170,12 +170,19 @@ HUB_KUBECONFIG="${HUB_KUBECONFIG}" SPOKE_KUBECONFIG="${SPOKE_KUBECONFIG}" \
     --scenario operator-oomkill-informer --continue-on-error
 
 echo "==> [hub] Registering spoke as the Argo CD destination..."
-SPOKE_SERVER=$(fleet_register_argocd_spoke_cluster "spoke" "${ARGOCD_NS}")
-HUB_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
-if [ -z "${SPOKE_SERVER}" ] || [ "${SPOKE_SERVER}" = "${HUB_SERVER}" ] || \
-   [ "${SPOKE_SERVER}" = "https://kubernetes.default.svc" ]; then
-    echo "ERROR: Argo CD spoke registration resolved to the hub (${SPOKE_SERVER:-empty})." >&2
-    exit 1
+if [ "${FLEET_COLOCATED:-false}" = true ]; then
+    # Argo CD already runs on the same cluster in single-cluster mode. Use its
+    # in-cluster destination instead of registering the hub as its own spoke.
+    SPOKE_SERVER="https://kubernetes.default.svc"
+    echo "  [co-located] Using the hub cluster as the Argo CD workload destination."
+else
+    SPOKE_SERVER=$(fleet_register_argocd_spoke_cluster "spoke" "${ARGOCD_NS}")
+    HUB_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+    if [ -z "${SPOKE_SERVER}" ] || [ "${SPOKE_SERVER}" = "${HUB_SERVER}" ] || \
+       [ "${SPOKE_SERVER}" = "https://kubernetes.default.svc" ]; then
+        echo "ERROR: Argo CD spoke registration resolved to the hub (${SPOKE_SERVER:-empty})." >&2
+        exit 1
+    fi
 fi
 
 echo "==> [hub] Removing stale Application and spoke namespace..."
