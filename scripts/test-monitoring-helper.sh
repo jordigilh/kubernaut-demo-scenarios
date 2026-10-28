@@ -20,6 +20,13 @@ grep -Fq 'amtool_prepare_connection' "${AMTOOL_HELPER}"
 grep -Fq 'http.config.file' "${AMTOOL_HELPER}"
 grep -Fq 'SINGLE_CLUSTER_GITOPS=true' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"
 grep -Fq 'SINGLE_CLUSTER_GITOPS' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/fleet/hub.sh"
+grep -Fq 'GITOPS_MODE=true' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"
+grep -Fq 'GITOPS_MODE' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/validate.sh"
+grep -Fq 'amtool_prepare_connection' "${SCRIPT_DIR}/fleet-helper.sh"
+if grep -Fq 'wget -qO- http://localhost:9093/api/v2/alerts' "${SCRIPT_DIR}/fleet-helper.sh"; then
+    echo "FAIL: fleet Alertmanager polling still hardcodes HTTP" >&2
+    exit 1
+fi
 if grep -Fq 'HUB_KUBECONFIG=' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh" || \
     grep -Fq 'SPOKE_KUBECONFIG=' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"; then
     echo "FAIL: single-cluster operator OOM entrypoint invents hub/spoke kubeconfigs" >&2

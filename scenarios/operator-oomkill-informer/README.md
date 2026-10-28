@@ -122,6 +122,10 @@ PLATFORM=ocp ./scenarios/operator-oomkill-informer/run.sh
 | `--auto-approve` | Runs the full pipeline, auto-approves remediation | Automated regression testing (explicit) |
 | `--alert-only` | Deploys, injects fault, waits for alert to fire, then exits | AF/A2A demos |
 
+Local mode uses only the ambient `KUBECONFIG`; it does not set or infer
+`HUB_KUBECONFIG` or `SPOKE_KUBECONFIG`. The local Gitea review endpoint uses
+port `3031` by default (`GITEA_LOCAL_PORT` can override it).
+
 ## Fleet Mode
 
 Runs the workload on a separate **spoke** cluster while the Kubernaut control plane runs
@@ -149,18 +153,18 @@ effectiveness assessment, retained stimulus evidence, and follow-up RRs created 
 the continuing alert. The human-handoff decision belongs to platform routing/history,
 not to the workflow Job.
 
-Fleet mode temporarily sets the Remediation Orchestrator's
+Both topologies temporarily set the Remediation Orchestrator's
 `asyncPropagation.gitOpsSyncDelay` to `10s` and
 `effectivenessAssessment.stabilizationWindow` to `5m`. The Gitea push webhook triggers
 Argo CD reconciliation immediately, so a longer polling-oriented delay is unnecessary;
 the full stabilization window gives the retained informer load time to expose a delayed
 ineffective remediation while retaining independent health, alert, metrics, and spec-hash
-assessment. Fleet mode also temporarily sets Gateway's
+assessment. Both topologies also temporarily set Gateway's
 `processing.deduplication.cooldownPeriod` to `0s` and AlertManager's `route.repeat_interval`
 to `1m`; the repeat allows a fresh delivery after each RR becomes terminal without
 clearing or reinjecting the flood. `cleanup.sh` restores AlertManager, Gateway, and RO
 configurations. Because RC23 freezes the complete sanitized RCA evidence packet before
-workflow discovery, Fleet mode also temporarily sets
+workflow discovery, both topologies also temporarily set
 `ai.investigation.maxEvidenceHandoffBytes` to `262144` (256KiB) so this scenario's
 600-object stimulus can reach discovery without truncating evidence; cleanup restores
 the platform's original value. Set `GITOPS_SYNC_DELAY`,
@@ -183,8 +187,12 @@ To make Gitea reachable from a browser on the host:
    reviewing and merging the PR:
 
 ```bash
+# Single-cluster mode: use only the ambient KUBECONFIG.
 GITEA_LOCAL_PORT=3031  # use 3032 for OpenShift, or another free local port
-kubectl --kubeconfig="$HOME/.kube/kubernaut-hub-config" \
+kubectl port-forward -n gitea svc/gitea-http "${GITEA_LOCAL_PORT}:3000"
+
+# Fleet mode: port-forward from the hub.
+kubectl --kubeconfig="$HUB_KUBECONFIG" \
   port-forward -n gitea svc/gitea-http "${GITEA_LOCAL_PORT}:3000"
 ```
 
@@ -227,7 +235,7 @@ Stop the port-forward with `Ctrl-C` after the review is complete. Kind uses port
 - [ ] Both local and fleet modes select `increase-memory-limits-gitops-v1`
 - [ ] Each local or fleet remediation adds exactly `128Mi` to the current limit; the increment is not a workflow parameter
 - [ ] Confidence >= 0.7
-- [ ] Fleet RAR approval is recorded before the Job starts
+- [ ] RAR approval is recorded before the Job starts in both topologies
 - [ ] The Job opens a forward-change PR and waits; it never merges, pushes protected `main`, or patches the live Deployment
 - [ ] A human reviewer approves and manually merges the PR
 - [ ] Argo CD applies the merged revision and the spoke Deployment memory limit increases while requests remain unchanged

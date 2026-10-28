@@ -11,6 +11,8 @@ source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 # --fleet flag, keep cleanup on the ambient single cluster.
 if ! fleet_dispatch_requested "$@"; then
     export SINGLE_CLUSTER_GITOPS=true
+    export FLEET_MODE=false
+    unset HUB_KUBECONFIG SPOKE_KUBECONFIG
 fi
 
 # Delete the attack ConfigMaps before deleting the namespace. Namespace

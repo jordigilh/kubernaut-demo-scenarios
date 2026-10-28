@@ -33,6 +33,8 @@ MAX_EVIDENCE_HANDOFF_BYTES="${MAX_EVIDENCE_HANDOFF_BYTES:-262144}"
 APPROVE_MODE="--interactive"
 ALERT_ONLY=false
 NO_VALIDATE=false
+SINGLE_CLUSTER_GITOPS="${SINGLE_CLUSTER_GITOPS:-false}"
+export GITOPS_MODE=true
 
 # The shared GitOps installers are invoked as child processes. Export the
 # scenario-owned values so a custom repository or platform-specific port is
@@ -54,7 +56,10 @@ done
 # shellcheck source=../../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
-    :
+    # A local invocation is explicitly ambient. Do not let inherited fleet
+    # variables make kubectl_workload or cleanup target a stale spoke.
+    export FLEET_MODE=false
+    unset HUB_KUBECONFIG SPOKE_KUBECONFIG
 else
     fleet_check_hub_connectivity
     fleet_check_spoke_connectivity
@@ -126,7 +131,12 @@ configure_alertmanager_repeat_interval "${ALERTMANAGER_REPEAT_INTERVAL}"
 configure_ro_gitops_timing "${GITOPS_SYNC_DELAY}" "${EFFECTIVENESS_STABILIZATION_WINDOW}"
 configure_ka_evidence_handoff_budget "${MAX_EVIDENCE_HANDOFF_BYTES}"
 
-echo "==> [hub=${HUB_KUBECONFIG}] Ensuring Gitea + Argo CD are installed..."
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    HUB_DISPLAY="ambient KUBECONFIG"
+else
+    HUB_DISPLAY="${HUB_KUBECONFIG}"
+fi
+echo "==> [hub=${HUB_DISPLAY}] Ensuring Gitea + Argo CD are installed..."
 if ! kubectl get service gitea-http -n "${GITEA_NAMESPACE}" &>/dev/null; then
     bash "${SCRIPT_DIR}/../gitops/scripts/setup-gitea.sh"
 fi
@@ -237,8 +247,9 @@ fi
 # Alert labels must survive the spoke -> Thanos/Alertmanager path. Render the
 # registered spoke identity into the desired PrometheusRule before the initial
 # commit; patching the live rule after Argo sync would be immediately reverted.
-SPOKE_CLUSTER_ID=$(fleet_cluster_id)
-python3 - "${WORK_DIR}/repo/manifests/prometheus-rule.yaml" "${SPOKE_CLUSTER_ID}" <<'PY'
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" != true ]; then
+    SPOKE_CLUSTER_ID=$(fleet_cluster_id)
+    python3 - "${WORK_DIR}/repo/manifests/prometheus-rule.yaml" "${SPOKE_CLUSTER_ID}" <<'PY'
 import json
 import pathlib
 import re
@@ -265,6 +276,11 @@ else:
     updated = text[:severity.start()] + insertion + text[severity.end():]
 path.write_text(updated)
 PY
+else
+    # The local path has no cross-cluster Thanos hop, so keep the normal local
+    # PrometheusRule shape and do not invent a fleet cluster identity.
+    echo "  [single-cluster] Keeping local alert labels without fleet cluster attribution."
+fi
 
 git -C "${WORK_DIR}/repo" init -b main -q
 git -C "${WORK_DIR}/repo" config user.email "${GITEA_ADMIN_USER}@kubernaut.ai"
@@ -286,7 +302,11 @@ GIT_USERNAME="${GITEA_ADMIN_USER}" GIT_PASSWORD="${GITEA_ADMIN_PASS}" \
     git -C "${WORK_DIR}/repo" -c "credential.helper=${SETUP_CREDENTIAL_HELPER}" \
     push -u origin main -q
 
-SPOKE_PLATFORM=$(detect_spoke_platform)
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    SPOKE_PLATFORM="${PLATFORM}"
+else
+    SPOKE_PLATFORM=$(detect_spoke_platform)
+fi
 if [ "${SPOKE_PLATFORM}" = "ocp" ]; then
     ARGO_SOURCE_PATH="overlays/ocp"
 else

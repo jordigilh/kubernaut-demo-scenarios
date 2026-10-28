@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Validate the GitOps-managed operator OOM closed loop (#446).
 #
-# Fleet mode validates human-gated PR remediations while the fixed ConfigMap
-# stimulus remains present. The flood is large enough to survive three +128Mi
-# increments. The validator waits for the still-firing alert to create follow-up
-# RRs, accepts platform escalation on any recurrence, and otherwise continues
-# through additional ineffective reviewed remediations. It never clears or
-# reinjects the stimulus between cycles.
+# GitOps mode validates human-gated PR remediations while the fixed ConfigMap
+# stimulus remains present, in either single-cluster or fleet topology. The
+# flood is large enough to survive three +128Mi increments. The validator waits
+# for the still-firing alert to create follow-up RRs, accepts platform
+# escalation on any recurrence, and otherwise continues through additional
+# ineffective reviewed remediations. It never clears or reinjects the stimulus
+# between cycles.
 # The workflow Job is deliberately RR-agnostic: this validator must not require
 # it to decide recurrence or emit a human handoff.
 set -euo pipefail
@@ -17,6 +18,10 @@ NAMESPACE="${OPERATOR_GITOPS_NAMESPACE:-demo-controllers}"
 APP_NAME="${OPERATOR_GITOPS_APP_NAME:-operator-oomkill-informer}"
 APPROVE_MODE="--auto-approve"
 FLEET_MODE="${FLEET_MODE:-false}"
+# This scenario has one remediation contract in every topology. Keep the
+# default GitOps-enabled so scripts/run-scenario.sh, which invokes validate.sh
+# in a fresh child after run.sh, cannot silently lose the contract flag.
+GITOPS_MODE="${GITOPS_MODE:-true}"
 
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
@@ -26,14 +31,23 @@ for _arg in "$@"; do
         --interactive)  APPROVE_MODE="--interactive" ;;
         --auto-approve) APPROVE_MODE="--auto-approve" ;;
         --fleet)        FLEET_MODE=true ;;
+        --gitops)       GITOPS_MODE=true ;;
     esac
 done
+
+# Fleet is a topology; GitOps is the remediation contract. Keep those modes
+# separate so a single-cluster GitOps run executes the same reviewed-PR,
+# recurrence, and escalation assertions as fleet mode.
+if [ "${FLEET_MODE}" = true ]; then
+    GITOPS_MODE=true
+fi
+export GITOPS_MODE
 
 # shellcheck source=../../scripts/validation-helper.sh
 source "${SCRIPT_DIR}/../../scripts/validation-helper.sh"
 
-PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${FLEET_MODE:-false}" = true ] && echo 1800 || echo 720)}"
-if [ "${FLEET_MODE:-false}" = true ]; then
+PIPELINE_TIMEOUT="${PIPELINE_TIMEOUT:-$([ "${GITOPS_MODE:-false}" = true ] && echo 1800 || echo 720)}"
+if [ "${GITOPS_MODE:-false}" = true ]; then
     INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-600}"
 else
     INITIAL_FLOOD_COUNT="${INITIAL_FLOOD_COUNT:-100}"
@@ -179,22 +193,37 @@ cleanup_stimulus() {
         -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | awk '/^app-config-[0-9]+$/')
 }
 
-fleet_alert_present() {
-    local alert_name="$1" namespace="$2" cluster="$3" pod alerts active_pods
-    pod=$(command kubectl --kubeconfig="${HUB_KUBECONFIG}" get pods -n "${FLEET_MONITORING_NS:-monitoring}" \
-        -l app=alertmanager --field-selector=status.phase=Running \
-        -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+alert_present() {
+    local alert_name="$1" namespace="$2" cluster="${3:-}" pod alerts active_pods
+    local am_namespace="${MONITORING_NS:-monitoring}"
+    if [ "${FLEET_MODE:-false}" = true ]; then
+        am_namespace="${FLEET_MONITORING_NS:-monitoring}"
+    fi
+
+    pod="${ALERTMANAGER_POD:-}"
+    if [ -z "${pod}" ]; then
+        pod=$(kubectl get pods -n "${am_namespace}" -l app=alertmanager \
+            --field-selector=status.phase=Running \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    fi
     [ -n "${pod}" ] || return 2
+
     # Prometheus' restart-rate rule can retain an alert for a deleted pod until
     # its range window expires. Effectiveness Monitor filters those stale signal
     # pod alerts against the current target pods; mirror that behavior here so
     # recurrence does not wait on an old pod that is no longer failing.
-    active_pods=$(command kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get pods \
-        -n "${namespace}" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
+    active_pods=$(kubectl get pods -n "${namespace}" \
+        -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' \
         2>/dev/null || true)
     [ -n "${active_pods}" ] || return 2
-    alerts=$(command kubectl --kubeconfig="${HUB_KUBECONFIG}" exec -n "${FLEET_MONITORING_NS:-monitoring}" \
-        "${pod}" -- wget -qO- http://localhost:9093/api/v2/alerts 2>/dev/null || true)
+
+    # Use the shared TLS-aware amtool setup. rc28 mounts Alertmanager's CA in
+    # the pod; hard-coded HTTP API calls fail there even though amtool works.
+    amtool_prepare_connection "${am_namespace}" "${pod}"
+    alerts=$(kubectl exec -n "${am_namespace}" "${pod}" -- \
+        amtool alert query "alertname=${alert_name}" "namespace=${namespace}" \
+        "${AMTOOL_CONNECTION_ARGS[@]}" --output=json 2>/dev/null \
+        | tr '\n' ' ' || true)
     [ -n "${alerts}" ] || return 2
     printf '%s' "${alerts}" | python3 -c '
 import json, sys
@@ -209,6 +238,10 @@ for alert in json.load(sys.stdin):
         raise SystemExit(0)
 raise SystemExit(1)
 ' "${alert_name}" "${namespace}" "${cluster}" "${active_pods}"
+}
+
+fleet_alert_present() {
+    alert_present "$@"
 }
 
 wait_for_new_rr() {
@@ -373,7 +406,7 @@ assert_neq "${PR_URL}" "" "PR URL recorded"
 assert_neq "${PR_MERGED_BY}" "" "human merge actor recorded"
 assert_eq "${PR_MERGED_BY}" "${GITEA_REVIEWER}" "protected PR was manually merged by the reviewer"
 
-if [ "${FLEET_MODE:-false}" = true ] && [ -n "${PR_NUMBER}" ]; then
+if [ "${GITOPS_MODE:-false}" = true ] && [ -n "${PR_NUMBER}" ]; then
     log_phase "Verifying Gitea branch protection and independent human review..."
     start_gitea_port_forward
     GITEA_JSON_DIR=$(mktemp -d)
@@ -433,9 +466,12 @@ EA_ALERT_ASSESSED=$(jsonpath_or_empty effectivenessassessments "ea-${FIRST_RR}" 
 EA_METRICS_ASSESSED=$(jsonpath_or_empty effectivenessassessments "ea-${FIRST_RR}" "${PLATFORM_NS}" '{.status.components.metricsAssessed}')
 EA_REASON=$(jsonpath_or_empty effectivenessassessments "ea-${FIRST_RR}" "${PLATFORM_NS}" '{.status.assessmentReason}')
 FIRST_ALERT_ACTIVE=false
-if [ "${FLEET_MODE:-false}" = true ]; then
-    _first_alert_cluster="${SPOKE_CLUSTER_LABEL:-${FLEET_CLUSTER_ID:-remote-cluster}}"
-    if fleet_alert_present "KubePodCrashLooping" "${NAMESPACE}" "${_first_alert_cluster}"; then
+if [ "${GITOPS_MODE:-false}" = true ]; then
+    _first_alert_cluster=""
+    if [ "${FLEET_MODE:-false}" = true ]; then
+        _first_alert_cluster="${SPOKE_CLUSTER_LABEL:-${FLEET_CLUSTER_ID:-remote-cluster}}"
+    fi
+    if alert_present "KubePodCrashLooping" "${NAMESPACE}" "${_first_alert_cluster}"; then
         FIRST_ALERT_ACTIVE=true
     fi
 fi
@@ -458,7 +494,7 @@ assert_neq "${EA_HEALTH}" "NaN" "first effectiveness health score is numeric"
 assert_neq "${EA_ALERT}" "" "first effectiveness alert score recorded"
 assert_neq "${EA_REASON}" "" "effectiveness assessment reason recorded"
 
-if [ "${FLEET_MODE:-false}" = true ]; then
+if [ "${GITOPS_MODE:-false}" = true ]; then
     assert_eq "${FIRST_ALERT_ACTIVE}" "true" "first EA completed while KubePodCrashLooping remained active"
     if is_zero_score "${EA_ALERT}"; then
         FIRST_EA_FAILURE_EVIDENCE="alertScore=${EA_ALERT}"
@@ -511,8 +547,11 @@ if [ "${FLEET_MODE:-false}" = true ]; then
         CYCLE_LIMIT=$(fleet_target_kubectl get deployment/demo-controllers-controller -n "${NAMESPACE}" \
             -o jsonpath='{.spec.template.spec.containers[0].resources.limits.memory}' 2>/dev/null || true)
         CYCLE_ALERT_ACTIVE=false
-        _cycle_alert_cluster="${SPOKE_CLUSTER_LABEL:-${FLEET_CLUSTER_ID:-remote-cluster}}"
-        if fleet_alert_present "KubePodCrashLooping" "${NAMESPACE}" "${_cycle_alert_cluster}"; then
+        _cycle_alert_cluster=""
+        if [ "${FLEET_MODE:-false}" = true ]; then
+            _cycle_alert_cluster="${SPOKE_CLUSTER_LABEL:-${FLEET_CLUSTER_ID:-remote-cluster}}"
+        fi
+        if alert_present "KubePodCrashLooping" "${NAMESPACE}" "${_cycle_alert_cluster}"; then
             CYCLE_ALERT_ACTIVE=true
         fi
 
@@ -587,7 +626,11 @@ if [ "${FLEET_MODE:-false}" = true ]; then
             cleanup_gitea_port_forward
 
             AUDIT_TRACE_FILE="$(mktemp -t operator-oomkill-audit.XXXXXX)"
-            if bash "${REPO_ROOT}/scripts/extract-audit-trace.sh" --fleet "${NEXT_RR}" --json --investigation >"${AUDIT_TRACE_FILE}" 2>&1; then
+            AUDIT_TRACE_ARGS=("${NEXT_RR}" --json --investigation)
+            if [ "${FLEET_MODE:-false}" = true ]; then
+                AUDIT_TRACE_ARGS=(--fleet "${NEXT_RR}" --json --investigation)
+            fi
+            if bash "${REPO_ROOT}/scripts/extract-audit-trace.sh" "${AUDIT_TRACE_ARGS[@]}" >"${AUDIT_TRACE_FILE}" 2>&1; then
                 history_evidence=$(grep -Eio 'remediation_history|regression_detected|previous remediation|prior remediation|ineffective' "${AUDIT_TRACE_FILE}" | head -1 || true)
                 assert_neq "${history_evidence}" "" \
                     "RR cycle ${cycle} audit contains remediation history evidence"

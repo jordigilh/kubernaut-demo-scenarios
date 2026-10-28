@@ -640,8 +640,8 @@ EOF
 # Poll the hub's Alertmanager for a firing alert, bypassing
 # validation-helper.sh's wait_for_alert (which assumes the kube-prometheus-stack
 # StatefulSet naming convention -- alertmanager-kube-prometheus-stack-alertmanager-0
-# -- that the fleet-e2e raw-manifest hub does not use). Queries the v2 HTTP API
-# directly instead of amtool.
+# -- that the fleet-e2e raw-manifest hub does not use). Uses the shared
+# TLS-aware amtool connection setup so rc28 and older demo stacks work alike.
 #
 # Args: $1 = alertname, $2 = namespace label to match, $3 = timeout in seconds (default 300)
 fleet_wait_for_alert() {
@@ -649,6 +649,7 @@ fleet_wait_for_alert() {
     local alertname="${1:?usage: fleet_wait_for_alert <alertname> <namespace> [timeout] [cluster]}"
     local namespace="${2:?usage: fleet_wait_for_alert <alertname> <namespace> [timeout] [cluster]}"
     local timeout="${3:-300}"
+    export KUBECONFIG="${HUB_KUBECONFIG}"
     # Fleet monitoring deployment stamps `cluster` directly onto each alert
     # rule so Thanos/Alertmanager federation cannot strip the attribution.
     # Override this for multi-spoke demos by passing the fourth argument or
@@ -681,16 +682,22 @@ fleet_wait_for_alert() {
     echo "==> [fleet] Waiting for ${desc} on hub Alertmanager (timeout ${timeout}s)..."
     local elapsed=0
     while [ "$elapsed" -lt "$timeout" ]; do
+        if ! type amtool_prepare_connection &>/dev/null; then
+            # Most fleet hub entrypoints source only this helper. Load the
+            # shared Alertmanager client lazily so the fleet helper remains
+            # standalone while still handling rc28 TLS.
+            source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/amtool-helper.sh"
+        fi
+        amtool_prepare_connection "${FLEET_MONITORING_NS}" "${ham_pod}"
         if kubectl --kubeconfig="${HUB_KUBECONFIG}" exec -n "${FLEET_MONITORING_NS}" "$ham_pod" -- \
-            wget -qO- http://localhost:9093/api/v2/alerts 2>/dev/null \
-            | python3 -c "
+            amtool alert query "alertname=${alertname}" "namespace=${namespace}" \
+            "${AMTOOL_CONNECTION_ARGS[@]}" --output=json 2>/dev/null \
+            | tr '\n' ' ' | python3 -c "
 import json, sys
 alerts = json.load(sys.stdin)
 cluster_filter = '${cluster}'
 for a in alerts:
     labels = a.get('labels', {})
-    if labels.get('alertname') != '${alertname}' or labels.get('namespace') != '${namespace}':
-        continue
     if cluster_filter and labels.get('cluster') != cluster_filter:
         continue
     sys.exit(0)
