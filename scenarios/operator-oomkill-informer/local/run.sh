@@ -67,9 +67,9 @@ kubectl apply -k "${MANIFEST_DIR}"
 # workflow contract for this non-GitOps mode. The source manifests remain
 # GitOps-ready for fleet/hub.sh.
 kubectl annotate namespace "${NAMESPACE}" argocd.argoproj.io/instance- \
-  --ignore-not-found 2>/dev/null || true
+  2>/dev/null || true
 kubectl annotate deployment/demo-controllers-controller -n "${NAMESPACE}" \
-  argocd.argoproj.io/instance- --ignore-not-found 2>/dev/null || true
+  argocd.argoproj.io/instance- 2>/dev/null || true
 
 # Step 2: Wait for operator to be healthy
 echo "==> Step 2: Waiting for operator to be ready..."

@@ -18,6 +18,11 @@ grep -Fq 'ensure_metrics_server' "${SETUP}"
 grep -Fq 'wait_for_metrics_api 120' "${SPOKE}"
 grep -Fq 'amtool_prepare_connection' "${AMTOOL_HELPER}"
 grep -Fq 'http.config.file' "${AMTOOL_HELPER}"
+if grep -Fq 'kubectl annotate namespace' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh" && \
+    grep -A1 -Fq -- '--ignore-not-found' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"; then
+    echo "FAIL: local operator scenario passes unsupported --ignore-not-found to kubectl annotate" >&2
+    exit 1
+fi
 
 for caller in \
     "${SCRIPT_DIR}/monitoring-helper.sh" \
