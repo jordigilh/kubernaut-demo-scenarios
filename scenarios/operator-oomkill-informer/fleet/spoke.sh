@@ -15,9 +15,13 @@ NAMESPACE="demo-controllers"
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 fleet_check_spoke_connectivity
 
-if ! kubectl --kubeconfig="${SPOKE_KUBECONFIG}" get apiservice v1beta1.metrics.k8s.io \
-    -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null | grep -q True; then
-    echo "ERROR: Kubernetes Metrics API is unavailable on the spoke. Install metrics-server so workload CPU/memory can be inspected with kubectl top." >&2
+if ! (
+    export KUBECONFIG="${SPOKE_KUBECONFIG}"
+    # shellcheck source=../../../scripts/monitoring-helper.sh
+    source "${SCRIPT_DIR}/../../scripts/monitoring-helper.sh"
+    wait_for_metrics_api 120
+); then
+    echo "ERROR: Kubernetes Metrics API is unavailable on the spoke. Metrics Server must be Available and kubectl top must respond." >&2
     exit 1
 fi
 

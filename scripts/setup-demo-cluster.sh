@@ -418,8 +418,6 @@ else
             (
                 export KUBECONFIG="${SPOKE_KUBECONFIG}"
                 ensure_metrics_server
-                kubectl wait --for=condition=Available \
-                    apiservice/v1beta1.metrics.k8s.io --timeout=120s
             )
         fi
         echo ""
