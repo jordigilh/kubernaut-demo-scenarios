@@ -29,13 +29,11 @@ require_infra() {
             echo "ERROR: cert-manager is not installed. Run: bash scripts/setup-demo-cluster.sh"
             exit 1 ;;
         metrics-server)
-            if kubectl get apiservice v1beta1.metrics.k8s.io \
-                -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' \
-                2>/dev/null | grep -q True; then
+            if wait_for_metrics_api 30; then
                 return 0
             fi
             if kubectl get deployment metrics-server -n kube-system &>/dev/null; then
-                echo "ERROR: metrics-server is installed but the Kubernetes Metrics API is not Available."
+                echo "ERROR: metrics-server is installed but the Kubernetes Metrics API is not usable."
                 echo "  Check: kubectl get apiservice v1beta1.metrics.k8s.io"
             else
                 echo "ERROR: metrics-server is not installed. Run: bash scripts/setup-demo-cluster.sh"
@@ -643,34 +641,100 @@ ensure_cert_manager() {
 # ── metrics-server ───────────────────────────────────────────────────────────
 # Used by: autoscale, hpa-maxed, resource-contention, memory-leak,
 #          node-notready (Agent kubectl_top_* tools require real metrics)
+wait_for_metrics_api() {
+    local timeout="${1:-120}"
+    local elapsed=0
+    local api_status top_output
+
+    while [ "${elapsed}" -lt "${timeout}" ]; do
+        api_status=$(kubectl get apiservice v1beta1.metrics.k8s.io \
+            -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' \
+            2>/dev/null || true)
+        if [ "${api_status}" = "True" ]; then
+            top_output=$(kubectl top nodes --no-headers 2>/dev/null || true)
+            if [ -n "${top_output}" ]; then
+                echo "  Metrics API is Available and kubectl top is responding."
+                return 0
+            fi
+        fi
+        sleep 5
+        elapsed=$((elapsed + 5))
+    done
+
+    echo "  ERROR: Metrics API did not become usable within ${timeout}s." >&2
+    kubectl get apiservice v1beta1.metrics.k8s.io \
+        -o custom-columns='NAME:.metadata.name,AVAILABLE:.status.conditions[?(@.type=="Available")].status,REASON:.status.conditions[?(@.type=="Available")].reason,MESSAGE:.status.conditions[?(@.type=="Available")].message' \
+        2>/dev/null || true
+    kubectl get endpointslice -n kube-system \
+        -l kubernetes.io/service-name=metrics-server -o wide 2>/dev/null || true
+    return 1
+}
+
+restart_metrics_server_for_endpoint_recovery() {
+    local deployment
+    deployment=$(kubectl get deployment metrics-server -n kube-system \
+        -o jsonpath='{.metadata.name}' 2>/dev/null || true)
+    if [ -z "${deployment}" ]; then
+        deployment=$(kubectl get deployment -n kube-system \
+            -l app.kubernetes.io/name=metrics-server \
+            -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+    fi
+    if [ -z "${deployment}" ]; then
+        echo "  Metrics Server deployment is not managed by this setup; no restart attempted." >&2
+        return 1
+    fi
+
+    echo "  Metrics API is unavailable; restarting ${deployment} once to recover stale endpoint state..."
+    kubectl rollout restart "deployment/${deployment}" -n kube-system >/dev/null 2>&1 || true
+    if ! kubectl rollout status "deployment/${deployment}" -n kube-system --timeout=60s >/dev/null 2>&1; then
+        # A single-node cluster can keep the old Ready pod while the new pod is
+        # Pending under RollingUpdate maxSurge. Removing only Metrics Server
+        # pods lets the Deployment create one fresh endpoint.
+        kubectl delete pod -n kube-system \
+            -l app.kubernetes.io/name=metrics-server --wait=true \
+            --ignore-not-found >/dev/null 2>&1 || true
+    fi
+    kubectl rollout status "deployment/${deployment}" -n kube-system --timeout=120s >/dev/null 2>&1 || true
+    return 0
+}
+
 ensure_metrics_server() {
+    local installed=false
     if kubectl get deployment metrics-server -n kube-system &>/dev/null || \
        kubectl get deployment -n kube-system \
            -l app.kubernetes.io/name=metrics-server --no-headers 2>/dev/null | grep -q .; then
         echo "  metrics-server already installed."
-        return 0
+        installed=true
     fi
-    if helm status metrics-server -n kube-system &>/dev/null; then
+    if [ "${installed}" = false ] && helm status metrics-server -n kube-system &>/dev/null; then
         echo "  metrics-server Helm release already installed."
-        return 0
+        installed=true
     fi
-    if kubectl get apiservice v1beta1.metrics.k8s.io \
+    if [ "${installed}" = false ] && kubectl get apiservice v1beta1.metrics.k8s.io \
         -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' \
         2>/dev/null | grep -q True; then
         echo "  metrics-server provided by platform."
-        return 0
+        installed=true
     fi
 
-    echo "==> Installing metrics-server..."
-    helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/ 2>/dev/null || true
-    helm repo update metrics-server
+    if [ "${installed}" = false ]; then
+        echo "==> Installing metrics-server..."
+        helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/ 2>/dev/null || true
+        helm repo update metrics-server
 
-    helm upgrade --install metrics-server metrics-server/metrics-server \
-        --namespace kube-system \
-        --set args='{--kubelet-insecure-tls}' \
-        --wait --timeout 3m
+        helm upgrade --install metrics-server metrics-server/metrics-server \
+            --namespace kube-system \
+            --set args='{--kubelet-insecure-tls}' \
+            --wait --timeout 3m
 
-    echo "  metrics-server installed."
+        echo "  metrics-server installed."
+    fi
+
+    if wait_for_metrics_api 60; then
+        return 0
+    fi
+    restart_metrics_server_for_endpoint_recovery || true
+    wait_for_metrics_api 120
 }
 
 # ── Istio ────────────────────────────────────────────────────────────────────
