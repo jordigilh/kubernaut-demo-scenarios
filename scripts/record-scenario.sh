@@ -43,6 +43,7 @@ REPO_ROOT="$(cd "${SCENARIO_DIR}/../.." && pwd)"
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/kubernaut-demo-config}"
 export PLATFORM_NS
+source "${REPO_ROOT}/scripts/amtool-helper.sh"
 
 APPROVAL_REQUIRED="${APPROVAL_REQUIRED:-false}"
 TERMINAL_STATE="${TERMINAL_STATE:-Completed}"
@@ -104,9 +105,10 @@ ALERT_QUERY="alertname=${ALERT_NAME}"
 if [ -n "${ALERT_QUERY_NS}" ]; then
   ALERT_QUERY="${ALERT_QUERY},namespace=${ALERT_QUERY_NS}"
 fi
+amtool_prepare_connection monitoring alertmanager-kube-prometheus-stack-alertmanager-0
 while [ "$(kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 \
   -- amtool alert query "${ALERT_QUERY}" \
-  --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null \
+  "${AMTOOL_CONNECTION_ARGS[@]}" --output=json 2>/dev/null \
   | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null)" = "0" ]; do
   sleep 10
   ALERT_WAIT=$((ALERT_WAIT + 10))
@@ -115,7 +117,7 @@ done
 echo "    Alert fired! Capturing alert data..."
 kubectl exec -n monitoring alertmanager-kube-prometheus-stack-alertmanager-0 \
   -- amtool alert query "${ALERT_QUERY}" \
-  --alertmanager.url=http://localhost:9093 --output=json > "${ALERT_CACHE}" 2>/dev/null || true
+  "${AMTOOL_CONNECTION_ARGS[@]}" --output=json > "${ALERT_CACHE}" 2>/dev/null || true
 
 # ── Approval (conditional) ────────────────────
 if [ "${APPROVAL_REQUIRED}" = "true" ]; then

@@ -18,6 +18,8 @@ else
     MONITORING_NS="${MONITORING_NS:-monitoring}"
 fi
 DEMO_HELM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../helm" && pwd)"
+# shellcheck source=amtool-helper.sh
+source "$(dirname "${BASH_SOURCE[0]}")/amtool-helper.sh"
 
 # Validate that an infrastructure component is present (no installs).
 # Usage: require_infra cert-manager
@@ -366,10 +368,11 @@ _check_alert_quiescent() {
 
     local elapsed=0
     while [ "$elapsed" -lt 60 ]; do
+        amtool_prepare_connection "$am_ns" "$am_pod"
         local count
         count=$(kubectl exec -n "$am_ns" "$am_pod" -- \
             amtool alert query "namespace=${namespace}" \
-            --alertmanager.url=http://localhost:9093 \
+            "${AMTOOL_CONNECTION_ARGS[@]}" \
             --output=json 2>/dev/null \
             | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
         if [ "$count" = "0" ]; then
@@ -384,7 +387,7 @@ _check_alert_quiescent() {
     done
     echo "  ERROR: ${count} stale alert(s) still active in namespace ${namespace} after 60s."
     echo "    Previous scenario cleanup may be incomplete. Check:"
-    echo "    kubectl exec -n ${am_ns} ${am_pod} -- amtool alert query namespace=${namespace} --alertmanager.url=http://localhost:9093"
+    echo "    kubectl exec -n ${am_ns} ${am_pod} -- amtool alert query namespace=${namespace}"
     return 1
 }
 

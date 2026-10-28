@@ -12,6 +12,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "${SCRIPT_DIR}/platform-helper.sh" ]; then
   source "${SCRIPT_DIR}/platform-helper.sh"
 fi
+# platform-helper sources this in normal runs; keep standalone invocation safe.
+if ! declare -F amtool_prepare_connection >/dev/null 2>&1; then
+  source "${SCRIPT_DIR}/amtool-helper.sh"
+fi
 if [ "${PLATFORM:-}" = "ocp" ]; then
   AM_POD="alertmanager-main-0"
   AM_NS="openshift-monitoring"
@@ -26,9 +30,10 @@ fi
 if [ -n "${ALERT_CACHE:-}" ] && [ -f "$ALERT_CACHE" ]; then
   ALERTS_JSON=$(cat "$ALERT_CACHE")
 else
+  amtool_prepare_connection "$AM_NS" "$AM_POD"
   ALERTS_JSON=$(kubectl exec -n "$AM_NS" "$AM_POD" -- \
     amtool alert query "alertname=$ALERT_NAME" \
-    --alertmanager.url=http://localhost:9093 \
+    "${AMTOOL_CONNECTION_ARGS[@]}" \
     --output=json 2>/dev/null)
 fi
 

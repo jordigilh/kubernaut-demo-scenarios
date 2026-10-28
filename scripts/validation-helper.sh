@@ -34,6 +34,9 @@ _init_colors() {
 }
 _init_colors
 
+# shellcheck source=amtool-helper.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/amtool-helper.sh"
+
 # ── Assertion tracking ───────────────────────────────────────────────────────
 _ASSERT_PASS=0
 _ASSERT_FAIL=0
@@ -266,10 +269,11 @@ wait_for_alert() {
     fi
 
     while [ "$elapsed" -lt "$timeout" ]; do
+        amtool_prepare_connection "${MONITORING_NS}" "${am_pod}"
         local count
         if ! count=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
             amtool alert query "alertname=${alert_name}" "${ns_filter[@]}" \
-            --alertmanager.url=http://localhost:9093 \
+            "${AMTOOL_CONNECTION_ARGS[@]}" \
             --output=json \
             | tr '\n' ' ' \
             | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null); then
@@ -343,9 +347,10 @@ wait_for_alerts_cleared() {
     # unescaped newlines from multi-line annotations, which breaks
     # json.load(); collapse them to spaces first.
     local count
+    amtool_prepare_connection "${MONITORING_NS}" "${am_pod}"
     count=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
         amtool alert query "namespace=${namespace}" \
-        --alertmanager.url=http://localhost:9093 \
+        "${AMTOOL_CONNECTION_ARGS[@]}" \
         --output=json 2>/dev/null \
         | tr '\n' ' ' \
         | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
@@ -359,7 +364,7 @@ wait_for_alerts_cleared() {
     while [ "$elapsed" -lt "$timeout" ]; do
         count=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
             amtool alert query "namespace=${namespace}" \
-            --alertmanager.url=http://localhost:9093 \
+            "${AMTOOL_CONNECTION_ARGS[@]}" \
             --output=json 2>/dev/null \
             | tr '\n' ' ' \
             | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
@@ -452,9 +457,10 @@ show_alert() {
     # See wait_for_alert() above: collapse amtool's raw, unescaped
     # annotation newlines to spaces so json.loads() below doesn't choke.
     local alerts_json
+    amtool_prepare_connection "${MONITORING_NS}" "${am_pod}"
     alerts_json=$(kubectl exec -n "${MONITORING_NS}" "$am_pod" -- \
         amtool alert query "${query_args[@]}" \
-        --alertmanager.url=http://localhost:9093 \
+        "${AMTOOL_CONNECTION_ARGS[@]}" \
         --output=json 2>/dev/null | tr '\n' ' ' || echo "[]")
 
     python3 -c "

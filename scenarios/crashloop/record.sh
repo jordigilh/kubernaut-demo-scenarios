@@ -18,6 +18,8 @@
 set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../../scripts/amtool-helper.sh
+source "${SCENARIO_DIR}/../../scripts/amtool-helper.sh"
 REPO_ROOT="$(cd "${SCENARIO_DIR}/../.." && pwd)"
 # shellcheck source=../../scripts/platform-helper.sh
 source "${REPO_ROOT}/scripts/platform-helper.sh"
@@ -62,9 +64,10 @@ echo "    Fault injected. Pods will begin crashing."
 # ── Step 4: Wait for alert + capture data ─────
 echo "==> [4/11] Waiting for KubePodCrashLooping alert to fire..."
 ALERT_WAIT=0
+amtool_prepare_connection "${_AM_NS}" "${_AM_POD}"
 while [ "$(kubectl exec -n "${_AM_NS}" "${_AM_POD}" \
   -- amtool alert query alertname=KubePodCrashLooping \
-  --alertmanager.url=http://localhost:9093 --output=json 2>/dev/null \
+  "${AMTOOL_CONNECTION_ARGS[@]}" --output=json 2>/dev/null \
   | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))' 2>/dev/null)" = "0" ]; do
   sleep 10
   ALERT_WAIT=$((ALERT_WAIT + 10))
@@ -77,7 +80,7 @@ done
 echo "    Alert fired! Capturing alert data to ${ALERT_CACHE}..."
 kubectl exec -n "${_AM_NS}" "${_AM_POD}" \
   -- amtool alert query alertname=KubePodCrashLooping \
-  --alertmanager.url=http://localhost:9093 --output=json > "${ALERT_CACHE}" 2>/dev/null || true
+  "${AMTOOL_CONNECTION_ARGS[@]}" --output=json > "${ALERT_CACHE}" 2>/dev/null || true
 
 # ── Step 5: Wait for pods1 + rr1 to finish ────
 echo "==> [5/11] Waiting for pods1 tape (CrashLoopBackOff detected)..."
