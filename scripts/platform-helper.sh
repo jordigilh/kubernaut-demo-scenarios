@@ -29,6 +29,8 @@ fi
 
 PLATFORM_NS="${PLATFORM_NS:-kubernaut-system}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=amtool-helper.sh
+source "${REPO_ROOT}/scripts/amtool-helper.sh"
 KUBERNAUT_REPO="${KUBERNAUT_REPO:-$(cd "${REPO_ROOT}/../kubernaut" 2>/dev/null && pwd || true)}"
 KUBERNAUT_OCI_CHART="oci://quay.io/kubernaut-ai/charts/kubernaut"
 if [ -n "${CHART_VERSION:-}" ]; then
@@ -379,9 +381,10 @@ silence_alert() {
         --field-selector=status.phase=Running \
         -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
     [ -n "$am_pod" ] || return 0
+    amtool_prepare_connection monitoring "$am_pod"
     kubectl exec -n monitoring "$am_pod" -- \
       amtool silence add "alertname=${alert_name}" "namespace=${namespace}" \
-      --alertmanager.url=http://localhost:9093 "--duration=${duration}" \
+      "${AMTOOL_CONNECTION_ARGS[@]}" "--duration=${duration}" \
       --comment="Cleanup silence" 2>/dev/null || true
 }
 
