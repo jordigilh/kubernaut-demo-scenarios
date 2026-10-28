@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
-# Compatibility entrypoint for the co-located GitOps topology.
+# Single-cluster GitOps entrypoint.
 #
-# The operator OOM scenario uses the same GitOps setup and validation path in
-# local and fleet environments. Local mode simply points both hub and spoke at
-# the same cluster.
+# The whole scenario runs against the ambient cluster: Gitea, Argo CD,
+# Kubernaut, the workload, and the reviewed remediation all stay here.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LOCAL_KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
-export HUB_KUBECONFIG="${LOCAL_KUBECONFIG}"
-export SPOKE_KUBECONFIG="${LOCAL_KUBECONFIG}"
-export FLEET_COLOCATED=true
+export SINGLE_CLUSTER_GITOPS=true
 
-exec bash "${SCRIPT_DIR}/fleet/run.sh" --fleet "$@"
+exec bash "${SCRIPT_DIR}/fleet/hub.sh" "$@"

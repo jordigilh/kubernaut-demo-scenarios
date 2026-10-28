@@ -18,8 +18,13 @@ grep -Fq 'ensure_metrics_server' "${SETUP}"
 grep -Fq 'wait_for_metrics_api 120' "${SPOKE}"
 grep -Fq 'amtool_prepare_connection' "${AMTOOL_HELPER}"
 grep -Fq 'http.config.file' "${AMTOOL_HELPER}"
-grep -Fq 'FLEET_COLOCATED=true' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/run.sh"
-grep -Fq 'FLEET_COLOCATED=true' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"
+grep -Fq 'SINGLE_CLUSTER_GITOPS=true' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"
+grep -Fq 'SINGLE_CLUSTER_GITOPS' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/fleet/hub.sh"
+if grep -Fq 'HUB_KUBECONFIG=' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh" || \
+    grep -Fq 'SPOKE_KUBECONFIG=' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"; then
+    echo "FAIL: single-cluster operator OOM entrypoint invents hub/spoke kubeconfigs" >&2
+    exit 1
+fi
 if grep -R -Fq 'OPERATOR_GITOPS_LOCAL_DIRECT' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer" --include='*.sh'; then
     echo "FAIL: operator OOM scenario still selects an infrastructure-specific direct workflow" >&2
     exit 1

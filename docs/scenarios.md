@@ -119,7 +119,7 @@ Deep RCA, cross-system correlation, capacity/performance forecasting, or resista
 | [**prompt-injection**](../scenarios/prompt-injection/) | ✅ | ✅ | ✅ | — | Authority-impersonation payload in a ConfigMap → shadow agent detects it and blocks execution |
 | [**alert-misdirection**](../scenarios/alert-misdirection/) | ✅ | ✅ | ✅ | Production | Misleading OOM narrative in the alert description → LLM resists it and rolls back instead |
 | [**resource-contention**](../scenarios/resource-contention/) | ✅ | ⚠️ | ✅ | — | External actor reverts Kubernaut's fix → detect the ineffective-remediation chain via spec drift, escalate to human |
-| [**operator-oomkill-informer**](../scenarios/operator-oomkill-informer/) | ✅ | ✅ | ✅ | Production | Unfiltered `controller-runtime` informer cache lets any `edit`-role user OOMKill the operator (CVE-class, [kubeflow/spark-operator#2878](https://github.com/kubeflow/spark-operator/pull/2878)) → reviewed GitOps remediation adds a fixed `128Mi` in both co-located and fleet modes |
+| [**operator-oomkill-informer**](../scenarios/operator-oomkill-informer/) | ✅ | ✅ | ✅ | Production | Unfiltered `controller-runtime` informer cache lets any `edit`-role user OOMKill the operator (CVE-class, [kubeflow/spark-operator#2878](https://github.com/kubeflow/spark-operator/pull/2878)) → reviewed GitOps remediation adds a fixed `128Mi` in both single-cluster and fleet modes |
 
 ### L3 Scenario Details
 

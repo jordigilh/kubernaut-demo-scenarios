@@ -8,15 +8,9 @@ NAMESPACE="demo-controllers"
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
 # The scenario is GitOps-managed in both topologies. Without an explicit
-# --fleet flag, make cleanup target the co-located hub/spoke so local runs
-# remove the Application/repository and restore run-scoped hub settings too.
-_CLEANUP_ARGS=("$@")
+# --fleet flag, keep cleanup on the ambient single cluster.
 if ! fleet_dispatch_requested "$@"; then
-    _LOCAL_KUBECONFIG="${KUBECONFIG:-${HOME}/.kube/kubernaut-demo-config}"
-    export HUB_KUBECONFIG="${_LOCAL_KUBECONFIG}"
-    export SPOKE_KUBECONFIG="${_LOCAL_KUBECONFIG}"
-    export FLEET_COLOCATED=true
-    _CLEANUP_ARGS+=(--fleet)
+    export SINGLE_CLUSTER_GITOPS=true
 fi
 
 # Delete the attack ConfigMaps before deleting the namespace. Namespace
@@ -84,7 +78,7 @@ clear_scenario_workflow_finalizers() {
     done < <(scenario_workflow_executions)
 }
 
-if fleet_initialize_targeting "${_CLEANUP_ARGS[@]}"; then
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ] || fleet_initialize_targeting "$@"; then
     # Operator workload and monitoring resources are spoke-side; pipeline
     # state is hub-side.
     # shellcheck source=../../scripts/platform-helper.sh

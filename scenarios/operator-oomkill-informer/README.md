@@ -11,8 +11,8 @@ This scenario reproduces the vulnerability documented in
 Red Hat Developer blog post
 [Protect your Kubernetes Operator from OOMKill](https://developers.redhat.com/articles/2026/06/01/protect-your-kubernetes-operator-oomkill).
 
-Supports Kind and OpenShift clusters. Local mode co-locates the GitOps hub and
-workload on one cluster; fleet mode separates them across hub and spoke.
+Supports Kind and OpenShift clusters. Local mode runs the complete GitOps
+scenario on one cluster; fleet mode targets a separate workload cluster.
 
 | | |
 |---|---|
@@ -20,7 +20,7 @@ workload on one cluster; fleet mode separates them across hub and spoke.
 | **Root cause** | Unfiltered `ByObject` ConfigMap cache in `controller-runtime` (CVE: kubeflow/spark-operator#2878) |
 | **Attack vector** | 600 ConfigMaps at ~1MB each (~600MB raw, approximately 1800-3000MB after Go struct deserialization overhead, exceeds 128Mi through 640Mi limits) |
 | **Fleet remediation** | `increase-memory-limits-gitops-v1` -- opens a reviewed forward-change PR on the hub, adds a fixed 128Mi to the limit, and waits for a human merge; the first increase is intentionally ineffective |
-| **Local remediation** | The same reviewed `increase-memory-limits-gitops-v1` workflow, with Gitea and Argo CD co-located on the cluster |
+| **Local remediation** | The same reviewed `increase-memory-limits-gitops-v1` workflow, with Gitea and Argo CD on the local cluster |
 
 ## The Vulnerability
 
@@ -105,7 +105,7 @@ ineffective attempts.
 ## Running the Scenario
 
 ```bash
-# Kind local path (co-located GitOps hub and workload; platform is auto-detected)
+# Kind local path (single-cluster GitOps; platform is auto-detected)
 ./scenarios/operator-oomkill-informer/run.sh
 
 # OpenShift
@@ -116,7 +116,7 @@ PLATFORM=ocp ./scenarios/operator-oomkill-informer/run.sh
 
 | Flag | Behavior | When to use |
 |------|----------|-------------|
-| *(no flag)* | Runs the full co-located GitOps pipeline with the interactive RAR/PR path | Local rehearsal |
+| *(no flag)* | Runs the full single-cluster GitOps pipeline with the interactive RAR/PR path | Local rehearsal |
 | `--no-validate` | Injects fault only, skips pipeline polling | **Always use with kagenti** |
 | `--interactive` | Runs the pipeline, pauses at AwaitingApproval for manual approval | Gateway flow with human-in-the-loop |
 | `--auto-approve` | Runs the full pipeline, auto-approves remediation | Automated regression testing (explicit) |
