@@ -78,7 +78,15 @@ prometheus_api_get() {
 
     local wget_args=(-qO- "${url}")
     if [ "${PROMETHEUS_SCHEME}" = "https" ]; then
-        wget_args+=(--ca-certificate="${PROMETHEUS_CA_FILE}")
+        if kubectl exec -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
+            wget --help 2>&1 | grep -q -- '--ca-certificate'; then
+            wget_args+=(--ca-certificate="${PROMETHEUS_CA_FILE}")
+        else
+            # BusyBox wget in the rc28 image cannot load a custom CA. The
+            # request remains HTTPS and is limited to the loopback endpoint;
+            # promtool (used for PromQL) still verifies with the mounted CA.
+            wget_args+=(--no-check-certificate)
+        fi
     fi
     kubectl exec -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
         wget "${wget_args[@]}" 2>/dev/null
