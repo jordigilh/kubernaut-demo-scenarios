@@ -56,3 +56,30 @@ prometheus_prepare_connection() {
         PROMETHEUS_SCHEME="http"
     fi
 }
+
+# Read a Prometheus HTTP API path from inside the Prometheus pod. This keeps
+# rule/API checks on the same TLS-aware path as PromQL queries and avoids a
+# host port-forward with an unknown local certificate trust chain.
+prometheus_api_get() {
+    local prom_namespace="${1:?prometheus_api_get requires a namespace}"
+    local prom_pod="${2:?prometheus_api_get requires a pod}"
+    local api_path="${3:?prometheus_api_get requires an API path}"
+    prometheus_prepare_connection "${prom_namespace}" "${prom_pod}" || return 1
+
+    local url="${PROMETHEUS_SCHEME}://localhost:9090${api_path}"
+    local curl_args=(-sf --connect-timeout 5 "${url}")
+    if [ "${PROMETHEUS_SCHEME}" = "https" ]; then
+        curl_args+=(--cacert "${PROMETHEUS_CA_FILE}")
+    fi
+    if kubectl exec -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
+        curl "${curl_args[@]}" 2>/dev/null; then
+        return 0
+    fi
+
+    local wget_args=(-qO- "${url}")
+    if [ "${PROMETHEUS_SCHEME}" = "https" ]; then
+        wget_args+=(--ca-certificate="${PROMETHEUS_CA_FILE}")
+    fi
+    kubectl exec -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
+        wget "${wget_args[@]}" 2>/dev/null
+}

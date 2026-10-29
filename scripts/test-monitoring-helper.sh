@@ -20,8 +20,10 @@ grep -Fq 'wait_for_metrics_api 120' "${SPOKE}"
 grep -Fq 'amtool_prepare_connection' "${AMTOOL_HELPER}"
 grep -Fq 'http.config.file' "${AMTOOL_HELPER}"
 grep -Fq 'prometheus_prepare_connection' "${PROM_HELPER}"
+grep -Fq 'prometheus_api_get' "${PROM_HELPER}"
 grep -Fq 'https' "${PROM_HELPER}"
 grep -Fq 'http.config.file' "${HELPER}"
+grep -Fq 'https://127.0.0.1' "${SCRIPT_DIR}/run-scenario.sh"
 grep -Fq 'SINGLE_CLUSTER_GITOPS=true' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"
 grep -Fq 'SINGLE_CLUSTER_GITOPS' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/fleet/hub.sh"
 grep -Fq 'GITOPS_MODE=true' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"
@@ -60,6 +62,7 @@ for caller in \
 done
 
 bash -n "${AMTOOL_HELPER}" "${PROM_HELPER}" "${HELPER}" "${SETUP}" "${SPOKE}" \
+    "${SCRIPT_DIR}/run-scenario.sh" \
     "${SCRIPT_DIR}/validation-helper.sh" "${SCRIPT_DIR}/platform-helper.sh" \
     "${SCRIPT_DIR}/record-scenario.sh" "${SCRIPT_DIR}/show-alert.sh" \
     "${SCRIPT_DIR}/../scenarios/crashloop/record.sh"
