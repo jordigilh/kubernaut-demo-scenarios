@@ -7,6 +7,17 @@ PROMETHEUS_SCHEME="${PROMETHEUS_SCHEME:-}"
 PROMETHEUS_CA_FILE="${PROMETHEUS_CA_FILE:-}"
 PROMETHEUS_HTTP_CONFIG_FILE="${PROMETHEUS_HTTP_CONFIG_FILE:-}"
 
+# Run a Prometheus client operation with a portable wall-clock deadline.
+_prometheus_run_with_timeout() {
+    local seconds="$1"
+    shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "${seconds}" "$@"
+    else
+        perl -e 'alarm shift; exec @ARGV' "${seconds}" "$@"
+    fi
+}
+
 # Detect the target's Prometheus scheme and prepare the client CA/config.
 # Transport failures remain retryable; HTTP is selected only after every CA
 # probe succeeds and reports that the file is absent.
@@ -33,7 +44,8 @@ prometheus_prepare_connection() {
         /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt \
         /etc/prometheus/configmaps/serving-certs-ca-bundle/ca-bundle.crt; do
         local probe_result
-        if ! probe_result=$(kubectl exec -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
+        if ! probe_result=$(_prometheus_run_with_timeout 10 kubectl exec \
+            -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
             sh -c 'if [ -f "$1" ]; then printf present; else printf absent; fi' -- \
             "${candidate}" 2>/dev/null); then
             echo "WARNING: could not inspect Prometheus CA mount ${candidate} in ${prom_namespace}/${prom_pod}; retrying discovery." >&2
@@ -49,7 +61,8 @@ prometheus_prepare_connection() {
         # /tmp is read-only in the rc28 Prometheus container; /dev/shm is
         # writable and is appropriate for this short-lived client config.
         local config_path="${PROMETHEUS_HTTP_CONFIG_PATH:-/dev/shm/kubernaut-prometheus-http-config.yml}"
-        if ! kubectl exec -n "${prom_namespace}" "${prom_pod}" -c prometheus -- sh -c \
+        if ! _prometheus_run_with_timeout 10 kubectl exec \
+            -n "${prom_namespace}" "${prom_pod}" -c prometheus -- sh -c \
             "printf '%s\\n' 'tls_config:' '  ca_file: ${ca_file}' > '${config_path}'"; then
             echo "ERROR: could not create the Prometheus TLS client config in ${prom_namespace}/${prom_pod}." >&2
             return 1
@@ -82,8 +95,11 @@ prometheus_api_get() {
     if [ "${PROMETHEUS_SCHEME}" = "https" ]; then
         curl_args+=(--cacert "${PROMETHEUS_CA_FILE}")
     fi
-    if kubectl exec -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
-        curl "${curl_args[@]}" 2>/dev/null; then
+    local response
+    if response=$(_prometheus_run_with_timeout 15 kubectl exec \
+        -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
+        curl "${curl_args[@]}" 2>/dev/null); then
+        printf '%s\n' "${response}"
         return 0
     fi
 
@@ -99,6 +115,11 @@ prometheus_api_get() {
             wget_args+=(--no-check-certificate)
         fi
     fi
-    kubectl exec -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
-        wget "${wget_args[@]}" 2>/dev/null
+    if response=$(_prometheus_run_with_timeout 15 kubectl exec \
+        -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
+        wget "${wget_args[@]}" 2>/dev/null); then
+        printf '%s\n' "${response}"
+        return 0
+    fi
+    return 1
 }

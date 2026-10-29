@@ -256,7 +256,8 @@ _prom_query() {
     fi
 
     local result
-    result=$(kubectl exec -n "$prom_ns" "$prom_pod" -c prometheus -- \
+    result=$(_prometheus_run_with_timeout 15 kubectl exec \
+        -n "$prom_ns" "$prom_pod" -c prometheus -- \
         curl "${curl_args[@]}" 2>/dev/null) && { echo "$result"; return; }
 
     # Fallback: Kind Prometheus images lack curl; use promtool and wrap output
@@ -267,7 +268,8 @@ _prom_query() {
         promtool_args=(query instant "--http.config.file=${PROMETHEUS_HTTP_CONFIG_FILE}" \
             "${PROMETHEUS_SCHEME}://localhost:9090" "$query")
     fi
-    pt_out=$(kubectl exec -n "$prom_ns" "$prom_pod" -c prometheus -- \
+    pt_out=$(_prometheus_run_with_timeout 15 kubectl exec \
+        -n "$prom_ns" "$prom_pod" -c prometheus -- \
         promtool "${promtool_args[@]}" 2>/dev/null) || { echo '{"status":"error"}'; return; }
     if [ -z "$pt_out" ]; then
         echo '{"data":{"result":[]}}'
