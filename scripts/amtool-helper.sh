@@ -5,15 +5,20 @@
 
 AMTOOL_CONNECTION_READY="${AMTOOL_CONNECTION_READY:-0}"
 AMTOOL_CONNECTION_ARGS=()
+AMTOOL_CONNECTION_TARGET="${AMTOOL_CONNECTION_TARGET:-}"
 
 amtool_prepare_connection() {
     local am_namespace="${1:?amtool_prepare_connection requires a namespace}"
     local am_pod="${2:?amtool_prepare_connection requires a pod}"
     local config_path="/tmp/kubernaut-amtool-http-config.yml"
 
-    if [ "${AMTOOL_CONNECTION_READY}" = "1" ]; then
+    if [ "${AMTOOL_CONNECTION_READY}" = "1" ] && \
+        [ "${AMTOOL_CONNECTION_TARGET}" = "${am_namespace}/${am_pod}" ] && \
+        [ "${#AMTOOL_CONNECTION_ARGS[@]}" -gt 0 ]; then
         return 0
     fi
+
+    AMTOOL_CONNECTION_TARGET="${am_namespace}/${am_pod}"
 
     if kubectl exec -n "${am_namespace}" "${am_pod}" -- \
         test -f /etc/monitoring-tls/ca.crt >/dev/null 2>&1; then

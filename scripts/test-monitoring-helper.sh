@@ -7,6 +7,7 @@ HELPER="${SCRIPT_DIR}/monitoring-helper.sh"
 SETUP="${SCRIPT_DIR}/setup-demo-cluster.sh"
 SPOKE="${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/fleet/spoke.sh"
 AMTOOL_HELPER="${SCRIPT_DIR}/amtool-helper.sh"
+PROM_HELPER="${SCRIPT_DIR}/prometheus-helper.sh"
 
 grep -Fq 'wait_for_metrics_api' "${HELPER}"
 grep -Fq 'kubectl top nodes --no-headers' "${HELPER}"
@@ -18,6 +19,9 @@ grep -Fq 'ensure_metrics_server' "${SETUP}"
 grep -Fq 'wait_for_metrics_api 120' "${SPOKE}"
 grep -Fq 'amtool_prepare_connection' "${AMTOOL_HELPER}"
 grep -Fq 'http.config.file' "${AMTOOL_HELPER}"
+grep -Fq 'prometheus_prepare_connection' "${PROM_HELPER}"
+grep -Fq 'https' "${PROM_HELPER}"
+grep -Fq 'http.config.file' "${HELPER}"
 grep -Fq 'SINGLE_CLUSTER_GITOPS=true' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"
 grep -Fq 'SINGLE_CLUSTER_GITOPS' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/fleet/hub.sh"
 grep -Fq 'GITOPS_MODE=true' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh"
@@ -25,6 +29,11 @@ grep -Fq 'GITOPS_MODE' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/val
 grep -Fq 'amtool_prepare_connection' "${SCRIPT_DIR}/fleet-helper.sh"
 if grep -Fq 'wget -qO- http://localhost:9093/api/v2/alerts' "${SCRIPT_DIR}/fleet-helper.sh"; then
     echo "FAIL: fleet Alertmanager polling still hardcodes HTTP" >&2
+    exit 1
+fi
+if grep -Fq 'http://localhost:9090/api/v1/query' "${HELPER}" || \
+    grep -Fq 'promtool query instant http://localhost:9090' "${HELPER}"; then
+    echo "FAIL: Prometheus helper still hardcodes an HTTP-only endpoint" >&2
     exit 1
 fi
 if grep -Fq 'HUB_KUBECONFIG=' "${SCRIPT_DIR}/../scenarios/operator-oomkill-informer/local/run.sh" || \
@@ -50,7 +59,7 @@ for caller in \
     fi
 done
 
-bash -n "${AMTOOL_HELPER}" "${HELPER}" "${SETUP}" "${SPOKE}" \
+bash -n "${AMTOOL_HELPER}" "${PROM_HELPER}" "${HELPER}" "${SETUP}" "${SPOKE}" \
     "${SCRIPT_DIR}/validation-helper.sh" "${SCRIPT_DIR}/platform-helper.sh" \
     "${SCRIPT_DIR}/record-scenario.sh" "${SCRIPT_DIR}/show-alert.sh" \
     "${SCRIPT_DIR}/../scenarios/crashloop/record.sh"
