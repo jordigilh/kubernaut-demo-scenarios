@@ -481,7 +481,7 @@ echo "    Gate 1: a human must approve the RemediationApprovalRequest."
 echo "    Gate 2: a human must review and merge the PR."
 echo "    The Job remains Running until it observes the actual merge."
 if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
-    bash "${SCRIPT_DIR}/../validate.sh" "${APPROVE_MODE}"
+    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
 else
     bash "${SCRIPT_DIR}/fleet/validate.sh" --fleet "${APPROVE_MODE}"
 fi
