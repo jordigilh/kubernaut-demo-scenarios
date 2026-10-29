@@ -62,9 +62,18 @@ for caller in \
     fi
 done
 
-bash -n "${AMTOOL_HELPER}" "${PROM_HELPER}" "${HELPER}" "${SETUP}" "${SPOKE}" \
+for shell_script in \
+    "${AMTOOL_HELPER}" \
+    "${PROM_HELPER}" \
+    "${HELPER}" \
+    "${SETUP}" \
+    "${SPOKE}" \
     "${SCRIPT_DIR}/run-scenario.sh" \
-    "${SCRIPT_DIR}/validation-helper.sh" "${SCRIPT_DIR}/platform-helper.sh" \
-    "${SCRIPT_DIR}/record-scenario.sh" "${SCRIPT_DIR}/show-alert.sh" \
-    "${SCRIPT_DIR}/../scenarios/crashloop/record.sh"
+    "${SCRIPT_DIR}/validation-helper.sh" \
+    "${SCRIPT_DIR}/platform-helper.sh" \
+    "${SCRIPT_DIR}/record-scenario.sh" \
+    "${SCRIPT_DIR}/show-alert.sh" \
+    "${SCRIPT_DIR}/../scenarios/crashloop/record.sh"; do
+    bash -n "${shell_script}"
+done
 echo "PASS: demo setup requires Metrics API/kubectl top readiness and TLS-capable Alertmanager polling"
