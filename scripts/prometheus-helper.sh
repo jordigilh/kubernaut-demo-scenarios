@@ -7,6 +7,9 @@ PROMETHEUS_SCHEME="${PROMETHEUS_SCHEME:-}"
 PROMETHEUS_CA_FILE="${PROMETHEUS_CA_FILE:-}"
 PROMETHEUS_HTTP_CONFIG_FILE="${PROMETHEUS_HTTP_CONFIG_FILE:-}"
 
+# Detect the target's Prometheus scheme and prepare the client CA/config.
+# Transport failures remain retryable; HTTP is selected only after every CA
+# probe succeeds and reports that the file is absent.
 prometheus_prepare_connection() {
     local prom_namespace="${1:?prometheus_prepare_connection requires a namespace}"
     local prom_pod="${2:?prometheus_prepare_connection requires a pod}"
@@ -29,16 +32,19 @@ prometheus_prepare_connection() {
         /etc/prometheus/certs/ca.crt \
         /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt \
         /etc/prometheus/configmaps/serving-certs-ca-bundle/ca-bundle.crt; do
-        if kubectl exec -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
-            test -f "${candidate}" >/dev/null 2>&1; then
+        local probe_result
+        if ! probe_result=$(kubectl exec -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
+            sh -c 'if [ -f "$1" ]; then printf present; else printf absent; fi' -- \
+            "${candidate}" 2>/dev/null); then
+            echo "WARNING: could not inspect Prometheus CA mount ${candidate} in ${prom_namespace}/${prom_pod}; retrying discovery." >&2
+            return 1
+        fi
+        if [ "${probe_result}" = "present" ]; then
             ca_file="${candidate}"
             break
         fi
     done
 
-    PROMETHEUS_CONNECTION_TARGET="${target}"
-    PROMETHEUS_CA_FILE="${ca_file}"
-    PROMETHEUS_HTTP_CONFIG_FILE=""
     if [ -n "${ca_file}" ]; then
         # /tmp is read-only in the rc28 Prometheus container; /dev/shm is
         # writable and is appropriate for this short-lived client config.
@@ -48,11 +54,16 @@ prometheus_prepare_connection() {
             echo "ERROR: could not create the Prometheus TLS client config in ${prom_namespace}/${prom_pod}." >&2
             return 1
         fi
+        PROMETHEUS_CONNECTION_TARGET="${target}"
+        PROMETHEUS_CA_FILE="${ca_file}"
         PROMETHEUS_SCHEME="https"
         PROMETHEUS_HTTP_CONFIG_FILE="${config_path}"
     else
         # Older demo stacks without a mounted CA serve the local endpoint over
         # HTTP. This is the only path where HTTP is allowed.
+        PROMETHEUS_CONNECTION_TARGET="${target}"
+        PROMETHEUS_CA_FILE=""
+        PROMETHEUS_HTTP_CONFIG_FILE=""
         PROMETHEUS_SCHEME="http"
     fi
 }

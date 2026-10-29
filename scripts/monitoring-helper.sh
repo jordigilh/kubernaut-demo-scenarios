@@ -473,6 +473,7 @@ _check_rule_loaded() {
     return 1
 }
 
+# Query Prometheus alert rules through the shared TLS-aware in-pod API client.
 _query_rules_for_alert() {
     local ns="$1" pod="$2" alert_name="$3"
     prometheus_api_get "$ns" "$pod" "/api/v1/rules?type=alert" \

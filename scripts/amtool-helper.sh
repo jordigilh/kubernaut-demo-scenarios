@@ -7,6 +7,8 @@ AMTOOL_CONNECTION_READY="${AMTOOL_CONNECTION_READY:-0}"
 AMTOOL_CONNECTION_ARGS=()
 AMTOOL_CONNECTION_TARGET="${AMTOOL_CONNECTION_TARGET:-}"
 
+# Detect the Alertmanager scheme/CA for a specific pod and cache only a usable
+# connection configuration for that namespace/pod target.
 amtool_prepare_connection() {
     local am_namespace="${1:?amtool_prepare_connection requires a namespace}"
     local am_pod="${2:?amtool_prepare_connection requires a pod}"
