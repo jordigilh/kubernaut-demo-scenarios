@@ -4,7 +4,8 @@
 #
 # Usage: ./scenarios/operator-oomkill-informer/run.sh [--fleet] [--auto-approve|--interactive|--alert-only|--no-validate]
 #
-# Single cluster (default): runs local/run.sh against Kind or OpenShift.
+# Single cluster (default): runs the same GitOps workflow on one
+# Kind/OpenShift cluster.
 #
 # Fleet mode: set HUB_KUBECONFIG + SPOKE_KUBECONFIG to run fleet/run.sh
 # instead (see scripts/fleet-helper.sh for platform-aware manifest selection).

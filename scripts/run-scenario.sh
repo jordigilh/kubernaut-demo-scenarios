@@ -282,8 +282,10 @@ ensure_datastorage_port_forward() {
     return 1
 }
 
+# Start a local Prometheus port-forward and accept either HTTP or TLS readiness.
 ensure_prometheus_port_forward() {
-    if curl -sf -o /dev/null --connect-timeout 2 "http://127.0.0.1:9090/-/ready" 2>/dev/null; then
+    if curl -sf -o /dev/null --connect-timeout 2 "http://127.0.0.1:9090/-/ready" 2>/dev/null || \
+        curl -skf -o /dev/null --connect-timeout 2 "https://127.0.0.1:9090/-/ready" 2>/dev/null; then
         PROM_PORT_FORWARD_PORT=9090
         return 0
     fi
@@ -306,7 +308,9 @@ ensure_prometheus_port_forward() {
     local retries=0
     while [ "$retries" -lt 10 ]; do
         if curl -sf -o /dev/null --connect-timeout 1 \
-            "http://127.0.0.1:${PROM_PORT_FORWARD_PORT}/-/ready" 2>/dev/null; then
+            "http://127.0.0.1:${PROM_PORT_FORWARD_PORT}/-/ready" 2>/dev/null || \
+            curl -skf -o /dev/null --connect-timeout 1 \
+            "https://127.0.0.1:${PROM_PORT_FORWARD_PORT}/-/ready" 2>/dev/null; then
             log_success "Prometheus port-forward ready"
             return 0
         fi

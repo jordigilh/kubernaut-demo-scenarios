@@ -7,6 +7,14 @@ NAMESPACE="demo-controllers"
 # shellcheck source=../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
 
+# The scenario is GitOps-managed in both topologies. Without an explicit
+# --fleet flag, keep cleanup on the ambient single cluster.
+if ! fleet_dispatch_requested "$@"; then
+    export SINGLE_CLUSTER_GITOPS=true
+    export FLEET_MODE=false
+    unset HUB_KUBECONFIG SPOKE_KUBECONFIG
+fi
+
 # Delete the attack ConfigMaps before deleting the namespace. Namespace
 # deletion asks the apiserver to enumerate and remove every object at once;
 # hundreds of ~1MiB ConfigMaps can make that request time out and leave the
@@ -72,7 +80,7 @@ clear_scenario_workflow_finalizers() {
     done < <(scenario_workflow_executions)
 }
 
-if fleet_initialize_targeting "$@"; then
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ] || fleet_initialize_targeting "$@"; then
     # Operator workload and monitoring resources are spoke-side; pipeline
     # state is hub-side.
     # shellcheck source=../../scripts/platform-helper.sh

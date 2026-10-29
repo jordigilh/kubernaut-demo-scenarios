@@ -11,8 +11,8 @@ This scenario reproduces the vulnerability documented in
 Red Hat Developer blog post
 [Protect your Kubernetes Operator from OOMKill](https://developers.redhat.com/articles/2026/06/01/protect-your-kubernetes-operator-oomkill).
 
-Supports Kind and OpenShift clusters. Fleet mode runs the workload on the
-configured spoke while the Kubernaut control plane remains on the hub.
+Supports Kind and OpenShift clusters. Local mode runs the complete GitOps
+scenario on one cluster; fleet mode targets a separate workload cluster.
 
 | | |
 |---|---|
@@ -20,7 +20,7 @@ configured spoke while the Kubernaut control plane remains on the hub.
 | **Root cause** | Unfiltered `ByObject` ConfigMap cache in `controller-runtime` (CVE: kubeflow/spark-operator#2878) |
 | **Attack vector** | 600 ConfigMaps at ~1MB each (~600MB raw, approximately 1800-3000MB after Go struct deserialization overhead, exceeds 128Mi through 640Mi limits) |
 | **Fleet remediation** | `increase-memory-limits-gitops-v1` -- opens a reviewed forward-change PR on the hub, adds a fixed 128Mi to the limit, and waits for a human merge; the first increase is intentionally ineffective |
-| **Local remediation** | Generic `increase-memory-limits-v1` direct Job workflow (the local path has no Argo CD Application) |
+| **Local remediation** | The same reviewed `increase-memory-limits-gitops-v1` workflow, with Gitea and Argo CD on the local cluster |
 
 ## The Vulnerability
 
@@ -63,7 +63,7 @@ inject-configmap-flood.sh creates 600 x 1MB ConfigMaps
        -> kubectl describe: lastState.terminated.reason=OOMKilled
        -> kubectl top: memory at limit before crash
        -> identifies operator memory exhaustion from ConfigMap volume
-  -> selects increase-memory-limits-gitops-v1 (fleet; confidence varies)
+  -> selects increase-memory-limits-gitops-v1 (local and fleet; confidence varies)
        RAR: human authorizes the remediation
        WFE Job on hub: creates a forward branch + PR; it never patches the spoke
        human reviewer approves and merges the protected-main PR
@@ -105,7 +105,7 @@ ineffective attempts.
 ## Running the Scenario
 
 ```bash
-# Kind local path (direct workflow; platform is auto-detected)
+# Kind local path (single-cluster GitOps; platform is auto-detected)
 ./scenarios/operator-oomkill-informer/run.sh
 
 # OpenShift
@@ -116,11 +116,15 @@ PLATFORM=ocp ./scenarios/operator-oomkill-informer/run.sh
 
 | Flag | Behavior | When to use |
 |------|----------|-------------|
-| *(no flag)* | Runs the full local pipeline with auto-approval; fleet defaults to the interactive PR/RAR path | Local smoke test |
+| *(no flag)* | Runs the full single-cluster GitOps pipeline with the interactive RAR/PR path | Local rehearsal |
 | `--no-validate` | Injects fault only, skips pipeline polling | **Always use with kagenti** |
 | `--interactive` | Runs the pipeline, pauses at AwaitingApproval for manual approval | Gateway flow with human-in-the-loop |
 | `--auto-approve` | Runs the full pipeline, auto-approves remediation | Automated regression testing (explicit) |
 | `--alert-only` | Deploys, injects fault, waits for alert to fire, then exits | AF/A2A demos |
+
+Local mode uses only the ambient `KUBECONFIG`; it does not set or infer
+`HUB_KUBECONFIG` or `SPOKE_KUBECONFIG`. The local Gitea review endpoint uses
+port `3031` by default (`GITEA_LOCAL_PORT` can override it).
 
 ## Fleet Mode
 
@@ -149,18 +153,18 @@ effectiveness assessment, retained stimulus evidence, and follow-up RRs created 
 the continuing alert. The human-handoff decision belongs to platform routing/history,
 not to the workflow Job.
 
-Fleet mode temporarily sets the Remediation Orchestrator's
+Both topologies temporarily set the Remediation Orchestrator's
 `asyncPropagation.gitOpsSyncDelay` to `10s` and
 `effectivenessAssessment.stabilizationWindow` to `5m`. The Gitea push webhook triggers
 Argo CD reconciliation immediately, so a longer polling-oriented delay is unnecessary;
 the full stabilization window gives the retained informer load time to expose a delayed
 ineffective remediation while retaining independent health, alert, metrics, and spec-hash
-assessment. Fleet mode also temporarily sets Gateway's
+assessment. Both topologies also temporarily set Gateway's
 `processing.deduplication.cooldownPeriod` to `0s` and AlertManager's `route.repeat_interval`
 to `1m`; the repeat allows a fresh delivery after each RR becomes terminal without
 clearing or reinjecting the flood. `cleanup.sh` restores AlertManager, Gateway, and RO
 configurations. Because RC23 freezes the complete sanitized RCA evidence packet before
-workflow discovery, Fleet mode also temporarily sets
+workflow discovery, both topologies also temporarily set
 `ai.investigation.maxEvidenceHandoffBytes` to `262144` (256KiB) so this scenario's
 600-object stimulus can reach discovery without truncating evidence; cleanup restores
 the platform's original value. Set `GITOPS_SYNC_DELAY`,
@@ -183,8 +187,12 @@ To make Gitea reachable from a browser on the host:
    reviewing and merging the PR:
 
 ```bash
+# Single-cluster mode: use only the ambient KUBECONFIG.
 GITEA_LOCAL_PORT=3031  # use 3032 for OpenShift, or another free local port
-kubectl --kubeconfig="$HOME/.kube/kubernaut-hub-config" \
+kubectl port-forward -n gitea svc/gitea-http "${GITEA_LOCAL_PORT}:3000"
+
+# Fleet mode: port-forward from the hub.
+kubectl --kubeconfig="$HUB_KUBECONFIG" \
   port-forward -n gitea svc/gitea-http "${GITEA_LOCAL_PORT}:3000"
 ```
 
@@ -214,7 +222,7 @@ Stop the port-forward with `Ctrl-C` after the review is complete. Kind uses port
 | **Root Cause** | Operator pod OOMKilled -- memory usage exceeded the 128Mi limit due to a large number of ConfigMaps in the namespace being cached by the informer |
 | **Severity** | critical |
 | **Target Resource** | Deployment/demo-controllers-controller (ns: demo-controllers) |
-| **Workflow Selected** | Fleet: `increase-memory-limits-gitops-v1`; local/non-GitOps: `increase-memory-limits-v1` |
+| **Workflow Selected** | `increase-memory-limits-gitops-v1` in both local and fleet modes |
 | **Confidence** | ~0.85 (increasing limits is emergency triage; the real fix is adding label selectors to the informer cache) |
 | **Approval** | Required (production environment, critical severity) |
 
@@ -224,10 +232,10 @@ Stop the port-forward with `Ctrl-C` after the review is complete. Kind uses port
 - [ ] `KubePodCrashLooping` alert fires in AlertManager
 - [ ] LLM correctly identifies OOMKill as the termination reason
 - [ ] LLM identifies ConfigMap volume in the namespace as a contributing factor
-- [ ] Fleet selects `increase-memory-limits-gitops-v1`; local mode retains generic `increase-memory-limits-v1`
-- [ ] Each fleet remediation adds exactly `128Mi` to the current limit; the increment is not a workflow parameter
+- [ ] Both local and fleet modes select `increase-memory-limits-gitops-v1`
+- [ ] Each local or fleet remediation adds exactly `128Mi` to the current limit; the increment is not a workflow parameter
 - [ ] Confidence >= 0.7
-- [ ] Fleet RAR approval is recorded before the Job starts
+- [ ] RAR approval is recorded before the Job starts in both topologies
 - [ ] The Job opens a forward-change PR and waits; it never merges, pushes protected `main`, or patches the live Deployment
 - [ ] A human reviewer approves and manually merges the PR
 - [ ] Argo CD applies the merged revision and the spoke Deployment memory limit increases while requests remain unchanged
@@ -259,7 +267,7 @@ Feature: Operator OOMKill remediation from informer cache flooding
       And Signal Processing enriches with severity=critical
       And KA diagnoses OOMKill from memory limit exhaustion
       And the LLM selects IncreaseMemoryLimits workflow
-      And fleet mode selects the GitOps forward-change workflow
+      And local and fleet modes select the GitOps forward-change workflow
       And the workflow opens a pull request without patching the live Deployment
       And a human reviewer approves and merges the protected-main pull request
       And Argo CD applies the merged desired-state revision to the spoke

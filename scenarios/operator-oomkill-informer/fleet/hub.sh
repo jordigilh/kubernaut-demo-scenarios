@@ -2,9 +2,9 @@
 # Operator OOMKill from Informer Cache Flooding -- GitOps Fleet Hub
 # Based on kubeflow/spark-operator#2878; issue #446.
 #
-# The hub owns Gitea, Argo CD, the repository credential, and the Kubernaut
-# control plane. The spoke owns the operator, its signal, and recovery
-# evidence. The operator manifests are seeded into Git and applied by Argo CD.
+# In fleet mode, the hub owns Gitea, Argo CD, the repository credential, and
+# the Kubernaut control plane while the spoke owns the operator. In single-
+# cluster mode, all of those roles use the ambient KUBECONFIG.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -33,6 +33,8 @@ MAX_EVIDENCE_HANDOFF_BYTES="${MAX_EVIDENCE_HANDOFF_BYTES:-262144}"
 APPROVE_MODE="--interactive"
 ALERT_ONLY=false
 NO_VALIDATE=false
+SINGLE_CLUSTER_GITOPS="${SINGLE_CLUSTER_GITOPS:-false}"
+export GITOPS_MODE=true
 
 # The shared GitOps installers are invoked as child processes. Export the
 # scenario-owned values so a custom repository or platform-specific port is
@@ -53,12 +55,21 @@ done
 
 # shellcheck source=../../../scripts/fleet-helper.sh
 source "${SCRIPT_DIR}/../../scripts/fleet-helper.sh"
-fleet_check_hub_connectivity
-fleet_check_spoke_connectivity
-
-export KUBECONFIG="${HUB_KUBECONFIG}"
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    # A local invocation is explicitly ambient. Do not let inherited fleet
+    # variables make kubectl_workload or cleanup target a stale spoke.
+    export FLEET_MODE=false
+    unset HUB_KUBECONFIG SPOKE_KUBECONFIG
+else
+    fleet_check_hub_connectivity
+    fleet_check_spoke_connectivity
+    export KUBECONFIG="${HUB_KUBECONFIG}"
+fi
 # shellcheck source=../../../scripts/platform-helper.sh
 source "${SCRIPT_DIR}/../../scripts/platform-helper.sh"
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    require_demo_ready
+fi
 
 export OPERATOR_GITOPS_APP_NAME="${APP_NAME}"
 export OPERATOR_GITOPS_REPO="${REPO_NAME}"
@@ -120,7 +131,12 @@ configure_alertmanager_repeat_interval "${ALERTMANAGER_REPEAT_INTERVAL}"
 configure_ro_gitops_timing "${GITOPS_SYNC_DELAY}" "${EFFECTIVENESS_STABILIZATION_WINDOW}"
 configure_ka_evidence_handoff_budget "${MAX_EVIDENCE_HANDOFF_BYTES}"
 
-echo "==> [hub=${HUB_KUBECONFIG}] Ensuring Gitea + Argo CD are installed..."
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    HUB_DISPLAY="ambient KUBECONFIG"
+else
+    HUB_DISPLAY="${HUB_KUBECONFIG}"
+fi
+echo "==> [hub=${HUB_DISPLAY}] Ensuring Gitea + Argo CD are installed..."
 if ! kubectl get service gitea-http -n "${GITEA_NAMESPACE}" &>/dev/null; then
     bash "${SCRIPT_DIR}/../gitops/scripts/setup-gitea.sh"
 fi
@@ -165,23 +181,38 @@ stringData:
 EOF_WORKFLOW_CREDS
 
 echo "==> [hub] Seeding the GitOps workflow catalog entry and hub runner RBAC..."
-HUB_KUBECONFIG="${HUB_KUBECONFIG}" SPOKE_KUBECONFIG="${SPOKE_KUBECONFIG}" \
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
     bash "${REPO_ROOT}/scripts/seed-workflows.sh" \
-    --scenario operator-oomkill-informer --continue-on-error
+        --scenario operator-oomkill-informer --continue-on-error
+else
+    HUB_KUBECONFIG="${HUB_KUBECONFIG}" SPOKE_KUBECONFIG="${SPOKE_KUBECONFIG}" \
+        bash "${REPO_ROOT}/scripts/seed-workflows.sh" \
+        --scenario operator-oomkill-informer --continue-on-error
+fi
 
 echo "==> [hub] Registering spoke as the Argo CD destination..."
-SPOKE_SERVER=$(fleet_register_argocd_spoke_cluster "spoke" "${ARGOCD_NS}")
-HUB_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
-if [ -z "${SPOKE_SERVER}" ] || [ "${SPOKE_SERVER}" = "${HUB_SERVER}" ] || \
-   [ "${SPOKE_SERVER}" = "https://kubernetes.default.svc" ]; then
-    echo "ERROR: Argo CD spoke registration resolved to the hub (${SPOKE_SERVER:-empty})." >&2
-    exit 1
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    # Argo CD runs on this same cluster. Use its in-cluster destination.
+    SPOKE_SERVER="https://kubernetes.default.svc"
+    echo "  [single-cluster] Using the local cluster as the Argo CD workload destination."
+else
+    SPOKE_SERVER=$(fleet_register_argocd_spoke_cluster "spoke" "${ARGOCD_NS}")
+    HUB_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+    if [ -z "${SPOKE_SERVER}" ] || [ "${SPOKE_SERVER}" = "${HUB_SERVER}" ] || \
+       [ "${SPOKE_SERVER}" = "https://kubernetes.default.svc" ]; then
+        echo "ERROR: Argo CD spoke registration resolved to the hub (${SPOKE_SERVER:-empty})." >&2
+        exit 1
+    fi
 fi
 
 echo "==> [hub] Removing stale Application and spoke namespace..."
 kubectl delete application "${APP_NAME}" -n "${ARGOCD_NS}" --ignore-not-found --wait=true
-kubectl --kubeconfig="${SPOKE_KUBECONFIG}" delete namespace "${NAMESPACE}" \
-    --ignore-not-found --wait=true
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    kubectl delete namespace "${NAMESPACE}" --ignore-not-found --wait=true
+else
+    kubectl --kubeconfig="${SPOKE_KUBECONFIG}" delete namespace "${NAMESPACE}" \
+        --ignore-not-found --wait=true
+fi
 
 echo "==> [hub] Creating a clean GitOps repository for this run..."
 start_gitea_port_forward
@@ -216,8 +247,9 @@ fi
 # Alert labels must survive the spoke -> Thanos/Alertmanager path. Render the
 # registered spoke identity into the desired PrometheusRule before the initial
 # commit; patching the live rule after Argo sync would be immediately reverted.
-SPOKE_CLUSTER_ID=$(fleet_cluster_id)
-python3 - "${WORK_DIR}/repo/manifests/prometheus-rule.yaml" "${SPOKE_CLUSTER_ID}" <<'PY'
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" != true ]; then
+    SPOKE_CLUSTER_ID=$(fleet_cluster_id)
+    python3 - "${WORK_DIR}/repo/manifests/prometheus-rule.yaml" "${SPOKE_CLUSTER_ID}" <<'PY'
 import json
 import pathlib
 import re
@@ -244,6 +276,11 @@ else:
     updated = text[:severity.start()] + insertion + text[severity.end():]
 path.write_text(updated)
 PY
+else
+    # The local path has no cross-cluster Thanos hop, so keep the normal local
+    # PrometheusRule shape and do not invent a fleet cluster identity.
+    echo "  [single-cluster] Keeping local alert labels without fleet cluster attribution."
+fi
 
 git -C "${WORK_DIR}/repo" init -b main -q
 git -C "${WORK_DIR}/repo" config user.email "${GITEA_ADMIN_USER}@kubernaut.ai"
@@ -265,7 +302,11 @@ GIT_USERNAME="${GITEA_ADMIN_USER}" GIT_PASSWORD="${GITEA_ADMIN_PASS}" \
     git -C "${WORK_DIR}/repo" -c "credential.helper=${SETUP_CREDENTIAL_HELPER}" \
     push -u origin main -q
 
-SPOKE_PLATFORM=$(detect_spoke_platform)
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    SPOKE_PLATFORM="${PLATFORM}"
+else
+    SPOKE_PLATFORM=$(detect_spoke_platform)
+fi
 if [ "${SPOKE_PLATFORM}" = "ocp" ]; then
     ARGO_SOURCE_PATH="overlays/ocp"
 else
@@ -404,13 +445,26 @@ kubectl_workload get pods -n "${NAMESPACE}"
 
 echo "==> [spoke] Establishing healthy baseline (15s)..."
 sleep 15
-echo "==> [spoke] Injecting ${INITIAL_FLOOD_COUNT} x 1MB ConfigMaps (stimulus remains during EA)..."
-NAMESPACE="${NAMESPACE}" CONFIGMAP_COUNT="${INITIAL_FLOOD_COUNT}" \
-    CONFIGMAP_START=1 CONFIGMAP_PREFIX=app-config KUBECONFIG="${SPOKE_KUBECONFIG}" \
-    bash "${SCENARIO_DIR}/inject-configmap-flood.sh"
+echo "==> [workload] Injecting ${INITIAL_FLOOD_COUNT} x 1MB ConfigMaps (stimulus remains during EA)..."
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    NAMESPACE="${NAMESPACE}" CONFIGMAP_COUNT="${INITIAL_FLOOD_COUNT}" \
+        CONFIGMAP_START=1 CONFIGMAP_PREFIX=app-config \
+        bash "${SCENARIO_DIR}/inject-configmap-flood.sh"
+else
+    NAMESPACE="${NAMESPACE}" CONFIGMAP_COUNT="${INITIAL_FLOOD_COUNT}" \
+        CONFIGMAP_START=1 CONFIGMAP_PREFIX=app-config KUBECONFIG="${SPOKE_KUBECONFIG}" \
+        bash "${SCENARIO_DIR}/inject-configmap-flood.sh"
+fi
 
-echo "==> [hub] Waiting for the spoke alert to arrive..."
-fleet_wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 480
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    # shellcheck source=../../../scripts/validation-helper.sh
+    source "${REPO_ROOT}/scripts/validation-helper.sh"
+    echo "==> [local] Waiting for the KubePodCrashLooping alert..."
+    wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 480
+else
+    echo "==> [hub] Waiting for the spoke alert to arrive..."
+    fleet_wait_for_alert "KubePodCrashLooping" "${NAMESPACE}" 480
+fi
 
 if [ "${ALERT_ONLY}" = true ]; then
     echo "==> Alert is firing. Scenario ready for AF/A2A remediation."
@@ -426,4 +480,8 @@ echo "==> [hub] Starting closed-loop validation (${APPROVE_MODE})."
 echo "    Gate 1: a human must approve the RemediationApprovalRequest."
 echo "    Gate 2: a human must review and merge the PR."
 echo "    The Job remains Running until it observes the actual merge."
-bash "${SCRIPT_DIR}/fleet/validate.sh" --fleet "${APPROVE_MODE}"
+if [ "${SINGLE_CLUSTER_GITOPS:-false}" = true ]; then
+    bash "${SCRIPT_DIR}/validate.sh" "${APPROVE_MODE}"
+else
+    bash "${SCRIPT_DIR}/fleet/validate.sh" --fleet "${APPROVE_MODE}"
+fi
