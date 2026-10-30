@@ -31,49 +31,49 @@ prometheus_prepare_connection() {
         return 0
     fi
 
-    local ca_file=""
-    local candidate
-    # These paths cover the kube-prometheus-stack/operator secret mounts and
-    # the service CA mounts used by OpenShift monitoring.
-    for candidate in \
-        /etc/prometheus/web_config/secret/monitoring-tls-key/ca.crt \
-        /etc/prometheus/web_config/secret/monitoring-tls-cert/ca.crt \
-        /etc/monitoring-tls/ca.crt \
-        /etc/tls-ca/ca.crt \
-        /etc/prometheus/certs/ca.crt \
-        /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt \
-        /etc/prometheus/configmaps/serving-certs-ca-bundle/ca-bundle.crt; do
-        local probe_result
-        # shellcheck disable=SC2016 # The expression is evaluated inside the pod.
-        if ! probe_result=$(_prometheus_run_with_timeout 10 kubectl exec \
-            -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
-            sh -c 'if [ -f "$1" ]; then printf present; else printf absent; fi' -- \
-            "${candidate}" 2>/dev/null); then
-            echo "WARNING: could not inspect Prometheus CA mount ${candidate} in ${target}; retrying discovery." >&2
-            return 1
-        fi
-        if [ "${probe_result}" = "present" ]; then
-            ca_file="${candidate}"
-            break
-        fi
-    done
+    local tls_result
+    # Determine the serving protocol from Prometheus' web configuration first.
+    # A CA mount can also be used for outbound scraping and must not select
+    # HTTPS by itself.
+    # shellcheck disable=SC2016 # The expression is evaluated inside the pod.
+    if ! tls_result=$(_prometheus_run_with_timeout 10 kubectl exec \
+        -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
+        sh -c 'if [ -f "$1" ] && grep -q "^[[:space:]]*tls_server_config:" "$1"; then printf tls; else printf plain; fi' -- \
+        /etc/prometheus/web_config/web-config.yaml 2>/dev/null); then
+        echo "WARNING: could not inspect Prometheus web config in ${target}; retrying discovery." >&2
+        return 1
+    fi
 
     local scheme="http"
-    if [ -n "${ca_file}" ]; then
-        scheme="https"
-    else
-        # A TLS server may not expose a CA bundle to the Prometheus container.
-        # Inspect the web config before falling back to the legacy HTTP mode.
-        local tls_result
-        # shellcheck disable=SC2016 # The expression is evaluated inside the pod.
-        if ! tls_result=$(_prometheus_run_with_timeout 10 kubectl exec \
-            -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
-            sh -c 'if [ -f "$1" ] && grep -q "^[[:space:]]*tls_server_config:" "$1"; then printf tls; else printf plain; fi' -- \
-            /etc/prometheus/web_config/web-config.yaml 2>/dev/null); then
-            echo "WARNING: could not inspect Prometheus web config in ${target}; retrying discovery." >&2
-            return 1
-        fi
-        [ "${tls_result}" = "tls" ] && scheme="https"
+    [ "${tls_result}" = "tls" ] && scheme="https"
+
+    local ca_file=""
+    if [ "${scheme}" = "https" ]; then
+        local candidate
+        # These paths cover the kube-prometheus-stack/operator secret mounts
+        # and the service CA mounts used by OpenShift monitoring.
+        for candidate in \
+            /etc/prometheus/web_config/secret/monitoring-tls-key/ca.crt \
+            /etc/prometheus/web_config/secret/monitoring-tls-cert/ca.crt \
+            /etc/monitoring-tls/ca.crt \
+            /etc/tls-ca/ca.crt \
+            /etc/prometheus/certs/ca.crt \
+            /etc/prometheus/configmaps/serving-certs-ca-bundle/service-ca.crt \
+            /etc/prometheus/configmaps/serving-certs-ca-bundle/ca-bundle.crt; do
+            local probe_result
+            # shellcheck disable=SC2016 # The expression is evaluated inside the pod.
+            if ! probe_result=$(_prometheus_run_with_timeout 10 kubectl exec \
+                -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
+                sh -c 'if [ -f "$1" ]; then printf present; else printf absent; fi' -- \
+                "${candidate}" 2>/dev/null); then
+                echo "WARNING: could not inspect Prometheus CA mount ${candidate} in ${target}; retrying discovery." >&2
+                return 1
+            fi
+            if [ "${probe_result}" = "present" ]; then
+                ca_file="${candidate}"
+                break
+            fi
+        done
     fi
 
     if [ "${scheme}" = "https" ]; then
@@ -139,6 +139,15 @@ prometheus_api_get() {
     if response=$(_prometheus_run_with_timeout 15 kubectl exec \
         -n "${prom_namespace}" "${prom_pod}" -c prometheus -- \
         wget "${wget_args[@]}" 2>/dev/null); then
+        printf '%s\n' "${response}"
+        return 0
+    fi
+
+    # Some supported Prometheus images contain neither curl nor wget. The API
+    # server proxy preserves the selected backend protocol and avoids requiring
+    # a client binary or a host-side certificate copy.
+    local proxy_path="/api/v1/namespaces/${prom_namespace}/pods/${PROMETHEUS_SCHEME}:${prom_pod}:9090/proxy${api_path}"
+    if response=$(kubectl get --raw "${proxy_path}" 2>/dev/null); then
         printf '%s\n' "${response}"
         return 0
     fi
