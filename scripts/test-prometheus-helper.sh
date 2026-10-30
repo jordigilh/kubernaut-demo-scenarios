@@ -9,6 +9,8 @@ MOCK_BIN="${TMP_DIR}/bin"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 mkdir -p "${MOCK_BIN}"
 
+grep -Fq '_prometheus_run_with_timeout 15 kubectl get --raw' "${HELPER}"
+
 cat > "${MOCK_BIN}/kubectl" <<'MOCK_KUBECTL'
 #!/usr/bin/env bash
 set -euo pipefail

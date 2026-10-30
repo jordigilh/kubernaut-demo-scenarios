@@ -145,9 +145,10 @@ prometheus_api_get() {
 
     # Some supported Prometheus images contain neither curl nor wget. The API
     # server proxy preserves the selected backend protocol and avoids requiring
-    # a client binary or a host-side certificate copy.
+    # a client binary or a host-side certificate copy. Bound the proxy request
+    # as well so an unavailable API server cannot hang scenario preflight.
     local proxy_path="/api/v1/namespaces/${prom_namespace}/pods/${PROMETHEUS_SCHEME}:${prom_pod}:9090/proxy${api_path}"
-    if response=$(kubectl get --raw "${proxy_path}" 2>/dev/null); then
+    if response=$(_prometheus_run_with_timeout 15 kubectl get --raw "${proxy_path}" 2>/dev/null); then
         printf '%s\n' "${response}"
         return 0
     fi
