@@ -20,6 +20,8 @@ fi
 DEMO_HELM_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../helm" && pwd)"
 # shellcheck source=amtool-helper.sh
 source "$(dirname "${BASH_SOURCE[0]}")/amtool-helper.sh"
+# shellcheck source=prometheus-helper.sh
+source "$(dirname "${BASH_SOURCE[0]}")/prometheus-helper.sh"
 
 # Validate that an infrastructure component is present (no installs).
 # Usage: require_infra cert-manager
@@ -235,17 +237,36 @@ _prom_query() {
         prom_info=$(_prom_pod_and_ns)
         read -r prom_ns prom_pod <<< "$prom_info"
     fi
+    prometheus_prepare_connection "${prom_ns}" "${prom_pod}" || {
+        echo '{"status":"error","errorType":"connection"}'
+        return
+    }
+
+    local encoded_query
+    encoded_query=$(python3 -c \
+        'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))' \
+        "${query}" 2>/dev/null) || {
+        echo '{"status":"error","errorType":"query_encoding"}'
+        return
+    }
+
     local result
-    result=$(kubectl exec -n "$prom_ns" "$prom_pod" -c prometheus -- \
-        curl -sf --connect-timeout 5 \
-        "http://localhost:9090/api/v1/query?query=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$query'))" 2>/dev/null || echo "$query")" \
-        2>/dev/null) && { echo "$result"; return; }
+    result=$(prometheus_api_get "${prom_ns}" "${prom_pod}" \
+        "/api/v1/query?query=${encoded_query}") && { echo "${result}"; return; }
 
     # Fallback: Kind Prometheus images lack curl; use promtool and wrap output
     # in JSON that _prom_result_count can parse.
     local pt_out
+    local promtool_args=(query instant "${PROMETHEUS_SCHEME}://localhost:9090" "${query}")
+    if [ "${PROMETHEUS_SCHEME}" = "https" ]; then
+        promtool_args=(query instant "--http.config.file=${PROMETHEUS_HTTP_CONFIG_FILE}" \
+            "${PROMETHEUS_SCHEME}://localhost:9090" "${query}")
+    fi
     pt_out=$(kubectl exec -n "$prom_ns" "$prom_pod" -c prometheus -- \
-        promtool query instant http://localhost:9090 "$query" 2>/dev/null) || { echo '{"status":"error"}'; return; }
+        promtool "${promtool_args[@]}" 2>/dev/null) || {
+        echo '{"status":"error","errorType":"query"}'
+        return
+    }
     if [ -z "$pt_out" ]; then
         echo '{"data":{"result":[]}}'
     else
@@ -452,33 +473,8 @@ _check_rule_loaded() {
 
 _query_rules_for_alert() {
     local ns="$1" pod="$2" alert_name="$3"
-    # Prometheus operator images do not consistently include curl or Python.
-    # Query the API from the host instead of depending on container utilities.
-    local local_port=$((18000 + (${BASHPID:-$$} % 1000)))
-    local port_forward_log
-    port_forward_log=$(mktemp)
-    kubectl port-forward -n "$ns" "$pod" "${local_port}:9090" \
-        >"$port_forward_log" 2>&1 &
-    local port_forward_pid=$!
-    local ready=false
-    for _ in $(seq 1 10); do
-        if curl -sf --connect-timeout 1 \
-            "http://127.0.0.1:${local_port}/-/ready" >/dev/null 2>&1; then
-            ready=true
-            break
-        fi
-        sleep 1
-    done
-    if [ "$ready" != true ]; then
-        kill "$port_forward_pid" 2>/dev/null || true
-        wait "$port_forward_pid" 2>/dev/null || true
-        rm -f "$port_forward_log"
-        echo "error"
-        return 0
-    fi
-
-    curl -sf --connect-timeout 5 \
-        "http://127.0.0.1:${local_port}/api/v1/rules?type=alert" 2>/dev/null \
+    # Use the same protocol-aware in-pod client as PromQL queries.
+    prometheus_api_get "$ns" "$pod" "/api/v1/rules?type=alert" \
         | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
@@ -489,10 +485,6 @@ for g in data.get('data',{}).get('groups',[]):
             sys.exit(0)
 print('missing')
 " 2>/dev/null || echo "error"
-
-    kill "$port_forward_pid" 2>/dev/null || true
-    wait "$port_forward_pid" 2>/dev/null || true
-    rm -f "$port_forward_log"
 }
 
 # ── preflight_check: run pre-deploy capability checks ──
