@@ -70,7 +70,7 @@ helm upgrade --install gitea gitea-charts/gitea \
   --set "gitea.config.webhook.ALLOWED_HOST_LIST=*" \
   --set postgresql.enabled=false \
   --set postgresql-ha.enabled=false \
-  --set redis-cluster.enabled=false \
+  --set valkey-cluster.enabled=false \
   --set "resources.requests.memory=128Mi" \
   --set "resources.requests.cpu=50m" \
   --set "resources.limits.memory=512Mi" \
@@ -119,11 +119,30 @@ fi
 # ── Create repository ────────────────────────────────────────────────────────
 
 echo "==> Creating repository via Gitea API..."
-curl -sf -X POST "${GITEA_API_URL}/api/v1/user/repos" \
+REPO_RESPONSE_FILE=$(mktemp)
+REPO_HTTP_CODE=$(curl -sS -o "${REPO_RESPONSE_FILE}" -w "%{http_code}" \
+  -X POST "${GITEA_API_URL}/api/v1/user/repos" \
   -u "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
   -H "Content-Type: application/json" \
   -d "{\"name\": \"${REPO_NAME}\", \"auto_init\": false, \"private\": false}" \
-  -o /dev/null 2>/dev/null || echo "  Repository may already exist"
+  || true)
+case "${REPO_HTTP_CODE}" in
+    201)
+        echo "  Repository created."
+        ;;
+    409)
+        echo "  Repository already exists."
+        ;;
+    *)
+        echo "  ERROR: Failed to create repository ${GITEA_ADMIN_USER}/${REPO_NAME} (HTTP ${REPO_HTTP_CODE:-000})." >&2
+        if [ -s "${REPO_RESPONSE_FILE}" ]; then
+            echo "  Gitea response: $(tr '\n' ' ' < "${REPO_RESPONSE_FILE}")" >&2
+        fi
+        rm -f "${REPO_RESPONSE_FILE}"
+        exit 1
+        ;;
+esac
+rm -f "${REPO_RESPONSE_FILE}"
 
 # ── Push initial manifests ───────────────────────────────────────────────────
 

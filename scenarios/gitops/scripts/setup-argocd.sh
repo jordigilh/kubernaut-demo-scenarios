@@ -146,6 +146,12 @@ if [ "$PLATFORM" != "ocp" ]; then
 
     GITEA_API="http://${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}@localhost:${GITEA_LOCAL_PORT}"
 
+    if ! curl -sf "${GITEA_API}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}" >/dev/null 2>&1; then
+        echo "  ERROR: Required Gitea repository ${GITEA_ADMIN_USER}/${REPO_NAME} was not found." >&2
+        echo "  Run scenarios/gitops/scripts/setup-gitea.sh before configuring the ArgoCD webhook." >&2
+        exit 1
+    fi
+
     EXISTING_HOOKS=$(curl -sf "${GITEA_API}/api/v1/repos/${GITEA_ADMIN_USER}/${REPO_NAME}/hooks" 2>/dev/null || echo "[]")
     if python3 -c 'import json, sys; url = sys.argv[1]; hooks = json.load(sys.stdin); raise SystemExit(0 if any(h.get("active") and h.get("config", {}).get("url") == url for h in hooks) else 1)' \
         "${ARGOCD_WEBHOOK_URL}" <<<"${EXISTING_HOOKS}"; then

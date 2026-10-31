@@ -119,6 +119,31 @@ wait_for_port() {
     done
 }
 
+# Check whether the required repository exists in Gitea. The namespace can
+# survive a canceled Helm install, so namespace existence alone is not enough
+# to decide whether GitOps setup is complete.
+gitea_repository_exists() {
+    local namespace="${1:?namespace required}"
+    local username="${2:?username required}"
+    local password="${3:?password required}"
+    local repository="${4:?repository required}"
+    local port="${GITEA_LOCAL_PORT:-3031}"
+
+    (
+        local port_forward_pid
+        kill_stale_gitea_pf 2>/dev/null || true
+        kubectl port-forward -n "${namespace}" svc/gitea-http "${port}:3000" &>/dev/null &
+        port_forward_pid=$!
+        trap 'kill "${port_forward_pid}" 2>/dev/null || true' EXIT
+
+        wait_for_port "${port}" >/dev/null 2>&1 || exit 1
+        curl -fsS --max-time 10 \
+            -u "${username}:${password}" \
+            "http://localhost:${port}/api/v1/repos/${username}/${repository}" \
+            >/dev/null 2>&1
+    )
+}
+
 # Returns the kustomize directory to use for kubectl apply -k.
 # Uses the OCP overlay when available and PLATFORM=ocp, otherwise the base manifests.
 get_manifest_dir() {
