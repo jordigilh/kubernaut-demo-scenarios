@@ -35,6 +35,11 @@ WITH_AWX=false
 FLEET_MODE=false
 export CHART_VERSION="${CHART_VERSION:-}"
 
+GITEA_NAMESPACE="gitea"
+GITEA_ADMIN_USER="${GITEA_ADMIN_USER:-kubernaut}"
+GITEA_ADMIN_PASS="${GITEA_ADMIN_PASS:-kubernaut123}"
+GITEA_REPO_NAME="${REPO_NAME:-demo-gitops-repo}"
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --skip-infra)
@@ -454,9 +459,14 @@ if [ "$SKIP_INFRA" = false ]; then
     echo "--- Gitea ---"
     if [ "$SKIP_GITEA" = true ]; then
         echo "  Skipping Gitea (--skip-gitea)."
-    elif kubectl get namespace gitea &>/dev/null; then
-        echo "  Gitea already installed."
+    elif kubectl get namespace "${GITEA_NAMESPACE}" &>/dev/null && \
+        gitea_repository_exists "${GITEA_NAMESPACE}" "${GITEA_ADMIN_USER}" \
+            "${GITEA_ADMIN_PASS}" "${GITEA_REPO_NAME}"; then
+        echo "  Gitea already installed and ${GITEA_REPO_NAME} is available."
     else
+        if kubectl get namespace "${GITEA_NAMESPACE}" &>/dev/null; then
+            echo "  Gitea namespace exists but ${GITEA_REPO_NAME} is unavailable; repairing setup."
+        fi
         bash "${SCENARIOS_DIR}/gitops/scripts/setup-gitea.sh"
     fi
     echo ""
